@@ -51,7 +51,7 @@ onMounted(async () => {
                 <tr v-for="(row, index) in overall" :key="row.enrollment_id">
                     <td>{{ index + 1 }}</td>
                     <td>{{ row.name }}</td>
-                    <td>{{ row.total_checkins }}</td>
+                    <td>{{ row.current_streak ?? row.total_checkins ?? 0 }}</td>
                 </tr>
             </tbody>
         </table>
