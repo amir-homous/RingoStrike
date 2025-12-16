@@ -1,0 +1,39 @@
+:root{
+  --container: 1040px;
+  --px: 16px;
+
+  --s-4: 4px;
+  --s-8: 8px;
+  --s-12: 12px;
+  --s-16: 16px;
+  --s-20: 20px;
+  --s-24: 24px;
+  --s-32: 32px;
+
+  --r-10: 10px;
+  --r-12: 12px;
+
+  --border: rgba(255,255,255,0.10);
+  --muted: rgba(255,255,255,0.70);
+  --muted2: rgba(255,255,255,0.55);
+
+  --bg: #0b0d12;
+  --card: rgba(255,255,255,0.06);
+  --card2: rgba(255,255,255,0.09);
+
+  --shadow: 0 10px 30px rgba(0,0,0,0.35);
+
+  --h1: 24px;
+  --h2: 18px;
+  --body: 14px;
+  --cap: 12px;
+
+  --lh-tight: 1.2;
+  --lh: 1.5;
+
+  --focus: 0 0 0 3px rgba(99, 102, 241, 0.35);
+}
+
+@media (min-width: 768px){
+  :root{ --px: 24px; --h1: 28px; --body: 15px; }
+}
