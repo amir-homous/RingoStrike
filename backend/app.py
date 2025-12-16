@@ -678,6 +678,74 @@ def checkin(enrollment_id):
             return None
         return results[0]["id"]
 
+    def sync_user_stats(user_page_id: str):
+        """
+        Sync Current Streak + Longest Streak روی Users DB
+        معیار: Daily Logs با Users relation شامل user_page_id و Is Counted = True
+        """
+        try:
+            payload = {
+                "filter": {
+                    "and": [
+                        {"property": "Users", "relation": {"contains": user_page_id}},
+                        {"property": "Is Counted", "checkbox": {"equals": True}},
+                    ]
+                },
+                "page_size": 100
+            }
+
+            # pagination-safe (اگر notion_query_all داری بهتره، ولی این هم برای MVP کافیه)
+            res = notion.query_db(daily_db, payload)
+            pages = res.get("results", []) or []
+
+            dates = set()
+            for page in pages:
+                props = page.get("properties", {}) or {}
+                d = (props.get("Date", {}) or {}).get("date", {})
+                d = d.get("start") if isinstance(d, dict) else None
+                if d:
+                    dates.add(d)
+
+            # current streak (UTC)
+            from datetime import datetime as dt, timezone, timedelta
+            cur = dt.now(timezone.utc).date()
+            current = 0
+            while True:
+                ds = cur.isoformat()
+                if ds in dates:
+                    current += 1
+                    cur = cur - timedelta(days=1)
+                else:
+                    break
+
+            # longest streak
+            if not dates:
+                longest = 0
+            else:
+                from datetime import datetime as dt
+                sorted_days = sorted(dates)
+                longest = 1
+                run = 1
+                prev = dt.fromisoformat(sorted_days[0]).date()
+                for s in sorted_days[1:]:
+                    d = dt.fromisoformat(s).date()
+                    if (d - prev).days == 1:
+                        run += 1
+                        longest = max(longest, run)
+                    else:
+                        run = 1
+                    prev = d
+
+            notion_update_page(user_page_id, {
+                "Current Streak": {"rich_text": [{"text": {"content": str(current)}}]},
+                "Longest Streak": {"rich_text": [{"text": {"content": str(longest)}}]},
+            })
+
+            return {"current_streak": current, "longest_streak": longest}
+        except Exception as ex:
+            app.logger.exception("Failed syncing user stats: %s", ex)
+            return None
+
     # Challenge ID را از خود enrollment درمیاریم
     enrollment_page = get_page(enrollment_id)
     eprops = enrollment_page.get("properties", {}) or {}
@@ -721,6 +789,8 @@ def checkin(enrollment_id):
     # ✅ UPSERT: اگر برای امروز موجود بود → update، نبود → create
     existing_log_id = find_today_log(daily_db, enrollment_id, date_iso)
 
+    user_stats_synced = None
+
     if existing_log_id:
         updated = notion_update_page(existing_log_id, props)
 
@@ -748,6 +818,9 @@ def checkin(enrollment_id):
         except Exception as ex:
             app.logger.exception("Failed updating enrollment stats (update mode): %s", ex)
 
+        # ✅ Sync user streaks (Users DB)
+        user_stats_synced = sync_user_stats(user_id)
+
         return jsonify({
             "ok": True,
             "mode": "updated",
@@ -756,7 +829,8 @@ def checkin(enrollment_id):
             "challenge_id": challenge_id,
             "date": date_iso,
             "status": status,
-            "is_counted": is_counted
+            "is_counted": is_counted,
+            "user_stats": user_stats_synced,
         })
 
     created = notion_create_page(daily_db, props)
@@ -785,6 +859,9 @@ def checkin(enrollment_id):
     except Exception as ex:
         app.logger.exception("Failed updating enrollment stats (create mode): %s", ex)
 
+    # ✅ Sync user streaks (Users DB)
+    user_stats_synced = sync_user_stats(user_id)
+
     return jsonify({
         "ok": True,
         "mode": "created",
@@ -793,7 +870,8 @@ def checkin(enrollment_id):
         "challenge_id": challenge_id,
         "date": date_iso,
         "status": status,
-        "is_counted": is_counted
+        "is_counted": is_counted,
+        "user_stats": user_stats_synced,
     })
 
 
@@ -1369,6 +1447,71 @@ def compute_enrollment_stats(enrollment_id: str, daily_db_id: str):
             break
 
     return total_checkins, streak
+
+def compute_user_streaks(user_id: str, daily_db_id: str):
+    """
+    Current streak + Longest streak برای کاربر از روی Daily Logs
+    معیار: لاگ‌هایی که Is Counted = True و Users relation شامل user_id باشد.
+    """
+    payload = {
+        "filter": {
+            "and": [
+                {"property": "Users", "relation": {"contains": user_id}},
+                {"property": "Is Counted", "checkbox": {"equals": True}},
+            ]
+        },
+        "page_size": 100
+    }
+
+    pages = notion_query_all(daily_db_id, payload)
+
+    dates = set()
+    for page in pages:
+        props = page.get("properties", {}) or {}
+        d = (props.get("Date", {}) or {}).get("date", {})
+        d = d.get("start") if isinstance(d, dict) else None
+        if d:
+            dates.add(d)
+
+    # Current streak از امروز به عقب (UTC)
+    cur = dt.now(timezone.utc).date()
+    current = 0
+    while True:
+        ds = cur.isoformat()
+        if ds in dates:
+            current += 1
+            cur = cur - timedelta(days=1)
+        else:
+            break
+
+    # Longest streak: با اسکن تاریخ‌های مرتب شده
+    if not dates:
+        return 0, 0
+
+    sorted_days = sorted(dates)  # ISO => sortable
+    longest = 1
+    run = 1
+    prev = dt.fromisoformat(sorted_days[0]).date()
+
+    for s in sorted_days[1:]:
+        d = dt.fromisoformat(s).date()
+        if (d - prev).days == 1:
+            run += 1
+            longest = max(longest, run)
+        else:
+            run = 1
+        prev = d
+
+    return current, longest
+
+
+def sync_user_stats(user_id: str, daily_db_id: str):
+    current, longest = compute_user_streaks(user_id, daily_db_id)
+    notion_update_page(user_id, {
+        "Current Streak": {"rich_text": [{"text": {"content": str(current)}}]},
+        "Longest Streak": {"rich_text": [{"text": {"content": str(longest)}}]},
+    })
+    return current, longest
 
 @app.get("/challenges/<challenge_id>/members")
 def challenge_members(challenge_id):
