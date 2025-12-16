@@ -1,0 +1,976 @@
+{
+  "name": "ringo_srike",
+  "nodes": [
+    {
+      "parameters": {
+        "updates": [
+          "message"
+        ],
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -128,
+        0
+      ],
+      "id": "622713e3-737e-43d5-add8-10c750937418",
+      "name": "Telegram Trigger",
+      "webhookId": "ac6ee551-eb8a-418d-aa20-8ed48436d745",
+      "credentials": {
+        "telegramApi": {
+          "id": "mAval2kOJtwBwzeJ",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $('Telegram Trigger').item.json.message.text }}",
+                    "rightValue": "/start",
+                    "operator": {
+                      "type": "string",
+                      "operation": "startsWith"
+                    },
+                    "id": "1a09db3e-1cce-4785-b230-f407d970e5b3"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "start"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "2cf38327-85d7-4798-86f6-1e12c9c64602",
+                    "leftValue": "={{ $('Telegram Trigger').item.json.message.text }}",
+                    "rightValue": "/join",
+                    "operator": {
+                      "type": "string",
+                      "operation": "startsWith"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "join"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "d39934c0-fe42-4572-b663-61e3ca33cfb9",
+                    "leftValue": "={{ $('Telegram Trigger').item.json.message.text }}",
+                    "rightValue": "/check",
+                    "operator": {
+                      "type": "string",
+                      "operation": "startsWith"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "check"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "476a6bf4-318e-4456-9295-a988700db856",
+                    "leftValue": "={{ $json.text }}",
+                    "rightValue": "",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.3,
+      "position": [
+        320,
+        -32
+      ],
+      "id": "4afb5b4f-f7bb-4772-ac14-e1e4aa12a24d",
+      "name": "Switch"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "8aae0c03-7080-4d95-a1e0-96a01f226ad9",
+              "name": "chat_id",
+              "value": "={{ $json.message.from.id }}",
+              "type": "number"
+            },
+            {
+              "id": "3cf0d352-1219-4e5b-90e8-ccda63c20f30",
+              "name": "username",
+              "value": "={{ $json.message.from.username }}",
+              "type": "string"
+            },
+            {
+              "id": "042a3b6b-5b2d-4684-9f18-b8ae8afe90e1",
+              "name": "first_name",
+              "value": "={{ $json.message.from.first_name }}",
+              "type": "string"
+            },
+            {
+              "id": "c0e30fc3-0825-4d17-87ce-dd5c4714d22e",
+              "name": "last_name",
+              "value": "={{ $json.message.from.username }}",
+              "type": "string"
+            },
+            {
+              "id": "7a2888bf-bf1d-4d97-80b9-f9ab86c1e861",
+              "name": "text",
+              "value": "={{ $json.message.text }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        80,
+        0
+      ],
+      "id": "bcdf2abc-eec2-4969-9821-224a80c10670",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Edit Fields').item.json.chat_id }}",
+        "text": "سلام! 👋 من ربات چالش‌های روزانه‌ام. برای پیوستن به یک چالش، کد چالنج رو بفرست مثل:",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        880,
+        -272
+      ],
+      "id": "cd90506a-a964-4db2-859a-8553df80e16a",
+      "name": "Send a text message",
+      "webhookId": "2145334d-d749-444e-85ca-0b983a89b2e6",
+      "credentials": {
+        "telegramApi": {
+          "id": "mAval2kOJtwBwzeJ",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// فرض می‌کنیم ساختار ورودی مثل آپدیت تلگرامه:\nconst item = $input.item.json;\n\nconst text = (item.text || \"\").trim();\n\n// مثال: \"/join READ30\"\nconst parts = text.split(/\\s+/);\n\nif (parts[0] !== \"/join\" || parts.length < 2) {\n  // اگر کد همراهش نبود، یه فلگ خطا می‌ذاریم\n  return [{\n    json: {\n      error: \"NO_JOIN_CODE\",\n      rawText: text,\n    }\n  }];\n}\n\nconst joinCode = parts[1].trim();\n\n// اینجا بسته به ساختار واقعی JSON تلگرام، adjust کن\nconst telegramId   = $input.first().json.chat_id ?? item.from?.id;\nconst firstName    = $input.first().json.first_name || \"\";\nconst lastName     = $input.first().json.last_name || \"\";\nconst username     = \"@\"+$input.first().json.username || \"\";\n\nreturn [{\n  json: {\n    joinCode,\n    telegramId,\n    firstName,\n    lastName,\n    username,\n  }\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        624,
+        -16
+      ],
+      "id": "e785504c-42e0-4703-a9e9-016f7d120f8c",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Code in JavaScript').item.json.telegramId }}",
+        "text": "=❌ کدی که فرستادی پیدا نشد:\n{{ $('Code in JavaScript').item.json.joinCode }}\nمطمئن شو کد رو درست نوشتی یا از صاحب چالش دوباره بپرس 🙂",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1600,
+        128
+      ],
+      "id": "84b8f058-5494-4f6f-b164-25ecdccd78d5",
+      "name": "Send a text message1",
+      "webhookId": "2691acb6-4bd1-43fc-a54b-432b8e325341",
+      "credentials": {
+        "telegramApi": {
+          "id": "mAval2kOJtwBwzeJ",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "databasePage",
+        "operation": "getAll",
+        "databaseId": {
+          "__rl": true,
+          "value": "2bdc44c5-f273-8078-abf6-f629019566c2",
+          "mode": "list",
+          "cachedResultName": "Challenges",
+          "cachedResultUrl": "https://www.notion.so/2bdc44c5f2738078abf6f629019566c2"
+        },
+        "returnAll": true,
+        "simple": false,
+        "filterType": "manual",
+        "filters": {
+          "conditions": [
+            {
+              "key": "Join Code|rich_text",
+              "condition": "equals",
+              "richTextValue": "={{ $json.joinCode }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 2.2,
+      "position": [
+        880,
+        -16
+      ],
+      "id": "1c426001-8271-4543-81e9-102c7e371b0d",
+      "name": "Challenge Finder",
+      "alwaysOutputData": true,
+      "notesInFlow": false,
+      "retryOnFail": false,
+      "credentials": {
+        "notionApi": {
+          "id": "Y2BAYyufx432VkgS",
+          "name": "ringo_strike"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "7816ed29-f30a-433c-9cf9-f5dfa1557dbc",
+              "leftValue": "={{ $json.id }}",
+              "rightValue": "true",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1200,
+        -16
+      ],
+      "id": "5f3d8e18-9ee2-4a92-a73b-822b78bcab22",
+      "name": "If Challenge Found"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "b66c67ad-29be-484c-9b89-f4adf9d4e3c4",
+              "name": "challengeId",
+              "value": "={{ $json.id }}",
+              "type": "string"
+            },
+            {
+              "id": "78210e86-9631-4e01-8ab4-acd2077c4b1a",
+              "name": "challengeName",
+              "value": "={{ $json.properties.Name.title[0].text.content }}",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1600,
+        -128
+      ],
+      "id": "506d6cad-2ebe-42f3-8f3b-7462073664a4",
+      "name": "Edit Fields1"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "7816ed29-f30a-433c-9cf9-f5dfa1557dbc",
+              "leftValue": "={{ $json.id }}",
+              "rightValue": "true",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2176,
+        -128
+      ],
+      "id": "af03138d-b33e-47cb-b642-bba18985758e",
+      "name": "If User Found"
+    },
+    {
+      "parameters": {
+        "resource": "databasePage",
+        "operation": "getAll",
+        "databaseId": {
+          "__rl": true,
+          "value": "2bdc44c5-f273-8096-b62f-cf30962dfb45",
+          "mode": "list",
+          "cachedResultName": "Users",
+          "cachedResultUrl": "https://www.notion.so/2bdc44c5f2738096b62fcf30962dfb45"
+        },
+        "returnAll": true,
+        "simple": false,
+        "filterType": "manual",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "key": "Telegram ID|number",
+              "condition": "equals",
+              "numberValue": "={{ $('Edit Fields').item.json.chat_id }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 2.2,
+      "position": [
+        1888,
+        -128
+      ],
+      "id": "2e2761ca-2028-47e7-80bb-4e44b0cea20a",
+      "name": "User Finder in Challenge",
+      "alwaysOutputData": true,
+      "notesInFlow": false,
+      "retryOnFail": false,
+      "credentials": {
+        "notionApi": {
+          "id": "Y2BAYyufx432VkgS",
+          "name": "ringo_strike"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "resource": "databasePage",
+        "databaseId": {
+          "__rl": true,
+          "value": "2bdc44c5-f273-8096-b62f-cf30962dfb45",
+          "mode": "list",
+          "cachedResultName": "Users",
+          "cachedResultUrl": "https://www.notion.so/2bdc44c5f2738096b62fcf30962dfb45"
+        },
+        "title": "={{ $('Edit Fields').item.json.first_name + \" \" + $('Edit Fields').item.json.last_name }}",
+        "propertiesUi": {
+          "propertyValues": [
+            {
+              "key": "Joined At|date",
+              "date": "={{$now}}",
+              "timezone": "Asia/Tehran"
+            },
+            {
+              "key": "Status|select",
+              "selectValue": "Active"
+            },
+            {
+              "key": "Telegram ID|number",
+              "numberValue": "={{ $('Edit Fields').item.json.chat_id }}"
+            },
+            {
+              "key": "Telegram Username|rich_text",
+              "textContent": "={{ \"@\"+$('Edit Fields').item.json.username }}"
+            },
+            {
+              "key": "Challenges 1|relation",
+              "relationValue": [
+                "={{ $('Challenge Finder').item.json.id }}"
+              ]
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 2.2,
+      "position": [
+        2480,
+        32
+      ],
+      "id": "a7ec2c12-dc15-404b-95df-a0fa9b1ae18a",
+      "name": "Create a database page",
+      "credentials": {
+        "notionApi": {
+          "id": "Y2BAYyufx432VkgS",
+          "name": "ringo_strike"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "databasePage",
+        "operation": "getAll",
+        "databaseId": {
+          "__rl": true,
+          "value": "2bdc44c5-f273-8096-b716-e1e0bf594c95",
+          "mode": "list",
+          "cachedResultName": "Enrollments - Challenge Members",
+          "cachedResultUrl": "https://www.notion.so/2bdc44c5f2738096b716e1e0bf594c95"
+        },
+        "returnAll": true,
+        "simple": false,
+        "filterType": "manual",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "key": "Users|relation",
+              "condition": "contains",
+              "relationValue": "={{ $json.userId }}"
+            },
+            {
+              "key": "Challenges|relation",
+              "condition": "contains",
+              "relationValue": "={{ $json.ChallengeID }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 2.2,
+      "position": [
+        3104,
+        -112
+      ],
+      "id": "a6d25b22-ea64-4f93-9cc3-9376418cebc5",
+      "name": "Find in Enrollments",
+      "alwaysOutputData": true,
+      "credentials": {
+        "notionApi": {
+          "id": "Y2BAYyufx432VkgS",
+          "name": "ringo_strike"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "7816ed29-f30a-433c-9cf9-f5dfa1557dbc",
+              "leftValue": "={{ $json.id }}",
+              "rightValue": "true",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        3344,
+        -112
+      ],
+      "id": "632536ab-a550-432d-ad02-a02366ae4d2e",
+      "name": "If User Found1"
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Edit Fields (Normalize New User) True').item.json.telegramId }}",
+        "text": "=تو قبلاً عضو این چالش هستی ✅\n{{ $('Edit Fields (Normalize New User) True').item.json['Challenge Name'] }}\n\nوقتی امروز انجام دادی فقط بزن:\n/checkin\n",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        3648,
+        -272
+      ],
+      "id": "3ba32dd7-a626-4113-84f4-8be8f116fa3b",
+      "name": "Send a text message2",
+      "webhookId": "1dde55e2-12ab-41ba-862f-3a24d01f078c",
+      "credentials": {
+        "telegramApi": {
+          "id": "mAval2kOJtwBwzeJ",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "38d6bdcd-ecf2-4c2d-a7bf-c626e313e3c8",
+              "name": "userId",
+              "value": "={{ $json.id }}",
+              "type": "string"
+            },
+            {
+              "id": "2057b243-f152-45c4-bb42-461d00b60718",
+              "name": "Challenge Name",
+              "value": "={{ $('If Challenge Found').item.json.properties.Name.title[0].text.content }}",
+              "type": "string"
+            },
+            {
+              "id": "9aabe065-6708-43e8-b53f-7ad1de7813a6",
+              "name": "ChallengeID",
+              "value": "={{ $('If Challenge Found').item.json.id }}",
+              "type": "string"
+            },
+            {
+              "id": "6aef0e40-9d6c-42a1-9040-29ce1e5d0f5f",
+              "name": "telegramId",
+              "value": "={{ $('Edit Fields').item.json.chat_id }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2624,
+        -272
+      ],
+      "id": "c4ba37e8-1f3a-4e59-b9e5-8302edf22b1c",
+      "name": "Edit Fields (Normalize New User) True",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "38d6bdcd-ecf2-4c2d-a7bf-c626e313e3c8",
+              "name": "userId",
+              "value": "={{ $json.id || \"\" }}",
+              "type": "string"
+            },
+            {
+              "id": "2057b243-f152-45c4-bb42-461d00b60718",
+              "name": "ChallengeName",
+              "value": "={{ $('If Challenge Found').item.json.properties.Name.title[0].text.content }}",
+              "type": "string"
+            },
+            {
+              "id": "9aabe065-6708-43e8-b53f-7ad1de7813a6",
+              "name": "ChallengeID",
+              "value": "={{ $('If Challenge Found').item.json.id }}",
+              "type": "string"
+            },
+            {
+              "id": "6aef0e40-9d6c-42a1-9040-29ce1e5d0f5f",
+              "name": "telegramId",
+              "value": "={{ $json.property_telegram_username }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2704,
+        32
+      ],
+      "id": "912f0b10-bfac-4dc9-a943-be66708c10b4",
+      "name": "Edit Fields (Normalize New User) False",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "resource": "databasePage",
+        "databaseId": {
+          "__rl": true,
+          "value": "2bdc44c5-f273-8096-b716-e1e0bf594c95",
+          "mode": "list",
+          "cachedResultName": "Enrollments - Challenge Members",
+          "cachedResultUrl": "https://www.notion.so/2bdc44c5f2738096b716e1e0bf594c95"
+        },
+        "title": "={{ \"Enroll - \" + ($('Edit Fields (Normalize New User) True').item.json['Challenge Name'] || $('Edit Fields (Normalize New User) False').item.json['Challenge Name'])  + \" - \" + $('Edit Fields').item.json.first_name +\" \"+ $('Edit Fields').item.json.last_name }}",
+        "propertiesUi": {
+          "propertyValues": [
+            {
+              "key": "Users|relation",
+              "relationValue": [
+                "={{ $('User Finder in Challenge').item.json.properties.Enrollments.relation[0].id }}"
+              ]
+            },
+            {
+              "key": "Challenges|relation",
+              "relationValue": [
+                "={{ $('Challenge Finder').item.json.id }}"
+              ]
+            },
+            {
+              "key": "Status|select",
+              "selectValue": "Active"
+            },
+            {
+              "key": "Role|select",
+              "selectValue": "Participant"
+            },
+            {
+              "key": "Join Date|date",
+              "date": "={{$now}}"
+            },
+            {
+              "key": "Invite Channel|select",
+              "selectValue": "Telegram"
+            },
+            {
+              "key": "Reminder Enabled|checkbox",
+              "checkboxValue": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 2.2,
+      "position": [
+        3648,
+        16
+      ],
+      "id": "6ba06f5b-0691-4476-b8a4-1e7f4b23074b",
+      "name": "Create Enroll Page",
+      "credentials": {
+        "notionApi": {
+          "id": "Y2BAYyufx432VkgS",
+          "name": "ringo_strike"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Edit Fields').item.json.chat_id }}",
+        "text": "=🎉 تو با موفقیت به این چالش اضافه شدی:\n{{ $('Edit Fields (Normalize New User) True').item.json['Challenge Name'] || $('Edit Fields (Normalize New User) False').item.json['Challenge Name']  }}\n\nاز امروز هر وقت انجام دادی فقط دستور زیر رو بزن:\n/checkin\n\n",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        3888,
+        16
+      ],
+      "id": "99044f5b-2caa-432f-a8a0-bdd5a26a88c1",
+      "name": "Send a text message3",
+      "webhookId": "1dde55e2-12ab-41ba-862f-3a24d01f078c",
+      "credentials": {
+        "telegramApi": {
+          "id": "mAval2kOJtwBwzeJ",
+          "name": "Telegram account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Telegram Trigger": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "Send a text message",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Send a text message": {
+      "main": [
+        []
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Challenge Finder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Challenge Finder": {
+      "main": [
+        [
+          {
+            "node": "If Challenge Found",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "If Challenge Found": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send a text message1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields1": {
+      "main": [
+        [
+          {
+            "node": "User Finder in Challenge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If User Found": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields (Normalize New User) True",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Create a database page",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "User Finder in Challenge": {
+      "main": [
+        [
+          {
+            "node": "If User Found",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create a database page": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields (Normalize New User) False",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find in Enrollments": {
+      "main": [
+        [
+          {
+            "node": "If User Found1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If User Found1": {
+      "main": [
+        [
+          {
+            "node": "Send a text message2",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Create Enroll Page",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields (Normalize New User) True": {
+      "main": [
+        [
+          {
+            "node": "Find in Enrollments",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields (Normalize New User) False": {
+      "main": [
+        [
+          {
+            "node": "Find in Enrollments",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Enroll Page": {
+      "main": [
+        [
+          {
+            "node": "Send a text message3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "callerPolicy": "workflowsFromSameOwner",
+    "executionTimeout": -1,
+    "availableInMCP": false
+  },
+  "versionId": "9b845e25-6834-4707-be1a-a32cd5a5806e",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "32c7b371c1214f33b415f305ced6cfed6e4a0e3d8d167f28488e6ad32c40f587"
+  },
+  "id": "t9XIWlfcOgOcXd7V",
+  "tags": []
+}

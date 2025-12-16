@@ -1,0 +1,98 @@
+@app.get("/me/enrollments/<enrollment_id>/leaderboard")
+def enrollment_leaderboard(enrollment_id):
+    claims = require_auth()
+    if not claims:
+        return jsonify({"ok": False, "error": "unauthorized"}), 401
+    if not claims.get("registered"):
+        return jsonify({"ok": False, "error": "not_registered"}), 403
+
+    enroll_db = app.config.get(ENROLL_DB)
+    daily_db = app.config.get("NOTION_DAILY_LOGS_DB_ID")
+
+    if not enroll_db or not daily_db:
+        return jsonify({"ok": False, "error": "db_missing"}), 500
+
+    # -------------------------------
+    # 1) Find challenge_id of enrollment
+    # -------------------------------
+    enrollment_page = notion.retrieve_page(enrollment_id)
+    eprops = enrollment_page.get("properties", {}) or {}
+
+    challenge_rel = (eprops.get("Challenges", {}) or {}).get("relation", [])
+    if not challenge_rel:
+        return jsonify({"ok": False, "error": "challenge_not_found"}), 404
+
+    challenge_id = challenge_rel[0]["id"]
+
+    # -------------------------------
+    # 2) Overall leaderboard (Enrollments)
+    # -------------------------------
+    payload = {
+        "filter": {
+            "and": [
+                {"property": "Challenges", "relation": {"contains": challenge_id}},
+                {"property": "Status", "select": {"equals": "Active"}},
+            ]
+        },
+        "page_size": 100
+    }
+
+    res = notion.query_db(enroll_db, payload)
+    enrollments = res.get("results", []) or []
+
+    overall = []
+    for en in enrollments:
+        props = en.get("properties", {}) or {}
+        name = notion_title(props, "Name") or "—"
+        total = notion_rich_text(props, "Total Check-ins")
+        try:
+            total = int(total)
+        except:
+            total = 0
+
+        overall.append({
+            "enrollment_id": en.get("id"),
+            "name": name,
+            "total_checkins": total
+        })
+
+    overall.sort(key=lambda x: x["total_checkins"], reverse=True)
+    overall = overall[:5]
+
+    # -------------------------------
+    # 3) Today leaderboard (Daily Logs)
+    # -------------------------------
+    today_str = dt.now(timezone.utc).date().isoformat()
+
+    dl_payload = {
+        "filter": {
+            "and": [
+                {"property": "Challenges", "relation": {"contains": challenge_id}},
+                {"property": "Date", "date": {"equals": today_str}},
+                {"property": "Is Counted", "checkbox": {"equals": True}},
+            ]
+        },
+        "page_size": 100
+    }
+
+    dl_res = notion.query_db(daily_db, dl_payload)
+    logs = dl_res.get("results", []) or []
+
+    today_map = {}
+    for log in logs:
+        props = log.get("properties", {}) or {}
+        name = notion_title(props, "Name") or "—"
+        today_map[name] = today_map.get(name, 0) + 1
+
+    today = [
+        {"name": k, "checkins": v}
+        for k, v in today_map.items()
+    ]
+    today.sort(key=lambda x: x["checkins"], reverse=True)
+    today = today[:5]
+
+    return jsonify({
+        "ok": True,
+        "overall": overall,
+        "today": today
+    })

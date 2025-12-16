@@ -1,0 +1,38 @@
+# OS / junk
+.DS_Store
+Thumbs.db
+
+# --- Backend (Python/Flask) ---
+backend/__pycache__/
+backend/**/*.pyc
+backend/.venv/
+backend/venv/
+backend/instance/
+
+# ENV (do NOT commit secrets)
+backend/.env
+backend/.env.*
+!backend/.env.example
+
+# --- Frontend (Vue/Vite) ---
+frontend/node_modules/
+frontend/dist/
+frontend/dist-ssr/
+frontend/.vite/
+
+
+
+
+# ENV (do NOT commit secrets/local configs)
+frontend/.env
+frontend/.env.*
+frontend/.env.production   # فقط اگر مطمئنی هیچ secret داخلش نیست
+frontend/.env.development  # (اختیاری) اگر دوست داری کانفیگ dev مشترک باشه
+
+!frontend/.env.example
+!frontend/.env.development.example
+!frontend/.env.production.example
+
+# Editor
+.vscode/
+.idea/
