@@ -16,38 +16,41 @@ const props = defineProps({
 });
 
 const id = computed(() => {
-  const pid = props.enrollmentId;
-  if (pid) return pid;
-  const rid = route.params.id;
-  return typeof rid === "string" ? rid : "";
+    const pid = props.enrollmentId;
+    if (pid) return pid;
+    const rid = route.params.id;
+    return typeof rid === "string" ? rid : "";
 });
 
 const overall = ref([]);
 const today = ref([]); // فعلاً نگه می‌داریم برای آینده (Total + Streak/Today)
 const loading = ref(true);
 const error = ref("");
+const errorText = computed(() => {
+    if (error.value === "missing_id") return "Invalid leaderboard link (missing enrollment id).";
+    return "Try again. If it keeps happening, the API might be down.";
+});
 
 async function fetchLeaderboard() {
-  loading.value = true;
-  error.value = "";
+    loading.value = true;
+    error.value = "";
 
-  // ✅ اگر enrollment id نداریم، اصلاً API نزن
-  if (!id.value) {
-    error.value = "missing_id";
-    loading.value = false;
-    return;
-  }
+    if (!id.value) {
+        error.value = "missing_id";
+        loading.value = false;
+        return;
+    }
 
-  try {
-    const res = await api.get(`/me/enrollments/${id.value}/leaderboard`);
-    overall.value = res.data?.overall || [];
-    today.value = res.data?.today || [];
-  } catch (err) {
-    console.error("Leaderboard error:", err);
-    error.value = "failed";
-  } finally {
-    loading.value = false;
-  }
+    try {
+        const res = await api.get(`/me/enrollments/${id.value}/leaderboard`);
+        overall.value = res.data?.overall || [];
+        today.value = res.data?.today || [];
+    } catch (err) {
+        console.error("Leaderboard error:", err);
+        error.value = "failed";
+    } finally {
+        loading.value = false;
+    }
 }
 
 
@@ -63,7 +66,7 @@ onMounted(fetchLeaderboard);
             <UiState :loading="loading" :error="!!error" :empty="isEmpty" loading-title="Loading leaderboard…"
                 loading-text="Getting the latest rankings." empty-title="No leaderboard data yet"
                 empty-text="Once people check in, rankings will show here." error-title="Couldn’t load leaderboard"
-                error-text="Try again. If it keeps happening, the API might be down." @retry="fetchLeaderboard" />
+                :error-text="errorText" @retry="fetchLeaderboard" />
 
             <div v-if="!loading && !error && overall.length" class="tableWrap">
                 <table class="table">
@@ -111,7 +114,7 @@ onMounted(fetchLeaderboard);
                 <UiState :loading="loading" :error="!!error" :empty="isEmpty" loading-title="Loading leaderboard…"
                     loading-text="Getting the latest rankings." empty-title="No leaderboard data yet"
                     empty-text="Once people check in, rankings will show here." error-title="Couldn’t load leaderboard"
-                    error-text="Try again. If it keeps happening, the API might be down." @retry="fetchLeaderboard" />
+                    :error-text="errorText" @retry="fetchLeaderboard" />
 
                 <div v-if="!loading && !error && overall.length" class="tableWrap">
                     <table class="table">
