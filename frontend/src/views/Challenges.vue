@@ -1,121 +1,130 @@
 <template>
-  <div style="padding:32px; max-width:900px; margin:auto">
-    <!-- Header -->
-    <div style="display:flex; justify-content:space-between; align-items:center; gap:16px">
-      <div>
-        <h1 style="margin:0">Challenges</h1>
-        <div style="margin-top:6px; opacity:.7; font-size:14px">
-          Browse public / invite-only challenges and join.
+  <AppContainer>
+    <AppHeader />
+
+    <div class="stack-16">
+      <!-- Page header -->
+      <div class="pageHead">
+        <div class="stack-8">
+          <h1 class="h1">Challenges</h1>
+          <div class="caption">
+            Browse public / invite-only challenges and join.
+          </div>
+        </div>
+
+        <div class="actions">
+          <BaseButton variant="secondary" :loading="loading" @click="load">
+            Refresh
+          </BaseButton>
         </div>
       </div>
 
-      <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap">
-        <a :href="base + 'dashboard'" style="text-decoration:none">← Back to Dashboard</a>
+      <!-- State / content -->
+      <BaseCard>
+        <UiState :loading="loading" :error="!!loadError" :empty="!loading && !loadError && items.length === 0"
+          loading-title="Loading challenges…" loading-text="Fetching available challenges."
+          empty-title="No challenges available" empty-text="Create one or ask for an invite code."
+          error-title="Couldn’t load challenges" :error-text="loadError || 'Please try again.'" @retry="load" />
 
-        <button
-          @click="load"
-          :disabled="loading"
-          style="padding:8px 12px; border-radius:10px; border:1px solid #ddd; background:#fff; cursor:pointer"
-        >
-          <span v-if="loading">...</span>
-          <span v-else>Refresh</span>
-        </button>
-      </div>
-    </div>
+        <div v-if="!loading && !loadError && items.length" class="list">
+          <BaseCard v-for="ch in items" :key="ch.challenge_id" class="itemCard" :padded="true">
+            <div class="row">
+              <!-- left -->
+              <div class="content">
+                <div class="titleRow">
+                  <h2 class="h2 title">{{ ch.name }}</h2>
 
-    <!-- Loading -->
-    <div v-if="loading" style="margin-top:16px">Loading...</div>
+                  <div class="badges">
+                    <span class="badge">
+                      <span aria-hidden="true">{{ ch.visibility === "public" ? "🔓" : "🔒" }}</span>
+                      {{ ch.visibility || "—" }}
+                    </span>
 
-    <!-- Content -->
-    <div v-else style="margin-top:16px">
-      <div v-if="loadError" style="color:#b00020; margin-bottom:14px">
-        {{ loadError }}
-      </div>
+                    <span class="badge">
+                      <span aria-hidden="true">{{ ch.status === "active" ? "🟢" : "⚪️" }}</span>
+                      {{ ch.status || "—" }}
+                    </span>
 
-      <div v-if="items.length === 0" style="opacity:.7">
-        No challenges available.
-      </div>
+                    <span class="badge">
+                      <span aria-hidden="true">🗓️</span>
+                      {{ ch.duration_days ? `${ch.duration_days} days` : "—" }}
+                    </span>
+                  </div>
+                </div>
 
-      <div
-        v-for="ch in items"
-        :key="ch.challenge_id"
-        style="border:1px solid #ddd; border-radius:12px; padding:16px; margin-top:14px"
-      >
-        <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:16px">
-          <!-- Left: content -->
-          <div style="min-width:0; flex:1">
-            <h3 style="margin:0 0 6px 0">{{ ch.name }}</h3>
+                <p v-if="ch.description" class="desc">
+                  {{ ch.description }}
+                </p>
 
-            <div style="font-size:14px; opacity:.7">
-              {{ ch.visibility }} • {{ ch.status }} •
-              <span v-if="ch.duration_days">Duration: {{ ch.duration_days }} days</span>
-              <span v-else>Duration: —</span>
+                <div class="social">
+                  <span class="members">
+                    <span aria-hidden="true">👥</span>
+                    <b>{{ ch.members_count || 0 }}</b> members
+                  </span>
+
+                  <span v-if="ch.members_preview?.length" class="caption">
+                    • e.g. {{ ch.members_preview.join(", ") }}
+                  </span>
+                  <span v-else class="caption">• Be the first!</span>
+                </div>
+
+                <!-- Invite code -->
+                <div v-if="ch.needs_code && !ch.is_joined" class="inviteBox">
+                  <label class="capLabel" :for="`code-${ch.challenge_id}`">
+                    <span aria-hidden="true">🔑</span> Invite code
+                  </label>
+
+                  <div class="inviteRow">
+                    <input :id="`code-${ch.challenge_id}`" v-model="codes[ch.challenge_id]" class="input"
+                      placeholder="Enter code" autocomplete="off" inputmode="text" />
+
+                    <span class="hint caption">
+                      Required
+                    </span>
+                  </div>
+
+                  <div v-if="errors[ch.challenge_id]" class="err">
+                    {{ humanizeError(errors[ch.challenge_id]) }}
+                  </div>
+                </div>
+
+                <!-- per-item error (non invite) -->
+                <div v-else-if="errors[ch.challenge_id]" class="err">
+                  {{ humanizeError(errors[ch.challenge_id]) }}
+                </div>
+              </div>
+
+              <!-- right -->
+              <div class="side">
+                <BaseButton v-if="!ch.is_joined" variant="primary" :loading="joiningId === ch.challenge_id"
+                  @click="join(ch)">
+                  Join 🚀
+                </BaseButton>
+
+                <BaseButton v-else variant="secondary" @click="open(ch)">
+                  Joined ✅ Open
+                </BaseButton>
+              </div>
             </div>
-
-            <p v-if="ch.description" style="margin:10px 0 0 0; opacity:.85; line-height:1.5">
-              {{ ch.description }}
-            </p>
-
-            <!-- Social proof -->
-            <div style="margin-top:10px; opacity:.85; font-size:14px">
-              <b>{{ ch.members_count || 0 }}</b> members
-              <span v-if="ch.members_preview?.length" style="opacity:.75">
-                • e.g. {{ ch.members_preview.join(", ") }}
-              </span>
-              <span v-else style="opacity:.75">
-                • Be the first!
-              </span>
-            </div>
-
-            <!-- Invite code input (only when needed AND not joined yet) -->
-            <div v-if="ch.needs_code && !ch.is_joined" style="margin-top:12px">
-              <label style="display:block; font-size:13px; opacity:.7; margin-bottom:6px">
-                Invite code
-              </label>
-              <input
-                v-model="codes[ch.challenge_id]"
-                placeholder="Enter code"
-                style="padding:10px 12px; border-radius:10px; border:1px solid #ddd; width:260px"
-              />
-            </div>
-
-            <!-- Per-item error -->
-            <div v-if="errors[ch.challenge_id]" style="margin-top:10px; color:#b00020">
-              {{ errors[ch.challenge_id] }}
-            </div>
-          </div>
-
-          <!-- Right: actions -->
-          <div style="display:flex; gap:10px; align-items:center; flex-shrink:0">
-            <button
-              v-if="!ch.is_joined"
-              @click="join(ch)"
-              :disabled="joiningId === ch.challenge_id"
-              style="padding:10px 16px; border-radius:10px; border:none; cursor:pointer"
-            >
-              <span v-if="joiningId === ch.challenge_id">...</span>
-              <span v-else>Join</span>
-            </button>
-
-            <button
-              v-else
-              @click="open(ch)"
-              style="padding:10px 16px; border-radius:10px; border:1px solid #ddd; background:#fff; cursor:pointer"
-            >
-              Joined ✅ Open
-            </button>
-          </div>
+          </BaseCard>
         </div>
-      </div>
+      </BaseCard>
     </div>
-  </div>
+  </AppContainer>
 </template>
 
 <script setup>
 import { onMounted, ref } from "vue";
+import { useRouter } from "vue-router";
 import api from "../lib/api";
 
-const base = import.meta.env.BASE_URL;
+import AppContainer from "@/components/ui/AppContainer.vue";
+import AppHeader from "@/components/ui/AppHeader.vue";
+import BaseCard from "@/components/ui/BaseCard.vue";
+import BaseButton from "@/components/ui/BaseButton.vue";
+import UiState from "@/components/ui/UiState.vue";
+
+const router = useRouter();
 
 const loading = ref(true);
 const loadError = ref("");
@@ -125,6 +134,13 @@ const joiningId = ref(null);
 
 const codes = ref({});
 const errors = ref({});
+
+function humanizeError(msg) {
+  if (!msg) return "";
+  if (msg === "invite_code_required") return "Invite code is required.";
+  if (typeof msg === "string") return msg.replaceAll("_", " ");
+  return String(msg);
+}
 
 async function load() {
   loading.value = true;
@@ -157,7 +173,6 @@ async function join(ch) {
       await api.post(`/challenges/${ch.challenge_id}/join`, {});
     }
 
-    // ✅ حرفه‌ای‌تر: همونجا لیست رو refresh کن تا Joined/Open نمایش داده شود
     await load();
   } catch (e) {
     const msg = e?.response?.data?.error || e?.message || String(e);
@@ -168,9 +183,169 @@ async function join(ch) {
 }
 
 function open(ch) {
-  // enrollment_id از backend میاد وقتی is_joined=true
-  window.location.href = `${base}enrollment/${ch.enrollment_id}`;
+  // ✅ SPA navigation (بدون refresh)
+  router.push(`/enrollment/${ch.enrollment_id}`);
 }
 
 onMounted(load);
 </script>
+
+<style scoped>
+.pageHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: var(--s-16);
+  flex-wrap: wrap;
+}
+
+.actions {
+  display: flex;
+  gap: var(--s-12);
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.ghostLink {
+  color: rgba(255, 255, 255, 0.85);
+  text-decoration: none;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.ghostLink:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.list {
+  margin-top: var(--s-16);
+  display: grid;
+  gap: var(--s-12);
+}
+
+.itemCard {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: none;
+}
+
+.row {
+  display: flex;
+  gap: var(--s-16);
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+
+.content {
+  min-width: 0;
+  flex: 1;
+  display: grid;
+  gap: var(--s-10);
+}
+
+.side {
+  display: flex;
+  gap: var(--s-10);
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.titleRow {
+  display: flex;
+  gap: var(--s-12);
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+
+.title {
+  margin: 0;
+}
+
+.badges {
+  display: flex;
+  gap: var(--s-8);
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.badge {
+  font-size: var(--cap);
+  color: rgba(255, 255, 255, 0.85);
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  background: rgba(255, 255, 255, 0.03);
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.desc {
+  margin: 0;
+  opacity: 0.9;
+  line-height: 1.55;
+}
+
+.social {
+  display: flex;
+  gap: var(--s-8);
+  flex-wrap: wrap;
+  align-items: baseline;
+  opacity: 0.9;
+}
+
+.members {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.inviteBox {
+  margin-top: 2px;
+  padding-top: var(--s-8);
+}
+
+.capLabel {
+  display: block;
+  font-size: var(--cap);
+  color: var(--muted2);
+  margin-bottom: var(--s-6);
+}
+
+.inviteRow {
+  display: flex;
+  gap: var(--s-8);
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.input {
+  width: 260px;
+  max-width: 100%;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(0, 0, 0, 0.25);
+  color: rgba(255, 255, 255, 0.92);
+  outline: none;
+}
+
+.input:focus {
+  border-color: rgba(99, 102, 241, 0.45);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.18);
+}
+
+.hint {
+  opacity: 0.8;
+}
+
+.err {
+  margin-top: var(--s-8);
+  color: rgba(255, 80, 80, 0.95);
+  font-size: var(--cap);
+}
+</style>

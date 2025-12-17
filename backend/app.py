@@ -10,6 +10,7 @@ from config import Config
 from notion_client import NotionClient
 from auth_telegram import verify_telegram_login
 
+
 from dotenv import load_dotenv
 load_dotenv()
 
@@ -678,6 +679,75 @@ def checkin(enrollment_id):
             return None
         return results[0]["id"]
 
+    def sync_user_stats(user_page_id: str):
+        """
+        Sync Current Streak + Longest Streak روی Users DB
+        معیار: Daily Logs با Users relation شامل user_page_id و Is Counted = True
+        """
+        try:
+            payload = {
+                "filter": {
+                    "and": [
+                        {"property": "Users", "relation": {"contains": user_page_id}},
+                        {"property": "Is Counted", "checkbox": {"equals": True}},
+                    ]
+                },
+                "page_size": 100
+            }
+
+            # pagination-safe (اگر notion_query_all داری بهتره، ولی این هم برای MVP کافیه)
+            res = notion.query_db(daily_db, payload)
+            pages = res.get("results", []) or []
+
+            dates = set()
+            for page in pages:
+                props = page.get("properties", {}) or {}
+                d = (props.get("Date", {}) or {}).get("date", {})
+                d = d.get("start") if isinstance(d, dict) else None
+                if d:
+                    dates.add(d)
+
+            # current streak (UTC)
+            from datetime import datetime as dt, timezone, timedelta
+            cur = dt.now(timezone.utc).date()
+            current = 0
+            while True:
+                ds = cur.isoformat()
+                if ds in dates:
+                    current += 1
+                    cur = cur - timedelta(days=1)
+                else:
+                    break
+
+            # longest streak
+            if not dates:
+                longest = 0
+            else:
+                from datetime import datetime as dt
+                sorted_days = sorted(dates)
+                longest = 1
+                run = 1
+                prev = dt.fromisoformat(sorted_days[0]).date()
+                for s in sorted_days[1:]:
+                    d = dt.fromisoformat(s).date()
+                    if (d - prev).days == 1:
+                        run += 1
+                        longest = max(longest, run)
+                    else:
+                        run = 1
+                    prev = d
+
+            notion_update_page(enrollment_id, {
+                "Total Check-ins": {"number": int(total_checkins)},
+                "Current Streak in Challenge": {"number": int(current_streak)},
+                "Progress %": {"number": float(progress_percent)},  # اگر درصد عددی داری
+            })
+
+            return {"current_streak": current, "longest_streak": longest}
+        except Exception as ex:
+            app.logger.exception("Failed syncing user stats: %s", ex)
+            return None
+
     # Challenge ID را از خود enrollment درمیاریم
     enrollment_page = get_page(enrollment_id)
     eprops = enrollment_page.get("properties", {}) or {}
@@ -721,6 +791,8 @@ def checkin(enrollment_id):
     # ✅ UPSERT: اگر برای امروز موجود بود → update، نبود → create
     existing_log_id = find_today_log(daily_db, enrollment_id, date_iso)
 
+    user_stats_synced = None
+
     if existing_log_id:
         updated = notion_update_page(existing_log_id, props)
 
@@ -748,6 +820,9 @@ def checkin(enrollment_id):
         except Exception as ex:
             app.logger.exception("Failed updating enrollment stats (update mode): %s", ex)
 
+        # ✅ Sync user streaks (Users DB)
+        user_stats_synced = sync_user_stats(user_id)
+
         return jsonify({
             "ok": True,
             "mode": "updated",
@@ -756,7 +831,8 @@ def checkin(enrollment_id):
             "challenge_id": challenge_id,
             "date": date_iso,
             "status": status,
-            "is_counted": is_counted
+            "is_counted": is_counted,
+            "user_stats": user_stats_synced,
         })
 
     created = notion_create_page(daily_db, props)
@@ -785,6 +861,9 @@ def checkin(enrollment_id):
     except Exception as ex:
         app.logger.exception("Failed updating enrollment stats (create mode): %s", ex)
 
+    # ✅ Sync user streaks (Users DB)
+    user_stats_synced = sync_user_stats(user_id)
+
     return jsonify({
         "ok": True,
         "mode": "created",
@@ -793,7 +872,8 @@ def checkin(enrollment_id):
         "challenge_id": challenge_id,
         "date": date_iso,
         "status": status,
-        "is_counted": is_counted
+        "is_counted": is_counted,
+        "user_stats": user_stats_synced,
     })
 
 
@@ -1334,7 +1414,13 @@ def notion_query_all(db_id: str, payload: dict):
     return out
 
 def compute_enrollment_stats(enrollment_id: str, daily_db_id: str):
-    """Recompute Total Check-ins + Current Streak from Daily Logs for THIS enrollment."""
+    """Recompute Total Check-ins + Current Streak from Daily Logs for THIS enrollment.
+
+    Streak rule:
+    - If today is checked → streak counts from today backward.
+    - Else if yesterday is checked → streak counts from yesterday backward.
+    - Else → streak = 0
+    """
     payload = {
         "filter": {
             "and": [
@@ -1355,10 +1441,20 @@ def compute_enrollment_stats(enrollment_id: str, daily_db_id: str):
         if d:
             dates.add(d)
 
-    total_checkins = len(dates)  # چون برای هر روز باید نهایتاً یک لاگ داشته باشیم
+    total_checkins = len(dates)
 
-    # streak از امروز به عقب (UTC)
-    cur = dt.now(timezone.utc).date()
+    today = dt.now(timezone.utc).date()
+    today_iso = today.isoformat()
+    yday_iso = (today - timedelta(days=1)).isoformat()
+
+    # choose start date for streak
+    if today_iso in dates:
+        cur = today
+    elif yday_iso in dates:
+        cur = today - timedelta(days=1)
+    else:
+        return total_checkins, 0
+
     streak = 0
     while True:
         d = cur.isoformat()
@@ -1369,6 +1465,71 @@ def compute_enrollment_stats(enrollment_id: str, daily_db_id: str):
             break
 
     return total_checkins, streak
+
+def compute_user_streaks(user_id: str, daily_db_id: str):
+    """
+    Current streak + Longest streak برای کاربر از روی Daily Logs
+    معیار: لاگ‌هایی که Is Counted = True و Users relation شامل user_id باشد.
+    """
+    payload = {
+        "filter": {
+            "and": [
+                {"property": "Users", "relation": {"contains": user_id}},
+                {"property": "Is Counted", "checkbox": {"equals": True}},
+            ]
+        },
+        "page_size": 100
+    }
+
+    pages = notion_query_all(daily_db_id, payload)
+
+    dates = set()
+    for page in pages:
+        props = page.get("properties", {}) or {}
+        d = (props.get("Date", {}) or {}).get("date", {})
+        d = d.get("start") if isinstance(d, dict) else None
+        if d:
+            dates.add(d)
+
+    # Current streak از امروز به عقب (UTC)
+    cur = dt.now(timezone.utc).date()
+    current = 0
+    while True:
+        ds = cur.isoformat()
+        if ds in dates:
+            current += 1
+            cur = cur - timedelta(days=1)
+        else:
+            break
+
+    # Longest streak: با اسکن تاریخ‌های مرتب شده
+    if not dates:
+        return 0, 0
+
+    sorted_days = sorted(dates)  # ISO => sortable
+    longest = 1
+    run = 1
+    prev = dt.fromisoformat(sorted_days[0]).date()
+
+    for s in sorted_days[1:]:
+        d = dt.fromisoformat(s).date()
+        if (d - prev).days == 1:
+            run += 1
+            longest = max(longest, run)
+        else:
+            run = 1
+        prev = d
+
+    return current, longest
+
+
+def sync_user_stats(user_id: str, daily_db_id: str):
+    current, longest = compute_user_streaks(user_id, daily_db_id)
+    notion_update_page(user_id, {
+        "Current Streak": {"rich_text": [{"text": {"content": str(current)}}]},
+        "Longest Streak": {"rich_text": [{"text": {"content": str(longest)}}]},
+    })
+    return current, longest
 
 @app.get("/challenges/<challenge_id>/members")
 def challenge_members(challenge_id):
@@ -1633,6 +1794,28 @@ def me_enrollment_detail(enrollment_id):
             if date_str == today_str:
                 today_checked = True
 
+        # Try to read from enrollment properties (synced on checkin)
+    raw_total = notion_rich_text(eprops, "Total Check-ins")
+    raw_streak = notion_rich_text(eprops, "Current Streak in Challenge")
+
+    def safe_int(x, default=0):
+        try:
+            return int(str(x).strip())
+        except:
+            return default
+
+    total_checkins = safe_int(raw_total, None)
+    current_streak = safe_int(raw_streak, None)
+    
+
+    # Fallback: if missing, compute on the fly
+    if total_checkins is None or current_streak is None:
+        daily_db = app.config.get("NOTION_DAILY_LOGS_DB_ID")
+        if daily_db:
+            tc, cs = compute_enrollment_stats(enrollment_id, daily_db)
+            total_checkins = tc if total_checkins is None else total_checkins
+            current_streak = cs if current_streak is None else current_streak
+
 
     return jsonify({
         "ok": True,
@@ -1641,6 +1824,8 @@ def me_enrollment_detail(enrollment_id):
             "name": enrollment_name,
             "status": enrollment_status,
             "today_checked": today_checked,
+            "total_checkins": total_checkins,
+            "current_streak": current_streak,
         },
         "challenge": challenge,
         "recent_logs": recent_logs,
@@ -1656,7 +1841,6 @@ def enrollment_leaderboard(enrollment_id):
 
     enroll_db = app.config.get(ENROLL_DB)
     daily_db = app.config.get("NOTION_DAILY_LOGS_DB_ID")
-
     if not enroll_db or not daily_db:
         return jsonify({"ok": False, "error": "db_missing"}), 500
 
@@ -1673,7 +1857,7 @@ def enrollment_leaderboard(enrollment_id):
     challenge_id = challenge_rel[0]["id"]
 
     # -------------------------------
-    # 2) Overall leaderboard (Enrollments)
+    # 2) Get all active enrollments for this challenge
     # -------------------------------
     payload = {
         "filter": {
@@ -1684,66 +1868,115 @@ def enrollment_leaderboard(enrollment_id):
         },
         "page_size": 100
     }
-
     res = notion.query_db(enroll_db, payload)
     enrollments = res.get("results", []) or []
 
-    overall = []
+    # Map enrollment_id -> name (and list of ids)
+    enroll_name = {}
+    enrollment_ids = []
     for en in enrollments:
+        eid = en.get("id")
         props = en.get("properties", {}) or {}
-        name = notion_title(props, "Name") or "—"
-        total = notion_rich_text(props, "Total Check-ins")
-        try:
-            total = int(total)
-        except:
-            total = 0
-
-        overall.append({
-            "enrollment_id": en.get("id"),
-            "name": name,
-            "total_checkins": total
-        })
-
-    overall.sort(key=lambda x: x["total_checkins"], reverse=True)
-    overall = overall[:5]
+        enroll_name[eid] = notion_title(props, "Name") or "—"
+        enrollment_ids.append(eid)
 
     # -------------------------------
-    # 3) Today leaderboard (Daily Logs)
+    # 3) Query ALL counted daily logs for this challenge (one time)
     # -------------------------------
-    today_str = dt.now(timezone.utc).date().isoformat()
-
     dl_payload = {
         "filter": {
             "and": [
                 {"property": "Challenges", "relation": {"contains": challenge_id}},
-                {"property": "Date", "date": {"equals": today_str}},
                 {"property": "Is Counted", "checkbox": {"equals": True}},
             ]
         },
         "page_size": 100
     }
+    logs_pages = notion_query_all(daily_db, dl_payload)
 
-    dl_res = notion.query_db(daily_db, dl_payload)
-    logs = dl_res.get("results", []) or []
+    # Build: enrollment_id -> set(dates)
+    dates_by_enrollment = {eid: set() for eid in enrollment_ids}
 
-    today_map = {}
-    for log in logs:
+    for log in logs_pages:
         props = log.get("properties", {}) or {}
-        name = notion_title(props, "Name") or "—"
-        today_map[name] = today_map.get(name, 0) + 1
 
-    today = [
-        {"name": k, "checkins": v}
-        for k, v in today_map.items()
+        # Date
+        d = (props.get("Date", {}) or {}).get("date", {})
+        d = d.get("start") if isinstance(d, dict) else None
+        if not d:
+            continue
+
+        # Enrollment relation (Daily Logs باید Enrollment relation داشته باشد)
+        rel = (props.get("Enrollment", {}) or {}).get("relation", [])
+        if not rel:
+            continue
+
+        eid = rel[0].get("id")
+        if eid in dates_by_enrollment:
+            dates_by_enrollment[eid].add(d)
+
+    # -------------------------------
+    # 4) Compute total_checkins + current_streak with your rule
+    # -------------------------------
+    today = dt.now(timezone.utc).date()
+    today_iso = today.isoformat()
+    yday_iso = (today - timedelta(days=1)).isoformat()
+
+    def compute_streak(dates_set):
+        # Start: today if checked else yesterday if checked else 0
+        if today_iso in dates_set:
+            cur = today
+        elif yday_iso in dates_set:
+            cur = today - timedelta(days=1)
+        else:
+            return 0
+
+        streak = 0
+        while True:
+            iso = cur.isoformat()
+            if iso in dates_set:
+                streak += 1
+                cur = cur - timedelta(days=1)
+            else:
+                break
+        return streak
+
+    overall = []
+    for eid in enrollment_ids:
+        ds = dates_by_enrollment.get(eid, set())
+        total_checkins = len(ds)
+        current_streak = compute_streak(ds)
+
+        overall.append({
+            "enrollment_id": eid,
+            "name": enroll_name.get(eid, "—"),
+            "total_checkins": int(total_checkins),
+            "current_streak": int(current_streak),
+        })
+
+    # Sort by streak first, then total
+    overall.sort(key=lambda x: (x["current_streak"], x["total_checkins"]), reverse=True)
+    overall = overall[:5]
+
+    # -------------------------------
+    # 5) Today leaderboard
+    # -------------------------------
+    today_map = {}
+    for eid, ds in dates_by_enrollment.items():
+        if today_iso in ds:
+            today_map[eid] = today_map.get(eid, 0) + 1
+
+    today_rows = [
+        {"enrollment_id": eid, "name": enroll_name.get(eid, "—"), "checkins": cnt}
+        for eid, cnt in today_map.items()
     ]
-    today.sort(key=lambda x: x["checkins"], reverse=True)
-    today = today[:5]
+    today_rows.sort(key=lambda x: x["checkins"], reverse=True)
+    today_rows = today_rows[:5]
 
     return jsonify({
         "ok": True,
         "overall": overall,
-        "today": today
+        "today": today_rows,
     })
-
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5005, debug=True)

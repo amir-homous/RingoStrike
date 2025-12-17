@@ -1,10 +1,10 @@
 import { createRouter, createWebHistory } from "vue-router";
 import Login from "../views/Login.vue";
 import Dashboard from "../views/Dashboard.vue";
-import Challenge from "../views/Challenge.vue";
 import Challenges from "../views/Challenges.vue";
 import AuthCallback from "../views/AuthCallback.vue";
 import Enrollment from "../views/Enrollment.vue";
+import Leaderboard from "../views/Leaderboard.vue"
 import api from "../lib/api";
 
 const router = createRouter({
@@ -13,13 +13,16 @@ const router = createRouter({
     { path: "/login", component: Login },
     { path: "/auth/callback", component: AuthCallback },
     { path: "/dashboard", component: Dashboard },
-    { path: "/challenges", component: Challenge },
+    { path: "/challenges", component: Challenges },
     { path: "/enrollment/:id", component: Enrollment, props: true },
+    { path: "/enrollment/:id/leaderboard", component: Leaderboard, props: true },
     { path: "/", redirect: "/dashboard" },
     // (اختیاری) صفحه 404 واقعی بعداً می‌سازیم
     { path: "/:pathMatch(.*)*", redirect: "/dashboard" },
   ],
 });
+
+
 
 router.beforeEach(async (to) => {
   // ✅ این صفحات نیاز به auth ندارند
