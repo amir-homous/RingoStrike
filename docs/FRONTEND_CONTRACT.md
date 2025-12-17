@@ -1,265 +1,374 @@
-# RingoStrike – Frontend Contract
+Living contract for frontend structure, data flow, and UI conventions.
+Update this file whenever routing, UI-kit, API endpoints, or data shapes change.
 
-> Living contract for frontend structure, data flow, and UI conventions.
-> Keep this updated when you change architecture or data shapes.
+1) Project Summary
 
-## 1) Project Summary
+RingoStrike is a challenge-based habit app: users join challenges and perform daily check-ins.
+Frontend displays:
 
-RingoStrike is a challenge-based app to help users build habits via daily check-ins.
-Users join challenges, then log daily progress (check-ins). UI shows enrollments, challenge progress, and history.
+User dashboard (active enrollments)
 
-## 2) Stack & Conventions
+Challenges list + join flow
 
-- Framework: Vue 3 + Vite
-- Style: Composition API (preferred)
-- Routing: Vue Router
-- State: (Pinia / local state) — **document which one you use**
-- API: Axios / Fetch — **document which one you use**
-- Dates: ISO strings `YYYY-MM-DD`
+Enrollment detail (today check + progress + recent logs + embedded leaderboard)
 
-**General rules**
+Leaderboard page (total + streak)
 
-- Keep views thin: views orchestrate, components render, composables/utils handle logic.
-- Prefer small commits + issue-based work.
+2) Stack & Conventions
 
-## 3) Key Pages (Views)
+Framework: Vue 3 + Vite
 
-> Replace names with your actual files if different.
+Language: JavaScript (no TS)
 
-- `src/views/Login.vue`
+Routing: Vue Router (history mode)
 
-  - Shows Telegram login instructions/link
-  - Handles redirect back and refresh/reload flow
+State: Pinia (minimal usage; currently stores/session.js)
 
-- `src/views/Dashboard.vue` (or `ChallengeDashboard.vue`)
+API: Axios via src/lib/api.js
 
-  - Main user dashboard
-  - Shows user’s enrollments + progress summaries
+Styling: CSS tokens + base styles
 
-- `src/views/ChallengeDetail.vue` (optional)
-  - Single challenge page (details + participants + logs)
+src/styles/tokens.css
 
-## 4) Core UI Components
+src/styles/base.css
 
-> Add/remove based on what you actually have.
+Environment / Base URLs
 
-- `src/components/ChallengeCard.vue`
+Frontend base path: import.meta.env.BASE_URL
+(e.g. deployed under /ringostrike/)
 
-  - Challenge summary (title, status, progress)
+Backend API base: import.meta.env.VITE_API_BASE
 
-- `src/components/EnrollmentList.vue`
+General Rules
 
-  - List of challenges user joined
+Views orchestrate: fetch data + handle state.
 
-- `src/components/ChallengeDailyGrid.vue` (planned)
-  - Visual grid of days (checked/missed/future)
+UI components render (no API calls inside presentational components unless explicitly “smart” like Leaderboard embedded/page).
 
-## 5) Data Models (Frontend View)
+Avoid inline styles; prefer shared UI components + tokens.
 
-> This is the **shape the UI expects**, not necessarily backend DB schema.
+Prefer small PRs/commits per issue.
 
-### Challenge
+3) Current File Structure (Source of Truth)
+Views (Pages) – src/views/
 
-```python
+Login.vue
+
+AuthCallback.vue
+
+Dashboard.vue
+
+Challenges.vue
+
+Enrollment.vue
+
+Leaderboard.vue (supports page mode + embedded mode)
+
+Router – src/router/index.js
+
+Routes:
+
+/login
+
+/auth/callback
+
+/dashboard
+
+/challenges
+
+/enrollment/:id
+
+/enrollment/:id/leaderboard
+
+/ → redirect /dashboard
+
+/:pathMatch(.*)* → redirect /dashboard (temporary; 404 page planned)
+
+Auth guard:
+
+Only /login and /auth/callback are public
+
+All other routes call GET /me; if not authenticated → redirect to /login?next=...
+
+UI Kit – src/components/ui/
+
+Base components used across the app:
+
+AppContainer.vue (layout + page width/padding)
+
+AppHeader.vue (top navigation; single source of truth for nav)
+
+BaseCard.vue (standard surface)
+
+BaseButton.vue (primary/secondary/disabled/loading patterns)
+
+BaseInput.vue (focus/error/disabled)
+
+UiState.vue (loading/empty/error + retry)
+
+Spinner.vue, SkeletonBlock.vue
+
+API wrapper – src/lib/api.js
+
+Axios instance (base URL + cookies/session expected)
+
+Frontend treats auth as session cookie-based (server is source of truth)
+
+4) UI Conventions (Milestone 0.1 Baseline)
+Layout & Spacing
+
+Use AppContainer for all pages (consistent width/padding).
+
+Use spacing scale via tokens (e.g. 8/12/16/24) and utility classes if available.
+
+Headings hierarchy:
+
+Page title: .h1
+
+Section title: .h2 / .h3 (depending on design)
+
+Caption: .caption
+
+Components (Design Contract)
+
+Buttons:
+
+Variants: primary, secondary (danger optional)
+
+States: disabled, loading
+
+Cards:
+
+BaseCard for all main blocks
+
+Inputs:
+
+BaseInput for consistent focus/error/disabled behavior
+
+UX states:
+
+Use UiState for loading / empty / error
+
+Add retry handler where meaningful
+
+Embedded vs Page Components
+
+Leaderboard.vue supports:
+
+Page mode (default): includes AppHeader + page title
+
+Embedded mode (embedded: true): renders only the table block (no header)
+
+This prevents duplicated nav when Leaderboard is used inside Enrollment.vue.
+
+5) Data Models (Frontend Contract)
+
+These shapes represent what UI expects from backend responses.
+
+User
+type User = {
+  id?: string | number
+  name: string
+  username?: string
+}
+
+Challenge (from /challenges and enrollment detail payload)
 type Challenge = {
-  id: string
-  title: string
-  start_date: string // YYYY-MM-DD
-  end_date?: string  // YYYY-MM-DD (optional if total_days exists)
-  total_days?: number
-}
-type Enrollment = {
-  id: string
-  user_id: string
   challenge_id: string
-  challenge?: Challenge
-}
-type DailyLog = {
-  date: string // YYYY-MM-DD
-  status?: 'checked' | 'missed' // if status exists
-  is_counted?: boolean          // if backend uses boolean
-}
-type DayCell = {
-  date: string // YYYY-MM-DD
-  state: 'checked' | 'missed' | 'future'
-  label?: string // optional: day number, tooltip, etc.
+  name: string
+  description?: string
+  visibility?: string
+  status?: string
+  duration_days?: number
+  members_count?: number
+  members_preview?: string[]
+  needs_code?: boolean
 }
 
-```
+Enrollment (from /me/dashboard and /me/enrollments/:id)
+type Enrollment = {
+  enrollment_id: string
+  name?: string
+  enrollment_name?: string
+  status: string
+  today_checked: boolean
 
-6) Data Flow (Where data comes from)
+  total_checkins?: number
+  current_streak?: number
+}
 
-Describe the real flow you use right now.
+Dashboard payload (from /me/dashboard)
+type DashboardResponse = {
+  user: User
+  date: string // display string
+  challenges: Array<{
+    enrollment_id: string
+    enrollment_name: string
+    status: string
+    today_checked: boolean
+  }>
+}
 
-Auth (Telegram)
+Enrollment detail payload (from /me/enrollments/:id)
+type EnrollmentDetailResponse = {
+  enrollment: Enrollment
+  challenge: Challenge
+  recent_logs: Array<{
+    daily_log_id: string
+    date: string // YYYY-MM-DD
+  }>
+}
 
-Frontend triggers backend login URL (Telegram OAuth-like flow)
+History summary (from /me/challenges/:id/history?days=)
+type HistoryResponse = {
+  summary: {
+    checked_days: number
+    total_days: number
+  }
+  // optionally may include daily list later
+}
 
-After user approves in Telegram, backend sets session/cookie or returns token
+Leaderboard payload (from /me/enrollments/:id/leaderboard)
+type LeaderboardResponse = {
+  overall: Array<{
+    enrollment_id?: string
+    name?: string
+    username?: string
+    total_checkins?: number
+    current_streak?: number
+  }>
+  today?: any[] // reserved for future
+}
 
-Frontend redirects back to /login?next=... then navigates to dashboard
+6) Data Flow
+Auth (Telegram session)
 
-Assumptions
+Frontend page: Login.vue
 
-Frontend treats auth as “session is valid if backend says so”
+Builds login URL: ${VITE_API_BASE}/login?next=...
 
-Token/session storage strategy:
+Backend handles Telegram widget flow + sets session cookie
 
- Cookie session
+Router guard checks auth by calling:
 
- LocalStorage token
+GET /me
 
- Other: ___________
+If unauthenticated:
 
-Challenge / Enrollment / Daily Logs
+Redirect to /login?next=<original path>
 
-Views request data via store/service
+Challenges / Join
 
-Store/service calls backend endpoints
+Challenges.vue
 
-UI receives normalized shapes
+GET /challenges → list
 
-Backend endpoints used by UI (fill with your real ones)
+POST /challenges/:challenge_id/join
 
-GET /challenges
+with { join_code } if invite-only
 
-GET /challenges/:id
+If joined, backend returns enrollment_id in list refresh (assumption)
 
-POST /enrollments (join)
+Dashboard
 
-GET /enrollments (my enrollments)
+Dashboard.vue
 
-GET /enrollments/:id/history (daily logs) OR GET /daily_logs?...
+GET /me/dashboard
 
-POST /checkin (create daily log)
+POST /me/challenges/:enrollmentId/checkin
+
+POST /logout → then redirect to ${BASE_URL}login
+
+Enrollment detail
+
+Enrollment.vue
+
+GET /me/enrollments/:id → enrollment + challenge + recent_logs
+
+GET /me/challenges/:id/history?days=<duration_days> → summary for progress bar
+
+POST /me/challenges/:id/checkin → then reload
+
+Leaderboard
+
+Leaderboard.vue
+
+GET /me/enrollments/:id/leaderboard
+
+Supports embedded render inside enrollment page:
+
+<Leaderboard :enrollment-id="enrollment.enrollment_id" embedded />
 
 7) State Management
 
-Pick what you actually use and keep it consistent.
+Default: Local state in views (ref/computed)
 
-Stores (if using Pinia)
+Pinia exists: src/stores/session.js
+Use it only for truly shared session/user state (optional; keep minimal).
 
-challengeStore
+Router guard is the primary “auth gate”.
 
-currentChallenge
+8) Date & Time Rules
 
-enrollments
+UI works with ISO YYYY-MM-DD for logs.
 
-dailyLogsByEnrollmentId (recommended)
+Backend should be source of truth for:
 
-actions:
+today_checked
 
-fetchChallenges()
+current_streak
 
-fetchEnrollments()
+total_checkins
 
-fetchHistory(enrollmentId)
+Timezone policy (v0.2 target):
 
-joinChallenge(challengeId)
+backend standardizes “today” consistently across endpoints.
 
-checkIn(enrollmentId, date?)
+9) UX States Contract
 
-If NOT using a store
+Every API-driven view/section must have:
 
-Document where shared state lives (composables, provide/inject, etc.)
+Loading (spinner/skeleton)
 
-8) Date & Time Rules (must be consistent)
+Empty state (friendly message)
 
-UI works with ISO date strings YYYY-MM-DD
+Error state (friendly + Retry)
 
-Date comparisons should be done with a single utility (avoid scattered logic)
+Disable actions while request in progress (prevent double submit)
 
-Timezone policy:
+Preferred pattern: UiState component.
 
- backend normalizes dates
+10) Development Loop
 
- frontend normalizes dates
+Each feature starts with a GitHub issue.
 
-Current assumption (recommended): backend normalizes
+Branch per issue: feature/issue-XX-short-name or fix/issue-XX-...
 
-daily_logs ordering:
+Small commits, PR merge (even solo).
 
- guaranteed sorted from backend
+Definition of Done:
 
- frontend sorts before mapping
+No console errors in normal flow
 
-9) UI Status & Color Conventions
+Desktop + Mobile screenshots in PR for touched pages
 
-These are semantic states. Actual colors come from theme/tokens.
-
-checked → success (green)
-
-missed → warning/neutral (gray or red — decide once)
-
-future → disabled (muted)
-
-Optional extra states (add only if needed):
-
-today highlight
-
-streak special glow
-
-late for out-of-window check-ins
-
-10) File Organization Rules
-
-Preferred structure:
-
-src/views/ pages only
-
-src/components/ reusable UI
-
-src/composables/ reusable logic/hooks (data mapping, fetch helpers)
-
-src/utils/ pure functions (dates, formatting)
-
-src/services/ API calls (axios/fetch wrappers)
-
-src/router/ route definitions
-
-11) Feature Development Loop (how we work)
-
-Each feature starts with a GitHub Issue using the team template
-
-Create a branch per issue: feature/issue-XX-...
-
-Implement with small commits
-
-Ask ChatGPT for:
-
-architecture proposal before coding
-
-edge-cases review after first implementation
-
-refactor suggestions before merge
-
-Merge via PR (even if solo)
-
-12) ChatGPT Role
+11) ChatGPT Role
 
 ChatGPT acts as:
 
-Senior frontend engineer
+Senior frontend engineer + UI consistency partner
 
-UI/UX + architecture partner
-
-Code reviewer & edge-case checker
+Architecture and edge-case reviewer
 
 ChatGPT should NOT:
 
-rewrite whole project without request
+introduce new libs unless needed
 
-introduce new libraries unless necessary
+rewrite whole structure without request
 
-ignore existing conventions in this contract
+ignore the conventions here
 
-
-
-### چطور ازش استفاده کنی تو هر چت جدید؟
-فقط اینو اول چت بنویس:
-
-
-```text
+How to use in new chats
 Project: RingoStrike
 Frontend Contract: docs/FRONTEND_CONTRACT.md (up to date)
 Feature: ...
