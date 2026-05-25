@@ -20,6 +20,13 @@ const router = createRouter({
     { path: "/", redirect: "/dashboard" },
     // (اختیاری) صفحه 404 واقعی بعداً می‌سازیم
     { path: "/:pathMatch(.*)*", redirect: "/dashboard" },
+    // اضافه کردن صفحه داکیومنت (بدون نیاز به لاگین برای راحتی خودت)
+    { 
+      path: '/docs', 
+      name: 'ApiDocs', 
+      component: () => import('../views/ApiDocsView.vue'),
+      meta: { requiresAuth: false } 
+    },
   ],
 });
 
