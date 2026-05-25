@@ -33,15 +33,18 @@ const router = createRouter({
 
 
 router.beforeEach(async (to) => {
-  // ✅ این صفحات نیاز به auth ندارند
-  if (to.path === "/login" || to.path === "/auth/callback") return true;
+  // 1. اگر مسیر صراحتاً گفته نیاز به لاگین ندارد، اجازه عبور بده
+  // این شامل /login, /auth/callback و /docs می‌شود
+  if (to.meta.requiresAuth === false) {
+    return true;
+  }
 
   try {
-    // ✅ اگر کوکی معتبر باشد 200 می‌دهد
+    // 2. برای بقیه مسیرها (که یا true هستند یا تعریف نشده‌اند) لاگین را چک کن
     await api.get("/me");
     return true;
   } catch (e) {
-    // ✅ اگر لاگین نیست، بفرست به login و مسیر مقصد را نگه دار
+    // 3. اگر لاگین نبود، بفرست به صفحه لاگین
     return { path: "/login", query: { next: to.fullPath } };
   }
 });
