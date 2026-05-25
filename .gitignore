@@ -8,6 +8,13 @@ backend/**/*.pyc
 backend/.venv/
 backend/venv/
 backend/instance/
+backend/users.db/
+
+# Database
+backend/*.db
+backend/*.db-journal
+backend/*.db-shm
+backend/*.db-wal
 
 # ENV (do NOT commit secrets)
 backend/.env
@@ -46,3 +53,4 @@ frontend/.env.development  # (اختیاری) اگر دوست داری کانف�
 *.swp
 *.swo
 *.swn
+
