@@ -126,10 +126,15 @@ async function loadDashboard() {
   loading.value = true;
 
   try {
-    const { data } = await api.get("/me/dashboard");
-    user.value = data.user;
-    date.value = data.date;
-    challenges.value = data.challenges || [];
+    // قبلاً:
+    // const { data } = await api.get("/me/dashboard");
+
+    // الان:
+    const { data } = await api.get("/me");
+
+    user.value = data;             // چون /me خودش هم user هم ok رو داره
+    date.value = new Date().toISOString(); // یا هرچی خودت بخوای
+    challenges.value = [];         // تا بعداً /me/challenges رو اضافه کنیم
   } catch (e) {
     error.value = e?.response?.data?.error || e?.message || String(e);
   } finally {
@@ -152,7 +157,7 @@ async function checkin(enrollmentId) {
 async function doLogout() {
   try {
     loggingOut.value = true;
-    await api.post("/logout");
+    await api.post("/auth/logout");
 
     // ✅ SPA navigate
     router.push("/login");

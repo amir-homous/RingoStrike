@@ -36,3 +36,13 @@ frontend/.env.development  # (اختیاری) اگر دوست داری کانف�
 # Editor
 .vscode/
 .idea/
+
+
+# Jupyter
+.ipynb_checkpoints/
+.jupyter/
+
+# Vim swap files
+*.swp
+*.swo
+*.swn

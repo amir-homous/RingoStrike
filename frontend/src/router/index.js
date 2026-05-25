@@ -6,13 +6,14 @@ import AuthCallback from "../views/AuthCallback.vue";
 import Enrollment from "../views/Enrollment.vue";
 import Leaderboard from "../views/Leaderboard.vue"
 import api from "../lib/api";
+import AuthForm from '../components/AuthForm.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
-    { path: "/login", component: Login },
+    { path: "/login", component: AuthForm,meta: { requiresAuth: false } },
     { path: "/auth/callback", component: AuthCallback },
-    { path: "/dashboard", component: Dashboard },
+    { path: "/dashboard", component: Dashboard ,meta: { requiresAuth: true }},
     { path: "/challenges", component: Challenges },
     { path: "/enrollment/:id", component: Enrollment, props: true },
     { path: "/enrollment/:id/leaderboard", component: Leaderboard, props: true },

@@ -9,9 +9,11 @@ from auth_telegram import verify_telegram_login
 from config import Config
 from notion_client import NotionClient
 from auth_telegram import verify_telegram_login
-
-
 from dotenv import load_dotenv
+
+from database import init_db
+from auth import register_auth_routes, require_auth, make_jwt
+
 load_dotenv()
 
 
@@ -30,6 +32,12 @@ CORS(app, supports_credentials=True, resources={
 })
 
 notion = NotionClient(app.config["NOTION_TOKEN"])
+
+# Initialize database
+init_db()
+
+# Register auth routes BEFORE other routes
+register_auth_routes(app)
 
 # -----------------------------
 # Helpers to read Notion props
@@ -254,9 +262,23 @@ def set_auth_cookie(resp, token: str):
     )
     return resp
 
+
+# این دکوراتور رو به این اسم تغییر بده:
+def login_required(func):
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        claims = require_auth() # از همون تابع کمکی استفاده می‌کنه
+        if not claims:
+            return jsonify({"ok": False, "error": "unauthorized"}), 401
+        return func(*args, **kwargs)
+    return wrapper
+
+
+# ✅ NOW YOUR OTHER ROUTES FOLLOW BELOW
 @app.get("/health")
 def health():
     return {"ok": True}
+
 
 FRONTEND_BASE_URL = os.getenv("FRONTEND_BASE_URL", "http://localhost:5173").rstrip("/")
 BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "").strip()
@@ -280,6 +302,8 @@ def find_user_by_telegram_id(telegram_id: str):
     res = notion.query_db(users_db, payload)
     results = res.get("results") or []
     return results[0] if results else None
+
+
 
 def create_user_in_notion(telegram_id: str, username: str | None, first_name: str | None, last_name: str | None):
     users_db = app.config.get("NOTION_USERS_DB_ID")
@@ -376,28 +400,6 @@ def auth_telegram():
     )
     return resp
 
-@app.post("/logout")
-def logout():
-    resp = make_response(jsonify({"ok": True}), 200)
-
-    cookie_name = app.config.get("JWT_COOKIE_NAME", "ringo_token")
-
-    secure_cookie = (os.getenv("JWT_COOKIE_SECURE", "1") == "1")
-    samesite = os.getenv("JWT_COOKIE_SAMESITE", "Lax")
-
-    # ✅ پاک کردن قطعی کوکی (با همان policy)
-    resp.set_cookie(
-        cookie_name,
-        "",
-        max_age=0,
-        expires=0,
-        httponly=True,
-        secure=secure_cookie,
-        samesite=samesite,
-        path="/",
-    )
-    return resp
-
 
 @app.get("/me")
 def me():
@@ -405,11 +407,34 @@ def me():
     if not claims:
         return jsonify({"ok": False, "error": "unauthorized"}), 401
 
+    # For local auth users (from database.py)
+    auth_method = claims.get("auth_method", "telegram")
+    
+    if auth_method == "local":
+        from database import get_user_by_id
+        user = get_user_by_id(claims["user_id"])
+        if not user:
+            return jsonify({"ok": False, "error": "user_not_found"}), 404
+        
+        return jsonify({
+            "ok": True,
+            "user_id": claims.get("user_id"),
+            "username": user.get("username"),
+            "name": user.get("name"),
+            "email": user.get("email"),
+            "auth_method": "local",
+            "registered": True,
+        })
+    
+    # For Telegram auth users (existing logic)
     return jsonify({
         "ok": True,
         "telegram_id": claims.get("telegram_id"),
         "user_id": claims.get("user_id"),
+        "telegram_username": claims.get("telegram_username"),
+        "first_name": claims.get("first_name"),
         "registered": claims.get("registered", False),
+        "auth_method": "telegram"
     })
 
 @app.get("/me/challenges")
@@ -512,7 +537,7 @@ BOT_USERNAME = os.getenv("TELEGRAM_BOT_USERNAME", "").strip()
 PUBLIC_BASE = os.getenv("PUBLIC_BASE_URL", "").rstrip("/")
 
 @app.get("/login")
-def login():
+def login_page():
     nxt = request.args.get("next", "/dashboard")
     auth_url = f"{PUBLIC_BASE}/auth/telegram?next={nxt}"
     return render_template("login.html", bot_username=BOT_USERNAME, auth_url=auth_url)
