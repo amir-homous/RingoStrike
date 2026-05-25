@@ -1,7 +1,7 @@
 import sqlite3
 import os
 from werkzeug.security import generate_password_hash, check_password_hash
-from datetime import datetime, timezone
+from datetime import datetime, timezone,timedelta
 
 DB_NAME = os.getenv("DB_PATH", "users.db")
 
@@ -47,6 +47,60 @@ def init_db():
                   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE)''')
     
+    c.execute("""
+            CREATE TABLE IF NOT EXISTS challenges (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                description TEXT,
+                visibility TEXT CHECK(visibility IN ('Public', 'Invite-only', 'Private')) DEFAULT 'Public',
+                status TEXT CHECK(status IN ('Active', 'Archived')) DEFAULT 'Active',
+                duration_days INTEGER,
+                join_code TEXT,
+                max_members INTEGER DEFAULT 0,
+                requires_proof INTEGER DEFAULT 0, -- 0 for False, 1 for True
+                checkin_method TEXT DEFAULT 'Manual', -- Manual, Auto, etc.
+                goal_type TEXT, -- e.g., 'Daily', 'Weekly'
+                tags TEXT -- ذخیره به صورت رشته کاما‌دار (Tag1,Tag2)
+            )
+            """)
+
+
+    # در تابع init_db جدول enrollments رو به این صورت اصلاح کن:
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS enrollments (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            challenge_id INTEGER NOT NULL,
+            status TEXT CHECK(status IN ('Active', 'Left')) DEFAULT 'Active',
+            role TEXT DEFAULT 'Member',
+            joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(user_id, challenge_id),
+            FOREIGN KEY(user_id) REFERENCES users(id),
+            FOREIGN KEY(challenge_id) REFERENCES challenges(id)
+        )
+        """)
+
+
+
+    c.execute("""
+    CREATE TABLE IF NOT EXISTS checkins (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        enrollment_id INTEGER NOT NULL,
+        user_id INTEGER NOT NULL,
+        challenge_id INTEGER NOT NULL,
+        date TEXT NOT NULL,              -- YYYY-MM-DD (UTC)
+        status TEXT DEFAULT 'Done',
+        notes TEXT,
+        source TEXT,
+        is_counted INTEGER NOT NULL DEFAULT 1,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        updated_at TEXT,
+        UNIQUE(enrollment_id, date),
+        FOREIGN KEY(enrollment_id) REFERENCES enrollments(id),
+        FOREIGN KEY(challenge_id) REFERENCES challenges(id)
+        );
+    """)
+
     conn.commit()
     conn.close()
     print("✅ Database initialized successfully")
@@ -202,3 +256,147 @@ def get_user_stats(user_id):
     row = c.fetchone()
     conn.close()
     return dict(row) if row else None
+
+
+#     # این تابع رو اضافه کن تا توی app.py استفاده کنی
+# def get_user_challenges(user_id):
+#     conn = get_db_connection()
+#     conn.row_factory = sqlite3.Row
+#     cur = conn.cursor()
+#     cur.execute('''SELECT e.id as enrollment_id, c.id as challenge_id, c.name as challenge_name, e.status 
+#                    FROM enrollments e 
+#                    JOIN challenges c ON e.challenge_id = c.id 
+#                    WHERE e.user_id = ?''', (user_id,))
+#     rows = cur.fetchall()
+#     conn.close()
+#     return rows
+def get_user_challenges(user_id):
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute('''
+        SELECT e.id as enrollment_id, c.id as challenge_id, c.name as challenge_name, e.status
+        FROM enrollments e
+        JOIN challenges c ON e.challenge_id = c.id
+        WHERE e.user_id = ?
+    ''', (user_id,))
+    rows = cur.fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+# # این تابع رو برای روتِ /me/challenges استفاده کن
+# def get_user_enrollments(user_id):
+#     conn = get_db_connection()
+#     # کوئری مشابه ساختار Notion برای برگردوندن آبجکت‌های مورد نیاز فرانت‌اند
+#     rows = conn.execute('''SELECT e.id as enrollment_id, c.id as challenge_id, c.name as challenge_name, e.status 
+#                            FROM enrollments e JOIN challenges c ON e.challenge_id = c.id 
+#                            WHERE e.user_id = ? AND e.status = 'Active' ''', (user_id,)).fetchall()
+#     conn.close()
+#     return rows
+
+def get_user_enrollments(user_id):
+    conn = get_db_connection()
+    rows = conn.execute('''
+        SELECT e.id as enrollment_id, c.id as challenge_id, c.name as challenge_name, e.status
+        FROM enrollments e
+        JOIN challenges c ON e.challenge_id = c.id
+        WHERE e.user_id = ? AND e.status = 'Active'
+    ''', (user_id,)).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def get_db_conn():
+    conn = get_db_connection()
+    conn.row_factory = sqlite3.Row
+    return conn
+
+# یک تابع جدید برای ثبت Checkin مطمئن
+def add_checkin(enrollment_id, user_id, challenge_id, date, notes=None):
+    conn = get_db_connection()
+    try:
+        conn.execute("""
+            INSERT INTO checkins (enrollment_id, user_id, challenge_id, date, notes)
+            VALUES (?, ?, ?, ?, ?)
+        """, (enrollment_id, user_id, challenge_id, date, notes))
+        conn.commit()
+        # بعد از ثبت، باید stats کاربر آپدیت بشه
+        update_user_stats_after_checkin(user_id)
+        return True
+    except sqlite3.IntegrityError:
+        return False # یعنی قبلاً ثبت شده
+    finally:
+        conn.close()
+
+def get_leaderboard(challenge_id):
+    conn = get_db_connection()
+    query = """
+    SELECT
+        u.id AS user_id,
+        u.name,
+        u.username,
+        us.current_streak,
+        us.longest_streak,
+        us.total_checkins,
+        us.total_points
+    FROM enrollments e
+    JOIN users u ON u.id = e.user_id
+    LEFT JOIN user_stats us ON us.user_id = u.id
+    WHERE e.challenge_id = ?
+      AND e.status = 'Active'
+    ORDER BY us.total_points DESC, us.current_streak DESC, us.total_checkins DESC, u.name ASC
+    """
+    rows = conn.execute(query, (challenge_id,)).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+def update_user_stats_after_checkin(user_id):
+    """
+    محاسبه خودکار استریک و امتیازات کاربر بعد از هر چک‌این
+    """
+    conn = get_db_connection()
+    c = conn.cursor()
+    
+    # ۱. دریافت تمام چک‌این‌های کاربر به ترتیب تاریخ
+    c.execute("""
+        SELECT date FROM checkins 
+        WHERE user_id = ? AND is_counted = 1 
+        ORDER BY date DESC
+    """, (user_id,))
+    dates = [row['date'] for row in c.fetchall()]
+    
+    if not dates:
+        return
+
+    # ۲. محاسبه Streak ساده
+    # فرض: تاریخ‌ها به فرمت YYYY-MM-DD هستند
+    current_streak = 0
+    today = datetime.now().strftime('%Y-%m-%d')
+    yesterday = (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d')
+    
+    # اگر آخرین چک‌این مال امروز یا دیروز بوده، استریک رو بشمار
+    if dates[0] >= yesterday:
+        count = 0
+        target_date = datetime.strptime(dates[0], '%Y-%m-%d')
+        
+        for d in dates:
+            d_obj = datetime.strptime(d, '%Y-%m-%d')
+            # اگر چک‌این‌ها پشت سر هم باشند (با اختلاف ۱ روز)
+            if (target_date - d_obj).days <= 1:
+                count += 1
+                target_date = d_obj
+            else:
+                break
+        current_streak = count
+
+    # ۳. آپدیت کردن جدول user_stats
+    c.execute("""
+        UPDATE user_stats 
+        SET current_streak = ?,
+            total_checkins = (SELECT COUNT(*) FROM checkins WHERE user_id = ?),
+            total_points = (total_checkins * 10), -- هر چک‌این ۱۰ امتیاز
+            updated_at = CURRENT_TIMESTAMP
+        WHERE user_id = ?
+    """, (current_streak, user_id, user_id))
+    
+    conn.commit()
+    conn.close()
