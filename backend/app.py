@@ -3,12 +3,11 @@ import os
 from urllib.parse import quote
 from flask_cors import CORS
 from flask import g,Flask, request,redirect, jsonify, render_template_string,render_template, make_response
-from datetime import datetime as dt, timedelta, timezone
+from datetime import datetime, timedelta, timezone
 import jwt
 import requests
 from auth_telegram import verify_telegram_login
 from config import Config
-from notion_client import NotionClient
 from auth_telegram import verify_telegram_login
 from dotenv import load_dotenv
 import sqlite3
@@ -40,7 +39,6 @@ CORS(app, supports_credentials=True, resources={
 @app.get("/health")
 def health():
     return {"ok": True}
-
 
 # --- توابع Helper جدید (جایگزین notion_*) ---
 def get_db():
@@ -338,8 +336,11 @@ def update_user_stats_after_checkin(user_id):
         # ۱. محاسبه کل چک‌این‌ها و امتیاز
         # نکته: امتیاز رو از کل چک‌این‌های کاربر می‌گیریم، نه فقط یک چالش
         points_row = conn.execute("""
-            SELECT COUNT(*) as total FROM checkins 
-            WHERE user_id = ? AND status = 'Done'
+            SELECT COUNT(*) as total
+            FROM checkins
+            WHERE user_id = ?
+            AND status = 'Done'
+            AND is_counted = 1
         """, (user_id,)).fetchone()
         
         total_checkins = int(points_row['total'] or 0)
@@ -349,39 +350,74 @@ def update_user_stats_after_checkin(user_id):
         # تمام تاریخ‌های چک‌این کاربر رو به ترتیب نزولی می‌گیریم
         rows = conn.execute("""
             SELECT DISTINCT date FROM checkins 
-            WHERE user_id = ? AND status = 'Done' 
+            WHERE user_id = ?
+            AND status = 'Done'
+            AND is_counted = 1
             ORDER BY date DESC
         """, (user_id,)).fetchall()
         
-        date_list = [r["date"] for r in rows]
+        date_list = [str(r["date"])[:10] for r in rows]
         
         # استفاده از همون تابع کمکی که توی لیدربورد داری
         current_streak = _calc_current_streak(date_list, today)
+        # calculate REAL historical longest streak
+        longest_streak = 0
+        temp_streak = 0
 
-        # ۳. پیدا کردن Longest Streak قدیمی برای مقایسه
-        user_row = conn.execute("SELECT longest_streak FROM users WHERE id = ?", (user_id,)).fetchone()
-        old_longest = int(user_row['longest_streak'] or 0) if user_row else 0
-        new_longest = max(old_longest, current_streak)
+    
+                
+    
 
-        # ۴. حالا غول مرحله آخر: آپدیت کردن هر دو جدول که خیالت راحت باشه
-        # آپدیت جدول users (منبع اصلی داشبورد)
-        conn.execute("""
-            UPDATE users 
-            SET total_points = ?, current_streak = ?, longest_streak = ?
-            WHERE id = ?
-        """, (total_points, current_streak, new_longest, user_id))
+        if date_list:
+
+            sorted_dates = sorted([
+                datetime.strptime(d, "%Y-%m-%d").date()
+                for d in date_list
+            ])
+
+            prev_date = None
+
+            for d in sorted_dates:
+
+                if prev_date is None:
+                    temp_streak = 1
+
+                elif (d - prev_date).days == 1:
+                    temp_streak += 1
+
+                else:
+                    temp_streak = 1
+
+                longest_streak = max(longest_streak, temp_streak)
+
+                prev_date = d
+
 
         # آپدیت یا اینسرت در user_stats (برای اطمینان)
         conn.execute("""
-            INSERT INTO user_stats (user_id, total_checkins, total_points, current_streak, longest_streak, updated_at)
+            INSERT INTO user_stats (
+                user_id,
+                total_checkins,
+                total_points,
+                current_streak,
+                longest_streak,
+                updated_at
+            )
             VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+
             ON CONFLICT(user_id) DO UPDATE SET
                 total_checkins = excluded.total_checkins,
                 total_points = excluded.total_points,
                 current_streak = excluded.current_streak,
                 longest_streak = excluded.longest_streak,
                 updated_at = CURRENT_TIMESTAMP
-        """, (user_id, total_checkins, total_points, current_streak, new_longest))
+        """, (
+            user_id,
+            total_checkins,
+            total_points,
+            current_streak,
+            longest_streak
+        ))
         
         conn.commit()
         print(f"✅ STATS SYNCED: User {user_id} | Streak: {current_streak} | Points: {total_points}")
@@ -541,7 +577,14 @@ def checkin(enrollment_id):
                                 (enrollment_id, date_iso)).fetchone()
 
         if existing:
-            conn.execute("UPDATE checkins SET status = 'Done' WHERE id = ?", (existing["id"],))
+            return jsonify({
+                "ok": False,
+                "error": "already_checked_in",
+                "error_obj": {
+                    "code": "already_checked_in",
+                    "message": "You've already checked in today"
+                }
+            }), 409
         else:
             conn.execute("""
                 INSERT INTO checkins (enrollment_id, user_id, challenge_id, date, status, is_counted) 
@@ -555,7 +598,13 @@ def checkin(enrollment_id):
         # نکته: تابع رو همین‌جا صدا می‌زنیم
         update_user_stats_after_checkin(user_id)
         
-        return jsonify({"ok": True, "message": "Check-in recorded"})
+        return jsonify({
+            "ok": True,
+            "mode": "created",
+            "enrollment_id": enrollment_id,
+            "challenge_id": challenge_id,
+            "date": date_iso
+        })
 
     except Exception as e:
         print(f"❌ Checkin Error: {e}")
@@ -566,7 +615,7 @@ def checkin(enrollment_id):
 
 
 
-from database import get_db_conn, get_user_enrollments,update_user_stats_after_checkin
+from database import get_db_conn, get_user_enrollments
 
 @app.get("/challenges")
 def list_challenges():
