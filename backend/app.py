@@ -1,10 +1,7 @@
-from functools import wraps
 import os
 from urllib.parse import quote
 from flask_cors import CORS
-from flask import g,Flask, request,redirect, jsonify, render_template_string,render_template, make_response
-from datetime import datetime as dt, timedelta, timezone
-import jwt
+from flask import g,Flask, request,redirect, jsonify, render_template_string,render_template
 import requests
 from auth_telegram import verify_telegram_login
 from config import Config
@@ -16,7 +13,8 @@ from database import get_user_challenges , get_db_connection
 from database import init_db
 from datetime import datetime, timedelta, timezone
 
-from auth import register_auth_routes, require_auth, make_jwt
+from services.auth_service import require_auth
+from routes.auth_routes import auth_bp
 
 load_dotenv()
 
@@ -60,7 +58,7 @@ def close_db(error):
 init_db()
 
 # Register auth routes BEFORE other routes
-register_auth_routes(app)
+app.register_blueprint(auth_bp)
 
 
 
@@ -226,103 +224,6 @@ def join_challenge(challenge_id):
     finally:
         conn.close()
 
-
-def make_jwt(payload: dict):
-    exp = dt.now(timezone.utc) + timedelta(days=7)
-    payload = dict(payload)
-    payload["exp"] = int(exp.timestamp())
-    return jwt.encode(payload, app.config["JWT_SECRET"], algorithm="HS256")
-
-def require_auth():
-    token = None
-
-    # 1) Try Cookie first (HttpOnly)
-    cookie_name = app.config.get("JWT_COOKIE_NAME", "ringo_token")
-    token = request.cookies.get(cookie_name)
-
-    # 2) Fallback to Authorization header Bearer
-    if not token:
-        auth = request.headers.get("Authorization", "")
-        if auth.lower().startswith("bearer "):
-            token = auth.split(" ", 1)[1].strip()
-
-    if not token:
-        return None
-
-    try:
-        claims = jwt.decode(token, app.config["JWT_SECRET"], algorithms=["HS256"])
-        return claims
-    except Exception:
-        return None
-
-
-def set_auth_cookie(resp, token: str):
-    cookie_name = app.config.get("JWT_COOKIE_NAME", "ringo_token")
-
-    # Dev: localhost => secure False
-    secure = (os.getenv("JWT_COOKIE_SECURE", "0") == "1")
-
-    samesite = os.getenv("JWT_COOKIE_SAMESITE", "Lax")
-
-    resp.set_cookie(
-        cookie_name,
-        token,
-        httponly=True,
-        secure=secure,
-        samesite=samesite,
-        max_age=7 * 24 * 3600,
-        path="/",
-    )
-    return resp
-
-
-# این دکوراتور رو به این اسم تغییر بده:
-def login_required(func):
-    @wraps(func)
-    def wrapper(*args, **kwargs):
-        claims = require_auth() # از همون تابع کمکی استفاده می‌کنه
-        if not claims:
-            return jsonify({"ok": False, "error": "unauthorized"}), 401
-        return func(*args, **kwargs)
-    return wrapper
-
-
-
-@app.get("/me")
-def me():
-    claims = require_auth()
-    if not claims:
-        return jsonify({"ok": False, "error": "unauthorized"}), 401
-
-    # For local auth users (from database.py)
-    auth_method = claims.get("auth_method", "telegram")
-    
-    if auth_method == "local":
-        from database import get_user_by_id
-        user = get_user_by_id(claims["user_id"])
-        if not user:
-            return jsonify({"ok": False, "error": "user_not_found"}), 404
-        
-        return jsonify({
-            "ok": True,
-            "user_id": claims.get("user_id"),
-            "username": user.get("username"),
-            "name": user.get("name"),
-            "email": user.get("email"),
-            "auth_method": "local",
-            "registered": True,
-        })
-    
-    # For Telegram auth users (existing logic)
-    return jsonify({
-        "ok": True,
-        "telegram_id": claims.get("telegram_id"),
-        "user_id": claims.get("user_id"),
-        "telegram_username": claims.get("telegram_username"),
-        "first_name": claims.get("first_name"),
-        "registered": claims.get("registered", False),
-        "auth_method": "telegram"
-    })
 
 def update_user_stats_after_checkin(user_id):
     from datetime import datetime, timedelta, timezone
