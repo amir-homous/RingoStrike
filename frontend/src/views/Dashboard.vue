@@ -64,7 +64,7 @@
 
                   <div class="badges">
                     <span class="badge">
-                      <span aria-hidden="true">{{ c.status === "active" ? "🟢" : "⚪️" }}</span>
+                      <span aria-hidden="true">{{ c.status === "Active" ? "🟢" : "⚪️" }}</span>
                       {{ c.status || "—" }}
                     </span>
 
@@ -126,16 +126,29 @@ async function loadDashboard() {
   loading.value = true;
 
   try {
-    const { data } = await api.get("/me/dashboard");
-    user.value = data.user;
-    date.value = data.date;
+    // گرفتن لیست چالش‌ها و استت‌های کاربر در یک درخواست (بهینه)
+    const { data } = await api.get("/me/challenges");
+    
+    // مقداردهی استت‌های کاربر از پاسخ جدید
+    if (data.user) {
+       user.value = {
+         ...data.user,
+         // اگر در جای دیگر از کد نیاز به اطلاعات پایه داری، اینجا ست کن
+       };
+    }
+
+    // اصلاح اینجا: در بک‌اِند اسمش challenges است نه items
     challenges.value = data.challenges || [];
+    
+    date.value = data.date || new Date().toLocaleDateString();
   } catch (e) {
+    console.error(e);
     error.value = e?.response?.data?.error || e?.message || String(e);
   } finally {
     loading.value = false;
   }
 }
+
 
 async function checkin(enrollmentId) {
   try {
@@ -152,7 +165,7 @@ async function checkin(enrollmentId) {
 async function doLogout() {
   try {
     loggingOut.value = true;
-    await api.post("/logout");
+    await api.post("/auth/logout");
 
     // ✅ SPA navigate
     router.push("/login");
