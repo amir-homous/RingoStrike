@@ -36,7 +36,7 @@
 
                   <div class="badges">
                     <span class="badge">
-                      <span aria-hidden="true">{{ ch.visibility === "public" ? "🔓" : "🔒" }}</span>
+                      <span aria-hidden="true">{{ ch.visibility === "public" ? "🔓" : "🔐" }}</span>
                       {{ ch.visibility || "—" }}
                     </span>
 
@@ -57,32 +57,48 @@
                 </p>
 
                 <div class="social">
-                  <span class="members">
-                    <span aria-hidden="true">👥</span>
-                    <b>{{ ch.members_count || 0 }}</b> members
-                  </span>
+                  <div class="members-row">
+                    <span class="members-badge">
+                      <span aria-hidden="true">👥</span>
+                      <b>{{ ch.members_count || 0 }}</b>
+                    </span>
 
-                  <span v-if="ch.members_preview?.length" class="caption">
-                    • e.g. {{ ch.members_preview.join(", ") }}
-                  </span>
-                  <span v-else class="caption">• Be the first!</span>
+                    <div class="members-details">
+                      <!-- اگر عضو داشتیم -->
+                      <template v-if="ch.members_count > 0">
+                        <span class="caption">
+                          Joined by 
+                          <span class="member-names">{{ ch.members_preview?.join(", ") }}</span>
+                          <span v-if="ch.members_count > 3" class="more-count">
+                            and {{ ch.members_count - 3 }} others
+                          </span>
+                        </span>
+                      </template>
+                      
+                      <!-- اگر خالی بود -->
+                      <span v-else class="caption italic">
+                        No one here yet. Be the first! 🚀
+                      </span>
+                    </div>
+                  </div>
                 </div>
 
-                <!-- Invite code -->
-                <div v-if="ch.needs_code && !ch.is_joined" class="inviteBox">
+
+                <!-- Invite code box: نمایش برای چالش‌های کد دار -->
+                <div v-if="(ch.visibility?.toLowerCase() === 'invite-only' || ch.needs_code) && !ch.is_joined" class="inviteBox">
                   <label class="capLabel" :for="`code-${ch.challenge_id}`">
                     <span aria-hidden="true">🔑</span> Invite code
                   </label>
 
                   <div class="inviteRow">
-                    <input :id="`code-${ch.challenge_id}`" v-model="codes[ch.challenge_id]" class="input"
-                      placeholder="Enter code" autocomplete="off" inputmode="text" />
-
-                    <span class="hint caption">
-                      Required
-                    </span>
+                    <input 
+                      :id="`code-${ch.challenge_id}`" 
+                      v-model="codes[ch.challenge_id]" 
+                      class="input"
+                      placeholder="Enter code..." 
+                      @keyup.enter="join(ch)"
+                    />
                   </div>
-
                   <div v-if="errors[ch.challenge_id]" class="err">
                     {{ humanizeError(errors[ch.challenge_id]) }}
                   </div>
@@ -160,20 +176,24 @@ async function load() {
 async function join(ch) {
   errors.value[ch.challenge_id] = "";
   joiningId.value = ch.challenge_id;
-
+  
+  // تشخیص اینکه آیا کد لازم است یا خیر
+  const isInviteOnly = ch.visibility?.toLowerCase() === 'invite-only' || ch.needs_code;
+  
   try {
-    if (ch.needs_code) {
+    let payload = {};
+    if (isInviteOnly) {
       const code = (codes.value[ch.challenge_id] || "").trim();
       if (!code) {
         errors.value[ch.challenge_id] = "invite_code_required";
+        joiningId.value = null; // متوقف کردن لودینگ
         return;
       }
-      await api.post(`/challenges/${ch.challenge_id}/join`, { join_code: code });
-    } else {
-      await api.post(`/challenges/${ch.challenge_id}/join`, {});
+      payload = { join_code: code };
     }
 
-    await load();
+    await api.post(`/challenges/${ch.challenge_id}/join`, payload);
+    await load(); // نوسازی لیست بعد از عضویت موفق
   } catch (e) {
     const msg = e?.response?.data?.error || e?.message || String(e);
     errors.value[ch.challenge_id] = msg;
@@ -182,9 +202,14 @@ async function join(ch) {
   }
 }
 
+
 function open(ch) {
-  // ✅ SPA navigation (بدون refresh)
-  router.push(`/enrollment/${ch.enrollment_id}`);
+  // دقت کن: enrollment_id از بک‌اند میاد و اینجا استفاده میشه
+  if (ch.enrollment_id) {
+    router.push(`/enrollment/${ch.enrollment_id}`);
+  } else {
+    console.error("Enrollment ID not found!", ch);
+  }
 }
 
 onMounted(load);
@@ -348,4 +373,54 @@ onMounted(load);
   color: rgba(255, 80, 80, 0.95);
   font-size: var(--cap);
 }
+
+.social {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.05); /* یک خط خیلی ملایم جداکننده */
+}
+
+.members-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.members-badge {
+  background: rgba(255, 255, 255, 0.08);
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #fff;
+}
+
+.members-details {
+  display: flex;
+  flex-direction: column;
+}
+
+.member-names {
+  color: var(--text-secondary); /* یا یک رنگ روشن‌تر */
+  font-weight: 500;
+}
+
+.more-count {
+  color: var(--primary-color); /* رنگ اصلی برندت */
+  font-size: 0.8rem;
+  margin-left: 4px;
+}
+
+.italic {
+  font-style: italic;
+  opacity: 0.7;
+}
+
+.caption {
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+
 </style>

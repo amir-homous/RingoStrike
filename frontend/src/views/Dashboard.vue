@@ -64,7 +64,7 @@
 
                   <div class="badges">
                     <span class="badge">
-                      <span aria-hidden="true">{{ c.status === "active" ? "🟢" : "⚪️" }}</span>
+                      <span aria-hidden="true">{{ c.status === "Active" ? "🟢" : "⚪️" }}</span>
                       {{ c.status || "—" }}
                     </span>
 
@@ -126,21 +126,29 @@ async function loadDashboard() {
   loading.value = true;
 
   try {
-    // قبلاً:
-    // const { data } = await api.get("/me/dashboard");
+    // گرفتن لیست چالش‌ها و استت‌های کاربر در یک درخواست (بهینه)
+    const { data } = await api.get("/me/challenges");
+    
+    // مقداردهی استت‌های کاربر از پاسخ جدید
+    if (data.user) {
+       user.value = {
+         ...data.user,
+         // اگر در جای دیگر از کد نیاز به اطلاعات پایه داری، اینجا ست کن
+       };
+    }
 
-    // الان:
-    const { data } = await api.get("/me");
-
-    user.value = data;             // چون /me خودش هم user هم ok رو داره
-    date.value = new Date().toISOString(); // یا هرچی خودت بخوای
-    challenges.value = [];         // تا بعداً /me/challenges رو اضافه کنیم
+    // اصلاح اینجا: در بک‌اِند اسمش challenges است نه items
+    challenges.value = data.challenges || [];
+    
+    date.value = data.date || new Date().toLocaleDateString();
   } catch (e) {
+    console.error(e);
     error.value = e?.response?.data?.error || e?.message || String(e);
   } finally {
     loading.value = false;
   }
 }
+
 
 async function checkin(enrollmentId) {
   try {

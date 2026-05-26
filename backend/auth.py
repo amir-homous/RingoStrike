@@ -147,7 +147,7 @@ def register_auth_routes(app):
 
 
     @app.post("/auth/login")
-    def login():
+    def auth_login():
         """Login with username and password"""
         data = request.get_json(silent=True) or {}
         

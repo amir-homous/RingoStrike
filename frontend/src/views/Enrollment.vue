@@ -92,11 +92,11 @@
 								<h2 class="h2">Leaderboard</h2>
 							</div>
 
-							<RouterLink class="ctaLink" :to="`/enrollment/${enrollment.enrollment_id}/leaderboard`">
-								<span class="ctaIcon" aria-hidden="true">📊</span>
-								View full
-								<span class="arrow" aria-hidden="true">→</span>
-							</RouterLink>
+							<!-- از /enrollment/ به /me/enrollments/ تغییر پیدا کرد -->
+							 <!-- فرض کنیم که 'id' متغیری در Vue هست که enrollment_id رو نگه می‌داره -->
+							<router-link :to="`/enrollment/${enrollment.enrollment_id}/leaderboard`">
+							View Full Leaderboard
+							</router-link>
 						</div>
 
 						<Leaderboard :enrollment-id="enrollment.enrollment_id" embedded />

@@ -11,16 +11,23 @@ import UiState from "@/components/ui/UiState.vue";
 const route = useRoute();
 
 const props = defineProps({
-    enrollmentId: { type: String, required: false },
-    embedded: { type: Boolean, default: false },   // ✅ جدید
+  id: { type: [String, Number], required: false },          // از router (props: true)
+  enrollmentId: { type: [String, Number], required: false }, // اگر جایی دستی پاس دادی
+  embedded: { type: Boolean, default: false },
 });
 
 const id = computed(() => {
-    const pid = props.enrollmentId;
-    if (pid) return pid;
-    const rid = route.params.id;
-    return typeof rid === "string" ? rid : "";
+  const pid = props.enrollmentId ?? props.id; // اولویت با prop
+  const rid = route.params.id;                // بعد route
+
+  console.log("DEBUG | Leaderboard id resolver => props.id =", props.id,
+              "props.enrollmentId =", props.enrollmentId,
+              "route.params.id =", rid);
+
+  const val = pid ?? rid;
+  return val == null ? "" : String(val);
 });
+
 
 const overall = ref([]);
 const today = ref([]); // فعلاً نگه می‌داریم برای آینده (Total + Streak/Today)
@@ -30,6 +37,9 @@ const errorText = computed(() => {
     if (error.value === "missing_id") return "Invalid leaderboard link (missing enrollment id).";
     return "Try again. If it keeps happening, the API might be down.";
 });
+
+
+
 
 async function fetchLeaderboard() {
     loading.value = true;

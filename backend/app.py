@@ -1,7 +1,8 @@
+from functools import wraps
 import os
 from urllib.parse import quote
 from flask_cors import CORS
-from flask import Flask, request,redirect, jsonify, render_template_string,render_template, make_response
+from flask import g,Flask, request,redirect, jsonify, render_template_string,render_template, make_response
 from datetime import datetime as dt, timedelta, timezone
 import jwt
 import requests
@@ -10,8 +11,11 @@ from config import Config
 from notion_client import NotionClient
 from auth_telegram import verify_telegram_login
 from dotenv import load_dotenv
-
+import sqlite3
+from database import get_user_challenges , get_db_connection
 from database import init_db
+from datetime import datetime, timedelta, timezone
+
 from auth import register_auth_routes, require_auth, make_jwt
 
 load_dotenv()
@@ -31,7 +35,26 @@ CORS(app, supports_credentials=True, resources={
     }
 })
 
-notion = NotionClient(app.config["NOTION_TOKEN"])
+
+# ✅ NOW YOUR OTHER ROUTES FOLLOW BELOW
+@app.get("/health")
+def health():
+    return {"ok": True}
+
+
+# --- توابع Helper جدید (جایگزین notion_*) ---
+def get_db():
+    """اتصال به دیتابیس در هر درخواست (Request Context)"""
+    if 'db' not in g:
+        g.db = get_db_connection()
+    return g.db
+
+@app.teardown_appcontext
+def close_db(error):
+    """بستن اتصال بعد از پایان درخواست"""
+    db = g.pop('db', None)
+    if db is not None:
+        db.close()
 
 # Initialize database
 init_db()
@@ -39,180 +62,170 @@ init_db()
 # Register auth routes BEFORE other routes
 register_auth_routes(app)
 
-# -----------------------------
-# Helpers to read Notion props
-# -----------------------------
-def notion_title(props: dict, key: str) -> str | None:
-    obj = props.get(key, {})
-    if not isinstance(obj, dict):
-        return None
-    if obj.get("type") == "title":
-        arr = obj.get("title", [])
-        if isinstance(arr, list):
-            return "".join([t.get("plain_text", "") for t in arr]).strip() or None
-    return None
-
-def notion_rich_text(props: dict, key: str) -> str | None:
-    obj = props.get(key, {})
-    if not isinstance(obj, dict):
-        return None
-    if obj.get("type") == "rich_text":
-        arr = obj.get("rich_text", [])
-        if isinstance(arr, list):
-            return "".join([t.get("plain_text", "") for t in arr]).strip() or None
-    return None
-
-def notion_select(props: dict, key: str) -> str | None:
-    obj = props.get(key, {})
-    if not isinstance(obj, dict):
-        return None
-    sel = obj.get("select")
-    if isinstance(sel, dict):
-        return sel.get("name")
-    return None
-
-def notion_number(props: dict, key: str) -> float | None:
-    obj = props.get(key, {})
-    if not isinstance(obj, dict):
-        return None
-    num = obj.get("number")
-    if isinstance(num, (int, float)):
-        return float(num)
-    return None
-
-def notion_status(props: dict, key: str) -> str | None:
-    obj = props.get(key, {})
-    if not isinstance(obj, dict):
-        return None
-    st = obj.get("status")
-    if isinstance(st, dict):
-        return st.get("name")
-    return None
-
-
-# -----------------------------
-# Configurable property names
-# -----------------------------
-CHALLENGE_DB = "NOTION_CHALLENGES_DB_ID"
-ENROLL_DB = "NOTION_ENROLLMENTS_DB_ID"
-
-# Challenges DB properties (adjust if your names differ)
-CH_NAME_PROP = "Name"               # title
-CH_VISIBILITY_PROP = "Visibility"   # select: Private/Invite-only/Public
-CH_STATUS_PROP = "Status"           # select (optional): Active/Archived
-CH_DESC_PROP = "Description"        # rich_text (optional)
-CH_DURATION_PROP = "Duration (days)"  # number (optional)
-CH_JOIN_CODE_PROP = "Join Code"     # rich_text (optional) for Invite-only
-
-# Enrollments DB properties (you already have these)
-EN_USERS_REL_PROP = "Users"         # relation
-EN_CHALLENGE_REL_PROP = "Challenges" # relation
-EN_STATUS_PROP = "Status"           # select: Active/Inactive/...
-EN_ROLE_PROP = "Role"               # select (optional)
-EN_JOIN_DATE_PROP = "Join Date"     # date (optional)
 
 
 @app.get("/challenges/public")
 def public_challenges():
-    ch_db = app.config.get(CHALLENGE_DB)
-    if not ch_db:
-        return jsonify({"ok": False, "error": f"{CHALLENGE_DB} missing in .env"}), 500
+    try:
+        db = get_db()
+        # استفاده از row_factory برای اینکه خروجی به صورت دیکشنری باشد (خوانا با نام ستون‌ها)
+        db.row_factory = sqlite3.Row
+        cursor = db.cursor()
 
-    # Only Public challenges
-    payload = {
-        "filter": {
-            "property": CH_VISIBILITY_PROP,
-            "select": {"equals": "Public"}
-        }
-    }
+        # کوئری برای دریافت چالش‌های عمومی
+        # فیلتر visibility مطابق ساختار جدول شما اعمال شده است
+        query = "SELECT * FROM challenges WHERE visibility = 'Public' AND status = 'Active'"
+        cursor.execute(query)
+        rows = cursor.fetchall()
 
-    res = notion.query_db(ch_db, payload)
-    results = res.get("results", [])
+        items = []
+        for row in rows:
+            # مپ کردن ستون‌های دیتابیس به ساختاری که فرانت‌اِند انتظار دارد
+            items.append({
+                "challenge_id": row['id'],
+                "name": row['name'],
+                "visibility": row['visibility'],
+                "status": row['status'],
+                "description": row['description'],
+                "duration_days": row['duration_days'],
+                # اگر در فرانت به join_code هم نیاز داری می‌تونی اینجا اضافه‌اش کنی:
+                # "join_code": row['join_code']
+            })
 
-    items = []
-    for page in results:
-        props = page.get("properties", {})
-
-        name = notion_title(props, CH_NAME_PROP)
-        visibility = notion_select(props, CH_VISIBILITY_PROP)
-        status = notion_select(props, CH_STATUS_PROP) if CH_STATUS_PROP in props else None
-        desc = notion_rich_text(props, CH_DESC_PROP) if CH_DESC_PROP in props else None
-        duration_days = notion_number(props, CH_DURATION_PROP) if CH_DURATION_PROP in props else None
-
-        items.append({
-            "challenge_id": page.get("id"),
-            "name": name,
-            "visibility": visibility,
-            "status": status,
-            "description": desc,
-            "duration_days": duration_days,
+        return jsonify({
+            "ok": True, 
+            "items": items
         })
 
-    return jsonify({"ok": True, "items": items})
+    except Exception as e:
+        # مدیریت خطا در صورت بروز مشکل در کوئری یا دیتابیس
+        return jsonify({
+            "ok": False, 
+            "error": str(e)
+        }), 500
 
 
-@app.post("/challenges/<challenge_id>/join")
+def _iso_to_date(s: str):
+    return datetime.strptime(s, "%Y-%m-%d").date()
+
+def _date_to_iso(d):
+    return d.isoformat()
+
+def _calc_current_streak(checkin_dates_iso, today_iso: str) -> int:
+    if not checkin_dates_iso:
+        return 0
+
+    s = set(checkin_dates_iso)
+    today = _iso_to_date(today_iso)
+    yesterday = today - timedelta(days=1)
+
+    anchor = today if today_iso in s else yesterday
+    if _date_to_iso(anchor) not in s:
+        return 0
+
+    streak = 0
+    d = anchor
+    while _date_to_iso(d) in s:
+        streak += 1
+        d = d - timedelta(days=1)
+    return streak
+
+
+
+@app.route("/challenges/<int:challenge_id>/join", methods=["POST"])
 def join_challenge(challenge_id):
     claims = require_auth()
+    
+    # اینجا دیباگ رو اضافه کن
+    print(f"DEBUG: Claims received: {claims}")
+    
     if not claims:
         return jsonify({"ok": False, "error": "unauthorized"}), 401
-    if not claims.get("registered"):
+        
+    if False: 
+        print(f"DEBUG: User {claims.get('user_id')} failed registration check")
         return jsonify({"ok": False, "error": "not_registered"}), 403
 
-    user_id = claims["user_id"]
-
-    enroll_db = app.config.get(ENROLL_DB)
-    if not enroll_db:
-        return jsonify({"ok": False, "error": f"{ENROLL_DB} missing in .env"}), 500
-
-    # Challenge رو بخونیم
-    ch_page = get_page(challenge_id)
-    ch_props = ch_page.get("properties", {}) or {}
-
-    visibility = notion_select(ch_props, CH_VISIBILITY_PROP) or "Private"
-    required_code = (notion_rich_text(ch_props, CH_JOIN_CODE_PROP) or "").strip()
-
-    if visibility == "Private":
-        return jsonify({"ok": False, "error": "challenge_private"}), 403
+    user_id = int(claims["user_id"])
 
     body = request.get_json(silent=True) or {}
     provided_code = str(body.get("join_code") or "").strip()
 
-    if visibility == "Invite-only":
-        if not required_code:
-            return jsonify({"ok": False, "error": "invite_only_not_configured"}), 403
-        if not provided_code:
-            return jsonify({"ok": False, "error": "join_code_required"}), 400
-        if provided_code != required_code:
-            return jsonify({"ok": False, "error": "invalid_join_code"}), 403
+    conn = get_db_connection()
+    try:
+        # چالش رو از DB بخون
+        ch = conn.execute(
+            "SELECT id, name, visibility, join_code, status FROM challenges WHERE id = ?",
+            (challenge_id,)
+        ).fetchone()
 
-    # Upsert Enrollment (اگر قبلاً عضو شده، دوباره نساز)
-    find_payload = {
-        "filter": {
-            "and": [
-                {"property": "Users", "relation": {"contains": user_id}},
-                {"property": "Challenges", "relation": {"contains": challenge_id}},
-            ]
-        },
-        "page_size": 1
-    }
-    existing = notion.query_db(enroll_db, find_payload).get("results", [])
-    if existing:
-        return jsonify({"ok": True, "mode": "existing", "enrollment_id": existing[0]["id"]})
+        if not ch:
+            return jsonify({"ok": False, "error": "challenge_not_found"}), 404
 
-    # Enrollment Name
-    ch_name = notion_title(ch_props, CH_NAME_PROP) or "Challenge"
-    title_text = f"{claims.get('telegram_username') or 'user'} in {ch_name}"
+        # اگر Archived بود نذار عضو بشه (اختیاری ولی منطقی)
+        if (ch["status"] or "Active") != "Active":
+            return jsonify({"ok": False, "error": "challenge_inactive"}), 403
 
-    create_props = {
-        "Name": {"title": [{"text": {"content": title_text}}]},
-        "Users": {"relation": [{"id": user_id}]},
-        "Challenges": {"relation": [{"id": challenge_id}]},
-        "Status": {"select": {"name": "Active"}},  # تو Enrollments معمولاً select هست
-    }
+        visibility = (ch["visibility"] or "Private").strip()
+        required_code = (ch["join_code"] or "").strip()
 
-    created = notion.create_page(enroll_db, create_props)
-    return jsonify({"ok": True, "mode": "created", "enrollment_id": created["id"], "challenge_id": challenge_id})
+        if visibility == "Private":
+            return jsonify({"ok": False, "error": "challenge_private"}), 403
+
+        if visibility == "Invite-only":
+            if not required_code:
+                return jsonify({"ok": False, "error": "invite_only_not_configured"}), 403
+            if not provided_code:
+                return jsonify({"ok": False, "error": "join_code_required"}), 400
+            if provided_code != required_code:
+                return jsonify({"ok": False, "error": "invalid_join_code"}), 403
+
+        # upsert enrollment:
+        # تلاش برای INSERT؛ اگر قبلاً عضو بوده UNIQUE خطا میده و میریم existing رو برمی‌گردونیم
+        try:
+            cur = conn.execute(
+                "INSERT INTO enrollments (user_id, challenge_id, status) VALUES (?, ?, 'Active')",
+                (user_id, challenge_id)
+            )
+            conn.commit()
+            enrollment_id = cur.lastrowid
+
+            return jsonify({
+                "ok": True,
+                "mode": "created",
+                "enrollment_id": enrollment_id,
+                "challenge_id": challenge_id
+            })
+        except sqlite3.IntegrityError:
+            row = conn.execute(
+                "SELECT id, status FROM enrollments WHERE user_id = ? AND challenge_id = ?",
+                (user_id, challenge_id)
+            ).fetchone()
+
+            # اگر قبلاً Left بوده، می‌تونی تصمیم بگیری reactivate کنی یا نه:
+            if row and row["status"] == "Left":
+                conn.execute(
+                    "UPDATE enrollments SET status='Active' WHERE id=?",
+                    (row["id"],)
+                )
+                conn.commit()
+                return jsonify({
+                    "ok": True,
+                    "mode": "reactivated",
+                    "enrollment_id": row["id"],
+                    "challenge_id": challenge_id
+                })
+
+            return jsonify({
+                "ok": True,
+                "mode": "existing",
+                "enrollment_id": row["id"] if row else None,
+                "challenge_id": challenge_id
+            })
+
+    finally:
+        conn.close()
+
 
 def make_jwt(payload: dict):
     exp = dt.now(timezone.utc) + timedelta(days=7)
@@ -274,132 +287,6 @@ def login_required(func):
     return wrapper
 
 
-# ✅ NOW YOUR OTHER ROUTES FOLLOW BELOW
-@app.get("/health")
-def health():
-    return {"ok": True}
-
-
-FRONTEND_BASE_URL = os.getenv("FRONTEND_BASE_URL", "http://localhost:5173").rstrip("/")
-BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "").strip()
-NOTION_TELEGRAM_PROP = os.getenv("NOTION_TELEGRAM_PROP", "telegramId").strip()
-
-def find_user_by_telegram_id(telegram_id: str):
-    users_db = app.config.get("NOTION_USERS_DB_ID")
-    if not users_db:
-        return None
-
-    prop = os.getenv("NOTION_TELEGRAM_PROP", "Telegram ID").strip()
-
-    payload = {
-        "filter": {
-            "property": prop,
-            "rich_text": {"equals": str(telegram_id)}
-        },
-        "page_size": 1
-    }
-
-    res = notion.query_db(users_db, payload)
-    results = res.get("results") or []
-    return results[0] if results else None
-
-
-
-def create_user_in_notion(telegram_id: str, username: str | None, first_name: str | None, last_name: str | None):
-    users_db = app.config.get("NOTION_USERS_DB_ID")
-    if not users_db:
-        return None
-
-    display_name = " ".join([x for x in [first_name, username] if x]) or f"tg:{telegram_id}"
-
-    props = {
-        "Name": {"title": [{"text": {"content": display_name}}]},
-        "Telegram ID": {"rich_text": [{"text": {"content": str(telegram_id)}}]},
-    }
-
-    # اینا تو schema تو هست، safe هستن (rich_text)
-    if username:
-        props["Telegram Username"] = {"rich_text": [{"text": {"content": username}}]}
-    if first_name or last_name:
-        full = " ".join([x for x in [first_name, last_name] if x]).strip()
-        if full:
-            props["Notes"] = {"rich_text": [{"text": {"content": f"Full name: {full}"}}]}
-
-    # Joined At (date) هم تو schema هست
-    props["Joined At"] = {"date": {"start": dt.now(timezone.utc).date().isoformat()}}
-
-    created = notion.create_page(users_db, props)
-    return created
-
-@app.route("/auth/telegram", methods=["GET"])
-def auth_telegram():
-    raw = request.args.to_dict(flat=True)
-
-    # ✅ next را جدا کن تا وارد verify نشود
-    nxt = raw.pop("next", "/ringostrike/dashboard")
-    # ✅ normalize next to avoid /ringostrike/ringostrike
-    if nxt.startswith("/ringostrike/"):
-        nxt = nxt[len("/ringostrike"):]  # تبدیل میشه به /dashboard
-    if nxt == "/ringostrike":
-        nxt = "/"
-
-    if not nxt.startswith("/"):
-        nxt = "/ringostrike/dashboard"
-
-    bot_token = os.getenv("TELEGRAM_BOT_TOKEN", "").strip()
-    if not bot_token:
-        return jsonify({"ok": False, "error": "bot_token_missing"}), 500
-
-    # ✅ verify فقط با داده‌های تلگرام (بدون next)
-    if not verify_telegram_login(raw, bot_token):
-        return jsonify({"ok": False, "error": "telegram_verify_failed"}), 400
-
-    telegram_id = str(raw.get("id") or "").strip()
-    telegram_username = (raw.get("username") or "").strip() or None
-    first_name = (raw.get("first_name") or "").strip() or None
-    last_name = (raw.get("last_name") or "").strip() or None
-
-    user_page = find_user_by_telegram_id(telegram_id)
-
-    if not user_page:
-        user_page = create_user_in_notion(
-            telegram_id=telegram_id,
-            username=telegram_username,
-            first_name=first_name,
-            last_name=last_name,
-        )
-
-    registered = bool(user_page)
-    user_id = user_page["id"] if user_page else None
-
-    claims = {
-        "telegram_id": telegram_id,
-        "telegram_username": telegram_username,
-        "first_name": first_name,
-        "last_name": last_name,
-        "registered": registered,
-        "user_id": user_id,
-    }
-
-    token = make_jwt(claims)
-
-    resp = redirect(f"{FRONTEND_BASE_URL}{nxt}")
-
-    cookie_name = os.getenv("JWT_COOKIE_NAME", "ringo_token")
-    secure_cookie = (os.getenv("JWT_COOKIE_SECURE", "1") == "1")
-    samesite = os.getenv("JWT_COOKIE_SAMESITE", "Lax")
-
-    resp.set_cookie(
-        cookie_name,
-        token,
-        httponly=True,
-        secure=secure_cookie,
-        samesite=samesite,
-        max_age=7 * 24 * 3600,
-        path="/",
-    )
-    return resp
-
 
 @app.get("/me")
 def me():
@@ -437,873 +324,315 @@ def me():
         "auth_method": "telegram"
     })
 
-@app.get("/me/challenges")
-def my_challenges():
-
-    claims = require_auth()
-    if not claims:
-        return jsonify({"ok": False, "error": "unauthorized"}), 401
-    if not claims.get("registered"):
-        return jsonify({"ok": True, "items": [], "note": "user_not_registered_in_notion"}), 200
-
-    user_id = claims["user_id"]
-    enroll_db = app.config["NOTION_ENROLLMENTS_DB_ID"]
-
-    USER_REL_PROP = "Users"
-    CHALLENGE_REL_PROP = "Challenges"
-    STATUS_PROP = "Status"
-
-    # ✅ فیلتر فقط Active
-    payload = {
-        "filter": {
-            "and": [
-                {"property": USER_REL_PROP, "relation": {"contains": user_id}},
-                {"property": STATUS_PROP, "select": {"equals": "Active"}},
-            ]
-        }
-    }
-
-    res = notion.query_db(enroll_db, payload)
-    results = res.get("results", [])
-
-    items = []
-    for page in results:
-        props = page.get("properties", {})
-
-        # status
-        status_name = None
-        status_obj = props.get(STATUS_PROP, {})
-        if isinstance(status_obj, dict):
-            sel = status_obj.get("select")
-            if isinstance(sel, dict):
-                status_name = sel.get("name")
-
-        # Enrollment title (Name)
-        enrollment_name = None
-        name_obj = props.get("Name", {})
-        if isinstance(name_obj, dict) and name_obj.get("type") == "title":
-            arr = name_obj.get("title", [])
-            if isinstance(arr, list):
-                enrollment_name = "".join([t.get("plain_text", "") for t in arr]).strip()
-
-        # relation ids (Challenges)
-        challenge_ids = []
-        rel_obj = props.get(CHALLENGE_REL_PROP, {})
-        if isinstance(rel_obj, dict):
-            rel = rel_obj.get("relation", [])
-            if isinstance(rel, list):
-                challenge_ids = [x.get("id") for x in rel if x.get("id")]
-
-        # ✅ pick first challenge (برای MVP)
-        challenge_id = challenge_ids[0] if challenge_ids else None
-        challenge_name = None
-        if challenge_id:
-            try:
-                challenge_name = fetch_page_title(challenge_id)
-            except Exception:
-                challenge_name = None
-
-        items.append({
-            "enrollment_id": page["id"],
-            "enrollment_name": enrollment_name,
-            "status": status_name,
-            "challenge_id": challenge_id,
-            "challenge_name": challenge_name,
-        })
-
-    return jsonify({"ok": True, "items": items})
-
-@app.get("/debug/notion/users")
-def debug_notion_users():
-    users_db = app.config["NOTION_USERS_DB_ID"]
-    payload = {"page_size": 3}
-    res = notion.query_db(users_db, payload)
-    return jsonify({
-        "ok": True,
-        "count": len(res.get("results", [])),
-        "sample_ids": [p["id"] for p in res.get("results", [])]
-    })
-
-@app.get("/debug/notion/challenges/schema")
-def debug_challenges_schema():
-    db_id = app.config["NOTION_CHALLENGES_DB_ID"]
-    url = f"https://api.notion.com/v1/databases/{db_id}"
-    r = requests.get(url, headers=notion.headers, timeout=30)
-    r.raise_for_status()
-    return r.json()
-
-
-BOT_USERNAME = os.getenv("TELEGRAM_BOT_USERNAME", "").strip()
-PUBLIC_BASE = os.getenv("PUBLIC_BASE_URL", "").rstrip("/")
-
-@app.get("/login")
-def login_page():
-    nxt = request.args.get("next", "/dashboard")
-    auth_url = f"{PUBLIC_BASE}/auth/telegram?next={nxt}"
-    return render_template("login.html", bot_username=BOT_USERNAME, auth_url=auth_url)
-
-@app.get("/debug/env")
-def debug_env():
-    return {
-        "has_notion_token": bool(app.config["NOTION_TOKEN"]),
-        "has_users_db": bool(app.config["NOTION_USERS_DB_ID"]),
-        "has_bot_token": bool(app.config["TELEGRAM_BOT_TOKEN"]),
-        "bot_username": app.config["TELEGRAM_BOT_USERNAME"],
-    }
-
-@app.get("/debug/notion/users/schema")
-def debug_users_schema():
-    db_id = app.config["NOTION_USERS_DB_ID"]
-    url = f"https://api.notion.com/v1/databases/{db_id}"
-    headers = notion.headers
-    r = requests.get(url, headers=headers, timeout=30)
-    r.raise_for_status()
-    data = r.json()
-    # فقط properties رو برگردونیم که سبک باشه
-    props = data.get("properties", {})
-    # خروجی: اسم property -> type
-    out = {name: props[name].get("type") for name in props.keys()}
-    return jsonify({"ok": True, "properties": out})
-
-@app.get("/debug/notion/enrollments/schema")
-def debug_enrollments_schema():
-    db_id = app.config["NOTION_ENROLLMENTS_DB_ID"]
-    url = f"https://api.notion.com/v1/databases/{db_id}"
-    headers = notion.headers
-    r = requests.get(url, headers=headers, timeout=30)
-    r.raise_for_status()
-    data = r.json()
-    props = data.get("properties", {})
-    out = {name: props[name].get("type") for name in props.keys()}
-    return jsonify({"ok": True, "properties": out})
-
-def fetch_page_title(page_id: str) -> str | None:
-    url = f"{notion.base}/pages/{page_id}"
-    r = requests.get(url, headers=notion.headers, timeout=30)
-    r.raise_for_status()
-    data = r.json()
-    props = data.get("properties", {})
-    for _, pobj in props.items():
-        if pobj.get("type") == "title":
-            arr = pobj.get("title", [])
-            return "".join([t.get("plain_text","") for t in arr]).strip()
-    return None
-
-@app.get("/debug/notion/dailylogs/schema")
-def debug_dailylogs_schema():
-    db_id = app.config.get("NOTION_DAILY_LOGS_DB_ID")
-    if not db_id:
-        return jsonify({"ok": False, "error": "NOTION_DAILY_LOGS_DB_ID missing in .env"}), 400
-
-    url = f"https://api.notion.com/v1/databases/{db_id}"
-    r = requests.get(url, headers=notion.headers, timeout=30)
-    r.raise_for_status()
-    data = r.json()
-    props = data.get("properties", {})
-    out = {name: props[name].get("type") for name in props.keys()}
-    return jsonify({"ok": True, "properties": out})
-
-def get_page(page_id: str):
-    return notion.retrieve_page(page_id)
-
-
-def enrollment_belongs_to_user(enrollment_page_id: str, user_page_id: str) -> bool:
-    page = get_page(enrollment_page_id)
-    props = page.get("properties", {})
-    rel = props.get("Users", {}).get("relation", [])
-    ids = [x.get("id") for x in rel if x.get("id")]
-    return user_page_id in ids
-
-def today_iso():
-    return dt.now(timezone.utc).date().isoformat()
-
-def notion_create_page(database_id: str, properties: dict):
-    url = f"{notion.base}/pages"
-    payload = {
-        "parent": {"database_id": database_id},
-        "properties": properties,
-    }
-    r = requests.post(url, headers=notion.headers, json=payload, timeout=30)
-    r.raise_for_status()
-    return r.json()
-
-def notion_update_page(page_id: str, properties: dict):
-    url = f"{notion.base}/pages/{page_id}"
-    payload = {"properties": properties}
-    r = requests.patch(url, headers=notion.headers, json=payload, timeout=30)
-    r.raise_for_status()
-    return r.json()
-
-def find_today_log(daily_db_id: str, enrollment_id: str, date_iso: str) -> str | None:
-    payload = {
-        "filter": {
-            "and": [
-                {"property": "Enrollment", "relation": {"contains": enrollment_id}},
-                {"property": "Date", "date": {"equals": date_iso}},
-            ]
-        },
-        "page_size": 1,
-        "sorts": [
-            {"property": "Check-in Time", "direction": "descending"}
-        ]
-    }
-    res = notion.query_db(daily_db_id, payload)
-    results = res.get("results", [])
-    if not results:
-        return None
-    return results[0]["id"]
-
-@app.post("/me/challenges/<enrollment_id>/checkin")
-def checkin(enrollment_id):
-    claims = require_auth()
-    if not claims:
-        return jsonify({"ok": False, "error": "unauthorized"}), 401
-    if not claims.get("registered"):
-        return jsonify({"ok": False, "error": "not_registered"}), 403
-
-    user_id = claims["user_id"]
-
-    # ✅ validate enrollment belongs to user
-    if not enrollment_belongs_to_user(enrollment_id, user_id):
-        return jsonify({"ok": False, "error": "forbidden_enrollment"}), 403
-
-    body = request.get_json(silent=True) or {}
-
-    # اختیاری‌ها
-    notes = (body.get("notes") or "").strip()
-    status = str(body.get("status") or "Done").strip()
-    source = str(body.get("source") or "Web App").strip()
-    is_counted = bool(body.get("is_counted", True))
-    telegram_msg_id = str(body.get("telegram_message_id") or "").strip()
-
-    # DB
-    daily_db = app.config["NOTION_DAILY_LOGS_DB_ID"]
-
-    # --- helpers (local) ---
-    def notion_update_page(page_id: str, properties: dict):
-        url = f"{notion.base}/pages/{page_id}"
-        payload = {"properties": properties}
-        r = requests.patch(url, headers=notion.headers, json=payload, timeout=30)
-        r.raise_for_status()
-        return r.json()
-
-    def find_today_log(daily_db_id: str, enrollment_page_id: str, date_iso: str) -> str | None:
-        payload = {
-            "filter": {
-                "and": [
-                    {"property": "Enrollment", "relation": {"contains": enrollment_page_id}},
-                    {"property": "Date", "date": {"equals": date_iso}},
-                ]
-            },
-            "page_size": 1,
-            "sorts": [{"property": "Check-in Time", "direction": "descending"}]
-        }
-        res = notion.query_db(daily_db_id, payload)
-        results = res.get("results", [])
-        if not results:
-            return None
-        return results[0]["id"]
-
-    def sync_user_stats(user_page_id: str):
-        """
-        Sync Current Streak + Longest Streak روی Users DB
-        معیار: Daily Logs با Users relation شامل user_page_id و Is Counted = True
-        """
-        try:
-            payload = {
-                "filter": {
-                    "and": [
-                        {"property": "Users", "relation": {"contains": user_page_id}},
-                        {"property": "Is Counted", "checkbox": {"equals": True}},
-                    ]
-                },
-                "page_size": 100
-            }
-
-            # pagination-safe (اگر notion_query_all داری بهتره، ولی این هم برای MVP کافیه)
-            res = notion.query_db(daily_db, payload)
-            pages = res.get("results", []) or []
-
-            dates = set()
-            for page in pages:
-                props = page.get("properties", {}) or {}
-                d = (props.get("Date", {}) or {}).get("date", {})
-                d = d.get("start") if isinstance(d, dict) else None
-                if d:
-                    dates.add(d)
-
-            # current streak (UTC)
-            from datetime import datetime as dt, timezone, timedelta
-            cur = dt.now(timezone.utc).date()
-            current = 0
-            while True:
-                ds = cur.isoformat()
-                if ds in dates:
-                    current += 1
-                    cur = cur - timedelta(days=1)
-                else:
-                    break
-
-            # longest streak
-            if not dates:
-                longest = 0
-            else:
-                from datetime import datetime as dt
-                sorted_days = sorted(dates)
-                longest = 1
-                run = 1
-                prev = dt.fromisoformat(sorted_days[0]).date()
-                for s in sorted_days[1:]:
-                    d = dt.fromisoformat(s).date()
-                    if (d - prev).days == 1:
-                        run += 1
-                        longest = max(longest, run)
-                    else:
-                        run = 1
-                    prev = d
-
-            notion_update_page(enrollment_id, {
-                "Total Check-ins": {"number": int(total_checkins)},
-                "Current Streak in Challenge": {"number": int(current_streak)},
-                "Progress %": {"number": float(progress_percent)},  # اگر درصد عددی داری
-            })
-
-            return {"current_streak": current, "longest_streak": longest}
-        except Exception as ex:
-            app.logger.exception("Failed syncing user stats: %s", ex)
-            return None
-
-    # Challenge ID را از خود enrollment درمیاریم
-    enrollment_page = get_page(enrollment_id)
-    eprops = enrollment_page.get("properties", {}) or {}
-    challenge_rel = (eprops.get("Challenges", {}) or {}).get("relation", [])
-    challenge_ids = [x.get("id") for x in challenge_rel if x.get("id")]
-    challenge_id = challenge_ids[0] if challenge_ids else None
-
-    # Title (Name) برای لاگ
-    date_iso = today_iso()
-    title_text = f"Check-in {date_iso}"
-
-    # properties برای create/update
-    props = {
-        "Name": {"title": [{"text": {"content": title_text}}]},
-        "Date": {"date": {"start": date_iso}},
-        "Users": {"relation": [{"id": user_id}]},
-        "Enrollment": {"relation": [{"id": enrollment_id}]},
-        "Is Counted": {"checkbox": is_counted},
-    }
-
-    # وصل کردن challenge اگر داشت
-    if challenge_id:
-        props["Challenges"] = {"relation": [{"id": challenge_id}]}
-
-    # Notes
-    if notes:
-        props["Notes"] = {"rich_text": [{"text": {"content": notes}}]}
-
-    # Status
-    if status:
-        props["Status"] = {"select": {"name": status}}
-
-    # Source
-    if source:
-        props["Source"] = {"select": {"name": source}}
-
-    # Telegram message id (optional)
-    if telegram_msg_id:
-        props["Message ID (Telegram)"] = {"rich_text": [{"text": {"content": telegram_msg_id}}]}
-
-    # ✅ UPSERT: اگر برای امروز موجود بود → update، نبود → create
-    existing_log_id = find_today_log(daily_db, enrollment_id, date_iso)
-
-    user_stats_synced = None
-
-    if existing_log_id:
-        updated = notion_update_page(existing_log_id, props)
-
-        # ✅ بعد از update هم آمار enrollment رو دوباره محاسبه و sync می‌کنیم
-        try:
-            total_checkins, current_streak = compute_enrollment_stats(enrollment_id, daily_db)
-
-            duration_days = None
-            if challenge_id:
-                ch_page = get_page(challenge_id)
-                ch_props = ch_page.get("properties", {}) or {}
-                duration_days = notion_number(ch_props, "Duration (days)")
-
-            if duration_days and duration_days > 0:
-                pct = round((total_checkins / duration_days) * 100)
-                progress_text = f"{total_checkins}/{duration_days} ({pct}%)"
-            else:
-                progress_text = str(total_checkins)
-
-            notion_update_page(enrollment_id, {
-                "Total Check-ins": {"rich_text": [{"text": {"content": str(total_checkins)}}]},
-                "Progress %": {"rich_text": [{"text": {"content": progress_text}}]},
-                "Current Streak in Challenge": {"rich_text": [{"text": {"content": str(current_streak)}}]},
-            })
-        except Exception as ex:
-            app.logger.exception("Failed updating enrollment stats (update mode): %s", ex)
-
-        # ✅ Sync user streaks (Users DB)
-        user_stats_synced = sync_user_stats(user_id)
-
-        return jsonify({
-            "ok": True,
-            "mode": "updated",
-            "daily_log_id": updated["id"],
-            "enrollment_id": enrollment_id,
-            "challenge_id": challenge_id,
-            "date": date_iso,
-            "status": status,
-            "is_counted": is_counted,
-            "user_stats": user_stats_synced,
-        })
-
-    created = notion_create_page(daily_db, props)
-
-    # ✅ بعد از create هم آمار enrollment رو دوباره محاسبه و sync می‌کنیم
+def update_user_stats_after_checkin(user_id):
+    from datetime import datetime, timedelta, timezone
+    import sqlite3
+    
+    conn = get_db_connection() 
+    conn.row_factory = sqlite3.Row
+    
     try:
-        total_checkins, current_streak = compute_enrollment_stats(enrollment_id, daily_db)
+        user_id = int(user_id)
+        today = utc_today_iso() # استفاده از همون تابعی که لیدربورد استفاده می‌کنه
 
-        duration_days = None
-        if challenge_id:
-            ch_page = get_page(challenge_id)
-            ch_props = ch_page.get("properties", {}) or {}
-            duration_days = notion_number(ch_props, "Duration (days)")
+        # ۱. محاسبه کل چک‌این‌ها و امتیاز
+        # نکته: امتیاز رو از کل چک‌این‌های کاربر می‌گیریم، نه فقط یک چالش
+        points_row = conn.execute("""
+            SELECT COUNT(*) as total FROM checkins 
+            WHERE user_id = ? AND status = 'Done'
+        """, (user_id,)).fetchone()
+        
+        total_checkins = int(points_row['total'] or 0)
+        total_points = total_checkins * 10 
 
-        if duration_days and duration_days > 0:
-            pct = round((total_checkins / duration_days) * 100)
-            progress_text = f"{total_checkins}/{duration_days} ({pct}%)"
-        else:
-            progress_text = str(total_checkins)
+        # ۲. محاسبه استریک (دقیقاً مثل منطق لیدربورد)
+        # تمام تاریخ‌های چک‌این کاربر رو به ترتیب نزولی می‌گیریم
+        rows = conn.execute("""
+            SELECT DISTINCT date FROM checkins 
+            WHERE user_id = ? AND status = 'Done' 
+            ORDER BY date DESC
+        """, (user_id,)).fetchall()
+        
+        date_list = [r["date"] for r in rows]
+        
+        # استفاده از همون تابع کمکی که توی لیدربورد داری
+        current_streak = _calc_current_streak(date_list, today)
 
-        notion_update_page(enrollment_id, {
-            "Total Check-ins": {"rich_text": [{"text": {"content": str(total_checkins)}}]},
-            "Progress %": {"rich_text": [{"text": {"content": progress_text}}]},
-            "Current Streak in Challenge": {"rich_text": [{"text": {"content": str(current_streak)}}]},
-        })
-    except Exception as ex:
-        app.logger.exception("Failed updating enrollment stats (create mode): %s", ex)
+        # ۳. پیدا کردن Longest Streak قدیمی برای مقایسه
+        user_row = conn.execute("SELECT longest_streak FROM users WHERE id = ?", (user_id,)).fetchone()
+        old_longest = int(user_row['longest_streak'] or 0) if user_row else 0
+        new_longest = max(old_longest, current_streak)
 
-    # ✅ Sync user streaks (Users DB)
-    user_stats_synced = sync_user_stats(user_id)
+        # ۴. حالا غول مرحله آخر: آپدیت کردن هر دو جدول که خیالت راحت باشه
+        # آپدیت جدول users (منبع اصلی داشبورد)
+        conn.execute("""
+            UPDATE users 
+            SET total_points = ?, current_streak = ?, longest_streak = ?
+            WHERE id = ?
+        """, (total_points, current_streak, new_longest, user_id))
 
-    return jsonify({
-        "ok": True,
-        "mode": "created",
-        "daily_log_id": created["id"],
-        "enrollment_id": enrollment_id,
-        "challenge_id": challenge_id,
-        "date": date_iso,
-        "status": status,
-        "is_counted": is_counted,
-        "user_stats": user_stats_synced,
-    })
+        # آپدیت یا اینسرت در user_stats (برای اطمینان)
+        conn.execute("""
+            INSERT INTO user_stats (user_id, total_checkins, total_points, current_streak, longest_streak, updated_at)
+            VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+            ON CONFLICT(user_id) DO UPDATE SET
+                total_checkins = excluded.total_checkins,
+                total_points = excluded.total_points,
+                current_streak = excluded.current_streak,
+                longest_streak = excluded.longest_streak,
+                updated_at = CURRENT_TIMESTAMP
+        """, (user_id, total_checkins, total_points, current_streak, new_longest))
+        
+        conn.commit()
+        print(f"✅ STATS SYNCED: User {user_id} | Streak: {current_streak} | Points: {total_points}")
+        
+    except Exception as e:
+        print(f"❌ STATS ERROR: {str(e)}")
+    finally:
+        conn.close()
 
 
-@app.get("/debug/notion/schema/<db_key>")
-def debug_notion_schema(db_key):
-    # مثال: db_key = "users" یا "challenges" یا "enrollments" یا "daily_logs"
-    mapping = {
-        "users": "NOTION_USERS_DB_ID",
-        "challenges": "NOTION_CHALLENGES_DB_ID",
-        "enrollments": "NOTION_ENROLLMENTS_DB_ID",
-        "daily_logs": "NOTION_DAILY_LOGS_DB_ID",
-    }
 
-    env_key = mapping.get(db_key)
-    if not env_key:
-        return jsonify({"ok": False, "error": "invalid_db_key"}), 400
 
-    db_id = app.config.get(env_key)
-    if not db_id:
-        return jsonify({"ok": False, "error": f"{env_key} missing in .env"}), 500
 
-    db = notion.retrieve_database(db_id)
-    props = db.get("properties", {}) or {}
-
-    simplified = {}
-    for k, v in props.items():
-        if isinstance(v, dict):
-            simplified[k] = v.get("type")
-
-    return jsonify({"ok": True, "db_key": db_key, "properties": simplified})
-
-def notion_title_text(props: dict, key: str) -> str | None:
-    obj = props.get(key, {})
-    if not isinstance(obj, dict):
-        return None
-    if obj.get("type") == "title":
-        arr = obj.get("title", [])
-        if isinstance(arr, list):
-            return "".join([t.get("plain_text", "") for t in arr]).strip() or None
-    return None
-
-def notion_select_name(props: dict, key: str) -> str | None:
-    obj = props.get(key, {})
-    if not isinstance(obj, dict):
-        return None
-    sel = obj.get("select")
-    if isinstance(sel, dict):
-        return sel.get("name")
-    return None
-
-def notion_title_text(props: dict, key: str) -> str | None:
-    obj = props.get(key, {})
-    if not isinstance(obj, dict):
-        return None
-    if obj.get("type") == "title":
-        arr = obj.get("title", [])
-        if isinstance(arr, list):
-            return "".join([t.get("plain_text", "") for t in arr]).strip() or None
-    return None
-
-def notion_rich_text(props: dict, key: str) -> str | None:
-    obj = props.get(key, {})
-    if not isinstance(obj, dict):
-        return None
-    if obj.get("type") == "rich_text":
-        arr = obj.get("rich_text", [])
-        if isinstance(arr, list):
-            return "".join([t.get("plain_text", "") for t in arr]).strip() or None
-    return None
-
-def notion_select_name(props: dict, key: str) -> str | None:
-    obj = props.get(key, {})
-    if not isinstance(obj, dict):
-        return None
-    sel = obj.get("select")
-    if isinstance(sel, dict):
-        return sel.get("name")
-    return None
-
-def notion_number(props: dict, key: str) -> float | None:
-    obj = props.get(key, {})
-    if not isinstance(obj, dict):
-        return None
-    num = obj.get("number")
-    if isinstance(num, (int, float)):
-        return float(num)
-    return None
-
-def notion_status_name(props: dict, key: str) -> str | None:
-    obj = props.get(key, {})
-    if not isinstance(obj, dict):
-        return None
-    st = obj.get("status")
-    if isinstance(st, dict):
-        return st.get("name")
-    return None
-
-def notion_date_start(props: dict, key: str) -> str | None:
-    obj = props.get(key, {})
-    if not isinstance(obj, dict):
-        return None
-    dt = obj.get("date")
-    if isinstance(dt, dict):
-        return dt.get("start")
-    return None
-
-@app.get("/me/dashboard")
+@app.get("/me/challenges")
 def me_dashboard():
     claims = require_auth()
     if not claims:
         return jsonify({"ok": False, "error": "unauthorized"}), 401
 
-    if not claims.get("registered"):
-        return jsonify({"ok": False, "error": "not_registered"}), 403
+    user_id = int(claims["user_id"])
+    today = utc_today_iso()
+    
+    # همگام‌سازی لحظه‌ای قبل از نمایش
+    update_user_stats_after_checkin(user_id)
 
-    user_id = claims["user_id"]
+    conn = get_db_connection()
+    conn.row_factory = sqlite3.Row
+    
+    try:
+        # تغییر در کوئری داشبورد برای خواندن از user_stats
+        user_info = conn.execute("""
+            SELECT 
+                u.name, 
+                u.username, 
+                CAST(IFNULL(s.total_points, 0) AS INTEGER) as total_points, 
+                CAST(IFNULL(s.current_streak, 0) AS INTEGER) as current_streak, 
+                CAST(IFNULL(s.longest_streak, 0) AS INTEGER) as longest_streak 
+            FROM users u
+            LEFT JOIN user_stats s ON u.id = s.user_id
+            WHERE u.id = ?
+        """, (user_id,)).fetchone()
 
-    users_db = app.config.get("NOTION_USERS_DB_ID")
-    enroll_db = app.config.get("NOTION_ENROLLMENTS_DB_ID")
-    daily_db = app.config.get("NOTION_DAILY_LOGS_DB_ID")
+        if not user_info:
+            return jsonify({"ok": False, "error": "user_not_found"}), 404
 
-    if not users_db:
-        return jsonify({"ok": False, "error": "NOTION_USERS_DB_ID missing in .env"}), 500
-    if not enroll_db:
-        return jsonify({"ok": False, "error": "NOTION_ENROLLMENTS_DB_ID missing in .env"}), 500
-    if not daily_db:
-        return jsonify({"ok": False, "error": "NOTION_DAILY_LOGS_DB_ID missing in .env"}), 500
+        # دریافت لیست چالش‌ها و وضعیت چک‌این امروز
+        rows = conn.execute("""
+            SELECT 
+                e.id AS enrollment_id,
+                c.name AS enrollment_name,
+                e.status AS status,
+                c.id AS challenge_id
+            FROM enrollments e
+            JOIN challenges c ON e.challenge_id = c.id
+            WHERE e.user_id = ? AND e.status = 'Active'
+        """, (user_id,)).fetchall()
 
-    # -------------------------
-    # 1) Get user page (minimal)
-    # -------------------------
-    user_page = get_page(user_id)
-    uprops = user_page.get("properties", {}) or {}
+        challenge_items = []
+        for r in rows:
+            checkin = conn.execute("""
+                SELECT 1 FROM checkins 
+                WHERE enrollment_id = ? AND date = ? AND status = 'Done'
+                LIMIT 1
+            """, (r['enrollment_id'], today)).fetchone()
+            
+            challenge_items.append({
+                "enrollment_id": r['enrollment_id'],
+                "enrollment_name": r['enrollment_name'],
+                "status": r['status'],
+                "challenge_id": r['challenge_id'],
+                "today_checked": bool(checkin)
+            })
 
-    user_name = notion_title_text(uprops, "Name")
-    total_points = notion_rich_text(uprops, "Total Points")
-    current_streak = notion_rich_text(uprops, "Current Streak")
-    longest_streak = notion_rich_text(uprops, "Longest Streak")
-
-    # -------------------------
-    # 2) Get enrollments of user
-    #    (کم‌هزینه: فقط Relation filter)
-    # -------------------------
-    enroll_payload = {
-        "filter": {
-            "property": "Users",
-            "relation": {"contains": user_id}
-        },
-        "page_size": 50  # اگر خیلی زیاد شد بعداً pagination می‌زنیم
-    }
-    enroll_res = notion.query_db(enroll_db, enroll_payload)
-    enrollments = enroll_res.get("results", [])
-
-    # فقط داده‌های ضروری هر enrollment
-    enrollment_items = []
-    enrollment_ids = set()
-
-    for e in enrollments:
-        eprops = e.get("properties", {}) or {}
-
-        enrollment_id = e.get("id")
-        enrollment_ids.add(enrollment_id)
-
-        # Status (select)
-        status_name = notion_select_name(eprops, "Status")
-
-        # Enrollment title
-        enrollment_name = notion_title_text(eprops, "Name")
-
-        # Challenge relation id (اولی)
-        challenge_id = None
-        rel = eprops.get("Challenges", {}).get("relation", [])
-        if isinstance(rel, list) and rel:
-            challenge_id = rel[0].get("id")
-
-        enrollment_items.append({
-            "enrollment_id": enrollment_id,
-            "enrollment_name": enrollment_name,
-            "status": status_name,
-            "challenge_id": challenge_id,
-            # today_checked بعداً ست میشه
-            "today_checked": False,
-            "today_daily_log_id": None,
+        return jsonify({
+            "ok": True,
+            "date": today,
+            "user": {
+                "name": user_info['name'],
+                "stats": {
+                    "total_points": user_info['total_points'],
+                    "current_streak": user_info['current_streak'],
+                    "longest_streak": user_info['longest_streak']
+                }
+            },
+            "challenges": challenge_items
         })
+    finally:
+        conn.close()
 
-    # -------------------------
-    # 3) Get today's daily logs for user (ONE query)
-    # -------------------------
-    t = today_iso()
 
-    daily_payload = {
-        "filter": {
-            "and": [
-                {"property": "Users", "relation": {"contains": user_id}},
-                {"property": "Date", "date": {"equals": t}},
-            ]
-        },
-        "page_size": 100
-    }
-    daily_res = notion.query_db(daily_db, daily_payload)
-    logs_today = daily_res.get("results", [])
 
-    # Map enrollment_id -> daily_log_id (از روی relation Enrollment)
-    today_map = {}
-    for log in logs_today:
-        lprops = log.get("properties", {}) or {}
-        rel = lprops.get("Enrollment", {}).get("relation", [])
-        if isinstance(rel, list) and rel:
-            eid = rel[0].get("id")
-            if eid:
-                today_map[eid] = log.get("id")
 
-    # apply today_map to enrollment_items
-    for item in enrollment_items:
-        eid = item["enrollment_id"]
-        if eid in today_map:
-            item["today_checked"] = True
-            item["today_daily_log_id"] = today_map[eid]
 
+# --- Endpointهای دیباگ (SQLite-only) ---
+@app.get("/debug/sqlite/schema/<table>")
+def debug_sqlite_schema(table):
+    # محدود کردن جداول مجاز برای امنیت
+    allowed = {"users", "challenges", "enrollments", "checkins", "user_stats", "sessions"}
+    if table not in allowed:
+        return jsonify({"ok": False, "error": "table_not_allowed"}), 400
+    
+    conn = get_db()
+    # گرفتن اطلاعات ستون‌ها
+    cols = conn.execute(f"PRAGMA table_info({table})").fetchall()
     return jsonify({
-        "ok": True,
-        "date": t,
-        "user": {
-            "user_id": user_id,
-            "name": user_name,
-            "stats": {
-                "total_points": total_points,
-                "current_streak": current_streak,
-                "longest_streak": longest_streak
-            }
-        },
-        "challenges": enrollment_items
+        "ok": True, 
+        "table": table, 
+        "columns": [dict(c) for c in cols]
     })
+
+@app.get("/debug/sqlite/counts")
+def debug_sqlite_counts():
+    conn = get_db()
+    tables = ["users", "challenges", "enrollments", "checkins", "user_stats"]
+    out = {}
+    for t in tables:
+        try:
+            res = conn.execute(f"SELECT COUNT(*) as n FROM {t}").fetchone()
+            out[t] = res["n"]
+        except Exception as e:
+            out[t] = str(e)
+    return jsonify({"ok": True, "counts": out})
+
+
+
+from datetime import datetime, timezone,timedelta
+
+def utc_today_iso():
+    return datetime.now(timezone.utc).date().isoformat()
+
+
+
+
+@app.post("/me/challenges/<int:enrollment_id>/checkin")
+def checkin(enrollment_id):
+    claims = require_auth()
+    if not claims:
+        return jsonify({"ok": False, "error": "unauthorized"}), 401
+
+    user_id = int(claims["user_id"])
+    date_iso = utc_today_iso()
+
+    conn = get_db_connection() 
+    conn.row_factory = sqlite3.Row
+
+    try:
+        # ۱. بررسی دسترسی کاربر به این ثبت‌نام
+        enroll = conn.execute("SELECT id, challenge_id FROM enrollments WHERE id = ? AND user_id = ?", 
+                              (enrollment_id, user_id)).fetchone()
+        if not enroll:
+            return jsonify({"ok": False, "error": "forbidden_enrollment"}), 403
+
+        challenge_id = enroll["challenge_id"]
+
+        # ۲. ثبت یا بروزرسانی چک‌این
+        existing = conn.execute("SELECT id FROM checkins WHERE enrollment_id = ? AND date = ?", 
+                                (enrollment_id, date_iso)).fetchone()
+
+        if existing:
+            conn.execute("UPDATE checkins SET status = 'Done' WHERE id = ?", (existing["id"],))
+        else:
+            conn.execute("""
+                INSERT INTO checkins (enrollment_id, user_id, challenge_id, date, status, is_counted) 
+                VALUES (?, ?, ?, ?, 'Done', 1)
+            """, (enrollment_id, user_id, challenge_id, date_iso))
+
+        # ۳. حیاتی: اول همین‌جا Commit کن که چک‌این قطعی بشه
+        conn.commit()
+        
+        # ۴. حالا که مطمئنیم چک‌این ثبت شده، آمار رو بروزرسانی کن
+        # نکته: تابع رو همین‌جا صدا می‌زنیم
+        update_user_stats_after_checkin(user_id)
+        
+        return jsonify({"ok": True, "message": "Check-in recorded"})
+
+    except Exception as e:
+        print(f"❌ Checkin Error: {e}")
+        return jsonify({"ok": False, "error": str(e)}), 500
+    finally:
+        # کانکشن حتماً در آخر بسته بشه
+        conn.close()
+
+
+
+from database import get_db_conn, get_user_enrollments,update_user_stats_after_checkin
 
 @app.get("/challenges")
 def list_challenges():
     claims = require_auth()
-    if not claims:
-        return jsonify({"ok": False, "error": "unauthorized"}), 401
-    if not claims.get("registered"):
-        return jsonify({"ok": False, "error": "not_registered"}), 403
-
-    ch_db = app.config.get(CHALLENGE_DB)
-    if not ch_db:
-        return jsonify({"ok": False, "error": f"{CHALLENGE_DB} missing in .env"}), 500
-
-    enroll_db = app.config.get(ENROLL_DB)
-    if not enroll_db:
-        return jsonify({"ok": False, "error": f"{ENROLL_DB} missing in .env"}), 500
-
-    daily_db = app.config.get("NOTION_DAILY_LOGS_DB_ID")
-    if not daily_db:
-        return jsonify({"ok": False, "error": "NOTION_DAILY_LOGS_DB_ID missing in .env"}), 500
-
+    if not claims: return jsonify({"ok": False, "error": "unauthorized"}), 401
+    
     user_id = claims["user_id"]
-
-    # ===== 1) my enrollments => is_joined + enrollment_id
-    my_enroll_payload = {
-        "filter": {
-            "and": [
-                {"property": "Users", "relation": {"contains": user_id}},
-                {"property": "Status", "select": {"equals": "Active"}},
-            ]
-        },
-        "page_size": 200
-    }
-    my_enroll_res = notion.query_db(enroll_db, my_enroll_payload)
-    my_enrollments = my_enroll_res.get("results", []) or []
-
-    joined_map = {}  # challenge_id -> enrollment_id
-    for en in my_enrollments:
-        en_id = en.get("id")
-        props = en.get("properties", {}) or {}
-        rel = (props.get("Challenges", {}) or {}).get("relation", []) or []
-        for r in rel:
-            cid = r.get("id")
-            if cid:
-                joined_map[cid] = en_id
-
-    # ===== 2) members_count + members_preview (Active enrollments)
-    all_enroll_payload = {
-        "filter": {"property": "Status", "select": {"equals": "Active"}},
-        "page_size": 200
-    }
-    all_enroll_res = notion.query_db(enroll_db, all_enroll_payload)
-    all_enrollments = all_enroll_res.get("results", []) or []
-
-    members_count = {}      # challenge_id -> count
-    members_preview = {}    # challenge_id -> [name1, name2, name3]
-
-    def _preview_add(map_obj, cid: str, label: str, maxn: int = 3):
-        arr = map_obj.get(cid, [])
-        if label and label not in arr and len(arr) < maxn:
-            arr.append(label)
-            map_obj[cid] = arr
-
-    for en in all_enrollments:
-        eprops = en.get("properties", {}) or {}
-        title = notion_title(eprops, "Name") or ""
-        label = title.split(" in ", 1)[0].strip() if " in " in title else title[:24].strip()
-
-        rel = (eprops.get("Challenges", {}) or {}).get("relation", []) or []
-        for r in rel:
-            cid = r.get("id")
-            if not cid:
-                continue
-            members_count[cid] = int(members_count.get(cid, 0)) + 1
-            _preview_add(members_preview, cid, label, 3)
-
-    # ===== 3) today activity from Daily Logs (single query, aggregate)
-    DL_DATE_PROP = "Date"
-    DL_CH_PROP = "Challenges"
-    DL_COUNTED_PROP = "Is Counted"
-    DL_STATUS_PROP = "Status"
-    DL_NAME_PROP = "Name"
-
-    today_str = dt.now(timezone.utc).date().isoformat()
-
-    today_payload = {
-        "filter": {
-            "and": [
-                {"property": DL_DATE_PROP, "date": {"equals": today_str}},
-                {"property": DL_COUNTED_PROP, "checkbox": {"equals": True}},
-                # اگر دوست داری فقط Done حساب بشه:
-                {"property": DL_STATUS_PROP, "select": {"equals": "Done"}},
-            ]
-        },
-        "page_size": 200
-    }
-    today_res = notion.query_db(daily_db, today_payload)
-    today_logs = today_res.get("results", []) or []
-
-    today_checkins = {}   # challenge_id -> count
-    today_preview = {}    # challenge_id -> [name1,name2,name3]
-
-    for log in today_logs:
-        props = log.get("properties", {}) or {}
-        who = notion_title(props, DL_NAME_PROP) or ""
-        who = who.strip()[:24]
-
-        rel = (props.get(DL_CH_PROP, {}) or {}).get("relation", []) or []
-        for r in rel:
-            cid = r.get("id")
-            if not cid:
-                continue
-            today_checkins[cid] = int(today_checkins.get(cid, 0)) + 1
-            _preview_add(today_preview, cid, who, 3)
-
-    # ===== 4) list joinable challenges
-    payload = {
-        "filter": {
-            "and": [
-                {"property": CH_STATUS_PROP, "status": {"equals": "Active"}},
-                {"property": CH_VISIBILITY_PROP, "select": {"does_not_equal": "Private"}},
-            ]
-        },
-        "sorts": [{"property": CH_NAME_PROP, "direction": "ascending"}],
-        "page_size": 100
-    }
-
-    res = notion.query_db(ch_db, payload)
-    results = res.get("results", []) or []
-
+    conn = get_db_connection()
+    conn.row_factory = sqlite3.Row
+    
+    # ۱. فقط چالش‌هایی را بیاور که Active هستند
+    # و یا Public/Invite-only هستند، یا اگر Private هستند کاربر قبلاً عضو شده باشد
+    challenges = conn.execute("""
+        SELECT c.* FROM challenges c
+        LEFT JOIN enrollments e ON c.id = e.challenge_id AND e.user_id = ?
+        WHERE c.status = 'Active' 
+        AND (c.visibility IN ('Public', 'Invite-only') OR e.id IS NOT NULL)
+    """, (user_id,)).fetchall()
+    
+    enrollments = conn.execute(
+        "SELECT id, challenge_id FROM enrollments WHERE user_id = ?", 
+        (user_id,)
+    ).fetchall()
+    enroll_map = {e['challenge_id']: e['id'] for e in enrollments}
+    
     items = []
-    for page in results:
-        props = page.get("properties", {}) or {}
+    for ch in challenges:
+        ch_id = ch['id']
+        enroll_id = enroll_map.get(ch_id)
+        vis_lower = ch['visibility'].lower()
+        
+        members_count = conn.execute(
+            "SELECT COUNT(*) as n FROM enrollments WHERE challenge_id = ? AND status = 'Active'", 
+            (ch_id,)
+        ).fetchone()['n']
 
-        challenge_id = page.get("id")
-        visibility = notion_select(props, CH_VISIBILITY_PROP) or "Private"
-        status = notion_status(props, CH_STATUS_PROP)
-        name = notion_title(props, CH_NAME_PROP)
-        desc = notion_rich_text(props, CH_DESC_PROP)
-        duration_days = notion_number(props, CH_DURATION_PROP)
+        # داخل حلقه for ch in challenges:
+        previews = conn.execute("""
+            SELECT u.name FROM users u
+            JOIN enrollments e ON u.id = e.user_id
+            WHERE e.challenge_id = ? AND e.status = 'Active'
+            LIMIT 3
+        """, (ch_id,)).fetchall()
+        
+        members_preview = [p['name'] for p in previews]
 
-        enrollment_id = joined_map.get(challenge_id)
-        is_joined = bool(enrollment_id)
-
-        mc = int(members_count.get(challenge_id, 0))
-        tc = int(today_checkins.get(challenge_id, 0))
-
+        
         items.append({
-            "challenge_id": challenge_id,
-            "name": name,
-            "status": status,
-            "visibility": visibility,
-            "description": desc,
-            "duration_days": duration_days,
-            "needs_code": (visibility == "Invite-only"),
-
-            "is_joined": is_joined,
-            "enrollment_id": enrollment_id,
-
-            # social proof
-            "members_count": mc,
-            "members_preview": members_preview.get(challenge_id, []),
-
-            # today activity
-            "today_checkins": tc,
-            "today_preview": today_preview.get(challenge_id, []),
-
-            # simple badge
-            "is_hot": (tc >= 3) or (mc >= 10),
+            "challenge_id": ch_id,
+            "name": ch['name'],
+            "description": ch['description'],
+            "visibility": vis_lower,
+            "status": ch['status'].lower(),
+            "duration_days": ch['duration_days'],
+            "members_count": members_count,
+            "members_preview": members_preview,
+            "is_joined": enroll_id is not None,
+            "enrollment_id": enroll_id,
+            # اصلاح شرط: هم برای private و هم برای invite-only باکس کد نشان داده شود
+            "needs_code": vis_lower in ['private', 'invite-only']
         })
 
+        
+    conn.close()
     return jsonify({"ok": True, "items": items})
+
 
 
 def notion_multi_select(props: dict, key: str) -> list[str]:
@@ -1319,97 +648,59 @@ def notion_multi_select(props: dict, key: str) -> list[str]:
             out.append(x["name"])
     return out
 
-def notion_checkbox(props: dict, key: str) -> bool | None:
-    obj = props.get(key, {})
-    if not isinstance(obj, dict):
-        return None
-    val = obj.get("checkbox")
-    if isinstance(val, bool):
-        return val
-    return None
 
-def notion_number(props: dict, key: str) -> float | None:
-    obj = props.get(key, {})
-    if not isinstance(obj, dict):
-        return None
-    num = obj.get("number")
-    if isinstance(num, (int, float)):
-        return float(num)
-    return None
-
-def notion_status_name(props: dict, key: str) -> str | None:
-    obj = props.get(key, {})
-    if not isinstance(obj, dict):
-        return None
-    st = obj.get("status")
-    if isinstance(st, dict):
-        return st.get("name")
-    return None
-
-def notion_relation_ids(props: dict, key: str) -> list[str]:
-    obj = props.get(key, {})
-    if not isinstance(obj, dict):
-        return []
-    rel = obj.get("relation", [])
-    if not isinstance(rel, list):
-        return []
-    return [x.get("id") for x in rel if isinstance(x, dict) and x.get("id")]
-
-@app.get("/challenges/<challenge_id>")
+@app.get("/challenges/<int:challenge_id>")
 def challenge_detail(challenge_id):
-    # Optional auth (فعلاً فقط برای آینده؛ الان لازم نیست)
-    claims = require_auth(optional=True)
-    user_id = claims.get("user_id") if claims else None
-    registered = bool(claims.get("registered")) if claims else False
+    try:
+        db = get_db()
+        db.row_factory = sqlite3.Row  # اطمینان از دسترسی دیکشنری‌مانند
+        
+        # ۱. دریافت اطلاعات چالش
+        row = db.execute("SELECT * FROM challenges WHERE id = ?", (challenge_id,)).fetchone()
+        
+        if row is None:
+            return jsonify({"ok": False, "error": f"Challenge with ID {challenge_id} not found"}), 404
 
-    ch_page = get_page(challenge_id)
-    props = ch_page.get("properties", {}) or {}
+        # ۲. محاسبه تعداد واقعی شرکت‌کنندگان (اصلاح شد)
+        # استفاده از fetchone()[0] برای گرفتن مقدار عددی مستقیم
+        count_row = db.execute(
+            "SELECT COUNT(*) FROM enrollments WHERE challenge_id = ? AND status = 'Active'",
+            (challenge_id,)
+        ).fetchone()
+        members_count = count_row[0] if count_row else 0
 
-    # مطابق schema واقعی Challenges شما
-    name = notion_title_text(props, "Name")
-    description = notion_rich_text(props, "Description")
-    visibility = notion_select_name(props, "Visibility")
-    status = notion_status_name(props, "Status")
+        # ۳. پردازش تگ‌ها و آماده‌سازی خروجی
+        # استفاده از dict(row) برای اطمینان از اینکه همه کلیدها درست مپ می‌شوند
+        res = dict(row)
+        
+        tags_list = res.get('tags').split(',') if res.get('tags') else []
 
-    duration_days = notion_number(props, "Duration (days)")
-    max_members = notion_number(props, "Max Members")
+        return jsonify({
+            "ok": True,
+            "item": {
+                "challenge_id": res['id'],
+                "name": res['name'],
+                "description": res.get('description', ''),
+                "visibility": res.get('visibility', 'Public'),
+                "status": res.get('status', 'Active'),
+                "duration_days": res.get('duration_days', 0),
+                "max_members": res.get('max_members', 0),
+                "requires_proof": bool(res.get('requires_proof', 0)),
+                "checkin_method": res.get('checkin_method', 'Manual'),
+                "goal_type": res.get('goal_type', ''),
+                "tags": tags_list,
+                "members_count": members_count,
+                "join_code_required": (res.get('visibility') == 'Invite-only' and bool(res.get('join_code')))
+            }
+        })
 
-    requires_proof = notion_checkbox(props, "Requires Proof")
-    checkin_method = notion_select_name(props, "Check-in Method")
-    goal_type = notion_select_name(props, "Goal Type")
+    except Exception as e:
+        # چاپ خطا در کنسول اوبونتو برای دیباگ راحت‌تر تو
+        print(f"Error in challenge_detail: {e}")
+        return jsonify({"ok": False, "error": str(e)}), 500
 
-    tags = notion_multi_select(props, "Tags")
 
-    # Members relation: فقط count (پردازش کم)
-    member_ids = notion_relation_ids(props, "Members")
-    members_count = len(member_ids)
 
-    # Join Code: برای Public لازم نیست، برای Invite-only در UI ممکنه لازم باشه.
-    # ولی امن‌تر/مینیمال‌تر: فقط یک flag بدیم که "join_code_required" هست یا نه
-    join_code_raw = (notion_rich_text(props, "Join Code") or "").strip()
-    join_code_required = (visibility == "Invite-only" and bool(join_code_raw))
-
-    # Optional: اگر لاگین بود، is_joined را هم بدون query اضافه محاسبه نکنیم (سنگین میشه)
-    # این را از /me/dashboard و /challenges (list) داریم. پس اینجا نمی‌زنیم.
-
-    return jsonify({
-        "ok": True,
-        "challenge": {
-            "challenge_id": challenge_id,
-            "name": name,
-            "description": description,
-            "visibility": visibility,
-            "status": status,
-            "duration_days": duration_days,
-            "max_members": max_members,
-            "requires_proof": requires_proof,
-            "checkin_method": checkin_method,
-            "goal_type": goal_type,
-            "tags": tags,
-            "members_count": members_count,
-            "join_code_required": join_code_required
-        }
-    })
 
 def safe_int(x, default=0):
     try:
@@ -1421,203 +712,171 @@ def safe_bool(val) -> bool:
     s = str(val or "").strip().lower()
     return s in ("1", "true", "yes", "on")
 
-def notion_query_all(db_id: str, payload: dict):
-    """Fetch all results from a Notion database query (handles pagination)."""
-    out = []
-    cursor = None
-    while True:
-        p = dict(payload)
-        if cursor:
-            p["start_cursor"] = cursor
-        res = notion.query_db(db_id, p)
-        out.extend(res.get("results", []) or [])
-        if not res.get("has_more"):
-            break
-        cursor = res.get("next_cursor")
-        if not cursor:
-            break
-    return out
 
-def compute_enrollment_stats(enrollment_id: str, daily_db_id: str):
-    """Recompute Total Check-ins + Current Streak from Daily Logs for THIS enrollment.
+# def compute_enrollment_stats(enrollment_id: str, daily_db_id: str):
+#     """Recompute Total Check-ins + Current Streak from Daily Logs for THIS enrollment.
 
-    Streak rule:
-    - If today is checked → streak counts from today backward.
-    - Else if yesterday is checked → streak counts from yesterday backward.
-    - Else → streak = 0
-    """
-    payload = {
-        "filter": {
-            "and": [
-                {"property": "Enrollment", "relation": {"contains": enrollment_id}},
-                {"property": "Is Counted", "checkbox": {"equals": True}},
-            ]
-        },
-        "page_size": 100
-    }
+#     Streak rule:
+#     - If today is checked → streak counts from today backward.
+#     - Else if yesterday is checked → streak counts from yesterday backward.
+#     - Else → streak = 0
+#     """
+#     payload = {
+#         "filter": {
+#             "and": [
+#                 {"property": "Enrollment", "relation": {"contains": enrollment_id}},
+#                 {"property": "Is Counted", "checkbox": {"equals": True}},
+#             ]
+#         },
+#         "page_size": 100
+#     }
 
-    pages = notion_query_all(daily_db_id, payload)
+#     pages = notion_query_all(daily_db_id, payload)
 
-    dates = set()
-    for page in pages:
-        props = page.get("properties", {}) or {}
-        d = (props.get("Date", {}) or {}).get("date", {})
-        d = d.get("start") if isinstance(d, dict) else None
-        if d:
-            dates.add(d)
+#     dates = set()
+#     for page in pages:
+#         props = page.get("properties", {}) or {}
+#         d = (props.get("Date", {}) or {}).get("date", {})
+#         d = d.get("start") if isinstance(d, dict) else None
+#         if d:
+#             dates.add(d)
 
-    total_checkins = len(dates)
+#     total_checkins = len(dates)
 
-    today = dt.now(timezone.utc).date()
-    today_iso = today.isoformat()
-    yday_iso = (today - timedelta(days=1)).isoformat()
+#     today = dt.now(timezone.utc).date()
+#     today_iso = today.isoformat()
+#     yday_iso = (today - timedelta(days=1)).isoformat()
 
-    # choose start date for streak
-    if today_iso in dates:
-        cur = today
-    elif yday_iso in dates:
-        cur = today - timedelta(days=1)
-    else:
-        return total_checkins, 0
+#     # choose start date for streak
+#     if today_iso in dates:
+#         cur = today
+#     elif yday_iso in dates:
+#         cur = today - timedelta(days=1)
+#     else:
+#         return total_checkins, 0
 
-    streak = 0
-    while True:
-        d = cur.isoformat()
-        if d in dates:
-            streak += 1
-            cur = cur - timedelta(days=1)
-        else:
-            break
+#     streak = 0
+#     while True:
+#         d = cur.isoformat()
+#         if d in dates:
+#             streak += 1
+#             cur = cur - timedelta(days=1)
+#         else:
+#             break
 
-    return total_checkins, streak
+#     return total_checkins, streak
 
-def compute_user_streaks(user_id: str, daily_db_id: str):
-    """
-    Current streak + Longest streak برای کاربر از روی Daily Logs
-    معیار: لاگ‌هایی که Is Counted = True و Users relation شامل user_id باشد.
-    """
-    payload = {
-        "filter": {
-            "and": [
-                {"property": "Users", "relation": {"contains": user_id}},
-                {"property": "Is Counted", "checkbox": {"equals": True}},
-            ]
-        },
-        "page_size": 100
-    }
+# def compute_user_streaks(user_id: str, daily_db_id: str):
+#     """
+#     Current streak + Longest streak برای کاربر از روی Daily Logs
+#     معیار: لاگ‌هایی که Is Counted = True و Users relation شامل user_id باشد.
+#     """
+#     payload = {
+#         "filter": {
+#             "and": [
+#                 {"property": "Users", "relation": {"contains": user_id}},
+#                 {"property": "Is Counted", "checkbox": {"equals": True}},
+#             ]
+#         },
+#         "page_size": 100
+#     }
 
-    pages = notion_query_all(daily_db_id, payload)
+#     pages = notion_query_all(daily_db_id, payload)
 
-    dates = set()
-    for page in pages:
-        props = page.get("properties", {}) or {}
-        d = (props.get("Date", {}) or {}).get("date", {})
-        d = d.get("start") if isinstance(d, dict) else None
-        if d:
-            dates.add(d)
+#     dates = set()
+#     for page in pages:
+#         props = page.get("properties", {}) or {}
+#         d = (props.get("Date", {}) or {}).get("date", {})
+#         d = d.get("start") if isinstance(d, dict) else None
+#         if d:
+#             dates.add(d)
 
-    # Current streak از امروز به عقب (UTC)
-    cur = dt.now(timezone.utc).date()
-    current = 0
-    while True:
-        ds = cur.isoformat()
-        if ds in dates:
-            current += 1
-            cur = cur - timedelta(days=1)
-        else:
-            break
+#     # Current streak از امروز به عقب (UTC)
+#     cur = dt.now(timezone.utc).date()
+#     current = 0
+#     while True:
+#         ds = cur.isoformat()
+#         if ds in dates:
+#             current += 1
+#             cur = cur - timedelta(days=1)
+#         else:
+#             break
 
-    # Longest streak: با اسکن تاریخ‌های مرتب شده
-    if not dates:
-        return 0, 0
+#     # Longest streak: با اسکن تاریخ‌های مرتب شده
+#     if not dates:
+#         return 0, 0
 
-    sorted_days = sorted(dates)  # ISO => sortable
-    longest = 1
-    run = 1
-    prev = dt.fromisoformat(sorted_days[0]).date()
+#     sorted_days = sorted(dates)  # ISO => sortable
+#     longest = 1
+#     run = 1
+#     prev = dt.fromisoformat(sorted_days[0]).date()
 
-    for s in sorted_days[1:]:
-        d = dt.fromisoformat(s).date()
-        if (d - prev).days == 1:
-            run += 1
-            longest = max(longest, run)
-        else:
-            run = 1
-        prev = d
+#     for s in sorted_days[1:]:
+#         d = dt.fromisoformat(s).date()
+#         if (d - prev).days == 1:
+#             run += 1
+#             longest = max(longest, run)
+#         else:
+#             run = 1
+#         prev = d
 
-    return current, longest
+#     return current, longest
 
 
-def sync_user_stats(user_id: str, daily_db_id: str):
-    current, longest = compute_user_streaks(user_id, daily_db_id)
-    notion_update_page(user_id, {
-        "Current Streak": {"rich_text": [{"text": {"content": str(current)}}]},
-        "Longest Streak": {"rich_text": [{"text": {"content": str(longest)}}]},
-    })
-    return current, longest
-
-@app.get("/challenges/<challenge_id>/members")
+@app.get("/challenges/<int:challenge_id>/members")
 def challenge_members(challenge_id):
-    enroll_db = app.config.get("NOTION_ENROLLMENTS_DB_ID")
-    if not enroll_db:
-        return jsonify({"ok": False, "error": "NOTION_ENROLLMENTS_DB_ID missing in .env"}), 500
+    try:
+        db = get_db()
+        db.row_factory = sqlite3.Row
+        
+        limit = safe_int(request.args.get("limit"), 20)
+        limit = max(1, min(limit, 50))
+        offset = safe_int(request.args.get("offset"), 0)
 
-    limit = safe_int(request.args.get("limit"), 20)
-    if limit < 1:
-        limit = 1
-    if limit > 50:
-        limit = 50
+        # کوئری را به شکلی می‌نویسیم که ستون‌ها را دقیق پیدا کند
+        query = """
+            SELECT 
+                enrollments.id,
+                enrollments.status,
+                enrollments.role,
+                users.id AS u_id,
+                users.name,
+                users.username
+            FROM enrollments
+            JOIN users ON enrollments.user_id = users.id
+            WHERE enrollments.challenge_id = ? AND enrollments.status = 'Active'
+            LIMIT ? OFFSET ?
+        """
+        
+        rows = db.execute(query, (challenge_id, limit, offset)).fetchall()
 
-    cursor = request.args.get("cursor")
-    expand_user = safe_bool(request.args.get("expand_user"))
+        items = []
+        for row in rows:
+            # استفاده از .get() یا چک کردن ستون برای جلوگیری از خطای Key Error
+            items.append({
+                "enrollment_id": row[0],
+                "enrollment_status": row[1],
+                "role": row[2] if len(row) > 2 else "Member",
+                "user_id": row['u_id'],
+                "user_name": row['name'],
+                "telegram_username": row['username']
+            })
 
-    payload = {
-        "page_size": limit,
-        "filter": {
-            "property": "Challenges",
-            "relation": {"contains": challenge_id}
-        }
-    }
-    if cursor:
-        payload["start_cursor"] = cursor
+        return jsonify({
+            "ok": True,
+            "challenge_id": challenge_id,
+            "items": items,
+            "has_more": len(items) == limit
+        })
 
-    res = notion.query_db(enroll_db, payload)
-    results = res.get("results", []) or []
+    except Exception as e:
+        # اگر خطا "no such column" بود، راهنمایی چاپ کن
+        if "no such column" in str(e):
+            print("--- WARNING: Your database is out of date. Delete the .db file or run ALTER TABLE. ---")
+        return jsonify({"ok": False, "error": str(e)}), 500
 
-    items = []
-    for e in results:
-        eprops = e.get("properties", {}) or {}
 
-        enrollment_id = e.get("id")
-        enrollment_name = notion_title_text(eprops, "Name")
-        enrollment_status = notion_select_name(eprops, "Status")
 
-        users_rel = eprops.get("Users", {}).get("relation", [])
-        user_id = users_rel[0].get("id") if isinstance(users_rel, list) and users_rel else None
-
-        item = {
-            "enrollment_id": enrollment_id,
-            "enrollment_name": enrollment_name,
-            "enrollment_status": enrollment_status,
-            "user_id": user_id,
-        }
-
-        # Optional: enrich user (کمینه)
-        if expand_user and user_id:
-            u = get_page(user_id)
-            uprops = u.get("properties", {}) or {}
-            item["user_name"] = notion_title_text(uprops, "Name")
-            item["telegram_username"] = (notion_rich_text(uprops, "Telegram Username") or "").strip() or None
-
-        items.append(item)
-
-    return jsonify({
-        "ok": True,
-        "challenge_id": challenge_id,
-        "items": items,
-        "next_cursor": res.get("next_cursor"),
-        "has_more": bool(res.get("has_more"))
-    })
 
 def date_range_days(days: int):
     # returns list of iso dates from (today-days+1) ... today
@@ -1628,380 +887,223 @@ def date_range_days(days: int):
         out.append(d.isoformat())
     return out
 
-@app.get("/me/challenges/<enrollment_id>/history")
+
+@app.get("/me/challenges/<int:enrollment_id>/history")
 def enrollment_history(enrollment_id):
     claims = require_auth()
-    if not claims:
-        return jsonify({"ok": False, "error": "unauthorized"}), 401
-    if not claims.get("registered"):
-        return jsonify({"ok": False, "error": "not_registered"}), 403
-
+    if not claims: return jsonify({"ok": False, "error": "unauthorized"}), 401
+    
     user_id = claims["user_id"]
+    conn = get_db_connection()
+    conn.row_factory = sqlite3.Row
 
-    # ✅ validate enrollment belongs to user
-    if not enrollment_belongs_to_user(enrollment_id, user_id):
+    # ۱. احراز هویت (مطمئن شو این enrollment مال همین کاربره)
+    enroll = conn.execute(
+        "SELECT * FROM enrollments WHERE id = ? AND user_id = ?", 
+        (enrollment_id, user_id)
+    ).fetchone()
+    
+    if not enroll:
+        conn.close()
         return jsonify({"ok": False, "error": "forbidden_enrollment"}), 403
 
-    daily_db = app.config.get("NOTION_DAILY_LOGS_DB_ID")
-    if not daily_db:
-        return jsonify({"ok": False, "error": "NOTION_DAILY_LOGS_DB_ID missing in .env"}), 500
-
+    # ۲. گرفتن پارامتر روزها
     days = safe_int(request.args.get("days"), 30)
-    if days < 1:
-        days = 1
-    if days > 120:
-        days = 120
+    days = max(1, min(days, 120))
 
-    # range
-    end_date = dt.now(timezone.utc).date()
+    # محاسبه بازه زمانی
+    end_date = datetime.now(timezone.utc).date()
     start_date = end_date - timedelta(days=days - 1)
-    start_iso = start_date.isoformat()
-    end_iso = end_date.isoformat()
+    
+    # ۳. گرفتن چک‌این‌های کاربر در این بازه از دیتابیس
+    # فرض: جدول checkins داری با ستون‌های date (فرمت YYYY-MM-DD) و status
+    logs = conn.execute("""
+        SELECT date, status 
+        FROM checkins 
+        WHERE enrollment_id = ? AND date BETWEEN ? AND ?
+    """, (enrollment_id, start_date.isoformat(), end_date.isoformat())).fetchall()
+    
+    by_date = {row['date']: row['status'] for row in logs}
+    conn.close()
 
-    # 1 query فقط
-    payload = {
-        "filter": {
-            "and": [
-                {"property": "Enrollment", "relation": {"contains": enrollment_id}},
-                {"property": "Users", "relation": {"contains": user_id}},
-                {"property": "Date", "date": {"on_or_after": start_iso}},
-                {"property": "Date", "date": {"on_or_before": end_iso}},
-            ]
-        },
-        "page_size": 200
-    }
-
-    res = notion.query_db(daily_db, payload)
-    results = res.get("results", []) or []
-
-    by_date = {}
-    for page in results:
-        props = page.get("properties", {}) or {}
-
-        # Date
-        date_obj = props.get("Date", {}).get("date", {})
-        d = date_obj.get("start") if isinstance(date_obj, dict) else None
-        if not d:
-            continue
-
-        status = notion_select_name(props, "Status")
-
-        # is_counted
-        is_counted = None
-        ic = props.get("Is Counted", {})
-        if isinstance(ic, dict):
-            v = ic.get("checkbox")
-            if isinstance(v, bool):
-                is_counted = v
-
-        by_date[d] = {
-            "date": d,
-            "daily_log_id": page.get("id"),
-            "status": status,
-            "is_counted": is_counted
-        }
-
-    # timeline ثابت
-    dates = date_range_days(days)
+    # ۴. ساخت تایم‌لاین (مثل قبل)
     timeline = []
     checked_days = 0
-
-    for d in dates:
-        row = by_date.get(d)
-        if row:
+    
+    for i in range(days):
+        current_date = (start_date + timedelta(days=i)).isoformat()
+        status = by_date.get(current_date)
+        
+        if status:
             checked_days += 1
-            timeline.append(row)
-        else:
-            timeline.append({
-                "date": d,
-                "daily_log_id": None,
-                "status": None,
-                "is_counted": None
-            })
-
-    total_days = len(dates)
-    missed_days = total_days - checked_days
+        
+        timeline.append({
+            "date": current_date,
+            "status": status,
+            "is_counted": True if status else False
+        })
 
     return jsonify({
         "ok": True,
-        "enrollment_id": enrollment_id,
-        "range": {"start": start_iso, "end": end_iso, "days": total_days},
         "summary": {
             "checked_days": checked_days,
-            "missed_days": missed_days,
-            "total_days": total_days
+            "total_days": days
         },
         "items": timeline
     })
 
-@app.get("/me/enrollments/<enrollment_id>")
-def me_enrollment_detail(enrollment_id):
+
+@app.get("/me/enrollments/<int:enrollment_id>")
+def me_enrollment_detail(enrollment_id: int):
     claims = require_auth()
     if not claims:
         return jsonify({"ok": False, "error": "unauthorized"}), 401
-    if not claims.get("registered"):
-        return jsonify({"ok": False, "error": "not_registered"}), 403
 
     user_id = claims["user_id"]
+    today = utc_today_iso()
 
-    # ✅ validate belongs to user (تو پروژه‌ات قبلاً اینو داشتی)
-    if not enrollment_belongs_to_user(enrollment_id, user_id):
-        return jsonify({"ok": False, "error": "forbidden_enrollment"}), 403
+    conn = get_db_connection()
+    conn.row_factory = sqlite3.Row
+    try:
+        # 1) enrollment + challenge (مالکیت هم اینجا چک میشه)
+        row = conn.execute("""
+            SELECT
+                e.id              AS enrollment_id,
+                e.user_id         AS user_id,
+                e.challenge_id    AS challenge_id,
+                e.status          AS status,
+                c.name            AS challenge_name,
+                c.description     AS challenge_description,
+                c.duration_days   AS duration_days
+            FROM enrollments e
+            JOIN challenges c ON c.id = e.challenge_id
+            WHERE e.id = ? AND e.user_id = ?
+            LIMIT 1
+        """, (enrollment_id, user_id)).fetchone()
 
-    # --- load enrollment page
-    enrollment_page = notion.retrieve_page(enrollment_id)
-    eprops = enrollment_page.get("properties", {}) or {}
+        if not row:
+            return jsonify({"ok": False, "error": "enrollment_not_found"}), 404
 
-    enrollment_name = notion_title(eprops, "Name")
-    enrollment_status = notion_select(eprops, "Status")
+        challenge_id = row["challenge_id"]
 
-    # enrollment -> challenge relation
-    ch_rel = (eprops.get("Challenges", {}) or {}).get("relation", []) or []
-    challenge_id = ch_rel[0]["id"] if ch_rel else None
+        # 2) today_checked
+        today_checked = conn.execute("""
+            SELECT 1
+            FROM checkins
+            WHERE enrollment_id = ? AND date = ?
+            LIMIT 1
+        """, (enrollment_id, today)).fetchone() is not None
 
-    challenge = None
-    if challenge_id:
-        ch_page = notion.retrieve_page(challenge_id)
-        cprops = ch_page.get("properties", {}) or {}
-        challenge = {
-            "challenge_id": challenge_id,
-            "name": notion_title(cprops, CH_NAME_PROP),
-            "description": notion_rich_text(cprops, CH_DESC_PROP),
-            "duration_days": notion_number(cprops, CH_DURATION_PROP),
-            "visibility": notion_select(cprops, CH_VISIBILITY_PROP),
-            "status": notion_status(cprops, CH_STATUS_PROP),
-        }
+        # 3) total_checkins
+        total_checkins = conn.execute("""
+            SELECT COUNT(*) AS n
+            FROM checkins
+            WHERE enrollment_id = ?
+        """, (enrollment_id,)).fetchone()["n"]
 
-    # --- recent logs (last 14)
-    daily_db = app.config.get("NOTION_DAILY_LOGS_DB_ID")
-    recent_logs = []
-    today_checked = False
+        # 4) current_streak (از روی تاریخ‌های checkin)
+        dates = conn.execute("""
+            SELECT date
+            FROM checkins
+            WHERE enrollment_id = ?
+            GROUP BY date
+            ORDER BY date DESC
+        """, (enrollment_id,)).fetchall()
+        date_list = [r["date"] for r in dates if r["date"]]
+        current_streak = _calc_current_streak(date_list, today)
 
-    if daily_db:
+        # 5) recent_logs (آخرین 20 روز ثبت‌شده)
+        logs = conn.execute("""
+            SELECT id AS daily_log_id, date
+            FROM checkins
+            WHERE enrollment_id = ?
+            ORDER BY date DESC, id DESC
+            LIMIT 20
+        """, (enrollment_id,)).fetchall()
 
-        DL_DATE_PROP = "Date"
-        DL_ENROLL_PROP = "Enrollment"   # ✅ اسم درست طبق schema
-        DL_STATUS_PROP = "Status"
-        DL_SOURCE_PROP = "Source"
-        DL_NOTES_PROP = "Notes"
-        DL_PROOF_PROP = "Proof"
-        DL_COUNTED_PROP = "Is Counted"
+        recent_logs = [{"daily_log_id": r["daily_log_id"], "date": r["date"]} for r in logs]
 
-        logs_payload = {
-            "filter": {
-                "property": DL_ENROLL_PROP,
-                "relation": {"contains": enrollment_id}
-            },
-            "sorts": [{"property": DL_DATE_PROP, "direction": "descending"}],
-            "page_size": 14
-        }
-        logs_res = notion.query_db(daily_db, logs_payload)
-        logs = logs_res.get("results", []) or []
-
-        today_str = dt.now(timezone.utc).date().isoformat()
-
-        for p in logs:
-            pprops = p.get("properties", {}) or {}
-
-            d = (pprops.get(DL_DATE_PROP, {}) or {}).get("date", {}) or {}
-            date_str = d.get("start")
-
-            recent_logs.append({
-                "daily_log_id": p.get("id"),
-                "date": date_str,
-                "status": notion_select(pprops, DL_STATUS_PROP),
-                "source": notion_select(pprops, DL_SOURCE_PROP),
-                "notes": notion_rich_text(pprops, DL_NOTES_PROP),
-                "proof": notion_rich_text(pprops, DL_PROOF_PROP),
-                "is_counted": bool((pprops.get(DL_COUNTED_PROP, {}) or {}).get("checkbox", False)),
-            })
-
-            if date_str == today_str:
-                today_checked = True
-
-        # Try to read from enrollment properties (synced on checkin)
-    raw_total = notion_rich_text(eprops, "Total Check-ins")
-    raw_streak = notion_rich_text(eprops, "Current Streak in Challenge")
-
-    def safe_int(x, default=0):
-        try:
-            return int(str(x).strip())
-        except:
-            return default
-
-    total_checkins = safe_int(raw_total, None)
-    current_streak = safe_int(raw_streak, None)
-    
-
-    # Fallback: if missing, compute on the fly
-    if total_checkins is None or current_streak is None:
-        daily_db = app.config.get("NOTION_DAILY_LOGS_DB_ID")
-        if daily_db:
-            tc, cs = compute_enrollment_stats(enrollment_id, daily_db)
-            total_checkins = tc if total_checkins is None else total_checkins
-            current_streak = cs if current_streak is None else current_streak
-
-
-    return jsonify({
-        "ok": True,
-        "enrollment": {
-            "enrollment_id": enrollment_id,
-            "name": enrollment_name,
-            "status": enrollment_status,
-            "today_checked": today_checked,
-            "total_checkins": total_checkins,
-            "current_streak": current_streak,
-        },
-        "challenge": challenge,
-        "recent_logs": recent_logs,
-    })
-
-@app.get("/me/enrollments/<enrollment_id>/leaderboard")
-def enrollment_leaderboard(enrollment_id):
-    claims = require_auth()
-    if not claims:
-        return jsonify({"ok": False, "error": "unauthorized"}), 401
-    if not claims.get("registered"):
-        return jsonify({"ok": False, "error": "not_registered"}), 403
-
-    enroll_db = app.config.get(ENROLL_DB)
-    daily_db = app.config.get("NOTION_DAILY_LOGS_DB_ID")
-    if not enroll_db or not daily_db:
-        return jsonify({"ok": False, "error": "db_missing"}), 500
-
-    # -------------------------------
-    # 1) Find challenge_id of enrollment
-    # -------------------------------
-    enrollment_page = notion.retrieve_page(enrollment_id)
-    eprops = enrollment_page.get("properties", {}) or {}
-
-    challenge_rel = (eprops.get("Challenges", {}) or {}).get("relation", [])
-    if not challenge_rel:
-        return jsonify({"ok": False, "error": "challenge_not_found"}), 404
-
-    challenge_id = challenge_rel[0]["id"]
-
-    # -------------------------------
-    # 2) Get all active enrollments for this challenge
-    # -------------------------------
-    payload = {
-        "filter": {
-            "and": [
-                {"property": "Challenges", "relation": {"contains": challenge_id}},
-                {"property": "Status", "select": {"equals": "Active"}},
-            ]
-        },
-        "page_size": 100
-    }
-    res = notion.query_db(enroll_db, payload)
-    enrollments = res.get("results", []) or []
-
-    # Map enrollment_id -> name (and list of ids)
-    enroll_name = {}
-    enrollment_ids = []
-    for en in enrollments:
-        eid = en.get("id")
-        props = en.get("properties", {}) or {}
-        enroll_name[eid] = notion_title(props, "Name") or "—"
-        enrollment_ids.append(eid)
-
-    # -------------------------------
-    # 3) Query ALL counted daily logs for this challenge (one time)
-    # -------------------------------
-    dl_payload = {
-        "filter": {
-            "and": [
-                {"property": "Challenges", "relation": {"contains": challenge_id}},
-                {"property": "Is Counted", "checkbox": {"equals": True}},
-            ]
-        },
-        "page_size": 100
-    }
-    logs_pages = notion_query_all(daily_db, dl_payload)
-
-    # Build: enrollment_id -> set(dates)
-    dates_by_enrollment = {eid: set() for eid in enrollment_ids}
-
-    for log in logs_pages:
-        props = log.get("properties", {}) or {}
-
-        # Date
-        d = (props.get("Date", {}) or {}).get("date", {})
-        d = d.get("start") if isinstance(d, dict) else None
-        if not d:
-            continue
-
-        # Enrollment relation (Daily Logs باید Enrollment relation داشته باشد)
-        rel = (props.get("Enrollment", {}) or {}).get("relation", [])
-        if not rel:
-            continue
-
-        eid = rel[0].get("id")
-        if eid in dates_by_enrollment:
-            dates_by_enrollment[eid].add(d)
-
-    # -------------------------------
-    # 4) Compute total_checkins + current_streak with your rule
-    # -------------------------------
-    today = dt.now(timezone.utc).date()
-    today_iso = today.isoformat()
-    yday_iso = (today - timedelta(days=1)).isoformat()
-
-    def compute_streak(dates_set):
-        # Start: today if checked else yesterday if checked else 0
-        if today_iso in dates_set:
-            cur = today
-        elif yday_iso in dates_set:
-            cur = today - timedelta(days=1)
-        else:
-            return 0
-
-        streak = 0
-        while True:
-            iso = cur.isoformat()
-            if iso in dates_set:
-                streak += 1
-                cur = cur - timedelta(days=1)
-            else:
-                break
-        return streak
-
-    overall = []
-    for eid in enrollment_ids:
-        ds = dates_by_enrollment.get(eid, set())
-        total_checkins = len(ds)
-        current_streak = compute_streak(ds)
-
-        overall.append({
-            "enrollment_id": eid,
-            "name": enroll_name.get(eid, "—"),
+        enrollment = {
+            "enrollment_id": row["enrollment_id"],
+            # Vue تو enrollment.name می‌خونه، پس name رو ست می‌کنیم:
+            "name": row["challenge_name"],
+            "status": row["status"],
+            "challenge_id": row["challenge_id"],
+            "today_checked": bool(today_checked),
             "total_checkins": int(total_checkins),
             "current_streak": int(current_streak),
+        }
+
+        challenge = {
+            "id": challenge_id,
+            "name": row["challenge_name"],
+            "description": row["challenge_description"],
+            "duration_days": row["duration_days"],
+        }
+
+        return jsonify({
+            "ok": True,
+            "enrollment": enrollment,
+            "challenge": challenge,
+            "recent_logs": recent_logs,
         })
 
-    # Sort by streak first, then total
-    overall.sort(key=lambda x: (x["current_streak"], x["total_checkins"]), reverse=True)
-    overall = overall[:5]
+    finally:
+        conn.close()
 
-    # -------------------------------
-    # 5) Today leaderboard
-    # -------------------------------
-    today_map = {}
-    for eid, ds in dates_by_enrollment.items():
-        if today_iso in ds:
-            today_map[eid] = today_map.get(eid, 0) + 1
+@app.get("/me/enrollments/<int:enrollment_id>/leaderboard")
+def enrollment_leaderboard(enrollment_id):
+    claims = require_auth()
+    if not claims: return jsonify({"ok": False, "error": "unauthorized"}), 401
+    
+    conn = get_db_connection()
+    conn.row_factory = sqlite3.Row
+    try:
+        # ۱. پیدا کردن challenge_id
+        enroll = conn.execute("SELECT challenge_id FROM enrollments WHERE id = ?", (enrollment_id,)).fetchone()
+        if not enroll: return jsonify({"ok": False, "error": "not_found"}), 404
+        challenge_id = enroll["challenge_id"]
+        
+        # ۲. گرفتن همه اعضای چالش
+        rows = conn.execute("""
+            SELECT e.id as enrollment_id, u.name, u.username
+            FROM enrollments e
+            JOIN users u ON e.user_id = u.id
+            WHERE e.challenge_id = ? AND e.status = 'Active'
+        """, (challenge_id,)).fetchall()
 
-    today_rows = [
-        {"enrollment_id": eid, "name": enroll_name.get(eid, "—"), "checkins": cnt}
-        for eid, cnt in today_map.items()
-    ]
-    today_rows.sort(key=lambda x: x["checkins"], reverse=True)
-    today_rows = today_rows[:5]
+        today = utc_today_iso()
+        leaderboard = []
 
-    return jsonify({
-        "ok": True,
-        "overall": overall,
-        "today": today_rows,
-    })
+        for row in rows:
+            eid = row["enrollment_id"]
+            
+            # محاسبه total
+            total = conn.execute("SELECT COUNT(*) as n FROM checkins WHERE enrollment_id = ? AND is_counted = 1", (eid,)).fetchone()["n"]
+            
+            # محاسبه استریک (برای هر کاربر)
+            dates = conn.execute("SELECT date FROM checkins WHERE enrollment_id = ? AND is_counted = 1 ORDER BY date DESC", (eid,)).fetchall()
+            date_list = [r["date"] for r in dates]
+            streak = _calc_current_streak(date_list, today) # از همان تابع کمکی بالا استفاده کن
+            
+            leaderboard.append({
+                "name": row["name"],
+                "username": row["username"],
+                "enrollment_id": eid,
+                "total_checkins": total,
+                "current_streak": streak
+            })
+        
+        # مرتب‌سازی بر اساس total_checkins (و سپس streak)
+        leaderboard.sort(key=lambda x: (x["total_checkins"], x["current_streak"]), reverse=True)
+        
+        return jsonify({"ok": True, "overall": leaderboard, "today": []})
+        
+    finally:
+        conn.close()
+
+
+
+
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5005, debug=True)
