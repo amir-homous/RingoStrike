@@ -2,6 +2,15 @@
 .DS_Store
 Thumbs.db
 
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+
 # --- Backend (Python/Flask) ---
 backend/__pycache__/
 backend/**/*.pyc
@@ -10,11 +19,22 @@ backend/venv/
 backend/instance/
 backend/users.db/
 
+# Python
+*.pyc
+*.pyo
+*.pyd
+
+
 # Database
 backend/*.db
 backend/*.db-journal
 backend/*.db-shm
 backend/*.db-wal
+
+
+# SQLite
+*.sqlite3
+
 
 # ENV (do NOT commit secrets)
 backend/.env
@@ -54,3 +74,5 @@ frontend/.env.development  # (اختیاری) اگر دوست داری کانف�
 *.swo
 *.swn
 
+# VSCode
+.vscode/
