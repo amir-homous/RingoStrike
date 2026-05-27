@@ -1,69 +1,160 @@
+from __future__ import annotations
+
 from datetime import datetime, timedelta
+from math import floor
+from sqlite3 import DatabaseError
+
 from database import get_db_connection
 from utils.date_utils import utc_today_iso
 
+XP_PER_CHECKIN = 10
 
-def _iso_to_date(s: str):
-    return datetime.strptime(s, "%Y-%m-%d").date()
+
+def _iso_to_date(value: str):
+    return datetime.strptime(value, "%Y-%m-%d").date()
 
 
 def calculate_current_streak(checkin_dates_iso: list[str], today_iso: str | None = None) -> int:
     if not checkin_dates_iso:
         return 0
     today_iso = today_iso or utc_today_iso()
-    s = set(checkin_dates_iso)
+    dates = set(checkin_dates_iso)
     today = _iso_to_date(today_iso)
     yesterday = today - timedelta(days=1)
-    anchor = today if today_iso in s else yesterday
-    if anchor.isoformat() not in s:
+    anchor = today if today_iso in dates else yesterday
+    if anchor.isoformat() not in dates:
         return 0
+
     streak = 0
-    d = anchor
-    while d.isoformat() in s:
+    probe = anchor
+    while probe.isoformat() in dates:
         streak += 1
-        d = d - timedelta(days=1)
+        probe -= timedelta(days=1)
     return streak
 
 
 def calculate_longest_streak(checkin_dates_iso: list[str]) -> int:
     if not checkin_dates_iso:
         return 0
-    dates = sorted({_iso_to_date(d) for d in checkin_dates_iso})
-    longest = run = 1
+
+    dates = sorted({_iso_to_date(value) for value in checkin_dates_iso})
+    longest = current = 1
     prev = dates[0]
-    for d in dates[1:]:
-        if (d - prev).days == 1:
-            run += 1
-            longest = max(longest, run)
+
+    for current_date in dates[1:]:
+        if (current_date - prev).days == 1:
+            current += 1
+            longest = max(longest, current)
         else:
-            run = 1
-        prev = d
+            current = 1
+        prev = current_date
+
     return longest
 
 
-def sync_user_stats(user_id: int) -> dict:
+def calculate_level(xp: int) -> int:
+    xp = max(0, int(xp))
+    level = 1
+    while xp >= calculate_next_level_xp(level):
+        level += 1
+    return level
+
+
+def calculate_next_level_xp(level: int) -> int:
+    safe_level = max(1, int(level))
+    return int(round(100 * (safe_level ** 1.5)))
+
+
+def calculate_progress_percent(xp: int, level: int) -> int:
+    safe_xp = max(0, int(xp))
+    safe_level = max(1, int(level))
+
+    current_level_floor = 0 if safe_level <= 1 else calculate_next_level_xp(safe_level - 1)
+    next_level_xp = calculate_next_level_xp(safe_level)
+    span = max(1, next_level_xp - current_level_floor)
+    progressed = max(0, safe_xp - current_level_floor)
+
+    percent = floor((progressed / span) * 100)
+    return max(0, min(100, percent))
+
+
+def build_user_stats_payload(user_id: int) -> tuple[dict, int]:
     conn = get_db_connection()
     try:
-        today = utc_today_iso()
-        points_row = conn.execute("SELECT COUNT(*) as total FROM checkins WHERE user_id = ? AND status = 'Done'", (user_id,)).fetchone()
-        total_checkins = int(points_row['total'] or 0)
-        total_points = total_checkins * 10
-        rows = conn.execute("SELECT DISTINCT date FROM checkins WHERE user_id = ? AND status = 'Done' ORDER BY date DESC", (user_id,)).fetchall()
-        dates = [r['date'] for r in rows]
-        current = calculate_current_streak(dates, today)
-        longest = calculate_longest_streak(dates)
-        conn.execute("UPDATE users SET total_points=?, current_streak=?, longest_streak=? WHERE id=?", (total_points, current, longest, user_id))
-        conn.execute("""
+        user = conn.execute("SELECT id, name FROM users WHERE id = ?", (user_id,)).fetchone()
+        if not user:
+            return {"ok": False, "error": "user_not_found"}, 404
+
+        totals_row = conn.execute(
+            """
+            SELECT
+                CAST(COUNT(*) AS INTEGER) AS total_checkins,
+                CAST(COUNT(*) * ? AS INTEGER) AS total_points
+            FROM checkins
+            WHERE user_id = ? AND status = 'Done'
+            """,
+            (XP_PER_CHECKIN, user_id),
+        ).fetchone()
+
+        rows = conn.execute(
+            "SELECT DISTINCT date FROM checkins WHERE user_id = ? AND status = 'Done' ORDER BY date DESC",
+            (user_id,),
+        ).fetchall()
+
+        dates = [row["date"] for row in rows]
+        total_checkins = int((totals_row or {})["total_checkins"] or 0)
+        total_points = int((totals_row or {})["total_points"] or 0)
+        current_streak = calculate_current_streak(dates, utc_today_iso())
+        longest_streak = calculate_longest_streak(dates)
+
+        conn.execute(
+            """
             INSERT INTO user_stats (user_id, total_checkins, total_points, current_streak, longest_streak, updated_at)
             VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
             ON CONFLICT(user_id) DO UPDATE SET
-                total_checkins=excluded.total_checkins,
-                total_points=excluded.total_points,
-                current_streak=excluded.current_streak,
-                longest_streak=excluded.longest_streak,
-                updated_at=CURRENT_TIMESTAMP
-        """, (user_id, total_checkins, total_points, current, longest))
+                total_checkins = excluded.total_checkins,
+                total_points = excluded.total_points,
+                current_streak = excluded.current_streak,
+                longest_streak = excluded.longest_streak,
+                updated_at = CURRENT_TIMESTAMP
+            """,
+            (user_id, total_checkins, total_points, current_streak, longest_streak),
+        )
         conn.commit()
-        return {"total_checkins": total_checkins, "total_points": total_points, "current_streak": current, "longest_streak": longest}
+
+        xp = total_points
+        level = calculate_level(xp)
+        next_level_xp = calculate_next_level_xp(level)
+        progress_percent = calculate_progress_percent(xp, level)
+
+        return {
+            "ok": True,
+            "user": {"id": int(user["id"]), "name": user["name"]},
+            "stats": {
+                "current_streak": current_streak,
+                "longest_streak": longest_streak,
+                "total_checkins": total_checkins,
+                "total_points": total_points,
+                "xp": xp,
+                "level": level,
+                "next_level_xp": next_level_xp,
+                "progress_percent": progress_percent,
+            },
+        }, 200
+    except DatabaseError:
+        return {"ok": False, "error": "db_error"}, 500
     finally:
         conn.close()
+
+
+def sync_user_stats(user_id: int) -> dict:
+    payload, _ = build_user_stats_payload(user_id)
+    if not payload.get("ok"):
+        return {"total_checkins": 0, "total_points": 0, "current_streak": 0, "longest_streak": 0}
+    stats = payload["stats"]
+    return {
+        "total_checkins": stats["total_checkins"],
+        "total_points": stats["total_points"],
+        "current_streak": stats["current_streak"],
+        "longest_streak": stats["longest_streak"],
+    }

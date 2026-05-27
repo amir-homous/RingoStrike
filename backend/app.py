@@ -10,6 +10,7 @@ from routes.enrollment_routes import enrollment_bp
 from routes.leaderboard_routes import leaderboard_bp
 from routes.history_routes import history_bp
 from routes.debug_routes import debug_bp
+from routes.stats_routes import stats_bp
 
 load_dotenv()
 
@@ -39,6 +40,7 @@ def create_app() -> Flask:
     app.register_blueprint(leaderboard_bp)
     app.register_blueprint(history_bp)
     app.register_blueprint(debug_bp)
+    app.register_blueprint(stats_bp)
 
 
     # ✅ NOW YOUR OTHER ROUTES FOLLOW BELOW
