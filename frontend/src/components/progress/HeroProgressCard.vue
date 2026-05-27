@@ -16,7 +16,7 @@
       </div>
     </div>
 
-    <XPProgressBar :xp="stats.xp" :next-level-xp="stats.next_level_xp" :progress-percent="stats.progress_percent" />
+    <XPProgressBar :xp="stats.xp" :next-level-xp="stats.next_level_xp" :progress-percent="stats.progress_percent" :animate-pulse="animatePulse" />
   </BaseCard>
 </template>
 
@@ -28,6 +28,7 @@ import XPProgressBar from "@/components/progress/XPProgressBar.vue";
 const props = defineProps({
   userName: { type: String, default: "Player" },
   stats: { type: Object, required: true },
+  animatePulse: { type: Boolean, default: false },
 });
 
 const greeting = computed(() => `${props.userName}, keep your momentum up!`);
