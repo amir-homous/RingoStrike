@@ -10,6 +10,10 @@
         <RouterLink class="link" :class="{ active: isActive('/challenges') }" to="/challenges">
           Challenges
         </RouterLink>
+
+        <RouterLink class="link" :class="{ active: isActive('/profile') }" to="/profile">
+          Profile
+        </RouterLink>
   
         <!-- فقط وقتی داخل enrollment هستیم یا id داریم -->
         <RouterLink
