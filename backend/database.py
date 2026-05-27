@@ -82,6 +82,43 @@ def init_db():
 
 
 
+
+
+    c.execute("""
+    CREATE TABLE IF NOT EXISTS achievements (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        key TEXT NOT NULL UNIQUE,
+        title TEXT NOT NULL,
+        description TEXT,
+        icon TEXT,
+        category TEXT NOT NULL,
+        condition_type TEXT NOT NULL,
+        condition_value INTEGER NOT NULL,
+        xp_reward INTEGER NOT NULL DEFAULT 0,
+        rarity TEXT NOT NULL DEFAULT 'common',
+        is_hidden INTEGER NOT NULL DEFAULT 0,
+        sort_order INTEGER NOT NULL DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+    """)
+
+    c.execute("""
+    CREATE TABLE IF NOT EXISTS user_achievements (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        achievement_id INTEGER NOT NULL,
+        unlocked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(user_id, achievement_id),
+        FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY(achievement_id) REFERENCES achievements(id) ON DELETE CASCADE
+    )
+    """)
+
+    c.execute("CREATE INDEX IF NOT EXISTS idx_user_achievements_user ON user_achievements(user_id)")
+    c.execute("CREATE INDEX IF NOT EXISTS idx_user_achievements_achievement ON user_achievements(achievement_id)")
+    c.execute("CREATE INDEX IF NOT EXISTS idx_achievements_category ON achievements(category)")
+    c.execute("CREATE INDEX IF NOT EXISTS idx_achievements_condition ON achievements(condition_type, condition_value)")
+
     c.execute("""
     CREATE TABLE IF NOT EXISTS checkins (
         id INTEGER PRIMARY KEY AUTOINCREMENT,

@@ -32,6 +32,8 @@
 
         <ActivityTimeline :events="activityEvents" :loading="loading" />
 
+        <AchievementPreview :achievements="achievements" />
+
         <BaseCard>
           <div class="listHead"><h2 class="h2">Active Challenges</h2></div>
 
@@ -54,6 +56,7 @@
     </div>
 
     <RewardFeedback :items="rewardToasts" />
+    <AchievementToast :items="achievementToasts" />
   </AppContainer>
 </template>
 
@@ -73,6 +76,8 @@ import RecentProgressFeed from "@/components/progress/RecentProgressFeed.vue";
 import ChallengeCard from "@/components/challenges/ChallengeCard.vue";
 import RewardFeedback from "@/components/feedback/RewardFeedback.vue";
 import ActivityTimeline from "@/components/activity/ActivityTimeline.vue";
+import AchievementPreview from "@/components/achievements/AchievementPreview.vue";
+import AchievementToast from "@/components/achievements/AchievementToast.vue";
 
 const router = useRouter();
 const loading = ref(true);
@@ -86,6 +91,8 @@ const stats = ref(null);
 const rewardToasts = ref([]);
 const xpPulse = ref(false);
 const activityEvents = ref([]);
+const achievements = ref([]);
+const achievementToasts = ref([]);
 
 const XP_PER_CHECKIN = 10;
 
@@ -124,8 +131,9 @@ async function loadDashboard() {
     stats.value = statsData.stats || null;
     challenges.value = (dashboardData.challenges || []).map((c) => ({ ...c }));
     date.value = dashboardData.date || new Date().toLocaleDateString();
-    const activityResp = await api.get("/me/activity");
+    const [activityResp, achievementsResp] = await Promise.all([api.get("/me/activity"), api.get("/me/achievements")]);
     activityEvents.value = activityResp.data?.events || [];
+    achievements.value = achievementsResp.data?.achievements || [];
     await hydrateChallengeMeta();
   } catch (e) {
     console.error(e);
@@ -198,10 +206,17 @@ async function checkin(enrollmentId) {
   setTimeout(() => (xpPulse.value = false), 520);
 
   try {
-    await api.post(`/me/challenges/${enrollmentId}/checkin`);
-    const [statsResp, activityResp] = await Promise.all([api.get("/me/stats"), api.get("/me/activity")]);
+    const checkinResp = await api.post(`/me/challenges/${enrollmentId}/checkin`);
+    const unlocked = checkinResp.data?.rewards?.achievements || [];
+    for (const a of unlocked) {
+      const id = `ach-${Date.now()}-${Math.random()}`;
+      achievementToasts.value.push({ id, title: a.title });
+      setTimeout(() => { achievementToasts.value = achievementToasts.value.filter((t) => t.id !== id); }, 2400);
+    }
+    const [statsResp, activityResp, achievementsResp] = await Promise.all([api.get("/me/stats"), api.get("/me/activity"), api.get("/me/achievements")]);
     stats.value = statsResp.data.stats || stats.value;
     activityEvents.value = activityResp.data?.events || activityEvents.value;
+    achievements.value = achievementsResp.data?.achievements || achievements.value;
     pushToast(`+${XP_PER_CHECKIN} XP`, "success");
     pushToast("🔥 Streak maintained", "success");
     if (oldStats && stats.value.level > oldStats.level) {

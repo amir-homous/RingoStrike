@@ -14,7 +14,7 @@ import { computed } from "vue";
 const props = defineProps({ event: { type: Object, required: true } });
 
 const icon = computed(() => {
-  const map = { checkin: "✓", streak: "🔥", level_up: "🏁" };
+  const map = { checkin: "✓", streak: "🔥", level_up: "🏁", achievement: "🏆" };
   return map[props.event.type] || "•";
 });
 </script>

@@ -1,6 +1,7 @@
 from database import get_db_connection
 from utils.date_utils import utc_today_iso
-from services.stats_service import sync_user_stats, calculate_current_streak
+from services.stats_service import sync_user_stats
+from services.achievement_service import evaluate_and_unlock
 
 
 def checkin(user_id:int,enrollment_id:int):
@@ -11,6 +12,19 @@ def checkin(user_id:int,enrollment_id:int):
         ex=conn.execute("SELECT id FROM checkins WHERE enrollment_id=? AND date=?",(enrollment_id,date_iso)).fetchone()
         if ex: conn.execute("UPDATE checkins SET status='Done' WHERE id=?",(ex['id'],))
         else: conn.execute("INSERT INTO checkins (enrollment_id, user_id, challenge_id, date, status, is_counted) VALUES (?, ?, ?, ?, 'Done', 1)",(enrollment_id,user_id,enroll['challenge_id'],date_iso))
-        conn.commit(); sync_user_stats(user_id)
-        return {"ok":True,"message":"Check-in recorded"},200
-    finally: conn.close()
+        conn.commit()
+    finally:
+        conn.close()
+
+    sync_user_stats(user_id)
+    achievement_result = evaluate_and_unlock(user_id)
+    sync = sync_user_stats(user_id)
+    return {
+        "ok": True,
+        "message": "Check-in recorded",
+        "rewards": {
+            "xp_total": int(sync.get("total_points", 0)),
+            "achievements": achievement_result.get("newly_unlocked", []),
+            "achievement_xp_reward": int(achievement_result.get("xp_reward_total", 0)),
+        },
+    },200
