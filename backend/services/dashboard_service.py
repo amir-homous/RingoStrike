@@ -26,3 +26,37 @@ def get_dashboard(user_id:int):
             items.append({"enrollment_id":r['enrollment_id'],"enrollment_name":r['enrollment_name'],"status":r['status'],"challenge_id":r['challenge_id'],"today_checked":bool(checkin)})
         return {"ok":True,"date":today,"user":{"name":user_info['name'],"stats":{"total_points":user_info['total_points'],"current_streak":user_info['current_streak'],"longest_streak":user_info['longest_streak']}},"challenges":items},200
     finally: conn.close()
+
+def _level_bundle(total_points: int) -> dict:
+    level = max(1, (total_points // 100) + 1)
+    level_floor = (level - 1) * 100
+    next_level_xp = level * 100
+    xp = max(0, total_points - level_floor)
+    progress_percent = int((xp / 100) * 100) if 100 else 0
+    return {"level": level, "next_level_xp": next_level_xp, "xp": xp, "progress_percent": progress_percent}
+
+
+def get_stats(user_id:int):
+    sync = sync_user_stats(user_id)
+    conn = get_db_connection()
+    try:
+        user = conn.execute("SELECT id, name FROM users WHERE id=?", (user_id,)).fetchone()
+        if not user:
+            return {"ok": False, "error": "user_not_found"}, 404
+
+        total_points = int(sync.get("total_points", 0))
+        levels = _level_bundle(total_points)
+
+        stats = {
+            "current_streak": int(sync.get("current_streak", 0)),
+            "level": levels["level"],
+            "longest_streak": int(sync.get("longest_streak", 0)),
+            "next_level_xp": levels["next_level_xp"],
+            "progress_percent": levels["progress_percent"],
+            "total_checkins": int(sync.get("total_checkins", 0)),
+            "total_points": total_points,
+            "xp": levels["xp"],
+        }
+        return {"ok": True, "stats": stats, "user": {"id": int(user["id"]), "name": user["name"]}}, 200
+    finally:
+        conn.close()
