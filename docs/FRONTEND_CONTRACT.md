@@ -1,375 +1,746 @@
-Living contract for frontend structure, data flow, and UI conventions.
-Update this file whenever routing, UI-kit, API endpoints, or data shapes change.
+# FRONTEND_CONTRACT.md
 
-1) Project Summary
+# RingoStrike Frontend Contract
 
-RingoStrike is a challenge-based habit app: users join challenges and perform daily check-ins.
-Frontend displays:
+Version: v0.4+
+Architecture Status: Modular Progression Platform
+Frontend Stack: Vue 3 + Vite
+Backend Stack: Flask + SQLite
+
+---
+
+# Product Vision
 
-User dashboard (active enrollments)
+RingoStrike is a premium progression platform focused on:
 
-Challenges list + join flow
+* consistency
+* streak psychology
+* momentum building
+* progression identity
+* emotional reinforcement
+* gamified self-improvement
+* future social accountability systems
+
+The product should feel:
+
+* cinematic
+* premium
+* emotionally intelligent
+* rewarding
+* calm
+* modern
+* internationally polished
 
-Enrollment detail (today check + progress + recent logs + embedded leaderboard)
+This is NOT:
 
-Leaderboard page (total + streak)
+* a generic todo app
+* a noisy productivity tracker
+* a dopamine casino
+* a social media clone
 
-2) Stack & Conventions
+This IS:
 
-Framework: Vue 3 + Vite
+* a progression identity ecosystem
 
-Language: JavaScript (no TS)
+---
 
-Routing: Vue Router (history mode)
+# Current Frontend Stack
 
-State: Pinia (minimal usage; currently stores/session.js)
+## Core Technologies
 
-API: Axios via src/lib/api.js
+* Vue 3
+* Vite
+* Vue Router
+* Composition API
+* TailwindCSS
+* Modular component architecture
 
-Styling: CSS tokens + base styles
+---
 
-src/styles/tokens.css
+# Current Frontend Structure
 
-src/styles/base.css
+```txt
+src/
+├── App.vue
+├── assets/
+├── components/
+│   ├── achievements/
+│   ├── activity/
+│   ├── challenges/
+│   ├── feedback/
+│   ├── profile/
+│   ├── progress/
+│   └── ui/
+├── lib/
+├── router/
+├── stores/
+├── styles/
+└── views/
+```
 
-Environment / Base URLs
+---
 
-Frontend base path: import.meta.env.BASE_URL
-(e.g. deployed under /ringostrike/)
+# Frontend Architectural Philosophy
 
-Backend API base: import.meta.env.VITE_API_BASE
+## Core Rules
 
-General Rules
+### DO
 
-Views orchestrate: fetch data + handle state.
+* Keep systems modular
+* Reuse progression logic
+* Reuse timeline architecture
+* Reuse achievement architecture
+* Reuse profile identity systems
+* Preserve visual consistency
+* Preserve emotional UX direction
+* Use optimistic UI carefully
+* Keep animations restrained
+* Keep components composable
 
-UI components render (no API calls inside presentational components unless explicitly “smart” like Leaderboard embedded/page).
+### DO NOT
 
-Avoid inline styles; prefer shared UI components + tokens.
+* Duplicate progression systems
+* Duplicate timeline systems
+* Create disconnected UX patterns
+* Add noisy social media behavior
+* Add aggressive game UI
+* Hardcode backend calculations
+* Break current hierarchy
 
-Prefer small PRs/commits per issue.
+---
 
-3) Current File Structure (Source of Truth)
-Views (Pages) – src/views/
+# Current Route Architecture
 
-Login.vue
+## Existing Views
 
-AuthCallback.vue
+| Route              | View             |
+| ------------------ | ---------------- |
+| `/login`           | Login.vue        |
+| `/dashboard`       | Dashboard.vue    |
+| `/profile`         | Profile.vue      |
+| `/challenges`      | Challenges.vue   |
+| `/enrollment/:id/leaderboard` | Leaderboard.vue  |
+| `/enrollment/:id`      | Enrollment.vue   |
+| `/docs`        | ApiDocsView.vue  |
+| `/auth/callback`   | AuthCallback.vue |
 
-Dashboard.vue
+---
 
-Challenges.vue
+# Dashboard Architecture
 
-Enrollment.vue
+## Dashboard.vue
 
-Leaderboard.vue (supports page mode + embedded mode)
+Dashboard is the central progression hub.
 
-Router – src/router/index.js
+Current hierarchy:
 
-Routes:
+1. Hero Progress
+2. Stats & Goal Cards
+3. Recent Progress Feed
+4. Activity Timeline
+5. Achievement Preview
+6. Active Challenges
 
-/login
+The dashboard must preserve:
 
-/auth/callback
+* progression psychology
+* emotional reinforcement
+* motivational hierarchy
+* rewarding feedback loops
 
-/dashboard
+---
 
-/challenges
+# Existing Frontend Systems
 
-/enrollment/:id
+# 1. Progression System
 
-/enrollment/:id/leaderboard
+Directory:
 
-/ → redirect /dashboard
+```txt
+components/progress/
+```
 
-/:pathMatch(.*)* → redirect /dashboard (temporary; 404 page planned)
+Current Components:
 
-Auth guard:
+```txt
+HeroProgressCard.vue
+NextGoalCard.vue
+RecentProgressFeed.vue
+StatsGrid.vue
+XPProgressBar.vue
+```
 
-Only /login and /auth/callback are public
+Responsibilities:
 
-All other routes call GET /me; if not authenticated → redirect to /login?next=...
+* XP display
+* Level display
+* Progress visualization
+* Next goal motivation
+* Progress summaries
+* Reward feedback loops
 
-UI Kit – src/components/ui/
+Important:
+Frontend must NOT calculate authoritative XP/streak values itself.
 
-Base components used across the app:
+Backend is source-of-truth.
 
-AppContainer.vue (layout + page width/padding)
+Frontend only renders progression state.
 
-AppHeader.vue (top navigation; single source of truth for nav)
+---
 
-BaseCard.vue (standard surface)
+# 2. Activity Timeline System
 
-BaseButton.vue (primary/secondary/disabled/loading patterns)
+Directory:
 
-BaseInput.vue (focus/error/disabled)
+```txt
+components/activity/
+```
 
-UiState.vue (loading/empty/error + retry)
+Current Components:
 
-Spinner.vue, SkeletonBlock.vue
+```txt
+ActivityTimeline.vue
+ActivityTimelineItem.vue
+TimelineDayGroup.vue
+EmptyTimelineState.vue
+```
 
-API wrapper – src/lib/api.js
+Purpose:
 
-Axios instance (base URL + cookies/session expected)
+* progression memory
+* emotional continuity
+* historical reinforcement
+* activity storytelling
 
-Frontend treats auth as session cookie-based (server is source of truth)
+Current Event Types:
 
-4) UI Conventions (Milestone 0.1 Baseline)
-Layout & Spacing
+* checkin
+* achievement
+* streak
+* level_up
 
-Use AppContainer for all pages (consistent width/padding).
+IMPORTANT:
+All future activity/social feeds must extend this system.
 
-Use spacing scale via tokens (e.g. 8/12/16/24) and utility classes if available.
+DO NOT build duplicate timeline architectures.
 
-Headings hierarchy:
+---
 
-Page title: .h1
+# 3. Achievement System
 
-Section title: .h2 / .h3 (depending on design)
+Directory:
 
-Caption: .caption
+```txt
+components/achievements/
+```
 
-Components (Design Contract)
+Current Components:
 
-Buttons:
+```txt
+AchievementCard.vue
+AchievementGrid.vue
+AchievementPreview.vue
+AchievementToast.vue
+```
 
-Variants: primary, secondary (danger optional)
+Current Features:
 
-States: disabled, loading
+* rarity display
+* unlock states
+* reward toasts
+* hidden achievements
+* XP rewards
 
-Cards:
+Future-Safe Goals:
 
-BaseCard for all main blocks
+* seasonal achievements
+* social achievements
+* collectible systems
+* progression badges
 
-Inputs:
+---
 
-BaseInput for consistent focus/error/disabled behavior
+# 4. Profile Identity System
 
-UX states:
+Directory:
 
-Use UiState for loading / empty / error
+```txt
+components/profile/
+```
 
-Add retry handler where meaningful
+Current Components:
 
-Embedded vs Page Components
+```txt
+ConsistencyHeatmap.vue
+ProfileHeroCard.vue
+ProfileStatsGrid.vue
+UserAvatar.vue
+```
 
-Leaderboard.vue supports:
+Purpose:
 
-Page mode (default): includes AppHeader + page title
+* identity visualization
+* progression ownership
+* consistency visualization
+* emotional attachment
 
-Embedded mode (embedded: true): renders only the table block (no header)
+Future Expansion:
 
-This prevents duplicated nav when Leaderboard is used inside Enrollment.vue.
+* customizable identity
+* public profiles
+* social profile sharing
+* avatar systems
+* title systems
 
-5) Data Models (Frontend Contract)
+---
 
-These shapes represent what UI expects from backend responses.
+# 5. Challenge System
 
-User
-type User = {
-  id?: string | number
-  name: string
-  username?: string
-}
+Directory:
 
-Challenge (from /challenges and enrollment detail payload)
-type Challenge = {
-  challenge_id: string
-  name: string
-  description?: string
-  visibility?: string
-  status?: string
-  duration_days?: number
-  members_count?: number
-  members_preview?: string[]
-  needs_code?: boolean
-}
+```txt
+components/challenges/
+```
 
-Enrollment (from /me/dashboard and /me/enrollments/:id)
-type Enrollment = {
-  enrollment_id: string
-  name?: string
-  enrollment_name?: string
-  status: string
-  today_checked: boolean
+Current Components:
 
-  total_checkins?: number
-  current_streak?: number
-}
+```txt
+ChallengeCard.vue
+```
 
-Dashboard payload (from /me/dashboard)
-type DashboardResponse = {
-  user: User
-  date: string // display string
-  challenges: Array<{
-    enrollment_id: string
-    enrollment_name: string
-    status: string
-    today_checked: boolean
-  }>
-}
+Responsibilities:
 
-Enrollment detail payload (from /me/enrollments/:id)
-type EnrollmentDetailResponse = {
-  enrollment: Enrollment
-  challenge: Challenge
-  recent_logs: Array<{
-    daily_log_id: string
-    date: string // YYYY-MM-DD
-  }>
-}
+* challenge display
+* challenge metadata
+* participation state
+* check-in actions
+* progression feedback
 
-History summary (from /me/challenges/:id/history?days=)
-type HistoryResponse = {
-  summary: {
-    checked_days: number
-    total_days: number
-  }
-  // optionally may include daily list later
-}
+Future Expansion:
 
-Leaderboard payload (from /me/enrollments/:id/leaderboard)
-type LeaderboardResponse = {
-  overall: Array<{
-    enrollment_id?: string
-    name?: string
-    username?: string
-    total_checkins?: number
-    current_streak?: number
-  }>
-  today?: any[] // reserved for future
-}
+* public discovery
+* participant momentum
+* challenge communities
+* challenge categories
 
-6) Data Flow
-Auth (Telegram session)
+---
 
-Frontend page: Login.vue
+# 6. Reward Feedback System
 
-Builds login URL: ${VITE_API_BASE}/login?next=...
+Directory:
 
-Backend handles Telegram widget flow + sets session cookie
+```txt
+components/feedback/
+```
 
-Router guard checks auth by calling:
+Current Components:
 
-GET /me
+```txt
+RewardFeedback.vue
+```
 
-If unauthenticated:
+Purpose:
 
-Redirect to /login?next=<original path>
+* XP reward feedback
+* streak reinforcement
+* achievement celebration
+* level-up reinforcement
 
-Challenges / Join
+UX Direction:
 
-Challenges.vue
+* subtle
+* premium
+* emotionally rewarding
+* restrained
 
-GET /challenges → list
+DO NOT:
 
-POST /challenges/:challenge_id/join
+* overanimate
+* create casino UX
+* create flashy effects
 
-with { join_code } if invite-only
+---
 
-If joined, backend returns enrollment_id in list refresh (assumption)
+# 7. UI Foundation System
 
-Dashboard
+Directory:
 
-Dashboard.vue
+```txt
+components/ui/
+```
 
-GET /me/dashboard
+Current Components:
 
-POST /me/challenges/:enrollmentId/checkin
+```txt
+AppContainer.vue
+AppFooter.vue
+AppHeader.vue
+BaseButton.vue
+BaseCard.vue
+BaseInput.vue
+SkeletonBlock.vue
+Spinner.vue
+UiState.vue
+```
 
-POST /logout → then redirect to ${BASE_URL}login
+Purpose:
 
-Enrollment detail
+* shared design system
+* consistency
+* reusable layout primitives
+* visual stability
 
-Enrollment.vue
+IMPORTANT:
+All future UI should build on these primitives.
 
-GET /me/enrollments/:id → enrollment + challenge + recent_logs
+Avoid introducing isolated styling systems.
 
-GET /me/challenges/:id/history?days=<duration_days> → summary for progress bar
+---
 
-POST /me/challenges/:id/checkin → then reload
+# Current Styling Architecture
 
-Leaderboard
+## styles/
 
-Leaderboard.vue
+```txt
+styles/
+├── base.css
+└── tokens.css
+```
 
-GET /me/enrollments/:id/leaderboard
+## Purpose
 
-Supports embedded render inside enrollment page:
+### tokens.css
 
-<Leaderboard :enrollment-id="enrollment.enrollment_id" embedded />
+Contains:
 
-7) State Management
+* colors
+* spacing
+* shadows
+* gradients
+* typography tokens
+* visual constants
 
-Default: Local state in views (ref/computed)
+### base.css
 
-Pinia exists: src/stores/session.js
-Use it only for truly shared session/user state (optional; keep minimal).
+Contains:
 
-Router guard is the primary “auth gate”.
+* base resets
+* shared styles
+* typography defaults
+* global layout rules
 
-8) Date & Time Rules
+---
 
-UI works with ISO YYYY-MM-DD for logs.
+# Design Language Contract
 
-Backend should be source of truth for:
+The visual language must remain:
 
-today_checked
+* dark premium aesthetic
+* soft glassmorphism
+* restrained gradients
+* cinematic spacing
+* soft shadows
+* elegant hierarchy
+* emotionally intelligent UI
 
-current_streak
+Motion should feel:
 
-total_checkins
+* smooth
+* calm
+* rewarding
+* subtle
 
-Timezone policy (v0.2 target):
+Avoid:
 
-backend standardizes “today” consistently across endpoints.
+* visual chaos
+* excessive glow
+* hyper-saturated gaming effects
+* loud interactions
 
-9) UX States Contract
+---
 
-Every API-driven view/section must have:
+# Current State Management
 
-Loading (spinner/skeleton)
+## Store
 
-Empty state (friendly message)
+```txt
+stores/session.js
+```
 
-Error state (friendly + Retry)
+Current Responsibility:
 
-Disable actions while request in progress (prevent double submit)
+* authenticated user session
+* login state
+* auth persistence
 
-Preferred pattern: UiState component.
+Guideline:
+Use local component state first.
 
-10) Development Loop
+Only globalize truly shared app state.
 
-Each feature starts with a GitHub issue.
+---
 
-Branch per issue: feature/issue-XX-short-name or fix/issue-XX-...
+# API Layer
 
-Small commits, PR merge (even solo).
+Directory:
 
-Definition of Done:
+```txt
+lib/api.js
+```
 
-No console errors in normal flow
+Purpose:
 
-Desktop + Mobile screenshots in PR for touched pages
+* centralized API communication
+* backend abstraction layer
+* auth-aware requests
 
-11) ChatGPT Role
+IMPORTANT:
+All backend communication should flow through this layer.
 
-ChatGPT acts as:
+Avoid scattered fetch logic.
 
-Senior frontend engineer + UI consistency partner
+---
 
-Architecture and edge-case reviewer
+# Existing Backend API Contracts
 
-ChatGPT should NOT:
+# Authentication
 
-introduce new libs unless needed
+## POST `/login`
 
-rewrite whole structure without request
+Authenticate user.
 
-ignore the conventions here
+## POST `/register`
 
-How to use in new chats
-Project: RingoStrike
-Frontend Contract: docs/FRONTEND_CONTRACT.md (up to date)
-Feature: ...
-Issue: #...
+Register user.
+
+## POST `/logout`
+
+Destroy session.
+
+## GET `/me`
+
+Return authenticated user.
+
+---
+
+# Progression APIs
+
+## GET `/me/stats`
+
+Returns:
+
+* XP
+* Level
+* Streaks
+* Progress %
+* Total check-ins
+
+Used by:
+
+* HeroProgressCard
+* StatsGrid
+* XPProgressBar
+
+---
+
+## GET `/me/activity`
+
+Returns progression timeline events.
+
+Used by:
+
+* ActivityTimeline
+
+---
+
+## GET `/me/achievements`
+
+Returns:
+
+* unlocked achievements
+* achievement metadata
+
+Used by:
+
+* AchievementGrid
+* AchievementPreview
+
+---
+
+## GET `/me/profile`
+
+Returns:
+
+* identity information
+* title
+* XP
+* avatar
+* progression summary
+
+Used by:
+
+* ProfileHeroCard
+
+---
+
+## GET `/me/consistency`
+
+Returns:
+
+* consistency heatmap data
+
+Used by:
+
+* ConsistencyHeatmap
+
+---
+
+## GET `/me/challenges`
+
+Returns:
+
+* enrolled challenges
+* challenge states
+* check-in status
+
+Used by:
+
+* Dashboard
+* ChallengeCard
+
+---
+
+## POST `/checkin`
+
+Performs challenge check-in.
+
+Frontend Expectations:
+
+* optimistic updates
+* reward feedback
+* timeline insertion
+* rollback on failure
+* reconciliation with backend
+
+---
+
+# Optimistic UI Contract
+
+Current systems already support:
+
+* optimistic check-ins
+* optimistic XP gain
+* optimistic streak continuation
+* optimistic timeline insertion
+
+Requirements:
+
+* safe rollback
+* backend reconciliation
+* state consistency
+
+---
+
+# Mobile Experience Rules
+
+The app must remain:
+
+* responsive
+* readable
+* touch-friendly
+* visually balanced
+* lightweight
+
+Mobile UX is critical.
+
+Avoid:
+
+* oversized dashboards
+* cluttered cards
+* overly dense layouts
+
+---
+
+# Future Architecture Direction
+
+The current frontend is being prepared for:
+
+## Social Systems
+
+* public profiles
+* social feed
+* challenge discovery
+* participant momentum
+* reactions
+* follow systems
+
+## AI Systems
+
+* AI progression insights
+* momentum forecasting
+* burnout detection
+* habit intelligence
+* recommendation systems
+
+## Identity Systems
+
+* profile customization
+* profile themes
+* avatars
+* social cards
+* progression showcases
+
+## Advanced Gamification
+
+* seasons
+* guilds
+* events
+* social achievements
+* progression paths
+
+---
+
+# Important Engineering Rules
+
+When extending frontend systems:
+
+## ALWAYS
+
+* inspect existing architecture first
+* extend existing systems
+* reuse event architecture
+* reuse progression logic
+* preserve UX hierarchy
+* preserve emotional design language
+
+## NEVER
+
+* duplicate progression systems
+* rebuild timeline systems
+* create disconnected UI flows
+* break dashboard architecture
+* tightly couple UI to DB schema
+
+---
+
+# Final UX Goal
+
+The final product should feel like:
+
+> “A living progression identity ecosystem.”
+
+The user should feel:
+
+* motivated
+* emotionally connected
+* proud of progression
+* rewarded for consistency
+* visually immersed
+* socially inspired
+
+WITHOUT:
+
+* toxic competition
+* social media chaos
+* productivity guilt
+* noisy gamification
