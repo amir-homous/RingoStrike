@@ -41,7 +41,7 @@ def get_public_profile(username: str):
             "joined_date": profile.get("joined_date"),
             "title": profile.get("title"),
             "tagline": profile.get("tagline"),
-            "bio": "",
+            "bio": profile.get("bio", ""),
             "stats": profile.get("stats"),
             "recent_activity": activity_payload.get("events", []),
         }

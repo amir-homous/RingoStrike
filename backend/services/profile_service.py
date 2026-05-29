@@ -19,7 +19,7 @@ def get_profile(user_id: int):
     conn = get_db_connection()
     try:
         _ensure_avatar_column(conn)
-        user = conn.execute("SELECT id, name, username, created_at, avatar_url FROM users WHERE id=?", (user_id,)).fetchone()
+        user = conn.execute("SELECT id, name, username, created_at, avatar_url,bio FROM users WHERE id=?", (user_id,)).fetchone()
         if not user:
             return {"ok": False, "error": "user_not_found"}, 404
 
@@ -57,6 +57,7 @@ def get_profile(user_id: int):
                 "name": user["name"] or user["username"] or "Player",
                 "username": user["username"],
                 "avatar_url": user["avatar_url"],
+                "bio": user["bio"],
                 "joined_date": joined_date,
                 "title": title,
                 "tagline": "Building consistency one strike at a time.",
