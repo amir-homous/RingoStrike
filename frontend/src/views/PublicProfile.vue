@@ -11,27 +11,70 @@ import ProfileHeroCard from "@/components/profile/ProfileHeroCard.vue";
 import ProfileStatsGrid from "@/components/profile/ProfileStatsGrid.vue";
 import ConsistencyHeatmap from "@/components/profile/ConsistencyHeatmap.vue";
 
+import AchievementPreview from "@/components/achievements/AchievementPreview.vue";
+
 const route = useRoute();
 
 const loading = ref(true);
 const error = ref("");
+
 const profile = ref(null);
 
-const username = computed(() => route.params.username);
+const achievements = ref([]);
+const consistencyDays = ref([]);
+
+const visibleActivities = ref(8);
+
+const username = computed(
+  () => route.params.username
+);
 
 async function loadProfile() {
   loading.value = true;
   error.value = "";
 
   try {
+    // MAIN PROFILE
     const response = await api.get(
       `/api/public/profile/${username.value}`
     );
 
     profile.value = response.data.profile;
+
+    // ACHIEVEMENTS
+    try {
+      const achievementsResponse = await api.get(
+        `/api/public/profile/${username.value}/achievements`
+      );
+
+      achievements.value =
+        achievementsResponse.data.achievements || [];
+    } catch (err) {
+      console.error(
+        "failed achievements",
+        err
+      );
+    }
+
+    // CONSISTENCY
+    try {
+      const consistencyResponse = await api.get(
+        `/api/public/profile/${username.value}/consistency`
+      );
+
+      consistencyDays.value =
+        consistencyResponse.data.days || [];
+    } catch (err) {
+      console.error(
+        "failed consistency",
+        err
+      );
+    }
+
   } catch (err) {
     error.value =
-      err?.response?.data?.error || "failed_to_load_profile";
+      err?.response?.data?.error ||
+      "failed_to_load_profile";
   } finally {
     loading.value = false;
   }
@@ -44,8 +87,17 @@ watch(
   }
 );
 
+const displayedActivities = computed(
+  () =>
+    profile.value?.recent_activity?.slice(
+      0,
+      visibleActivities.value
+    ) || []
+);
+
 onMounted(loadProfile);
 </script>
+
 
 <template>
   <div class="public-profile-page">
@@ -69,7 +121,7 @@ onMounted(loadProfile);
       <!-- PROFILE -->
       <template v-else-if="profile">
         <!-- HERO -->
-        <ProfileHeroCard :profile="profile" :isOwner="false">
+        <ProfileHeroCard :profile="profile" :is-owner="false">
           <template #avatar>
             <UserAvatar
               :src="profile.avatar_url"
@@ -77,6 +129,93 @@ onMounted(loadProfile);
             />
           </template>
         </ProfileHeroCard>
+
+
+                <div class="section">
+                  <div class="section-header">
+                    <h2>Consistency Footprint</h2>
+                  </div>
+
+                  <ConsistencyHeatmap
+                    :days="consistencyDays"
+                    :readonly="true"
+                  />
+                </div>
+
+        <!-- ACHIEVEMENTS -->
+        <div
+          v-if="achievements.length"
+          class="section"
+        >
+          <div class="section-header">
+            <h2>Featured Achievements</h2>
+          </div>
+
+          <AchievementPreview
+            :achievements="achievements"
+          />
+        </div>
+
+
+        <!-- ACTIVITY -->
+          <div class="section">
+            <div class="section-header">
+              <h2>Momentum Memory</h2>
+            </div>
+
+            <div class="activity-list">
+              <BaseCard
+                v-for="event in displayedActivities"
+                :key="event.id"
+                class="activity-card"
+              >
+                <div class="activity-top">
+                  <div>
+                    <strong>
+                      {{ event.title }}
+                    </strong>
+
+                    <p class="subtitle">
+                      {{ event.subtitle }}
+                    </p>
+                  </div>
+
+                  <span class="event-type">
+                    {{ event.type }}
+                  </span>
+                </div>
+
+                <div class="activity-footer">
+                  <span class="date">
+                    {{ event.created_at }}
+                  </span>
+
+                  <span
+                    v-if="event.rarity"
+                    class="rarity"
+                  >
+                    {{ event.rarity }}
+                  </span>
+                </div>
+              </BaseCard>
+            </div>
+
+            <div
+              v-if="
+                profile.recent_activity.length >
+                visibleActivities
+              "
+              class="show-more-wrap"
+            >
+              <button
+                class="show-more"
+                @click="visibleActivities += 8"
+              >
+                Show More
+              </button>
+            </div>
+          </div>
+          
 
         <!-- STATS -->
         <div class="section">
@@ -87,56 +226,12 @@ onMounted(loadProfile);
           <ProfileStatsGrid :profile="profile" />
         </div>
 
-        <!-- HEATMAP -->
-        <!-- <div class="section">
-          <div class="section-header">
-            <h2>Consistency Footprint</h2>
-          </div>
 
-          <ConsistencyHeatmap />
-        </div> -->
 
-        <!-- ACTIVITY -->
-        <div class="section">
-          <div class="section-header">
-            <h2>Momentum Memory</h2>
-          </div>
 
-          <div class="activity-list">
-            <BaseCard
-              v-for="event in profile.recent_activity"
-              :key="event.id"
-              class="activity-card"
-            >
-              <div class="activity-top">
-                <div>
-                  <strong>{{ event.title }}</strong>
 
-                  <p class="subtitle">
-                    {{ event.subtitle }}
-                  </p>
-                </div>
 
-                <span class="event-type">
-                  {{ event.type }}
-                </span>
-              </div>
-
-              <div class="activity-footer">
-                <span class="date">
-                  {{ event.created_at }}
-                </span>
-
-                <span
-                  v-if="event.rarity"
-                  class="rarity"
-                >
-                  {{ event.rarity }}
-                </span>
-              </div>
-            </BaseCard>
-          </div>
-        </div>
+        
       </template>
     </div>
   </div>
@@ -221,4 +316,25 @@ onMounted(loadProfile);
 .error {
   border-color: rgba(255, 100, 100, 0.4);
 }
+
+.show-more-wrap {
+  margin-top: 16px;
+  display: flex;
+  justify-content: center;
+}
+
+.show-more {
+  border: 1px solid rgba(255,255,255,.12);
+  background: rgba(255,255,255,.04);
+  color: white;
+  border-radius: 12px;
+  padding: 10px 18px;
+  cursor: pointer;
+  transition: all .18s ease;
+}
+
+.show-more:hover {
+  background: rgba(255,255,255,.08);
+}
+
 </style>
