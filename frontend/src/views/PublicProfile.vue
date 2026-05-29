@@ -1,7 +1,15 @@
 <script setup>
-import { onMounted, ref, computed } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
 import { useRoute } from "vue-router";
-import api from "../lib/api";
+
+import api from "@/lib/api";
+
+import BaseCard from "@/components/ui/BaseCard.vue";
+
+import UserAvatar from "@/components/profile/UserAvatar.vue";
+import ProfileHeroCard from "@/components/profile/ProfileHeroCard.vue";
+import ProfileStatsGrid from "@/components/profile/ProfileStatsGrid.vue";
+import ConsistencyHeatmap from "@/components/profile/ConsistencyHeatmap.vue";
 
 const route = useRoute();
 
@@ -29,108 +37,106 @@ async function loadProfile() {
   }
 }
 
+watch(
+  () => route.params.username,
+  () => {
+    loadProfile();
+  }
+);
+
 onMounted(loadProfile);
 </script>
 
 <template>
   <div class="public-profile-page">
     <div class="container">
-      <div v-if="loading" class="state-card">
-        <p>Loading profile...</p>
-      </div>
+      <!-- LOADING -->
+      <BaseCard
+        v-if="loading"
+        class="state-card"
+      >
+        <p>Loading progression identity...</p>
+      </BaseCard>
 
-      <div v-else-if="error" class="state-card error">
+      <!-- ERROR -->
+      <BaseCard
+        v-else-if="error"
+        class="state-card error"
+      >
         <p>{{ error }}</p>
-      </div>
+      </BaseCard>
 
+      <!-- PROFILE -->
       <template v-else-if="profile">
         <!-- HERO -->
-        <section class="hero-card">
-          <div class="hero-top">
-            <img
-              :src="`/${profile.avatar_url || 'player.png'}`"
-              class="avatar"
-              alt="avatar"
+        <ProfileHeroCard :profile="profile">
+          <template #avatar>
+            <UserAvatar
+              :src="profile.avatar_url"
+              :name="profile.name"
             />
-
-            <div class="identity">
-              <h1>{{ profile.name }}</h1>
-
-              <p class="username">
-                @{{ profile.username }}
-              </p>
-
-              <div class="title-pill">
-                {{ profile.title?.label }}
-              </div>
-            </div>
-          </div>
-
-          <p class="tagline">
-            {{ profile.tagline }}
-          </p>
-
-          <p
-            v-if="profile.bio"
-            class="bio"
-          >
-            {{ profile.bio }}
-          </p>
-        </section>
+          </template>
+        </ProfileHeroCard>
 
         <!-- STATS -->
-        <section class="stats-grid">
-          <div class="stat-card">
-            <span class="label">Level</span>
-            <strong>{{ profile.stats.level }}</strong>
+        <div class="section">
+          <div class="section-header">
+            <h2>Progression Stats</h2>
           </div>
 
-          <div class="stat-card">
-            <span class="label">XP</span>
-            <strong>{{ profile.stats.total_xp }}</strong>
+          <ProfileStatsGrid :profile="profile" />
+        </div>
+
+        <!-- HEATMAP -->
+        <!-- <div class="section">
+          <div class="section-header">
+            <h2>Consistency Footprint</h2>
           </div>
 
-          <div class="stat-card">
-            <span class="label">Current Streak</span>
-            <strong>{{ profile.stats.current_streak }}</strong>
-          </div>
-
-          <div class="stat-card">
-            <span class="label">Longest Streak</span>
-            <strong>{{ profile.stats.longest_streak }}</strong>
-          </div>
-        </section>
+          <ConsistencyHeatmap />
+        </div> -->
 
         <!-- ACTIVITY -->
-        <section class="activity-section">
+        <div class="section">
           <div class="section-header">
             <h2>Momentum Memory</h2>
           </div>
 
           <div class="activity-list">
-            <div
+            <BaseCard
               v-for="event in profile.recent_activity"
               :key="event.id"
               class="activity-card"
             >
               <div class="activity-top">
-                <strong>{{ event.title }}</strong>
+                <div>
+                  <strong>{{ event.title }}</strong>
 
-                <span class="activity-type">
+                  <p class="subtitle">
+                    {{ event.subtitle }}
+                  </p>
+                </div>
+
+                <span class="event-type">
                   {{ event.type }}
                 </span>
               </div>
 
-              <p class="subtitle">
-                {{ event.subtitle }}
-              </p>
+              <div class="activity-footer">
+                <span class="date">
+                  {{ event.created_at }}
+                </span>
 
-              <span class="date">
-                {{ event.created_at }}
-              </span>
-            </div>
+                <span
+                  v-if="event.rarity"
+                  class="rarity"
+                >
+                  {{ event.rarity }}
+                </span>
+              </div>
+            </BaseCard>
           </div>
-        </section>
+        </div>
       </template>
     </div>
   </div>
@@ -139,135 +145,72 @@ onMounted(loadProfile);
 <style scoped>
 .public-profile-page {
   min-height: 100vh;
-  padding: 40px 20px 80px;
-  background:
-    radial-gradient(circle at top, rgba(255,255,255,0.06), transparent 30%),
-    #0b1020;
-  color: white;
+  padding: 32px 20px 80px;
 }
 
 .container {
   width: 100%;
-  max-width: 1000px;
+  max-width: 1100px;
   margin: 0 auto;
 }
 
-.hero-card,
-.stat-card,
-.activity-card,
-.state-card {
-  background: rgba(255,255,255,0.06);
-  border: 1px solid rgba(255,255,255,0.08);
-  border-radius: 24px;
-  backdrop-filter: blur(12px);
-}
-
-.hero-card {
-  padding: 32px;
-  margin-bottom: 24px;
-}
-
-.hero-top {
-  display: flex;
-  gap: 20px;
-  align-items: center;
-}
-
-.avatar {
-  width: 96px;
-  height: 96px;
-  border-radius: 24px;
-  object-fit: cover;
-}
-
-.identity h1 {
-  margin: 0;
-  font-size: 2rem;
-}
-
-.username {
-  opacity: 0.7;
-  margin-top: 6px;
-}
-
-.title-pill {
-  margin-top: 12px;
-  display: inline-flex;
-  padding: 8px 14px;
-  border-radius: 999px;
-  background: rgba(255,255,255,0.08);
-  font-size: 0.9rem;
-}
-
-.tagline {
-  margin-top: 24px;
-  font-size: 1.05rem;
-  opacity: 0.9;
-}
-
-.bio {
-  margin-top: 14px;
-  opacity: 0.7;
-  line-height: 1.6;
-}
-
-.stats-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 18px;
-  margin-bottom: 24px;
-}
-
-.stat-card {
-  padding: 24px;
-}
-
-.label {
-  display: block;
-  opacity: 0.6;
-  margin-bottom: 10px;
-}
-
-.activity-section {
-  margin-top: 10px;
+.section {
+  margin-top: 28px;
 }
 
 .section-header {
-  margin-bottom: 16px;
+  margin-bottom: 14px;
+}
+
+.section-header h2 {
+  font-size: 1rem;
+  font-weight: 700;
+  opacity: 0.92;
 }
 
 .activity-list {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px;
 }
 
 .activity-card {
-  padding: 20px;
+  padding: 18px;
 }
 
 .activity-top {
   display: flex;
   justify-content: space-between;
-  gap: 12px;
-}
-
-.activity-type {
-  opacity: 0.5;
-  text-transform: uppercase;
-  font-size: 0.8rem;
+  gap: 16px;
 }
 
 .subtitle {
-  margin-top: 10px;
-  opacity: 0.8;
+  margin-top: 8px;
+  opacity: 0.72;
+}
+
+.activity-footer {
+  margin-top: 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
 .date {
-  margin-top: 14px;
-  display: block;
-  opacity: 0.45;
-  font-size: 0.85rem;
+  opacity: 0.5;
+  font-size: 0.84rem;
+}
+
+.event-type {
+  opacity: 0.42;
+  text-transform: uppercase;
+  font-size: 0.72rem;
+}
+
+.rarity {
+  text-transform: capitalize;
+  font-size: 0.8rem;
+  opacity: 0.72;
 }
 
 .state-card {
@@ -276,17 +219,6 @@ onMounted(loadProfile);
 }
 
 .error {
-  border-color: rgba(255,80,80,0.4);
-}
-
-@media (max-width: 768px) {
-  .hero-top {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
-  .stats-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
+  border-color: rgba(255, 100, 100, 0.4);
 }
 </style>
