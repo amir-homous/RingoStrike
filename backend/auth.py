@@ -3,6 +3,7 @@ from functools import wraps
 import jwt
 from datetime import datetime, timedelta, timezone
 from database import get_user_by_username, verify_password, get_user_by_id, create_user, get_user_by_telegram_id
+from services.username_service import normalize_username, is_valid_username
 import os
 
 JWT_SECRET = os.getenv("JWT_SECRET", "your-secret-key-change-this")
@@ -100,14 +101,18 @@ def register_auth_routes(app):
         """Register new user with username and password"""
         data = request.get_json(silent=True) or {}
         
-        username = (data.get("username") or "").strip()
+        # username = (data.get("username") or "").strip()
+        username = normalize_username(data.get("username"))
+
         password = (data.get("password") or "").strip()
         name = (data.get("name") or "").strip()
         email = (data.get("email") or "").strip()
         
         # Validation
-        if not username or len(username) < 3:
-            return jsonify({"ok": False, "error": "username_min_3_chars"}), 400
+        # if not username or len(username) < 3:
+        #    return jsonify({"ok": False, "error": "username_min_3_chars"}), 400
+        if not is_valid_username(username):
+            return jsonify({"ok": False, "error": "invalid_username"}), 400
         
         if not password or len(password) < 6:
             return jsonify({"ok": False, "error": "password_min_6_chars"}), 400
