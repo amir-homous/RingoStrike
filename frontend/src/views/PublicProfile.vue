@@ -29,6 +29,14 @@ const username = computed(
   () => route.params.username
 );
 
+const iconMap = {
+  check: "✓",
+  flame: "🔥",
+  trophy: "🏆",
+  bolt: "⚡",
+  star: "✨",
+};
+
 async function loadProfile() {
   loading.value = true;
   error.value = "";
@@ -78,6 +86,33 @@ async function loadProfile() {
   } finally {
     loading.value = false;
   }
+}
+
+function formatRelativeDate(dateString) {
+  const date = new Date(dateString);
+
+  const now = new Date();
+
+  const diff =
+    Math.floor((now - date) / 1000);
+
+  if (diff < 60) {
+    return "Just now";
+  }
+
+  if (diff < 3600) {
+    return `${Math.floor(diff / 60)}m ago`;
+  }
+
+  if (diff < 86400) {
+    return `${Math.floor(diff / 3600)}h ago`;
+  }
+
+  if (diff < 604800) {
+    return `${Math.floor(diff / 86400)}d ago`;
+  }
+
+  return date.toLocaleDateString();
 }
 
 watch(
@@ -171,6 +206,9 @@ onMounted(loadProfile);
               >
                 <div class="activity-top">
                   <div>
+                    <div class="activity-icon">
+                      {{ iconMap[event.icon] || "•" }}
+                    </div>
                     <strong>
                       {{ event.title }}
                     </strong>
@@ -187,7 +225,7 @@ onMounted(loadProfile);
 
                 <div class="activity-footer">
                   <span class="date">
-                    {{ event.created_at }}
+                    {{ formatRelativeDate(event.created_at) }}
                   </span>
 
                   <span
@@ -215,7 +253,7 @@ onMounted(loadProfile);
               </button>
             </div>
           </div>
-          
+
 
         <!-- STATS -->
         <div class="section">
@@ -335,6 +373,18 @@ onMounted(loadProfile);
 
 .show-more:hover {
   background: rgba(255,255,255,.08);
+}
+
+.activity-icon{
+  width:40px;
+  height:40px;
+  border-radius:12px;
+  display:grid;
+  place-items:center;
+  background:rgba(255,255,255,.05);
+  border:1px solid rgba(255,255,255,.08);
+  font-size:18px;
+  flex-shrink:0;
 }
 
 </style>
