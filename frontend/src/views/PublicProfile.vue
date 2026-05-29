@@ -69,7 +69,7 @@ onMounted(loadProfile);
       <!-- PROFILE -->
       <template v-else-if="profile">
         <!-- HERO -->
-        <ProfileHeroCard :profile="profile">
+        <ProfileHeroCard :profile="profile" :isOwner="false">
           <template #avatar>
             <UserAvatar
               :src="profile.avatar_url"
