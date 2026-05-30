@@ -2,40 +2,42 @@
   <AppContainer>
     <AppHeader />
 
-    <UiState
-      :loading="loading"
-      :error="!!error"
-      :empty="false"
-      loading-title="Loading profile..."
-      :error-text="error"
-      @retry="load"
-    />
+    <UiState :loading="loading" :error="!!error" :empty="false" loading-title="Loading profile..." :error-text="error"
+      @retry="load" />
 
-    <div
-      v-if="!loading && !error && profile"
-      class="stack-16"
-    >
-      <ProfileHeroCard
-        :profile="profile"
-        :isOwner="false"
-      />
+    <BaseCard v-if="isPrivate">
+      <h2>
+        Private Profile
+      </h2>
 
-      <ProfileStatsGrid
-        :profile="profile"
-      />
+      <p class="caption">
+        This user has chosen to keep
+        their progression journey private.
+      </p>
+    </BaseCard>
 
-      <ConsistencyHeatmap
-        :days="consistency"
-      />
+    <BaseCard v-else-if="isNotFound">
+      <h2>
+        Profile Not Found
+      </h2>
 
-      <AchievementPreview
-        :achievements="achievements"
-      />
+      <p class="caption">
+        The requested profile
+        does not exist.
+      </p>
+    </BaseCard>
 
-      <ActivityTimeline
-        :events="profile.recent_activity || []"
-        :loading="false"
-      />
+
+    <div v-if="!loading && !error && profile" class="stack-16">
+      <ProfileHeroCard :profile="profile" :isOwner="false" />
+
+      <ProfileStatsGrid :profile="profile" />
+
+      <ConsistencyHeatmap :days="consistency" />
+
+      <AchievementPreview :achievements="achievements" />
+
+      <ActivityTimeline :events="profile.recent_activity || []" :loading="false" />
     </div>
   </AppContainer>
 </template>
@@ -56,6 +58,9 @@ import ConsistencyHeatmap from "@/components/profile/ConsistencyHeatmap.vue";
 
 import AchievementPreview from "@/components/achievements/AchievementPreview.vue";
 import ActivityTimeline from "@/components/activity/ActivityTimeline.vue";
+
+const isPrivate = ref(false);
+const isNotFound = ref(false);
 
 const route = useRoute();
 
@@ -88,8 +93,21 @@ async function load() {
       a.data.achievements || [];
   }
   catch (err) {
+    const code =
+      err?.response?.data?.error;
+
+    if (code === "profile_private") {
+      isPrivate.value = true;
+      return;
+    }
+
+    if (code === "profile_not_found") {
+      isNotFound.value = true;
+      return;
+    }
+
     error.value =
-      err?.response?.data?.error ||
+      code ||
       err?.message ||
       "Failed loading profile";
   }

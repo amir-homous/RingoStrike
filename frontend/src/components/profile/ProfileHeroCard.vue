@@ -14,6 +14,12 @@
         <p class="caption">
           @{{ profile.username }}
         </p>
+        <p
+          v-if="profile.bio"
+          class="bio"
+        >
+          {{ profile.bio }}
+        </p>
 
         <p class="caption">
           Level {{ profile.stats.level }}
