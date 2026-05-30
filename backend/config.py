@@ -4,6 +4,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 class Config:
+    FLASK_ENV = os.getenv("FLASK_ENV", "development")
     SECRET_KEY = os.getenv("SECRET_KEY", "your-fallback-secret-key")
     JWT_SECRET = os.getenv("JWT_SECRET", "dev_jwt_secret")
 
