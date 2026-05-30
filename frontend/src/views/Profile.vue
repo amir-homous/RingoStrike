@@ -58,6 +58,9 @@
         </p>
       </BaseCard>
     </div>
+    <RewardFeedback
+    :items="rewardToasts"
+    />
   </AppContainer>
 </template>
 
@@ -80,6 +83,8 @@ import ProfileSettingsCard from "@/components/profile/ProfileSettingsCard.vue";
 import AchievementPreview from "@/components/achievements/AchievementPreview.vue";
 import ActivityTimeline from "@/components/activity/ActivityTimeline.vue";
 
+import RewardFeedback from "@/components/feedback/RewardFeedback.vue";
+
 import { watch } from "vue";
 
 
@@ -94,22 +99,45 @@ const activityEvents = ref([]);
 
 const showEditProfile = ref(false);
 
+const rewardToasts = ref([]);
+
+function pushToast(text, type = "success") {
+  const id = `${Date.now()}-${Math.random()}`;
+
+  rewardToasts.value.push({
+    id,
+    text,
+    type,
+  });
+
+  setTimeout(() => {
+    rewardToasts.value =
+      rewardToasts.value.filter(
+        (t) => t.id !== id
+      );
+  }, 2200);
+}
 
 function handleProfileSaved() {
+
+  pushToast(
+    "Profile updated successfully",
+    "success"
+  );
+
   showEditProfile.value = false;
 
   load();
 }
 
 function handleEditProfile() {
-  console.log("PROFILE RECEIVED EVENT")
 
   showEditProfile.value = true
 }
 
 
 watch(showEditProfile, (v) => {
-  console.log("showEditProfile =", v);
+
 });
 
 

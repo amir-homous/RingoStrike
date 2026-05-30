@@ -108,7 +108,7 @@ async function shareProfile() {
 
 
 function openEditProfile() {
-  console.log("EDIT CLICKED");
+
   emit("edit-profile");
 }
 

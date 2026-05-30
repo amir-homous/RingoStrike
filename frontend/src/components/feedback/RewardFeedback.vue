@@ -17,4 +17,9 @@ defineProps({ items: { type: Array, default: () => [] } });
 .toast.level{color:rgba(199,210,254,.95);border-color:rgba(99,102,241,.4)}
 .toast-enter-active,.toast-leave-active{transition:all .32s ease}
 .toast-enter-from,.toast-leave-to{opacity:0;transform:translateY(10px)}
+.toast.achievement{
+  color:rgba(253,224,71,.95);
+  border-color:rgba(250,204,21,.35);
+  background:rgba(36,28,8,.88);
+}
 </style>

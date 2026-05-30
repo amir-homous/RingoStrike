@@ -58,7 +58,7 @@
     </div>
 
     <RewardFeedback :items="rewardToasts" />
-    <AchievementToast :items="achievementToasts" />
+    <!-- <AchievementToast :items="achievementToasts" /> -->
   </AppContainer>
 </template>
 
@@ -79,7 +79,7 @@ import ChallengeCard from "@/components/challenges/ChallengeCard.vue";
 import RewardFeedback from "@/components/feedback/RewardFeedback.vue";
 import ActivityTimeline from "@/components/activity/ActivityTimeline.vue";
 import AchievementPreview from "@/components/achievements/AchievementPreview.vue";
-import AchievementToast from "@/components/achievements/AchievementToast.vue";
+// import AchievementToast from "@/components/achievements/AchievementToast.vue";
 
 
 const router = useRouter();
@@ -95,7 +95,7 @@ const rewardToasts = ref([]);
 const xpPulse = ref(false);
 const activityEvents = ref([]);
 const achievements = ref([]);
-const achievementToasts = ref([]);
+// const achievementToasts = ref([]);
 
 const XP_PER_CHECKIN = 10;
 
@@ -182,61 +182,144 @@ function buildOptimisticEvents(target, oldLevel, newLevel) {
   return events;
 }
 
+
 async function checkin(enrollmentId) {
   const oldStats = stats.value ? { ...stats.value } : null;
-  const target = challenges.value.find((c) => c.enrollment_id === enrollmentId);
+  const target = challenges.value.find(
+    (c) => c.enrollment_id === enrollmentId
+  );
+
   if (!target || target.today_checked || !stats.value) return;
 
   checkingId.value = enrollmentId;
   error.value = "";
 
   const oldActivity = [...activityEvents.value];
+
   target.today_checked = true;
   target.current_streak = (target.current_streak || 0) + 1;
+
   stats.value = {
     ...stats.value,
-    total_points: stats.value.total_points + XP_PER_CHECKIN,
-    total_checkins: stats.value.total_checkins + 1,
-    current_streak: Math.max(stats.value.current_streak, (target.current_streak || 0)),
-    xp: Math.min(stats.value.next_level_xp, stats.value.xp + XP_PER_CHECKIN),
-    progress_percent: Math.min(100, stats.value.progress_percent + Math.round((XP_PER_CHECKIN / 100) * 100)),
+    total_points:
+      stats.value.total_points + XP_PER_CHECKIN,
+
+    total_checkins:
+      stats.value.total_checkins + 1,
+
+    current_streak: Math.max(
+      stats.value.current_streak,
+      target.current_streak || 0
+    ),
+
+    xp: Math.min(
+      stats.value.next_level_xp,
+      stats.value.xp + XP_PER_CHECKIN
+    ),
+
+    progress_percent: Math.min(
+      100,
+      stats.value.progress_percent +
+        Math.round((XP_PER_CHECKIN / 100) * 100)
+    ),
   };
+
   activityEvents.value = [
-    ...buildOptimisticEvents(target, oldStats?.level || 1, stats.value.level || 1),
+    ...buildOptimisticEvents(
+      target,
+      oldStats?.level || 1,
+      stats.value.level || 1
+    ),
     ...activityEvents.value,
   ];
+
   xpPulse.value = true;
-  setTimeout(() => (xpPulse.value = false), 520);
+
+  setTimeout(() => {
+    xpPulse.value = false;
+  }, 520);
 
   try {
-    const checkinResp = await api.post(`/me/challenges/${enrollmentId}/checkin`);
-    const unlocked = checkinResp.data?.rewards?.achievements || [];
+    const checkinResp = await api.post(
+      `/me/challenges/${enrollmentId}/checkin`
+    );
+
+    const unlocked =
+      checkinResp.data?.rewards?.achievements || [];
+
     for (const a of unlocked) {
-      const id = `ach-${Date.now()}-${Math.random()}`;
-      achievementToasts.value.push({ id, title: a.title });
-      setTimeout(() => { achievementToasts.value = achievementToasts.value.filter((t) => t.id !== id); }, 2400);
+      pushToast(
+        `🏆 ${a.title}`,
+        "achievement"
+      );
     }
-    const [statsResp, activityResp, achievementsResp] = await Promise.all([api.get("/me/stats"), api.get("/me/activity"), api.get("/me/achievements")]);
-    stats.value = statsResp.data.stats || stats.value;
-    activityEvents.value = activityResp.data?.events || activityEvents.value;
-    achievements.value = achievementsResp.data?.achievements || achievements.value;
-    pushToast(`+${XP_PER_CHECKIN} XP`, "success");
-    pushToast("🔥 Streak maintained", "success");
-    if (oldStats && stats.value.level > oldStats.level) {
-      pushToast(`Level Up → Level ${stats.value.level}`, "level");
+
+    const [
+      statsResp,
+      activityResp,
+      achievementsResp,
+    ] = await Promise.all([
+      api.get("/me/stats"),
+      api.get("/me/activity"),
+      api.get("/me/achievements"),
+    ]);
+
+    stats.value =
+      statsResp.data.stats || stats.value;
+
+    activityEvents.value =
+      activityResp.data?.events ||
+      activityEvents.value;
+
+    achievements.value =
+      achievementsResp.data?.achievements ||
+      achievements.value;
+
+    pushToast(
+      `+${XP_PER_CHECKIN} XP`,
+      "success"
+    );
+
+    pushToast(
+      "🔥 Streak maintained",
+      "success"
+    );
+
+    if (
+      oldStats &&
+      stats.value.level > oldStats.level
+    ) {
+      pushToast(
+        `Level Up → Level ${stats.value.level}`,
+        "level"
+      );
     }
   } catch (e) {
-    if (oldStats) stats.value = oldStats;
+    if (oldStats) {
+      stats.value = oldStats;
+    }
+
     activityEvents.value = oldActivity;
+
     if (target) {
       target.today_checked = false;
-      target.current_streak = Math.max((target.current_streak || 1) - 1, 0);
+
+      target.current_streak = Math.max(
+        (target.current_streak || 1) - 1,
+        0
+      );
     }
-    error.value = e?.response?.data?.error || e?.message || String(e);
+
+    error.value =
+      e?.response?.data?.error ||
+      e?.message ||
+      String(e);
   } finally {
     checkingId.value = null;
   }
 }
+
+
 
 async function doLogout() {
   try {
@@ -262,4 +345,25 @@ onMounted(loadDashboard);
 .list{margin-top:var(--s-16);display:grid;gap:var(--s-12)}
 .progressGrid{display:grid;gap:var(--s-12);grid-template-columns:minmax(0,2fr) minmax(0,1fr)}
 @media (max-width: 900px){.progressGrid{grid-template-columns:1fr}}
+
+.toast.achievement {
+  color: rgba(251, 191, 36, .95);
+  border-color: rgba(251, 191, 36, .35);
+}
+
+.toast.error {
+  color: rgba(248, 113, 113, .95);
+  border-color: rgba(248, 113, 113, .35);
+}
+
+.toast.xp {
+  color: rgba(167, 139, 250, .95);
+  border-color: rgba(139, 92, 246, .35);
+}
+
+.toast.streak {
+  color: rgba(251, 146, 60, .95);
+  border-color: rgba(249, 115, 22, .35);
+}
+
 </style>
