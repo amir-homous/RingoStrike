@@ -1,522 +1,177 @@
-# RingoStrike — Architecture Overview
+# RingoStrike - Architecture
 
-## Architecture Philosophy
+## Overview
 
-RingoStrike is designed as a scalable progression platform with:
+RingoStrike is a two-tier web application:
 
-* modular backend architecture
-* reusable progression systems
-* centralized business logic
-* emotionally consistent frontend architecture
-* future-safe event-driven systems
+```txt
+Browser / Vue 3 SPA
+  -> Axios API client with credentials
+  -> Flask API on localhost:5005
+  -> Service layer
+  -> SQLite database
+```
 
-The architecture prioritizes:
+The codebase is organized around a modular Flask backend and component-driven Vue frontend.
 
-* extensibility
-* emotional UX consistency
-* modular growth
-* maintainability
-* progression-first product evolution
+## Repository Structure
 
-This is NOT a monolithic habit tracker architecture.
-
-The system is intentionally structured to support future:
-
-* social systems
-* AI systems
-* seasonal progression
-* achievements
-* public identity
-* shared momentum
-* advanced analytics
-
-without major rewrites.
-
----
-
-# High-Level Architecture
-
-The product is divided into:
-
-1. Backend API Layer
-2. Service / Business Logic Layer
-3. Frontend UI Layer
-4. Progression Engine Layer
-5. Event & Activity Systems
-6. Identity & Profile Systems
-
----
-
-# Backend Architecture
-
-Backend stack:
-
-* Flask
-* modular blueprints
-* service-oriented architecture
-* SQLite (currently)
-* future migration-safe design
-
-Suggested backend structure:
-
+```txt
 backend/
+  app.py
+  auth.py
+  auth_telegram.py
+  config.py
+  database.py
+  routes/
+  services/
+  utils/
+frontend/
+  src/
+    components/
+    lib/api.js
+    router/index.js
+    stores/session.js
+    styles/
+    views/
+docs/
+```
+
+Generated/dependency directories such as `backend/venv`, `backend/.venv`, `frontend/node_modules`, `__pycache__`, and the local SQLite file are not architecture source.
+
+## Backend Runtime
+
+`backend/app.py` creates the Flask application, loads config, enables CORS for local frontend origins, initializes SQLite tables, registers auth routes, registers blueprints, and exposes `/health`.
+
+Registered route sources:
+
+- `backend/auth.py` through `routes/auth_routes.py`
+- `routes/challenge_routes.py`
+- `routes/dashboard_routes.py`
+- `routes/enrollment_routes.py`
+- `routes/leaderboard_routes.py`
+- `routes/history_routes.py`
+- `routes/debug_routes.py`
+- `routes/stats_routes.py`
+- `routes/public_profile_routes.py`
+- `routes/profile_settings_routes.py`
+
+## Backend Layering
+
+```txt
+Flask routes
+  -> auth decorator / request validation
+  -> service functions
+  -> database helpers / SQLite queries
+  -> JSON responses
+```
+
+Routes are mostly thin and defer to services. The main exception is `backend/auth.py`, which defines route handlers and auth utility logic in one file.
+
+## Service Boundaries
+
+- `challenge_service.py`: challenge discovery, detail, members, join, and enrollment detail.
+- `enrollment_service.py`: daily check-in writes, stats sync, achievement evaluation.
+- `stats_service.py`: XP, level, streak, progress calculations, `user_stats` synchronization.
+- `achievement_service.py`: achievement definition seeding, unlock evaluation, achievement list.
+- `activity_service.py`: derived activity feed from check-ins, streaks, levels, achievements.
+- `dashboard_service.py`: `/me`, dashboard challenges, dashboard stats.
+- `profile_service.py`: private profile aggregation and title evaluation.
+- `public_profile_service.py`: public profile aggregation with visibility checks.
+- `public_activity_service.py`: public-safe activity projection.
+- `public_consistency_service.py`: public consistency dates with visibility checks.
+- `public_achievement_service.py`: public unlocked achievements with visibility checks.
+- `profile_settings_service.py`: avatar, bio, and visibility settings.
+- `profile_update_service.py`: name, bio, avatar update.
+- `profile_visibility_service.py`: direct visibility update.
+- `leaderboard_service.py`: leaderboard per enrollment/challenge.
+- `history_service.py`: enrollment check-in history.
+- `debug_service.py`: SQLite schema/count debug responses.
+- `username_service.py`: username normalization and reserved-name validation.
+
+## Text Architecture Diagram
+
+```txt
+Vue views
+  Dashboard/Profile/Challenges/Enrollment/PublicProfile
+      |
+      v
+frontend/src/lib/api.js
+      |
+      v
+Flask app.py + route modules
+      |
+      v
+Service layer
+  stats -> achievements -> activity -> profile
+  challenge -> enrollment -> history -> leaderboard
+      |
+      v
+SQLite tables
+  users, user_stats, challenges, enrollments,
+  checkins, achievements, user_achievements, sessions
+```
+
+## Authentication Flow
+
+Local auth is active:
+
+1. `POST /auth/register` or `POST /auth/login` accepts JSON credentials.
+2. Backend normalizes and validates usernames.
+3. Passwords are hashed with Werkzeug.
+4. Backend returns `access_token` and sets an HttpOnly `ringo_token` cookie.
+5. `require_auth()` checks the cookie first, then `Authorization: Bearer`.
+6. Protected routes receive decoded JWT claims.
+7. `POST /auth/logout` clears the cookie.
 
-* app.py
-* config.py
-* database.py
+Telegram auth status:
 
-routes/
+- `backend/auth_telegram.py` can verify Telegram Login Widget payloads.
+- `backend/config.py` defines Telegram config fields.
+- No active `/auth/telegram` route is registered in the current app.
 
-* auth_routes.py
-* dashboard_routes.py
-* challenge_routes.py
-* enrollment_routes.py
-* leaderboard_routes.py
-* history_routes.py
-* debug_routes.py
-* stats_routes.py
+## Frontend Architecture
 
-services/
+`frontend/src/main.js` installs Pinia and Vue Router, imports CSS tokens/base styles, and mounts `App.vue`.
 
-* auth_service.py
-* stats_service.py
-* achievement_service.py
-* activity_service.py
-* profile_service.py
-* consistency_service.py
-* title_service.py
-* challenge_service.py
-* consistency_service.py
-* dashboard_service.py
-* debug_service.py
-* enrollment_service.py
-* history_service.py
-* leaderboard_service.py
+Router paths:
 
----
+- `/login`
+- `/auth/callback`
+- `/dashboard`
+- `/challenges`
+- `/profile`
+- `/enrollment/:id`
+- `/enrollment/:id/leaderboard`
+- `/u/:username`
+- `/docs`
+- `/` redirects to `/dashboard`
+- unknown paths redirect to `/dashboard`
 
-# Backend Philosophy
+Router guard behavior:
 
-## Thin Routes
+- `requiresAuth: false` routes pass.
+- All other routes call `GET /me`; failures redirect to `/login?next=...`.
 
-Routes should:
+## Frontend State Flow
 
-* validate request input
-* authenticate users
-* call services
-* return normalized responses
+The app mostly uses component-local state and direct API calls. Pinia exists and `stores/session.js` defines a session store, but that store is currently incompatible with `lib/api.js` because it calls a missing `api.setToken()` method.
 
-Routes should NOT:
+## Design System Architecture
 
-* contain business logic
-* calculate XP/streaks directly
-* duplicate progression calculations
+Active global styles are:
 
----
+- `frontend/src/styles/tokens.css`
+- `frontend/src/styles/base.css`
 
-## Centralized Services
+`frontend/src/style.css` and `frontend/src/assets/main.css` exist but are not imported by `main.js`.
 
-Services contain:
+The actual UI is implemented with Vue component CSS plus shared base primitives under `frontend/src/components/ui/`.
 
-* progression calculations
-* achievement logic
-* identity logic
-* timeline event generation
-* profile aggregation
-* social logic
+## Known Architecture Risks
 
-This ensures:
-
-* consistency
-* scalability
-* easier future expansion
-
----
-
-# Progression Engine
-
-The progression engine is the emotional core of the product.
-
-It includes:
-
-* XP calculations
-* level calculations
-* progression percent
-* next level thresholds
-* progression summaries
-
-Core concepts:
-
-* progression must feel meaningful
-* leveling should reinforce identity growth
-* XP should remain emotionally readable
-
-XP currently derives primarily from:
-
-* completed check-ins
-* achievement rewards
-
-Future-safe for:
-
-* seasonal bonuses
-* social rewards
-* AI recommendations
-* event systems
-
----
-
-# Streak System
-
-The streak system is centralized.
-
-Key principles:
-
-* streak logic must never be duplicated
-* all streak calculations must use shared services
-* streak consistency across endpoints is critical
-
-The streak engine supports:
-
-* current streak
-* longest streak
-* streak reinforcement events
-* future streak-risk systems
-
----
-
-# Achievement Engine
-
-The achievement engine is event-driven.
-
-Core architecture:
-
-* achievement definitions table
-* user unlock records table
-* centralized evaluation logic
-* reward integration
-
-The engine supports:
-
-* duplicate-safe unlocks
-* XP rewards
-* future rarity systems
-* future seasonal achievements
-* social achievement visibility
-
-Important:
-Achievements are progression moments,
-NOT collectible spam.
-
----
-
-# Activity Timeline Architecture
-
-The activity timeline is a centralized event system.
-
-All progression-related activity should flow through this architecture.
-
-Supported event types:
-
-* check-ins
-* streak milestones
-* level-ups
-* achievements
-* future social events
-
-Important rule:
-DO NOT create secondary timeline/event systems.
-
-All future:
-
-* social activity
-* progression moments
-* achievement events
-* public feed events
-
-should extend this architecture.
-
----
-
-# Profile Identity System
-
-The profile system is identity-driven.
-
-Profiles are NOT static account pages.
-
-Profiles are:
-
-* progression identity hubs
-* momentum summaries
-* emotional progression mirrors
-
-The profile architecture includes:
-
-* dynamic titles
-* avatar systems
-* progression summaries
-* achievement previews
-* consistency heatmaps
-* recent activity
-
-Future-safe for:
-
-* public profiles
-* social identity
-* profile customization
-* prestige systems
-
----
-
-# Consistency Heatmap
-
-The consistency heatmap visualizes:
-
-* behavioral consistency
-* long-term momentum
-* emotional continuity
-
-It is intentionally:
-
-* visually restrained
-* readable
-* emotionally meaningful
-
-Inspired by:
-
-* GitHub contribution maps
-* long-term behavioral visibility
-
----
-
-# Frontend Architecture
-
-Frontend philosophy:
-
-* progression-first hierarchy
-* modular component systems
-* reusable UI patterns
-* emotionally consistent interactions
-
-The frontend prioritizes:
-
-* clarity
-* motivation
-* premium visual hierarchy
-* scalable UI composition
-
----
-
-# Dashboard Architecture
-
-The dashboard is the emotional center of the application.
-
-The hierarchy intentionally follows:
-
-1. Progress Identity
-2. Momentum Feedback
-3. Activity Memory
-4. Daily Actions
-
-Typical structure:
-
-* Hero Progress Card
-* XP / Level Systems
-* Recent Progress
-* Activity Timeline
-* Achievement Preview
-* Active Challenges
-
-The dashboard is designed to reinforce:
-
-* continuity
-* momentum
-* emotional progression
-
----
-
-# Component Philosophy
-
-Frontend components should be:
-
-* isolated
-* reusable
-* scalable
-* visually consistent
-
-Avoid:
-
-* giant coupled components
-* duplicated interaction systems
-* inconsistent animation behavior
-
-Preferred structure:
-
-components/
-
-* progress/
-* activity/
-* achievements/
-* profile/
-* social/
-* ui/
-
----
-
-# Optimistic UI Philosophy
-
-The product uses optimistic updates for emotional responsiveness.
-
-Examples:
-
-* check-ins
-* XP updates
-* streak reinforcement
-* activity insertion
-
-Goals:
-
-* immediate emotional feedback
-* responsive progression feeling
-* preserved momentum
-
-Important:
-Optimistic systems must support:
-
-* rollback
-* reconciliation
-* server-source truth
-
----
-
-# Social Architecture Direction
-
-Social systems should reinforce:
-
-* shared progression
-* visible momentum
-* inspiration
-* emotional reinforcement
-
-NOT:
-
-* toxic comparison
-* noisy competition
-* engagement addiction
-
-Future social systems may include:
-
-* public profiles
-* momentum feeds
-* challenge discovery
-* shared progression
-* social achievements
-
-All future systems should extend:
-
-* existing event systems
-* existing progression systems
-* existing identity systems
-
----
-
-# Database Philosophy
-
-Database systems should remain:
-
-* normalized
-* scalable
-* migration-safe
-* future-extensible
-
-Avoid:
-
-* tightly coupled schemas
-* duplicated state
-* progression calculations stored redundantly
-
-The database should support future:
-
-* social graphs
-* guilds/teams
-* AI systems
-* progression analytics
-* seasonal systems
-
----
-
-# Design System Philosophy
-
-The visual direction is:
-
-* dark premium aesthetic
-* restrained motion
-* cinematic spacing
-* soft gradients
-* emotionally intelligent UI
-
-Avoid:
-
-* gaming UI overload
-* visual chaos
-* flashy dopamine UX
-* aggressive gamification
-
-The product should feel:
-calm,
-premium,
-and emotionally alive.
-
----
-
-# Scalability Direction
-
-The architecture is intentionally preparing for future:
-
-* public progression identities
-* social progression systems
-* seasonal events
-* AI insights
-* progression recommendations
-* social achievements
-* challenge ecosystems
-* advanced analytics
-
-The goal is:
-continuous evolution without rewrites.
-
----
-
-# AI Development Expectations
-
-When extending the project:
-
-1. Inspect existing systems first
-2. Reuse progression engines
-3. Reuse event architecture
-4. Preserve UX hierarchy
-5. Preserve visual language
-6. Avoid duplicated logic
-7. Extend modular systems cleanly
-8. Design future-safe implementations
-
-AI-generated code should feel:
-
-* production-ready
-* scalable
-* emotionally cohesive
-* architecturally consistent
-
----
-
-# Final Architecture Goal
-
-RingoStrike should evolve into:
-
-"a living progression ecosystem"
-
-with:
-
-* scalable systems
-* emotionally meaningful UX
-* identity-driven progression
-* modular long-term architecture
+- Duplicate `GET /me/stats` route registration.
+- Active auth code in `backend/auth.py` and unused duplicated auth service in `services/auth_service.py`.
+- Stateless JWT auth despite a `sessions` table existing.
+- Unauthenticated debug endpoints.
+- SQLite path defaults to `users.db` relative to the process working directory, which can create different databases depending on launch directory.

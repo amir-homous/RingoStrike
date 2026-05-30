@@ -1,630 +1,205 @@
-# RingoStrike — Database Schema
+# RingoStrike - Database Schema
 
-## Database Philosophy
+## Source Of Truth
 
-RingoStrike uses a normalized, progression-oriented database architecture designed for:
+The schema is initialized in `backend/database.py` by `init_db()`. Services also perform a small runtime migration for `users.avatar_url` in `profile_service.py`.
 
-* scalability
-* future extensibility
-* modular progression systems
-* event-driven UX
-* social progression evolution
+Database engine: SQLite.
 
-The schema prioritizes:
+Default path: `DB_PATH` environment variable or `users.db` relative to the backend process working directory.
 
-* centralized progression logic
-* normalized relationships
-* future-safe extensibility
-* migration safety
-* emotional progression systems
+## Tables
 
-The current database engine is:
+| Table | Purpose |
+| --- | --- |
+| `users` | Account identity, auth identity, profile fields |
+| `sessions` | Session-token table, currently not used by active JWT auth flow |
+| `user_stats` | Cached stats derived from check-ins and achievement rewards |
+| `challenges` | Challenge definitions |
+| `enrollments` | User participation in challenges |
+| `achievements` | Achievement definitions |
+| `user_achievements` | User achievement unlocks |
+| `checkins` | Daily completion records |
 
-* SQLite
-
-However, the schema is intentionally designed to support future migration to:
-
-* PostgreSQL
-* MySQL
-* managed cloud databases
-
-with minimal architectural changes.
-
----
-
-# Core Architecture Overview
-
-The database currently contains systems for:
-
-* authentication
-* sessions
-* progression tracking
-* streak tracking
-* challenge participation
-* check-ins
-* achievements
-* profile identity
-* activity generation foundations
-
----
-
-# Table Overview
-
-Current major tables:
-
-| Table             | Purpose                          |
-| ----------------- | -------------------------------- |
-| users             | Core user identity               |
-| sessions          | Auth/session management          |
-| user_stats        | Cached progression aggregates    |
-| challenges        | Challenge definitions            |
-| enrollments       | User participation in challenges |
-| checkins          | Daily progression actions        |
-| achievements      | Achievement definitions          |
-| user_achievements | User achievement unlocks         |
-
----
-
-# USERS TABLE
-
-## Purpose
-
-Stores:
-
-* account identity
-* authentication identity
-* future profile identity
-
-Supports:
-
-* local authentication
-* Telegram authentication
-* future OAuth/social auth systems
-
----
-
-## Schema
+## `users`
 
 ```sql
-users
+CREATE TABLE IF NOT EXISTS users (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  telegram_id TEXT UNIQUE,
+  username TEXT UNIQUE,
+  password_hash TEXT,
+  name TEXT,
+  email TEXT UNIQUE,
+  avatar_url TEXT,
+  bio TEXT DEFAULT '',
+  profile_visibility TEXT DEFAULT 'public',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+)
 ```
 
-| Column        | Type        | Description            |
-| ------------- | ----------- | ---------------------- |
-| id            | INTEGER PK  | Internal user ID       |
-| telegram_id   | TEXT UNIQUE | Telegram auth identity |
-| username      | TEXT UNIQUE | Public username        |
-| password_hash | TEXT        | Hashed password        |
-| name          | TEXT        | Display name           |
-| email         | TEXT UNIQUE | User email             |
-| created_at    | TIMESTAMP   | Account creation       |
-| updated_at    | TIMESTAMP   | Last update            |
+Migrations add `avatar_url`, `bio`, and `profile_visibility` if missing.
 
----
+Used by auth, profile, public profile, leaderboard, challenge member previews, and dashboard identity.
 
-## Notes
-
-This table intentionally separates:
-
-* internal identity
-* authentication systems
-* public identity
-
-Future-safe for:
-
-* avatar systems
-* profile customization
-* public profile visibility
-* social identity systems
-
----
-
-# SESSIONS TABLE
-
-## Purpose
-
-Stores:
-
-* authentication sessions
-* token lifecycle management
-
-Supports:
-
-* persistent login
-* future JWT refresh flows
-* multi-device sessions
-
----
-
-## Schema
+## `sessions`
 
 ```sql
-sessions
+CREATE TABLE IF NOT EXISTS sessions (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL,
+  token TEXT UNIQUE NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  expires_at TIMESTAMP NOT NULL,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+)
 ```
 
-| Column     | Type        | Description        |
-| ---------- | ----------- | ------------------ |
-| id         | INTEGER PK  | Session ID         |
-| user_id    | INTEGER FK  | Owner user         |
-| token      | TEXT UNIQUE | Session token      |
-| created_at | TIMESTAMP   | Session creation   |
-| expires_at | TIMESTAMP   | Session expiration |
+Current status: present but not written by the active auth implementation. Auth uses JWT cookie/Bearer tokens.
 
----
-
-## Relationships
-
-```txt
-sessions.user_id -> users.id
-```
-
----
-
-# USER_STATS TABLE
-
-## Purpose
-
-Stores cached progression aggregates for:
-
-* fast dashboard rendering
-* leaderboard queries
-* progression summaries
-
-This is a derived-state table.
-
-It should NOT become the source of truth for progression history.
-
----
-
-## Schema
+## `user_stats`
 
 ```sql
-user_stats
+CREATE TABLE IF NOT EXISTS user_stats (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL UNIQUE,
+  total_checkins INTEGER DEFAULT 0,
+  current_streak INTEGER DEFAULT 0,
+  longest_streak INTEGER DEFAULT 0,
+  total_points INTEGER DEFAULT 0,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+)
 ```
 
-| Column         | Type              | Description                  |
-| -------------- | ----------------- | ---------------------------- |
-| id             | INTEGER PK        | Stats record                 |
-| user_id        | INTEGER UNIQUE FK | User owner                   |
-| total_checkins | INTEGER           | Lifetime completed check-ins |
-| current_streak | INTEGER           | Current streak               |
-| longest_streak | INTEGER           | Best streak                  |
-| total_points   | INTEGER           | Current XP/points            |
-| updated_at     | TIMESTAMP         | Last sync time               |
+`stats_service.build_user_stats_payload()` recalculates this table from `checkins` using `INSERT ... ON CONFLICT(user_id) DO UPDATE`.
 
----
+Important: `checkins` are the source of truth for check-in count and streaks. `user_stats` is a cache plus current XP value after achievement rewards.
 
-## Relationships
-
-```txt
-user_stats.user_id -> users.id
-```
-
----
-
-## Important Notes
-
-This table acts as:
-
-* progression cache
-* dashboard optimization layer
-
-The source of truth remains:
-
-* checkins
-* achievement unlocks
-* future progression events
-
----
-
-# CHALLENGES TABLE
-
-## Purpose
-
-Stores challenge definitions.
-
-Challenges are:
-
-* progression environments
-* consistency spaces
-* future social momentum hubs
-
----
-
-## Schema
+## `challenges`
 
 ```sql
-challenges
+CREATE TABLE IF NOT EXISTS challenges (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  description TEXT,
+  visibility TEXT CHECK(visibility IN ('Public', 'Invite-only', 'Private')) DEFAULT 'Public',
+  status TEXT CHECK(status IN ('Active', 'Archived')) DEFAULT 'Active',
+  duration_days INTEGER,
+  join_code TEXT,
+  max_members INTEGER DEFAULT 0,
+  requires_proof INTEGER DEFAULT 0,
+  checkin_method TEXT DEFAULT 'Manual',
+  goal_type TEXT,
+  tags TEXT
+)
 ```
 
-| Column         | Type       | Description                    |
-| -------------- | ---------- | ------------------------------ |
-| id             | INTEGER PK | Challenge ID                   |
-| name           | TEXT       | Challenge title                |
-| description    | TEXT       | Challenge details              |
-| visibility     | TEXT       | Public / Invite-only / Private |
-| status         | TEXT       | Active / Archived              |
-| duration_days  | INTEGER    | Challenge duration             |
-| join_code      | TEXT       | Invite system                  |
-| max_members    | INTEGER    | Capacity                       |
-| requires_proof | INTEGER    | Proof requirement              |
-| checkin_method | TEXT       | Manual / Auto                  |
-| goal_type      | TEXT       | Daily / Weekly                 |
-| tags           | TEXT       | Comma-separated tags           |
+Visibility and join behavior:
 
----
+- `Public`: join without code.
+- `Invite-only`: requires matching `join_code` if configured.
+- `Private`: join endpoint returns `challenge_private`.
 
-## Design Philosophy
-
-Challenges are intentionally future-safe for:
-
-* public challenge discovery
-* social participation
-* seasonal systems
-* challenge categories
-* collaborative momentum
-
----
-
-# ENROLLMENTS TABLE
-
-## Purpose
-
-Represents user participation in challenges.
-
-Acts as:
-
-* participation layer
-* membership system
-* progression ownership mapping
-
----
-
-## Schema
+## `enrollments`
 
 ```sql
-enrollments
+CREATE TABLE IF NOT EXISTS enrollments (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL,
+  challenge_id INTEGER NOT NULL,
+  status TEXT CHECK(status IN ('Active', 'Left')) DEFAULT 'Active',
+  role TEXT DEFAULT 'Member',
+  joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(user_id, challenge_id),
+  FOREIGN KEY(user_id) REFERENCES users(id),
+  FOREIGN KEY(challenge_id) REFERENCES challenges(id)
+)
 ```
 
-| Column       | Type       | Description   |
-| ------------ | ---------- | ------------- |
-| id           | INTEGER PK | Enrollment ID |
-| user_id      | INTEGER FK | Participant   |
-| challenge_id | INTEGER FK | Challenge     |
-| status       | TEXT       | Active / Left |
-| role         | TEXT       | Member role   |
-| joined_at    | TIMESTAMP  | Join time     |
+Enrollments link users to challenges and are used by dashboard, challenge detail, leaderboard, history, and check-in routes.
 
----
-
-## Relationships
-
-```txt
-enrollments.user_id -> users.id
-enrollments.challenge_id -> challenges.id
-```
-
----
-
-## Constraints
+## `achievements`
 
 ```sql
-UNIQUE(user_id, challenge_id)
+CREATE TABLE IF NOT EXISTS achievements (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  key TEXT NOT NULL UNIQUE,
+  title TEXT NOT NULL,
+  description TEXT,
+  icon TEXT,
+  category TEXT NOT NULL,
+  condition_type TEXT NOT NULL,
+  condition_value INTEGER NOT NULL,
+  xp_reward INTEGER NOT NULL DEFAULT 0,
+  rarity TEXT NOT NULL DEFAULT 'common',
+  is_hidden INTEGER NOT NULL DEFAULT 0,
+  sort_order INTEGER NOT NULL DEFAULT 0,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+)
 ```
 
-Prevents duplicate participation.
+Seeded/updated by `achievement_service.ensure_achievement_definitions()`.
 
----
+Current condition types include `total_checkins`, `active_challenge_checkins`, `streak`, and `total_xp`.
 
-# CHECKINS TABLE
-
-## Purpose
-
-Core progression action system.
-
-Every check-in represents:
-
-* behavioral continuity
-* progression reinforcement
-* streak participation
-* XP generation
-
-This table is one of the most important systems in the platform.
-
----
-
-## Schema
+## `user_achievements`
 
 ```sql
-checkins
+CREATE TABLE IF NOT EXISTS user_achievements (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL,
+  achievement_id INTEGER NOT NULL,
+  unlocked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(user_id, achievement_id),
+  FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY(achievement_id) REFERENCES achievements(id) ON DELETE CASCADE
+)
 ```
 
-| Column        | Type       | Description           |
-| ------------- | ---------- | --------------------- |
-| id            | INTEGER PK | Check-in ID           |
-| enrollment_id | INTEGER FK | Enrollment            |
-| user_id       | INTEGER FK | Owner user            |
-| challenge_id  | INTEGER FK | Challenge             |
-| date          | TEXT       | YYYY-MM-DD            |
-| status        | TEXT       | Done / future states  |
-| notes         | TEXT       | Optional notes        |
-| source        | TEXT       | Check-in source       |
-| is_counted    | INTEGER    | Progression inclusion |
-| created_at    | TEXT       | Creation time         |
-| updated_at    | TEXT       | Last update           |
+Indexes:
 
----
+- `idx_user_achievements_user`
+- `idx_user_achievements_achievement`
+- `idx_achievements_category`
+- `idx_achievements_condition`
 
-## Relationships
-
-```txt
-checkins.enrollment_id -> enrollments.id
-checkins.user_id -> users.id
-checkins.challenge_id -> challenges.id
-```
-
----
-
-## Constraints
+## `checkins`
 
 ```sql
-UNIQUE(enrollment_id, date)
+CREATE TABLE IF NOT EXISTS checkins (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  enrollment_id INTEGER NOT NULL,
+  user_id INTEGER NOT NULL,
+  challenge_id INTEGER NOT NULL,
+  date TEXT NOT NULL,
+  status TEXT DEFAULT 'Done',
+  notes TEXT,
+  source TEXT,
+  is_counted INTEGER NOT NULL DEFAULT 1,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT,
+  UNIQUE(enrollment_id, date),
+  FOREIGN KEY(enrollment_id) REFERENCES enrollments(id),
+  FOREIGN KEY(challenge_id) REFERENCES challenges(id)
+)
 ```
 
-Prevents double check-ins for the same day.
-
----
-
-## Future Direction
-
-Future-safe for:
-
-* proof systems
-* AI validation
-* media uploads
-* check-in reactions
-* social visibility
-* smart reminders
-
----
-
-# ACHIEVEMENTS TABLE
-
-## Purpose
-
-Stores achievement definitions.
-
-Achievements are:
-
-* progression milestones
-* identity reinforcement systems
-* emotional reward structures
-
----
-
-## Schema
-
-```sql
-achievements
-```
-
-| Column          | Type        | Description           |
-| --------------- | ----------- | --------------------- |
-| id              | INTEGER PK  | Achievement ID        |
-| key             | TEXT UNIQUE | Internal unique key   |
-| title           | TEXT        | Achievement title     |
-| description     | TEXT        | Achievement details   |
-| icon            | TEXT        | Icon reference        |
-| category        | TEXT        | Achievement category  |
-| condition_type  | TEXT        | Unlock condition type |
-| condition_value | INTEGER     | Unlock threshold      |
-| xp_reward       | INTEGER     | XP reward             |
-| rarity          | TEXT        | common/rare/etc       |
-| is_hidden       | INTEGER     | Hidden achievement    |
-| sort_order      | INTEGER     | UI ordering           |
-| created_at      | TIMESTAMP   | Creation time         |
-
----
-
-## Design Philosophy
-
-Achievements are:
-
-* emotionally meaningful
-* identity reinforcing
-* future social signals
-
-NOT:
-
-* collectible spam
-
----
-
-# USER_ACHIEVEMENTS TABLE
-
-## Purpose
-
-Stores user achievement unlock history.
-
-Represents:
-
-* progression milestones
-* identity progression memory
-* future social progression visibility
-
----
-
-## Schema
-
-```sql
-user_achievements
-```
-
-| Column         | Type       | Description |
-| -------------- | ---------- | ----------- |
-| id             | INTEGER PK | Unlock ID   |
-| user_id        | INTEGER FK | Owner user  |
-| achievement_id | INTEGER FK | Achievement |
-| unlocked_at    | TIMESTAMP  | Unlock time |
-
----
-
-## Relationships
-
-```txt
-user_achievements.user_id -> users.id
-user_achievements.achievement_id -> achievements.id
-```
-
----
-
-## Constraints
-
-```sql
-UNIQUE(user_id, achievement_id)
-```
-
-Prevents duplicate unlocks.
-
----
-
-# INDEXES
-
-Current indexes:
-
-```sql
-idx_user_achievements_user
-idx_user_achievements_achievement
-idx_achievements_category
-idx_achievements_condition
-```
-
-Purpose:
-
-* faster achievement evaluation
-* scalable unlock queries
-* future leaderboard/social scaling
-
----
-
-# Current Progression Flow
-
-The current progression flow:
-
-```txt
-check-in
-    ↓
-stats sync
-    ↓
-achievement evaluation
-    ↓
-XP reward calculation
-    ↓
-timeline generation
-    ↓
-dashboard/profile rendering
-```
-
-This progression pipeline is intentionally centralized.
-
----
-
-# Future Database Direction
-
-The schema is intentionally preparing for future systems:
-
-## Social Systems
-
-Potential future tables:
-
-* follows
-* social_feed_events
-* reactions
-* comments
-* profile_visibility
-
----
-
-## AI Systems
-
-Potential future tables:
-
-* AI insights
-* recommendation memory
-* behavioral summaries
-* streak risk analysis
-
----
-
-## Seasonal Systems
-
-Potential future tables:
-
-* seasons
-* seasonal_progress
-* event_rewards
-
----
-
-## Advanced Identity Systems
-
-Potential future tables:
-
-* titles
-* cosmetics
-* profile_themes
-* prestige_levels
-
----
-
-# Migration Philosophy
-
-Future migrations should:
-
-* preserve progression integrity
-* avoid destructive rewrites
-* keep event history safe
-* maintain identity continuity
-
-Progression data is emotionally valuable and should be treated carefully.
-
----
-
-# Important Engineering Rules
-
-## ALWAYS
-
-* reuse centralized progression systems
-* keep progression calculations consistent
-* preserve normalized relationships
-* design future-safe extensions
-* maintain migration safety
-
----
-
-## NEVER
-
-* duplicate progression state
-* duplicate streak calculations
-* create disconnected event systems
-* tightly couple frontend to schema
-* bypass service-layer logic
-
----
-
-# Final Database Goal
-
-The database architecture should ultimately support:
-
-* progression identity
-* emotional continuity
-* scalable social momentum
-* AI-enhanced growth systems
-* long-term behavioral visibility
-
-while remaining:
-
-* modular
-* scalable
-* maintainable
-* future-safe
+`date` is expected as `YYYY-MM-DD` UTC from `utils.date_utils.utc_today_iso()`.
+
+## Derived Logic
+
+- `total_checkins`: count of `checkins` where `user_id = ?` and `status = 'Done'`.
+- Base XP: `total_checkins * 10` in `stats_service.XP_PER_CHECKIN`.
+- Achievement reward XP: added to `user_stats.total_points` after unlock, then stats are synced again by check-in flow. The exact persistence behavior should be reviewed because stats sync recalculates base points from check-ins.
+- Current streak: consecutive dates anchored on today or yesterday.
+- Longest streak: longest consecutive date run.
+
+## Schema Gaps And Risks
+
+- `sessions` is unused by the active auth flow.
+- `checkins.user_id` has no foreign key in the current DDL, while `enrollment_id` and `challenge_id` do.
+- `updated_at` on `checkins` is not automatically maintained.
+- No indexes are defined on `checkins.user_id`, `checkins.enrollment_id`, `checkins.challenge_id`, or `checkins.date`, which are frequently queried.
+- There is no migrations framework; schema changes are embedded in `init_db()` and service helpers.

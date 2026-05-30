@@ -1,746 +1,428 @@
-# FRONTEND_CONTRACT.md
+# RingoStrike - Frontend/API Contract
 
-# RingoStrike Frontend Contract
+## API Client
 
-Version: v0.4+
-Architecture Status: Modular Progression Platform
-Frontend Stack: Vue 3 + Vite
-Backend Stack: Flask + SQLite
+Frontend API client: `frontend/src/lib/api.js`.
 
----
-
-# Product Vision
-
-RingoStrike is a premium progression platform focused on:
-
-* consistency
-* streak psychology
-* momentum building
-* progression identity
-* emotional reinforcement
-* gamified self-improvement
-* future social accountability systems
-
-The product should feel:
-
-* cinematic
-* premium
-* emotionally intelligent
-* rewarding
-* calm
-* modern
-* internationally polished
-
-This is NOT:
-
-* a generic todo app
-* a noisy productivity tracker
-* a dopamine casino
-* a social media clone
-
-This IS:
-
-* a progression identity ecosystem
-
----
-
-# Current Frontend Stack
-
-## Core Technologies
-
-* Vue 3
-* Vite
-* Vue Router
-* Composition API
-* TailwindCSS
-* Modular component architecture
-
----
-
-# Current Frontend Structure
-
-```txt
-src/
-├── App.vue
-├── assets/
-├── components/
-│   ├── achievements/
-│   ├── activity/
-│   ├── challenges/
-│   ├── feedback/
-│   ├── profile/
-│   ├── progress/
-│   └── ui/
-├── lib/
-├── router/
-├── stores/
-├── styles/
-└── views/
+```js
+baseURL = import.meta.env.VITE_API_BASE || "http://localhost:5005"
+withCredentials = true
+timeout = 15000
 ```
 
----
+The backend supports HttpOnly cookie auth and Bearer token fallback. The frontend mainly relies on cookies because `withCredentials` is enabled.
 
-# Frontend Architectural Philosophy
+Important mismatch: `frontend/src/stores/session.js` expects `api.setToken()`, but `lib/api.js` does not implement it.
 
-## Core Rules
+## Auth Endpoints
 
-### DO
+### `POST /auth/register`
 
-* Keep systems modular
-* Reuse progression logic
-* Reuse timeline architecture
-* Reuse achievement architecture
-* Reuse profile identity systems
-* Preserve visual consistency
-* Preserve emotional UX direction
-* Use optimistic UI carefully
-* Keep animations restrained
-* Keep components composable
+Auth: public.
 
-### DO NOT
+Request:
 
-* Duplicate progression systems
-* Duplicate timeline systems
-* Create disconnected UX patterns
-* Add noisy social media behavior
-* Add aggressive game UI
-* Hardcode backend calculations
-* Break current hierarchy
-
----
-
-# Current Route Architecture
-
-## Existing Views
-
-| Route              | View             |
-| ------------------ | ---------------- |
-| `/login`           | Login.vue        |
-| `/dashboard`       | Dashboard.vue    |
-| `/profile`         | Profile.vue      |
-| `/challenges`      | Challenges.vue   |
-| `/enrollment/:id/leaderboard` | Leaderboard.vue  |
-| `/enrollment/:id`      | Enrollment.vue   |
-| `/docs`        | ApiDocsView.vue  |
-| `/auth/callback`   | AuthCallback.vue |
-
----
-
-# Dashboard Architecture
-
-## Dashboard.vue
-
-Dashboard is the central progression hub.
-
-Current hierarchy:
-
-1. Hero Progress
-2. Stats & Goal Cards
-3. Recent Progress Feed
-4. Activity Timeline
-5. Achievement Preview
-6. Active Challenges
-
-The dashboard must preserve:
-
-* progression psychology
-* emotional reinforcement
-* motivational hierarchy
-* rewarding feedback loops
-
----
-
-# Existing Frontend Systems
-
-# 1. Progression System
-
-Directory:
-
-```txt
-components/progress/
+```json
+{
+  "username": "player_name",
+  "password": "secret123",
+  "name": "Player Name",
+  "email": "player@example.com"
+}
 ```
 
-Current Components:
+Validation:
 
-```txt
-HeroProgressCard.vue
-NextGoalCard.vue
-RecentProgressFeed.vue
-StatsGrid.vue
-XPProgressBar.vue
+- username is normalized lowercase
+- username must be 3-24 chars, `a-z`, `0-9`, underscore only
+- reserved usernames are rejected
+- password must be at least 6 chars
+- email must contain `@` if provided
+
+Success `201`:
+
+```json
+{
+  "ok": true,
+  "user_id": 1,
+  "username": "player_name",
+  "access_token": "jwt"
+}
 ```
 
-Responsibilities:
+Also sets HttpOnly auth cookie.
 
-* XP display
-* Level display
-* Progress visualization
-* Next goal motivation
-* Progress summaries
-* Reward feedback loops
+### `POST /auth/login`
 
-Important:
-Frontend must NOT calculate authoritative XP/streak values itself.
+Auth: public.
 
-Backend is source-of-truth.
+Request:
 
-Frontend only renders progression state.
-
----
-
-# 2. Activity Timeline System
-
-Directory:
-
-```txt
-components/activity/
+```json
+{
+  "username": "player_name",
+  "password": "secret123"
+}
 ```
 
-Current Components:
+Success `200`: same shape as register and sets cookie.
 
-```txt
-ActivityTimeline.vue
-ActivityTimelineItem.vue
-TimelineDayGroup.vue
-EmptyTimelineState.vue
+### `POST /auth/logout`
+
+Auth: public in route code; clears auth cookie.
+
+Success:
+
+```json
+{ "ok": true }
 ```
 
-Purpose:
+### `GET /me`
 
-* progression memory
-* emotional continuity
-* historical reinforcement
-* activity storytelling
+Auth: required.
 
-Current Event Types:
+Local-auth success:
 
-* checkin
-* achievement
-* streak
-* level_up
-
-IMPORTANT:
-All future activity/social feeds must extend this system.
-
-DO NOT build duplicate timeline architectures.
-
----
-
-# 3. Achievement System
-
-Directory:
-
-```txt
-components/achievements/
+```json
+{
+  "ok": true,
+  "user_id": 1,
+  "username": "player_name",
+  "name": "Player Name",
+  "email": "player@example.com",
+  "auth_method": "local",
+  "registered": true
+}
 ```
 
-Current Components:
+Telegram-shaped response exists in code for Telegram claims, but no active Telegram login route is registered.
 
-```txt
-AchievementCard.vue
-AchievementGrid.vue
-AchievementPreview.vue
-AchievementToast.vue
+## Health
+
+### `GET /health`
+
+Auth: public.
+
+```json
+{ "ok": true }
 ```
 
-Current Features:
+## Challenges
 
-* rarity display
-* unlock states
-* reward toasts
-* hidden achievements
-* XP rewards
+### `GET /challenges/public`
 
-Future-Safe Goals:
+Auth: public.
 
-* seasonal achievements
-* social achievements
-* collectible systems
-* progression badges
+Returns active public challenges:
 
----
-
-# 4. Profile Identity System
-
-Directory:
-
-```txt
-components/profile/
+```json
+{
+  "ok": true,
+  "items": [
+    {
+      "challenge_id": 1,
+      "name": "Challenge",
+      "visibility": "Public",
+      "status": "Active",
+      "description": "...",
+      "duration_days": 30
+    }
+  ]
+}
 ```
 
-Current Components:
+### `GET /challenges`
 
-```txt
-ConsistencyHeatmap.vue
-ProfileHeroCard.vue
-ProfileStatsGrid.vue
-UserAvatar.vue
+Auth: required.
+
+Returns active public/invite-only challenges plus joined private challenges visible to the user.
+
+Item shape:
+
+```json
+{
+  "challenge_id": 1,
+  "name": "Challenge",
+  "description": "...",
+  "visibility": "public",
+  "status": "active",
+  "duration_days": 30,
+  "members_count": 3,
+  "members_preview": ["Alice"],
+  "is_joined": true,
+  "enrollment_id": 10,
+  "needs_code": false
+}
 ```
 
-Purpose:
+### `GET /challenges/:challenge_id`
 
-* identity visualization
-* progression ownership
-* consistency visualization
-* emotional attachment
+Auth: public in route code.
 
-Future Expansion:
+Returns challenge details including visibility, status, duration, max members, proof flag, check-in method, goal type, tags, member count, and whether a join code is required.
 
-* customizable identity
-* public profiles
-* social profile sharing
-* avatar systems
-* title systems
+### `GET /challenges/:challenge_id/members?limit=20&offset=0`
 
----
+Auth: public in route code.
 
-# 5. Challenge System
+Returns active member rows:
 
-Directory:
-
-```txt
-components/challenges/
+```json
+{
+  "ok": true,
+  "challenge_id": 1,
+  "items": [
+    {
+      "enrollment_id": 10,
+      "enrollment_status": "Active",
+      "role": "Member",
+      "user_id": 1,
+      "user_name": "Alice",
+      "telegram_username": "alice"
+    }
+  ],
+  "has_more": false
+}
 ```
 
-Current Components:
+### `POST /challenges/:challenge_id/join`
 
-```txt
-ChallengeCard.vue
+Auth: required.
+
+Request:
+
+```json
+{ "join_code": "optional" }
 ```
 
-Responsibilities:
+Success:
 
-* challenge display
-* challenge metadata
-* participation state
-* check-in actions
-* progression feedback
-
-Future Expansion:
-
-* public discovery
-* participant momentum
-* challenge communities
-* challenge categories
-
----
-
-# 6. Reward Feedback System
-
-Directory:
-
-```txt
-components/feedback/
+```json
+{
+  "ok": true,
+  "mode": "created",
+  "enrollment_id": 10,
+  "challenge_id": 1
+}
 ```
 
-Current Components:
+`mode` can be `created`, `reactivated`, or `existing`.
 
-```txt
-RewardFeedback.vue
+## Enrollment, Check-ins, History, Leaderboard
+
+### `GET /me/challenges`
+
+Auth: required.
+
+Dashboard challenge list response:
+
+```json
+{
+  "ok": true,
+  "date": "2026-05-30",
+  "user": {
+    "name": "Alice",
+    "stats": {
+      "total_points": 100,
+      "current_streak": 3,
+      "longest_streak": 7
+    }
+  },
+  "challenges": [
+    {
+      "enrollment_id": 10,
+      "enrollment_name": "Challenge",
+      "status": "Active",
+      "challenge_id": 1,
+      "today_checked": false
+    }
+  ]
+}
 ```
 
-Purpose:
+### `GET /me/enrollments/:enrollment_id`
 
-* XP reward feedback
-* streak reinforcement
-* achievement celebration
-* level-up reinforcement
+Auth: required.
 
-UX Direction:
+Returns enrollment summary, challenge details, recent logs, `today_checked`, `total_checkins`, and `current_streak`.
 
-* subtle
-* premium
-* emotionally rewarding
-* restrained
+### `POST /me/challenges/:enrollment_id/checkin`
 
-DO NOT:
+Auth: required.
 
-* overanimate
-* create casino UX
-* create flashy effects
+Creates or updates today's check-in for the enrollment.
 
----
+Success:
 
-# 7. UI Foundation System
-
-Directory:
-
-```txt
-components/ui/
+```json
+{
+  "ok": true,
+  "message": "Check-in recorded",
+  "rewards": {
+    "xp_total": 100,
+    "achievements": [],
+    "achievement_xp_reward": 0
+  }
+}
 ```
 
-Current Components:
+### `GET /me/challenges/:enrollment_id/history?days=30`
 
-```txt
-AppContainer.vue
-AppFooter.vue
-AppHeader.vue
-BaseButton.vue
-BaseCard.vue
-BaseInput.vue
-SkeletonBlock.vue
-Spinner.vue
-UiState.vue
+Auth: required.
+
+Returns up to 120 days of per-day status.
+
+### `GET /me/enrollments/:enrollment_id/leaderboard`
+
+Auth: required.
+
+Returns leaderboard for the challenge connected to the enrollment:
+
+```json
+{
+  "ok": true,
+  "overall": [
+    {
+      "name": "Alice",
+      "username": "alice",
+      "enrollment_id": 10,
+      "total_checkins": 12,
+      "current_streak": 4
+    }
+  ],
+  "today": []
+}
 ```
 
-Purpose:
+## Stats, Activity, Achievements, Profile
 
-* shared design system
-* consistency
-* reusable layout primitives
-* visual stability
+### `GET /me/stats`
 
-IMPORTANT:
-All future UI should build on these primitives.
+Auth: required.
 
-Avoid introducing isolated styling systems.
+Effective route is currently `dashboard_routes.py` because another duplicate route exists in `stats_routes.py`.
 
----
+Response:
 
-# Current Styling Architecture
-
-## styles/
-
-```txt
-styles/
-├── base.css
-└── tokens.css
+```json
+{
+  "ok": true,
+  "stats": {
+    "current_streak": 3,
+    "level": 2,
+    "longest_streak": 7,
+    "next_level_xp": 200,
+    "progress_percent": 20,
+    "total_checkins": 12,
+    "total_points": 120,
+    "xp": 20
+  },
+  "user": { "id": 1, "name": "Alice" }
+}
 ```
 
-## Purpose
+### `GET /me/activity`
 
-### tokens.css
+Auth: required.
 
-Contains:
+Returns derived events with types such as `checkin`, `streak`, `level_up`, and `achievement`.
 
-* colors
-* spacing
-* shadows
-* gradients
-* typography tokens
-* visual constants
+### `GET /me/achievements`
 
-### base.css
+Auth: required.
 
-Contains:
+Returns all achievement definitions with `unlocked` and `unlocked_at` fields.
 
-* base resets
-* shared styles
-* typography defaults
-* global layout rules
+### `GET /me/profile`
 
----
+Auth: required.
 
-# Design Language Contract
+Returns private profile aggregate:
 
-The visual language must remain:
-
-* dark premium aesthetic
-* soft glassmorphism
-* restrained gradients
-* cinematic spacing
-* soft shadows
-* elegant hierarchy
-* emotionally intelligent UI
-
-Motion should feel:
-
-* smooth
-* calm
-* rewarding
-* subtle
-
-Avoid:
-
-* visual chaos
-* excessive glow
-* hyper-saturated gaming effects
-* loud interactions
-
----
-
-# Current State Management
-
-## Store
-
-```txt
-stores/session.js
+```json
+{
+  "ok": true,
+  "profile": {
+    "id": 1,
+    "name": "Alice",
+    "username": "alice",
+    "avatar_url": "/avatars/avatar-1.png",
+    "bio": "...",
+    "joined_date": "2026-05-30",
+    "profile_visibility": "public",
+    "title": { "key": "beginner", "label": "Beginner" },
+    "tagline": "Building consistency one strike at a time.",
+    "stats": {}
+  }
+}
 ```
 
-Current Responsibility:
+### `GET /me/consistency`
 
-* authenticated user session
-* login state
-* auth persistence
+Auth: required.
 
-Guideline:
-Use local component state first.
+Returns `days` as `{ date, count }` rows for the recent heatmap window.
 
-Only globalize truly shared app state.
+## Profile Settings And Public Profile
 
----
+### `GET /api/me/profile/settings`
 
-# API Layer
+Auth: required.
 
-Directory:
+Returns `avatar_url`, `bio`, and `profile_visibility`.
 
-```txt
-lib/api.js
+### `PATCH /api/me/profile/settings`
+
+Auth: required.
+
+Request:
+
+```json
+{
+  "avatar_url": "/avatars/avatar-1.png",
+  "bio": "Short bio",
+  "profile_visibility": "public"
+}
 ```
 
-Purpose:
+Visibility values: `public`, `private`.
 
-* centralized API communication
-* backend abstraction layer
-* auth-aware requests
+### `PATCH /api/profile/visibility`
 
-IMPORTANT:
-All backend communication should flow through this layer.
+Auth: required.
 
-Avoid scattered fetch logic.
+Request:
 
----
+```json
+{ "visibility": "private" }
+```
 
-# Existing Backend API Contracts
+### `PATCH /api/profile`
 
-# Authentication
+Auth: required.
 
-## POST `/login`
+Request fields: `name`, `bio`, `avatar_url`.
 
-Authenticate user.
+### `GET /api/public/profile/:username`
 
-## POST `/register`
+Auth: public.
 
-Register user.
+Returns public-safe profile aggregate if `profile_visibility = 'public'`; otherwise `403 profile_private`.
 
-## POST `/logout`
+### `GET /api/public/profile/:username/consistency`
 
-Destroy session.
+Auth: public. Returns recent counted check-in dates for public profiles.
 
-## GET `/me`
+### `GET /api/public/profile/:username/achievements`
 
-Return authenticated user.
+Auth: public. Returns up to 6 unlocked achievements for public profiles.
 
----
+## Debug Endpoints
 
-# Progression APIs
+### `GET /debug/sqlite/schema/:table`
 
-## GET `/me/stats`
+Auth: public in current code. Allowed tables: `users`, `challenges`, `enrollments`, `checkins`, `user_stats`, `sessions`.
 
-Returns:
+### `GET /debug/sqlite/counts`
 
-* XP
-* Level
-* Streaks
-* Progress %
-* Total check-ins
-
-Used by:
-
-* HeroProgressCard
-* StatsGrid
-* XPProgressBar
-
----
-
-## GET `/me/activity`
-
-Returns progression timeline events.
-
-Used by:
-
-* ActivityTimeline
-
----
-
-## GET `/me/achievements`
-
-Returns:
-
-* unlocked achievements
-* achievement metadata
-
-Used by:
-
-* AchievementGrid
-* AchievementPreview
-
----
-
-## GET `/me/profile`
-
-Returns:
-
-* identity information
-* title
-* XP
-* avatar
-* progression summary
-
-Used by:
-
-* ProfileHeroCard
-
----
-
-## GET `/me/consistency`
-
-Returns:
-
-* consistency heatmap data
-
-Used by:
-
-* ConsistencyHeatmap
-
----
-
-## GET `/me/challenges`
-
-Returns:
-
-* enrolled challenges
-* challenge states
-* check-in status
-
-Used by:
-
-* Dashboard
-* ChallengeCard
-
----
-
-## POST `/checkin`
-
-Performs challenge check-in.
-
-Frontend Expectations:
-
-* optimistic updates
-* reward feedback
-* timeline insertion
-* rollback on failure
-* reconciliation with backend
-
----
-
-# Optimistic UI Contract
-
-Current systems already support:
-
-* optimistic check-ins
-* optimistic XP gain
-* optimistic streak continuation
-* optimistic timeline insertion
-
-Requirements:
-
-* safe rollback
-* backend reconciliation
-* state consistency
-
----
-
-# Mobile Experience Rules
-
-The app must remain:
-
-* responsive
-* readable
-* touch-friendly
-* visually balanced
-* lightweight
-
-Mobile UX is critical.
-
-Avoid:
-
-* oversized dashboards
-* cluttered cards
-* overly dense layouts
-
----
-
-# Future Architecture Direction
-
-The current frontend is being prepared for:
-
-## Social Systems
-
-* public profiles
-* social feed
-* challenge discovery
-* participant momentum
-* reactions
-* follow systems
-
-## AI Systems
-
-* AI progression insights
-* momentum forecasting
-* burnout detection
-* habit intelligence
-* recommendation systems
-
-## Identity Systems
-
-* profile customization
-* profile themes
-* avatars
-* social cards
-* progression showcases
-
-## Advanced Gamification
-
-* seasons
-* guilds
-* events
-* social achievements
-* progression paths
-
----
-
-# Important Engineering Rules
-
-When extending frontend systems:
-
-## ALWAYS
-
-* inspect existing architecture first
-* extend existing systems
-* reuse event architecture
-* reuse progression logic
-* preserve UX hierarchy
-* preserve emotional design language
-
-## NEVER
-
-* duplicate progression systems
-* rebuild timeline systems
-* create disconnected UI flows
-* break dashboard architecture
-* tightly couple UI to DB schema
-
----
-
-# Final UX Goal
-
-The final product should feel like:
-
-> “A living progression identity ecosystem.”
-
-The user should feel:
-
-* motivated
-* emotionally connected
-* proud of progression
-* rewarded for consistency
-* visually immersed
-* socially inspired
-
-WITHOUT:
-
-* toxic competition
-* social media chaos
-* productivity guilt
-* noisy gamification
+Auth: public in current code. Returns counts for users, challenges, enrollments, checkins, and user_stats.
