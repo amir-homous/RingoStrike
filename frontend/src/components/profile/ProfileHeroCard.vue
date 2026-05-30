@@ -2,9 +2,10 @@
   <BaseCard>
     <div class="row">
       <UserAvatar
-        :src="profile.avatar_url"
-        :name="profile.name"
-      />
+  :src="profile.avatar_url"
+  :name="profile.name"
+  size="xl"
+/>
 
       <div class="stack-8 hero-copy">
         <h2 class="h2">
