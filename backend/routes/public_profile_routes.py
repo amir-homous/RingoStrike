@@ -18,6 +18,10 @@ from services.public_achievement_service import (
     get_public_achievements,
 )
 
+from services.profile_update_service import (
+    update_profile,
+)
+
 public_profile_bp = Blueprint(
     "public_profile_bp",
     __name__,
@@ -58,6 +62,23 @@ def patch_profile_visibility(claims):
     payload, code = update_profile_visibility(
         user_id=claims["user_id"],
         visibility=visibility,
+    )
+
+    return jsonify(payload), code
+
+@public_profile_bp.patch(
+    "/api/profile"
+)
+
+@require_auth()
+def patch_profile(claims):
+    data = request.get_json(silent=True) or {}
+
+    payload, code = update_profile(
+        user_id=claims["user_id"],
+        name=data.get("name"),
+        bio=data.get("bio"),
+        avatar_url=data.get("avatar_url"),
     )
 
     return jsonify(payload), code

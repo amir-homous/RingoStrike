@@ -4,7 +4,7 @@ from flask import (
     request,
 )
 
-from routes.auth_routes import require_auth
+from auth import require_auth
 
 from services.profile_settings_service import (
     get_profile_settings,

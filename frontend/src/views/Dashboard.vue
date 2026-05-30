@@ -33,7 +33,9 @@
         <ActivityTimeline :events="activityEvents" :loading="loading" />
 
         <AchievementPreview :achievements="achievements" />
+        <div class="section">
 
+        </div>
         <BaseCard>
           <div class="listHead"><h2 class="h2">Active Challenges</h2></div>
 
@@ -78,6 +80,7 @@ import RewardFeedback from "@/components/feedback/RewardFeedback.vue";
 import ActivityTimeline from "@/components/activity/ActivityTimeline.vue";
 import AchievementPreview from "@/components/achievements/AchievementPreview.vue";
 import AchievementToast from "@/components/achievements/AchievementToast.vue";
+
 
 const router = useRouter();
 const loading = ref(true);

@@ -43,10 +43,11 @@
         </span>
 
         <button
-          v-if="isOwner"
-          class="edit"
+        v-if="isOwner"
+        class="edit"
+        @click="openEditProfile"
         >
-          Edit Profile
+        Edit Profile
         </button>
 
         <button
@@ -75,6 +76,10 @@ const props = defineProps({
   },
 });
 
+const emit = defineEmits([
+  "edit-profile",
+]);
+
 const copied = ref(false);
 
 async function shareProfile() {
@@ -93,6 +98,13 @@ async function shareProfile() {
     console.error("share failed", err);
   }
 }
+
+
+function openEditProfile() {
+  console.log("EDIT CLICKED");
+  emit("edit-profile");
+}
+
 </script>
 
 <style scoped>
@@ -119,14 +131,6 @@ async function shareProfile() {
   gap:8px;
 }
 
-.edit{
-  border:1px solid rgba(255,255,255,.14);
-  background:rgba(255,255,255,.04);
-  color:white;
-  border-radius:10px;
-  padding:10px 12px;
-}
-
 .share{
   border:1px solid rgba(255,255,255,.14);
   background:rgba(255,255,255,.06);
@@ -141,4 +145,33 @@ async function shareProfile() {
 .share:hover{
   background:rgba(255,255,255,.1);
 }
+
+
+.edit{
+  border:1px solid rgba(255,255,255,.14);
+  background:rgba(255,255,255,.04);
+  color:white;
+  border-radius:10px;
+  padding:10px 12px;
+  cursor:pointer;
+  transition:all .18s ease;
+  font-weight:600;
+}
+
+.edit:hover{
+  background:rgba(255,255,255,.10);
+  transform:translateY(-1px);
+}
+
+.edit:active{
+  transform:translateY(0);
+}
+
+.edit:focus-visible{
+  outline:none;
+  border-color:rgba(99,102,241,.6);
+  box-shadow:
+    0 0 0 2px rgba(99,102,241,.2);
+}
+
 </style>

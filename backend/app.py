@@ -12,6 +12,7 @@ from routes.history_routes import history_bp
 from routes.debug_routes import debug_bp
 from routes.stats_routes import stats_bp
 from routes.public_profile_routes import public_profile_bp
+from routes.profile_settings_routes import profile_settings_bp
 
 load_dotenv()
 
@@ -43,6 +44,7 @@ def create_app() -> Flask:
     app.register_blueprint(debug_bp)
     app.register_blueprint(stats_bp)
     app.register_blueprint(public_profile_bp)
+    app.register_blueprint(profile_settings_bp)
 
 
     # ✅ NOW YOUR OTHER ROUTES FOLLOW BELOW
