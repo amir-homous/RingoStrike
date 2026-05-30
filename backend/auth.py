@@ -156,7 +156,9 @@ def register_auth_routes(app):
         """Login with username and password"""
         data = request.get_json(silent=True) or {}
         
-        username = (data.get("username") or "").strip()
+        #username = (data.get("username") or "").strip()
+        username = normalize_username(data.get("username"))
+        
         password = (data.get("password") or "").strip()
         
         if not username or not password:

@@ -19,6 +19,7 @@ const router = createRouter({
     { path: "/enrollment/:id", component: Enrollment, props: true },
     { path: "/enrollment/:id/leaderboard", component: Leaderboard, props: true },
     { path: "/u/:username",component: () => import("../views/PublicProfile.vue"),meta: { requiresAuth: false },},
+    
     { path: "/", redirect: "/dashboard" },
     // (اختیاری) صفحه 404 واقعی بعداً می‌سازیم
     { path: "/:pathMatch(.*)*", redirect: "/dashboard" },
