@@ -3,32 +3,51 @@ import api from "../lib/api";
 
 export const useSessionStore = defineStore("session", {
   state: () => ({
-    token: localStorage.getItem("token") || "",
     me: null,
+    bootstrapped: false,
+    loading: false,
   }),
+
+  getters: {
+    isAuthenticated: (state) => !!state.me,
+  },
+
   actions: {
-    setToken(t) {
-      this.token = t || "";
-      if (this.token) localStorage.setItem("token", this.token);
-      else localStorage.removeItem("token");
-      api.setToken(this.token);
+    setMe(user) {
+      this.me = user || null;
     },
+
     async bootstrap() {
+      this.loading = true;
+
       try {
-        api.setToken(this.token);
         const { data } = await api.get("/me");
+
         if (data?.ok) {
           this.me = data;
           return true;
         }
+
+        this.me = null;
         return false;
-      } catch (e) {
+      } catch (error) {
+        this.me = null;
         return false;
+      } finally {
+        this.loading = false;
+        this.bootstrapped = true;
       }
     },
-    logout() {
-      this.setToken("");
-      this.me = null;
+
+    async logout() {
+      try {
+        await api.post("/auth/logout");
+      } catch (error) {
+        // Keep logout resilient even if the backend request fails.
+      } finally {
+        this.me = null;
+        this.bootstrapped = true;
+      }
     },
   },
 });
