@@ -95,6 +95,9 @@ def init_db():
             FOREIGN KEY(challenge_id) REFERENCES challenges(id)
         )
         """)
+    
+    c.execute("CREATE INDEX IF NOT EXISTS idx_enrollments_user_status ON enrollments(user_id, status)")
+    c.execute("CREATE INDEX IF NOT EXISTS idx_enrollments_challenge_status ON enrollments(challenge_id, status)")
 
 
 
@@ -153,6 +156,10 @@ def init_db():
         FOREIGN KEY(challenge_id) REFERENCES challenges(id)
         );
     """)
+
+    c.execute("CREATE INDEX IF NOT EXISTS idx_checkins_user_date ON checkins(user_id, date)")
+    c.execute("CREATE INDEX IF NOT EXISTS idx_checkins_enrollment_date ON checkins(enrollment_id, date)")
+    c.execute("CREATE INDEX IF NOT EXISTS idx_checkins_challenge ON checkins(challenge_id)")
 
     conn.commit()
     conn.close()
