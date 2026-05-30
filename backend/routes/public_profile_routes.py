@@ -1,0 +1,84 @@
+from flask import Blueprint, jsonify, request
+
+from auth import require_auth
+
+from services.public_profile_service import (
+    get_public_profile,
+)
+
+from services.profile_visibility_service import (
+    update_profile_visibility,
+)
+
+from services.public_consistency_service import (
+    get_public_consistency,
+)
+
+from services.public_achievement_service import (
+    get_public_achievements,
+)
+
+from services.profile_update_service import (
+    update_profile,
+)
+
+public_profile_bp = Blueprint(
+    "public_profile_bp",
+    __name__,
+)
+
+
+@public_profile_bp.get("/api/public/profile/<username>")
+def public_profile(username):
+    payload, code = get_public_profile(username)
+    return jsonify(payload), code
+
+
+@public_profile_bp.get(
+    "/api/public/profile/<username>/achievements"
+)
+def public_achievements(username):
+    payload, code = get_public_achievements(username)
+    return jsonify(payload), code
+
+
+@public_profile_bp.get(
+    "/api/public/profile/<username>/consistency"
+)
+def public_consistency(username):
+    payload, code = get_public_consistency(username)
+    return jsonify(payload), code
+
+
+@public_profile_bp.patch(
+    "/api/profile/visibility"
+)
+@require_auth()
+def patch_profile_visibility(claims):
+    data = request.get_json(silent=True) or {}
+
+    visibility = data.get("visibility")
+
+    payload, code = update_profile_visibility(
+        user_id=claims["user_id"],
+        visibility=visibility,
+    )
+
+    return jsonify(payload), code
+
+@public_profile_bp.patch(
+    "/api/profile"
+)
+
+@require_auth()
+def patch_profile(claims):
+    data = request.get_json(silent=True) or {}
+
+    payload, code = update_profile(
+        user_id=claims["user_id"],
+        name=data.get("name"),
+        bio=data.get("bio"),
+        avatar_url=data.get("avatar_url"),
+    )
+
+    return jsonify(payload), code

@@ -16,16 +16,32 @@ def init_db():
     conn = get_db_connection()
     c = conn.cursor()
     
-    # Users table with both Telegram and local auth support
     c.execute('''CREATE TABLE IF NOT EXISTS users 
-                 (id INTEGER PRIMARY KEY AUTOINCREMENT, 
-                  telegram_id TEXT UNIQUE, 
-                  username TEXT UNIQUE, 
-                  password_hash TEXT, 
-                  name TEXT,
-                  email TEXT UNIQUE,
-                  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
+             (id INTEGER PRIMARY KEY AUTOINCREMENT, 
+              telegram_id TEXT UNIQUE, 
+              username TEXT UNIQUE, 
+              password_hash TEXT, 
+              name TEXT,
+              email TEXT UNIQUE,
+              avatar_url TEXT,
+              bio TEXT DEFAULT '',
+              profile_visibility TEXT DEFAULT 'public',
+              created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+              updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
+    
+        # ===== Users table migrations =====
+
+    user_columns = [r[1] for r in c.execute("PRAGMA table_info(users)").fetchall()]
+
+    if "avatar_url" not in user_columns:
+        c.execute("ALTER TABLE users ADD COLUMN avatar_url TEXT")
+
+    if "bio" not in user_columns:
+        c.execute("ALTER TABLE users ADD COLUMN bio TEXT DEFAULT ''")
+
+    if "profile_visibility" not in user_columns:
+        c.execute("ALTER TABLE users ADD COLUMN profile_visibility TEXT DEFAULT 'public'")
+        
     
     # Sessions table for token management
     c.execute('''CREATE TABLE IF NOT EXISTS sessions

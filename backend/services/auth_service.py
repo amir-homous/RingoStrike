@@ -5,6 +5,7 @@ import jwt
 from flask import current_app, request
 
 from database import create_user, get_user_by_id, verify_password
+from services.username_service import normalize_username, is_valid_username
 
 
 def make_jwt(payload: dict):
@@ -53,13 +54,17 @@ def set_auth_cookie(resp, token: str):
 
 
 def register_local_user(username: str, password: str, name: str, email: str):
-    username = (username or "").strip()
+    #username = (username or "").strip()
+    username = normalize_username(username)
     password = (password or "").strip()
     name = (name or "").strip()
     email = (email or "").strip()
 
-    if not username or len(username) < 3:
-        return {"ok": False, "error": "username_min_3_chars"}, 400
+    #if not username or len(username) < 3:
+    #    return {"ok": False, "error": "username_min_3_chars"}, 400
+    if not is_valid_username(username):
+        return {"ok": False, "error": "invalid_username"}, 400
+    
     if not password or len(password) < 6:
         return {"ok": False, "error": "password_min_6_chars"}, 400
     if email and "@" not in email:
@@ -91,7 +96,8 @@ def register_local_user(username: str, password: str, name: str, email: str):
 
 
 def login_local_user(username: str, password: str):
-    username = (username or "").strip()
+    #username = (username or "").strip()
+    username = normalize_username(username)
     password = (password or "").strip()
 
     if not username or not password:
