@@ -2,14 +2,49 @@
   <AppContainer>
     <AppHeader />
 
-    <div class="stack-16">
-      <!-- Page header -->
-      <div class="pageHead">
-        <div class="stack-8">
-          <h1 class="h1">Challenges</h1>
-          <div class="caption">
-            Browse public / invite-only challenges and join.
+    <div class="challengesPage stack-16">
+      <section class="heroCard">
+        <div class="heroGlow"></div>
+
+        <div class="heroContent">
+          <div class="heroMain">
+            <div class="eyebrow">Challenge Discovery</div>
+            <h1 class="heroTitle">Choose your next progression path.</h1>
+            <p class="heroText">
+              Start with a curated launch challenge, build daily momentum, and turn consistency into visible identity.
+            </p>
+
+            <div class="heroPills">
+              <span class="heroPill">Consistency</span>
+              <span class="heroPill">Momentum</span>
+              <span class="heroPill">XP Growth</span>
+              <span class="heroPill">Social Standings</span>
+            </div>
           </div>
+
+          <div class="heroStats">
+            <div class="heroStat">
+              <span class="statValue">{{ items.length }}</span>
+              <span class="statLabel">Available</span>
+            </div>
+
+            <div class="heroStat">
+              <span class="statValue">{{ joinedCount }}</span>
+              <span class="statLabel">Joined</span>
+            </div>
+
+            <div class="heroStat">
+              <span class="statValue">{{ publicCount }}</span>
+              <span class="statLabel">Public</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div class="toolbar">
+        <div>
+          <div class="eyebrow">Launch Defaults</div>
+          <h2 class="h2">Available Challenges</h2>
         </div>
 
         <div class="actions">
@@ -19,110 +54,68 @@
         </div>
       </div>
 
-      <!-- State / content -->
       <BaseCard>
-        <UiState :loading="loading" :error="!!loadError" :empty="!loading && !loadError && items.length === 0"
-          loading-title="Loading challenges…" loading-text="Fetching available challenges."
-          empty-title="No challenges available" empty-text="Create one or ask for an invite code."
-          error-title="Couldn’t load challenges" :error-text="loadError || 'Please try again.'" @retry="load" />
+        <UiState
+          :loading="loading"
+          :error="!!loadError"
+          :empty="!loading && !loadError && items.length === 0"
+          loading-title="Loading challenges…"
+          loading-text="Fetching available progression paths."
+          empty-title="No challenges available"
+          empty-text="Default launch challenges should appear here after database initialization."
+          error-title="Couldn’t load challenges"
+          :error-text="loadError || 'Please try again.'"
+          @retry="load"
+        />
 
         <div v-if="!loading && !loadError && items.length" class="list">
-          <BaseCard v-for="ch in items" :key="ch.challenge_id" class="itemCard" :padded="true">
-            <div class="row">
-              <!-- left -->
-              <div class="content">
-                <div class="titleRow">
-                  <h2 class="h2 title">{{ ch.name }}</h2>
+          <div
+            v-for="ch in items"
+            :key="ch.challenge_id"
+            class="challengeShell"
+          >
+            <ChallengeCard
+              :challenge="ch"
+              :loading="joiningId === ch.challenge_id"
+              :show-join="!ch.is_joined"
+              :show-checkin="false"
+              @join="join(ch)"
+            />
 
-                  <div class="badges">
-                    <span class="badge">
-                      <span aria-hidden="true">{{ ch.visibility === "public" ? "🔓" : "🔐" }}</span>
-                      {{ ch.visibility || "—" }}
-                    </span>
-
-                    <span class="badge">
-                      <span aria-hidden="true">{{ ch.status === "active" ? "🟢" : "⚪️" }}</span>
-                      {{ ch.status || "—" }}
-                    </span>
-
-                    <span class="badge">
-                      <span aria-hidden="true">🗓️</span>
-                      {{ ch.duration_days ? `${ch.duration_days} days` : "—" }}
-                    </span>
-                  </div>
-                </div>
-
-                <p v-if="ch.description" class="desc">
-                  {{ ch.description }}
-                </p>
-
-                <div class="social">
-                  <div class="members-row">
-                    <span class="members-badge">
-                      <span aria-hidden="true">👥</span>
-                      <b>{{ ch.members_count || 0 }}</b>
-                    </span>
-
-                    <div class="members-details">
-                      <!-- اگر عضو داشتیم -->
-                      <template v-if="ch.members_count > 0">
-                        <span class="caption">
-                          Joined by 
-                          <span class="member-names">{{ ch.members_preview?.join(", ") }}</span>
-                          <span v-if="ch.members_count > 3" class="more-count">
-                            and {{ ch.members_count - 3 }} others
-                          </span>
-                        </span>
-                      </template>
-                      
-                      <!-- اگر خالی بود -->
-                      <span v-else class="caption italic">
-                        No one here yet. Be the first! 🚀
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-
-                <!-- Invite code box: نمایش برای چالش‌های کد دار -->
-                <div v-if="(ch.visibility?.toLowerCase() === 'invite-only' || ch.needs_code) && !ch.is_joined" class="inviteBox">
-                  <label class="capLabel" :for="`code-${ch.challenge_id}`">
-                    <span aria-hidden="true">🔑</span> Invite code
-                  </label>
-
-                  <div class="inviteRow">
-                    <input 
-                      :id="`code-${ch.challenge_id}`" 
-                      v-model="codes[ch.challenge_id]" 
-                      class="input"
-                      placeholder="Enter code..." 
-                      @keyup.enter="join(ch)"
-                    />
-                  </div>
-                  <div v-if="errors[ch.challenge_id]" class="err">
-                    {{ humanizeError(errors[ch.challenge_id]) }}
-                  </div>
-                </div>
-
-                <!-- per-item error (non invite) -->
-                <div v-else-if="errors[ch.challenge_id]" class="err">
-                  {{ humanizeError(errors[ch.challenge_id]) }}
-                </div>
+            <div
+              v-if="(isInviteOnly(ch) || ch.needs_code) && !ch.is_joined"
+              class="inviteBox"
+            >
+              <div>
+                <label class="capLabel" :for="`code-${ch.challenge_id}`">
+                  Invite code required
+                </label>
+                <div class="caption">This challenge is invite-only. Enter a code to join.</div>
               </div>
 
-              <!-- right -->
-              <div class="side">
-                <BaseButton v-if="!ch.is_joined" variant="primary" :loading="joiningId === ch.challenge_id"
-                  @click="join(ch)">
-                  Join 🚀
-                </BaseButton>
+              <div class="inviteControls">
+                <input
+                  :id="`code-${ch.challenge_id}`"
+                  v-model="codes[ch.challenge_id]"
+                  class="input"
+                  placeholder="Enter code..."
+                  @keyup.enter="join(ch)"
+                />
 
-                <BaseButton v-else variant="secondary" @click="open(ch)">
-                  Joined ✅ Open
+                <BaseButton
+                  variant="secondary"
+                  :loading="joiningId === ch.challenge_id"
+                  @click="join(ch)"
+                >
+                  Unlock
                 </BaseButton>
               </div>
             </div>
-          </BaseCard>
+
+            <div v-if="errors[ch.challenge_id]" class="err">
+              {{ humanizeError(errors[ch.challenge_id]) }}
+            </div>
+          </div>
         </div>
       </BaseCard>
     </div>
@@ -130,7 +123,7 @@
 </template>
 
 <script setup>
-import { onMounted, ref } from "vue";
+import { computed, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import api from "../lib/api";
 
@@ -139,6 +132,7 @@ import AppHeader from "@/components/ui/AppHeader.vue";
 import BaseCard from "@/components/ui/BaseCard.vue";
 import BaseButton from "@/components/ui/BaseButton.vue";
 import UiState from "@/components/ui/UiState.vue";
+import ChallengeCard from "@/components/challenges/ChallengeCard.vue";
 
 const router = useRouter();
 
@@ -151,9 +145,19 @@ const joiningId = ref(null);
 const codes = ref({});
 const errors = ref({});
 
+const joinedCount = computed(() => items.value.filter((item) => item.is_joined).length);
+const publicCount = computed(() => items.value.filter((item) => String(item.visibility || "").toLowerCase() === "public").length);
+
+function isInviteOnly(challenge) {
+  return String(challenge.visibility || "").toLowerCase() === "invite-only";
+}
+
 function humanizeError(msg) {
   if (!msg) return "";
   if (msg === "invite_code_required") return "Invite code is required.";
+  if (msg === "join_code_required") return "Invite code is required.";
+  if (msg === "invalid_join_code") return "Invalid invite code.";
+  if (msg === "challenge_private") return "This challenge is private.";
   if (typeof msg === "string") return msg.replaceAll("_", " ");
   return String(msg);
 }
@@ -173,42 +177,40 @@ async function load() {
   }
 }
 
-async function join(ch) {
-  errors.value[ch.challenge_id] = "";
-  joiningId.value = ch.challenge_id;
-  
-  // تشخیص اینکه آیا کد لازم است یا خیر
-  const isInviteOnly = ch.visibility?.toLowerCase() === 'invite-only' || ch.needs_code;
-  
+async function join(challenge) {
+  errors.value[challenge.challenge_id] = "";
+  joiningId.value = challenge.challenge_id;
+
+  const needsCode = isInviteOnly(challenge) || challenge.needs_code;
+
   try {
     let payload = {};
-    if (isInviteOnly) {
-      const code = (codes.value[ch.challenge_id] || "").trim();
+
+    if (needsCode) {
+      const code = (codes.value[challenge.challenge_id] || "").trim();
+
       if (!code) {
-        errors.value[ch.challenge_id] = "invite_code_required";
-        joiningId.value = null; // متوقف کردن لودینگ
+        errors.value[challenge.challenge_id] = "invite_code_required";
+        joiningId.value = null;
         return;
       }
+
       payload = { join_code: code };
     }
 
-    await api.post(`/challenges/${ch.challenge_id}/join`, payload);
-    await load(); // نوسازی لیست بعد از عضویت موفق
+    const { data } = await api.post(`/challenges/${challenge.challenge_id}/join`, payload);
+
+    if (data?.enrollment_id) {
+      router.push(`/enrollment/${data.enrollment_id}`);
+      return;
+    }
+
+    await load();
   } catch (e) {
     const msg = e?.response?.data?.error || e?.message || String(e);
-    errors.value[ch.challenge_id] = msg;
+    errors.value[challenge.challenge_id] = msg;
   } finally {
     joiningId.value = null;
-  }
-}
-
-
-function open(ch) {
-  // دقت کن: enrollment_id از بک‌اند میاد و اینجا استفاده میشه
-  if (ch.enrollment_id) {
-    router.push(`/enrollment/${ch.enrollment_id}`);
-  } else {
-    console.error("Enrollment ID not found!", ch);
   }
 }
 
@@ -216,7 +218,118 @@ onMounted(load);
 </script>
 
 <style scoped>
-.pageHead {
+.challengesPage {
+  position: relative;
+}
+
+.heroCard {
+  position: relative;
+  overflow: hidden;
+  border-radius: 28px;
+  padding: 30px;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  background:
+    radial-gradient(circle at 12% 18%, rgba(110, 229, 255, 0.18), transparent 34%),
+    radial-gradient(circle at 88% 8%, rgba(195, 90, 214, 0.16), transparent 32%),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.085), rgba(255, 255, 255, 0.025));
+  box-shadow: 0 28px 90px rgba(0, 0, 0, 0.32);
+}
+
+.heroGlow {
+  position: absolute;
+  inset: -90px;
+  background:
+    linear-gradient(90deg, transparent, rgba(110, 229, 255, 0.07), transparent),
+    radial-gradient(circle, rgba(255, 255, 255, 0.07), transparent 58%);
+  pointer-events: none;
+}
+
+.heroContent {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  gap: var(--s-24);
+  align-items: center;
+}
+
+.eyebrow {
+  margin-bottom: 7px;
+  color: rgba(110, 229, 255, 0.9);
+  font-size: 0.72rem;
+  font-weight: 850;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+}
+
+.heroTitle {
+  margin: 0;
+  max-width: 820px;
+  color: white;
+  font-size: clamp(2rem, 4.4vw, 4.2rem);
+  line-height: 0.96;
+  letter-spacing: -0.06em;
+}
+
+.heroText {
+  max-width: 720px;
+  margin: var(--s-16) 0 0;
+  color: rgba(255, 255, 255, 0.72);
+  line-height: 1.7;
+}
+
+.heroPills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-8);
+  margin-top: var(--s-20);
+}
+
+.heroPill {
+  padding: 7px 11px;
+  border-radius: 999px;
+  color: rgba(255, 255, 255, 0.82);
+  background: rgba(255, 255, 255, 0.055);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  font-size: 0.78rem;
+  font-weight: 750;
+}
+
+.heroStats {
+  display: grid;
+  gap: var(--s-10);
+}
+
+.heroStat {
+  padding: 16px;
+  border-radius: 22px;
+  text-align: right;
+  background:
+    radial-gradient(circle at 0% 0%, rgba(110, 229, 255, 0.10), transparent 38%),
+    rgba(0, 0, 0, 0.20);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+}
+
+.statValue {
+  display: block;
+  color: white;
+  font-size: 2rem;
+  line-height: 1;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+}
+
+.statLabel {
+  display: block;
+  margin-top: 5px;
+  color: var(--muted2);
+  font-size: 0.76rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.toolbar {
   display: flex;
   justify-content: space-between;
   align-items: flex-end;
@@ -231,117 +344,43 @@ onMounted(load);
   flex-wrap: wrap;
 }
 
-.ghostLink {
-  color: rgba(255, 255, 255, 0.85);
-  text-decoration: none;
-  padding: 8px 10px;
-  border-radius: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.10);
-  background: rgba(255, 255, 255, 0.03);
-}
-
-.ghostLink:hover {
-  background: rgba(255, 255, 255, 0.06);
-}
-
 .list {
   margin-top: var(--s-16);
   display: grid;
-  gap: var(--s-12);
+  gap: var(--s-14);
 }
 
-.itemCard {
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: none;
-}
-
-.row {
-  display: flex;
-  gap: var(--s-16);
-  align-items: flex-start;
-  justify-content: space-between;
-  flex-wrap: wrap;
-}
-
-.content {
-  min-width: 0;
-  flex: 1;
+.challengeShell {
   display: grid;
-  gap: var(--s-10);
-}
-
-.side {
-  display: flex;
-  gap: var(--s-10);
-  align-items: center;
-  flex-shrink: 0;
-}
-
-.titleRow {
-  display: flex;
-  gap: var(--s-12);
-  align-items: flex-start;
-  justify-content: space-between;
-  flex-wrap: wrap;
-}
-
-.title {
-  margin: 0;
-}
-
-.badges {
-  display: flex;
   gap: var(--s-8);
-  flex-wrap: wrap;
-  align-items: center;
-}
-
-.badge {
-  font-size: var(--cap);
-  color: rgba(255, 255, 255, 0.85);
-  padding: 6px 10px;
-  border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.10);
-  background: rgba(255, 255, 255, 0.03);
-  display: inline-flex;
-  gap: 6px;
-  align-items: center;
-}
-
-.desc {
-  margin: 0;
-  opacity: 0.9;
-  line-height: 1.55;
-}
-
-.social {
-  display: flex;
-  gap: var(--s-8);
-  flex-wrap: wrap;
-  align-items: baseline;
-  opacity: 0.9;
-}
-
-.members {
-  display: inline-flex;
-  gap: 6px;
-  align-items: center;
 }
 
 .inviteBox {
-  margin-top: 2px;
-  padding-top: var(--s-8);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--s-12);
+  padding: 14px;
+  margin: 0 4px;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 228, 168, 0.14);
+  background:
+    radial-gradient(circle at 0% 0%, rgba(255, 228, 168, 0.08), transparent 36%),
+    rgba(255, 255, 255, 0.025);
+  flex-wrap: wrap;
 }
 
 .capLabel {
   display: block;
-  font-size: var(--cap);
-  color: var(--muted2);
-  margin-bottom: var(--s-6);
+  color: rgba(255, 228, 168, 0.95);
+  font-size: 0.78rem;
+  font-weight: 850;
+  text-transform: uppercase;
+  letter-spacing: 0.10em;
+  margin-bottom: 3px;
 }
 
-.inviteRow {
+.inviteControls {
   display: flex;
   gap: var(--s-8);
   align-items: center;
@@ -351,8 +390,8 @@ onMounted(load);
 .input {
   width: 260px;
   max-width: 100%;
-  padding: 10px 12px;
-  border-radius: 10px;
+  padding: 11px 12px;
+  border-radius: 12px;
   border: 1px solid rgba(255, 255, 255, 0.12);
   background: rgba(0, 0, 0, 0.25);
   color: rgba(255, 255, 255, 0.92);
@@ -360,67 +399,57 @@ onMounted(load);
 }
 
 .input:focus {
-  border-color: rgba(99, 102, 241, 0.45);
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.18);
-}
-
-.hint {
-  opacity: 0.8;
+  border-color: rgba(110, 229, 255, 0.45);
+  box-shadow: 0 0 0 3px rgba(110, 229, 255, 0.14);
 }
 
 .err {
-  margin-top: var(--s-8);
-  color: rgba(255, 80, 80, 0.95);
+  margin: 0 8px;
+  color: rgba(255, 100, 100, 0.95);
   font-size: var(--cap);
-}
-
-.social {
-  margin-top: 12px;
-  padding-top: 12px;
-  border-top: 1px solid rgba(255, 255, 255, 0.05); /* یک خط خیلی ملایم جداکننده */
-}
-
-.members-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.members-badge {
-  background: rgba(255, 255, 255, 0.08);
-  padding: 4px 10px;
-  border-radius: 20px;
-  font-size: 0.85rem;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  color: #fff;
-}
-
-.members-details {
-  display: flex;
-  flex-direction: column;
-}
-
-.member-names {
-  color: var(--text-secondary); /* یا یک رنگ روشن‌تر */
-  font-weight: 500;
-}
-
-.more-count {
-  color: var(--primary-color); /* رنگ اصلی برندت */
-  font-size: 0.8rem;
-  margin-left: 4px;
-}
-
-.italic {
-  font-style: italic;
-  opacity: 0.7;
+  font-weight: 700;
 }
 
 .caption {
+  color: var(--muted2);
   font-size: 0.85rem;
-  line-height: 1.4;
+  line-height: 1.45;
 }
 
+@media (max-width: 900px) {
+  .heroContent {
+    grid-template-columns: 1fr;
+  }
+
+  .heroStats {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .heroStat {
+    text-align: left;
+  }
+}
+
+@media (max-width: 620px) {
+  .heroCard {
+    padding: 22px;
+    border-radius: 22px;
+  }
+
+  .heroStats {
+    grid-template-columns: 1fr;
+  }
+
+  .heroTitle {
+    font-size: 2.2rem;
+  }
+
+  .inviteControls {
+    width: 100%;
+  }
+
+  .input {
+    width: 100%;
+  }
+}
 </style>

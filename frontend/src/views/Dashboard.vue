@@ -40,13 +40,27 @@
           <div class="listHead"><h2 class="h2">Active Challenges</h2></div>
 
           <div v-if="challenges.length" class="list">
-            <ChallengeCard
+            <!-- <ChallengeCard
               v-for="c in challenges"
               :key="c.enrollment_id"
               :challenge="c"
               :loading="checkingId === c.enrollment_id"
               @checkin="checkin"
+            /> -->
+            <ChallengeCard
+              v-for="c in challenges"
+              :key="c.enrollment_id"
+              :challenge="c"
+              :loading="checkingId === c.enrollment_id"
+              compact
+              @checkin="checkin"
             />
+            <!-- <ChallengeCard
+              :challenge="challenge"
+              v-for="challenge in challenges"
+              :loading="checkingId === challenge.enrollment_id"
+              @checkin="checkin"
+            /> -->
           </div>
 
           <div v-else class="stack-12">
