@@ -3,7 +3,8 @@ import os
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime, timezone,timedelta
 
-DB_NAME = os.getenv("DB_PATH", "users.db")
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DB_NAME = os.getenv("DB_PATH") or os.path.join(BASE_DIR, "users.db")
 
 def get_db_connection():
     """Get database connection with row factory and FK enforcement"""
@@ -252,7 +253,6 @@ def create_user(username=None, password=None, name=None, email=None, telegram_id
     except sqlite3.IntegrityError as e:
         conn.close()
         raise ValueError(f"User already exists: {str(e)}")
-
 
 def verify_password(username, password):
     """Verify user password. Returns user dict if valid, None otherwise"""
