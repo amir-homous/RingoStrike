@@ -51,8 +51,30 @@ def enrollment_detail_route(claims, enrollment_id):
 @challenge_bp.post('/challenges/<int:challenge_id>/join')
 @require_auth()
 def join_challenge_route(claims, challenge_id):
-    body = request.get_json(silent=True) or {}
+    body = request.get_json(silent=True)
+
+    if body is None:
+        body = {}
+
+    if not isinstance(body, dict):
+        return jsonify({"ok": False, "error": "invalid_json_body"}), 400
+
+    join_code = body.get("join_code", "")
+
+    if join_code is None:
+        join_code = ""
+
+    if not isinstance(join_code, str):
+        return jsonify({"ok": False, "error": "invalid_join_code_type"}), 400
+
+    join_code = join_code.strip()
+
+    if len(join_code) > 64:
+        return jsonify({"ok": False, "error": "join_code_too_long"}), 400
+
     payload, code = join_challenge(
-        int(claims['user_id']), challenge_id, str(body.get('join_code') or '').strip()
+        int(claims["user_id"]),
+        challenge_id,
+        join_code,
     )
     return jsonify(payload), code
