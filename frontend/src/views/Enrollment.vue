@@ -22,8 +22,14 @@
 
           <div class="heroContent">
             <div class="heroMain">
-              <div class="eyebrow">Challenge Command Center</div>
-              <h1 class="heroTitle">{{ challenge?.name || enrollment.name || "Challenge" }}</h1>
+              <div class="eyebrow">
+                <span class="pulseDot"></span>
+                Challenge Command Center
+              </div>
+
+              <h1 class="heroTitle">
+                {{ challenge?.name || enrollment.name || "Challenge" }}
+              </h1>
 
               <p v-if="challenge?.description" class="heroDesc">
                 {{ challenge.description }}
@@ -51,11 +57,14 @@
 
             <div class="checkinPanel">
               <div class="checkinStatus" :class="{ done: enrollment.today_checked }">
-                <div class="statusIcon">{{ enrollment.today_checked ? "✅" : "⚡" }}</div>
+                <div class="statusIcon">
+                  {{ enrollment.today_checked ? "✅" : "⚡" }}
+                </div>
+
                 <div>
                   <div class="statusLabel">Today’s Strike</div>
                   <div class="statusValue">
-                    {{ enrollment.today_checked ? "Completed" : "Not checked in" }}
+                    {{ enrollment.today_checked ? "Completed" : "Ready to secure" }}
                   </div>
                 </div>
               </div>
@@ -69,7 +78,33 @@
                 <span v-if="enrollment.today_checked">Done for today</span>
                 <span v-else>Check in now</span>
               </BaseButton>
+
+              <div class="checkinHint">
+                {{ enrollment.today_checked ? "Your momentum is protected until the next reset." : resetHint }}
+              </div>
             </div>
+          </div>
+        </section>
+
+        <section class="dailySummary">
+          <div class="summaryItem">
+            <span class="summaryLabel">Today</span>
+            <strong>{{ enrollment.today_checked ? "Secured" : "Pending" }}</strong>
+          </div>
+
+          <div class="summaryItem">
+            <span class="summaryLabel">Streak</span>
+            <strong>{{ currentStreak }}</strong>
+          </div>
+
+          <div class="summaryItem">
+            <span class="summaryLabel">Progress</span>
+            <strong>{{ checkinPercent }}%</strong>
+          </div>
+
+          <div class="summaryItem">
+            <span class="summaryLabel">Reset window</span>
+            <strong>{{ resetBadgeText }}</strong>
           </div>
         </section>
 
@@ -147,7 +182,8 @@
           <div class="futureNote">
             <span class="futureIcon">🔔</span>
             <span>
-              Future reminder system: custom reminder time, preferred daily window, and late check-in state.
+              Reminder-ready foundation: future versions can support custom reminder time,
+              preferred daily windows, late check-in states, and user timezones.
             </span>
           </div>
         </BaseCard>
@@ -265,15 +301,26 @@
               </div>
             </div>
 
-            <ul v-else class="logList">
-              <li v-for="log in recentLogs" :key="log.daily_log_id" class="logRow">
-                <span class="logDot" aria-hidden="true">✅</span>
-                <div>
-                  <div class="logDate">{{ formatDate(log.date) }}</div>
-                  <div class="caption">Check-in completed</div>
-                </div>
-              </li>
-            </ul>
+            <template v-else>
+              <ul class="logList">
+                <li v-for="log in visibleLogs" :key="log.daily_log_id" class="logRow">
+                  <span class="logDot" aria-hidden="true">✅</span>
+                  <div>
+                    <div class="logDate">{{ formatDate(log.date) }}</div>
+                    <div class="caption">Check-in completed</div>
+                  </div>
+                </li>
+              </ul>
+
+              <button
+                v-if="recentLogs.length > logLimit"
+                type="button"
+                class="showMoreLogs"
+                @click="showAllLogs = !showAllLogs"
+              >
+                {{ showAllLogs ? "Show fewer logs" : `Show ${recentLogs.length - logLimit} more logs` }}
+              </button>
+            </template>
           </BaseCard>
         </section>
       </div>
@@ -286,7 +333,7 @@ import Leaderboard from "./Leaderboard.vue";
 
 import { onMounted, onUnmounted, ref, computed } from "vue";
 import { useRoute } from "vue-router";
-import api from "../lib/api";
+import api from "@/lib/api";
 
 import AppContainer from "@/components/ui/AppContainer.vue";
 import AppHeader from "@/components/ui/AppHeader.vue";
@@ -307,8 +354,16 @@ const recentLogs = ref([]);
 const checkedDays = ref(0);
 const totalDays = ref(0);
 const now = ref(new Date());
+const showAllLogs = ref(false);
+
+const logLimit = 6;
 
 let resetTimer = null;
+
+const visibleLogs = computed(() => {
+  if (showAllLogs.value) return recentLogs.value;
+  return recentLogs.value.slice(0, logLimit);
+});
 
 const durationDays = computed(() => {
   return Number(challenge.value?.duration_days || enrollment.value?.duration_days || totalDays.value || 0);
@@ -558,12 +613,23 @@ onUnmounted(() => {
 }
 
 .eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   margin-bottom: 7px;
   color: rgba(110, 229, 255, 0.9);
   font-size: 0.72rem;
   font-weight: 850;
   text-transform: uppercase;
   letter-spacing: 0.14em;
+}
+
+.pulseDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: #4ade80;
+  box-shadow: 0 0 16px rgba(74, 222, 128, 0.7);
 }
 
 .heroMeta {
@@ -646,6 +712,44 @@ onUnmounted(() => {
   margin-top: 2px;
   color: white;
   font-weight: 850;
+}
+
+.checkinHint {
+  margin-top: var(--s-12);
+  color: rgba(255, 255, 255, 0.58);
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.dailySummary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--s-12);
+}
+
+.summaryItem {
+  padding: 14px;
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at 100% 0%, rgba(110, 229, 255, 0.065), transparent 36%),
+    rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.summaryLabel {
+  display: block;
+  color: var(--muted2);
+  font-size: 0.72rem;
+  font-weight: 850;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.summaryItem strong {
+  display: block;
+  margin-top: 7px;
+  color: rgba(255, 255, 255, 0.94);
+  font-size: 1rem;
 }
 
 .insightGrid {
@@ -956,6 +1060,7 @@ onUnmounted(() => {
   border-radius: 13px;
   background: rgba(255, 255, 255, 0.055);
   border: 1px solid rgba(255, 255, 255, 0.10);
+  margin-right: 10px;
 }
 
 .ctaLink {
@@ -999,6 +1104,7 @@ onUnmounted(() => {
   border-radius: 13px;
   background: rgba(74, 222, 128, 0.12);
   border: 1px solid rgba(74, 222, 128, 0.22);
+  margin-right: 10px;
 }
 
 .logDate {
@@ -1024,13 +1130,31 @@ onUnmounted(() => {
   border-color: rgba(255, 255, 255, 0.10);
 }
 
+.showMoreLogs {
+  width: 100%;
+  min-height: 38px;
+  margin-top: var(--s-12);
+  border-radius: 999px;
+  color: rgba(255, 255, 255, 0.78);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  cursor: pointer;
+  font-weight: 850;
+}
+
+.showMoreLogs:hover {
+  background: rgba(255, 255, 255, 0.065);
+  border-color: rgba(110, 229, 255, 0.25);
+}
+
 @media (max-width: 980px) {
   .heroContent,
   .contentGrid {
     grid-template-columns: 1fr;
   }
 
-  .insightGrid {
+  .insightGrid,
+  .dailySummary {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -1050,6 +1174,7 @@ onUnmounted(() => {
   }
 
   .insightGrid,
+  .dailySummary,
   .timelineMeta,
   .miniStats {
     grid-template-columns: 1fr;
