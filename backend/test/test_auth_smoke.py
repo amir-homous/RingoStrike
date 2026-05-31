@@ -230,3 +230,97 @@ def test_public_profile_visibility_privacy_flow(client):
     restored_public_data = restored_public_res.get_json()
     assert restored_public_data["ok"] is True
     assert restored_public_data["profile"]["username"] == "privacyuser"
+
+
+def test_achievement_unlocks_after_first_checkin(client):
+    user = register_user(client, username="AchievementUser")
+    headers = auth_headers(user["access_token"])
+
+    before_res = client.get("/me/achievements", headers=headers)
+
+    assert before_res.status_code == 200
+    before_data = before_res.get_json()
+    assert before_data["ok"] is True
+
+    before_map = {
+        achievement["key"]: achievement
+        for achievement in before_data["achievements"]
+    }
+
+    assert before_map["first_checkin"]["unlocked"] is False
+    assert before_map["first_challenge_completed"]["unlocked"] is False
+
+    challenges_res = client.get("/challenges", headers=headers)
+
+    assert challenges_res.status_code == 200
+    challenges_data = challenges_res.get_json()
+    assert challenges_data["ok"] is True
+
+    public_challenge = next(
+        item for item in challenges_data["items"]
+        if item["visibility"] == "public" and not item["is_joined"]
+    )
+
+    join_res = client.post(
+        f"/challenges/{public_challenge['challenge_id']}/join",
+        json={},
+        headers=headers,
+    )
+
+    assert join_res.status_code == 200
+    join_data = join_res.get_json()
+    assert join_data["ok"] is True
+
+    enrollment_id = join_data["enrollment_id"]
+
+    checkin_res = client.post(
+        f"/me/challenges/{enrollment_id}/checkin",
+        headers=headers,
+    )
+
+    assert checkin_res.status_code == 200
+    checkin_data = checkin_res.get_json()
+    assert checkin_data["ok"] is True
+
+    reward_keys = {
+        achievement["key"]
+        for achievement in checkin_data["rewards"]["achievements"]
+    }
+
+    assert "first_checkin" in reward_keys
+    assert "first_challenge_completed" in reward_keys
+    assert checkin_data["rewards"]["achievement_xp_reward"] >= 25
+
+    after_res = client.get("/me/achievements", headers=headers)
+
+    assert after_res.status_code == 200
+    after_data = after_res.get_json()
+    assert after_data["ok"] is True
+
+    after_map = {
+        achievement["key"]: achievement
+        for achievement in after_data["achievements"]
+    }
+
+    assert after_map["first_checkin"]["unlocked"] is True
+    assert after_map["first_checkin"]["unlocked_at"]
+
+    assert after_map["first_challenge_completed"]["unlocked"] is True
+    assert after_map["first_challenge_completed"]["unlocked_at"]
+
+    duplicate_res = client.post(
+        f"/me/challenges/{enrollment_id}/checkin",
+        headers=headers,
+    )
+
+    assert duplicate_res.status_code in (200, 409)
+    duplicate_data = duplicate_res.get_json()
+
+    if duplicate_data.get("ok") is True:
+        duplicate_reward_keys = {
+            achievement["key"]
+            for achievement in duplicate_data["rewards"]["achievements"]
+        }
+
+        assert "first_checkin" not in duplicate_reward_keys
+        assert "first_challenge_completed" not in duplicate_reward_keys
