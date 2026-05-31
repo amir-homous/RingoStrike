@@ -46,14 +46,14 @@ def init_db():
         c.execute("ALTER TABLE users ADD COLUMN profile_visibility TEXT DEFAULT 'public'")
         
     
-    # Sessions table for token management
-    c.execute('''CREATE TABLE IF NOT EXISTS sessions
-                 (id INTEGER PRIMARY KEY AUTOINCREMENT,
-                  user_id INTEGER NOT NULL,
-                  token TEXT UNIQUE NOT NULL,
-                  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                  expires_at TIMESTAMP NOT NULL,
-                  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE)''')
+    # # Sessions table for token management
+    # c.execute('''CREATE TABLE IF NOT EXISTS sessions
+    #              (id INTEGER PRIMARY KEY AUTOINCREMENT,
+    #               user_id INTEGER NOT NULL,
+    #               token TEXT UNIQUE NOT NULL,
+    #               created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    #               expires_at TIMESTAMP NOT NULL,
+    #               FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE)''')
     
     # User stats table for tracking streaks and check-ins
     c.execute('''CREATE TABLE IF NOT EXISTS user_stats
