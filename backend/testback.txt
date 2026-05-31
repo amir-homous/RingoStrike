@@ -1,0 +1,112 @@
+EEEEEEEEEEEE                                                             [100%]
+==================================== ERRORS ====================================
+________________________ ERROR at setup of test_health _________________________
+file /home/ringo/RingoStrike-main/backend/tests/test_auth.py, line 4
+  def test_health(client):
+E       fixture 'client' not found
+>       available fixtures: cache, capfd, capfdbinary, caplog, capsys, capsysbinary, doctest_namespace, monkeypatch, pytestconfig, record_property, record_testsuite_property, record_xml_attribute, recwarn, tmp_path, tmp_path_factory, tmpdir, tmpdir_factory
+>       use 'pytest --fixtures [testpath]' for help on them.
+
+/home/ringo/RingoStrike-main/backend/tests/test_auth.py:4
+___________ ERROR at setup of test_register_login_and_me_with_bearer ___________
+file /home/ringo/RingoStrike-main/backend/tests/test_auth.py, line 11
+  def test_register_login_and_me_with_bearer(client):
+E       fixture 'client' not found
+>       available fixtures: cache, capfd, capfdbinary, caplog, capsys, capsysbinary, doctest_namespace, monkeypatch, pytestconfig, record_property, record_testsuite_property, record_xml_attribute, recwarn, tmp_path, tmp_path_factory, tmpdir, tmpdir_factory
+>       use 'pytest --fixtures [testpath]' for help on them.
+
+/home/ringo/RingoStrike-main/backend/tests/test_auth.py:11
+___________ ERROR at setup of test_username_validation_register_flow ___________
+file /home/ringo/RingoStrike-main/backend/tests/test_auth.py, line 41
+  def test_username_validation_register_flow(client):
+E       fixture 'client' not found
+>       available fixtures: cache, capfd, capfdbinary, caplog, capsys, capsysbinary, doctest_namespace, monkeypatch, pytestconfig, record_property, record_testsuite_property, record_xml_attribute, recwarn, tmp_path, tmp_path_factory, tmpdir, tmpdir_factory
+>       use 'pytest --fixtures [testpath]' for help on them.
+
+/home/ringo/RingoStrike-main/backend/tests/test_auth.py:41
+_____________ ERROR at setup of test_logout_clears_cookie_session ______________
+file /home/ringo/RingoStrike-main/backend/tests/test_auth.py, line 105
+  def test_logout_clears_cookie_session(client):
+E       fixture 'client' not found
+>       available fixtures: cache, capfd, capfdbinary, caplog, capsys, capsysbinary, doctest_namespace, monkeypatch, pytestconfig, record_property, record_testsuite_property, record_xml_attribute, recwarn, tmp_path, tmp_path_factory, tmpdir, tmpdir_factory
+>       use 'pytest --fixtures [testpath]' for help on them.
+
+/home/ringo/RingoStrike-main/backend/tests/test_auth.py:105
+______ ERROR at setup of test_join_checkin_duplicate_and_stats_core_loop _______
+file /home/ringo/RingoStrike-main/backend/tests/test_challenges.py, line 4
+  def test_join_checkin_duplicate_and_stats_core_loop(client):
+E       fixture 'client' not found
+>       available fixtures: cache, capfd, capfdbinary, caplog, capsys, capsysbinary, doctest_namespace, monkeypatch, pytestconfig, record_property, record_testsuite_property, record_xml_attribute, recwarn, tmp_path, tmp_path_factory, tmpdir, tmpdir_factory
+>       use 'pytest --fixtures [testpath]' for help on them.
+
+/home/ringo/RingoStrike-main/backend/tests/test_challenges.py:4
+____________ ERROR at setup of test_invite_only_challenge_join_flow ____________
+file /home/ringo/RingoStrike-main/backend/tests/test_challenges.py, line 86
+  def test_invite_only_challenge_join_flow(client):
+E       fixture 'client' not found
+>       available fixtures: cache, capfd, capfdbinary, caplog, capsys, capsysbinary, doctest_namespace, monkeypatch, pytestconfig, record_property, record_testsuite_property, record_xml_attribute, recwarn, tmp_path, tmp_path_factory, tmpdir, tmpdir_factory
+>       use 'pytest --fixtures [testpath]' for help on them.
+
+/home/ringo/RingoStrike-main/backend/tests/test_challenges.py:86
+_ ERROR at setup of test_challenge_access_rules_for_private_archived_and_missing _
+file /home/ringo/RingoStrike-main/backend/tests/test_challenges.py, line 186
+  def test_challenge_access_rules_for_private_archived_and_missing(client):
+E       fixture 'client' not found
+>       available fixtures: cache, capfd, capfdbinary, caplog, capsys, capsysbinary, doctest_namespace, monkeypatch, pytestconfig, record_property, record_testsuite_property, record_xml_attribute, recwarn, tmp_path, tmp_path_factory, tmpdir, tmpdir_factory
+>       use 'pytest --fixtures [testpath]' for help on them.
+
+/home/ringo/RingoStrike-main/backend/tests/test_challenges.py:186
+________ ERROR at setup of test_public_profile_visibility_privacy_flow _________
+file /home/ringo/RingoStrike-main/backend/tests/test_profile.py, line 4
+  def test_public_profile_visibility_privacy_flow(client):
+E       fixture 'client' not found
+>       available fixtures: cache, capfd, capfdbinary, caplog, capsys, capsysbinary, doctest_namespace, monkeypatch, pytestconfig, record_property, record_testsuite_property, record_xml_attribute, recwarn, tmp_path, tmp_path_factory, tmpdir, tmpdir_factory
+>       use 'pytest --fixtures [testpath]' for help on them.
+
+/home/ringo/RingoStrike-main/backend/tests/test_profile.py:4
+_______________ ERROR at setup of test_profile_update_validation _______________
+file /home/ringo/RingoStrike-main/backend/tests/test_profile.py, line 59
+  def test_profile_update_validation(client):
+E       fixture 'client' not found
+>       available fixtures: cache, capfd, capfdbinary, caplog, capsys, capsysbinary, doctest_namespace, monkeypatch, pytestconfig, record_property, record_testsuite_property, record_xml_attribute, recwarn, tmp_path, tmp_path_factory, tmpdir, tmpdir_factory
+>       use 'pytest --fixtures [testpath]' for help on them.
+
+/home/ringo/RingoStrike-main/backend/tests/test_profile.py:59
+_ ERROR at setup of test_public_consistency_and_achievements_respect_profile_privacy _
+file /home/ringo/RingoStrike-main/backend/tests/test_profile.py, line 123
+  def test_public_consistency_and_achievements_respect_profile_privacy(client):
+E       fixture 'client' not found
+>       available fixtures: cache, capfd, capfdbinary, caplog, capsys, capsysbinary, doctest_namespace, monkeypatch, pytestconfig, record_property, record_testsuite_property, record_xml_attribute, recwarn, tmp_path, tmp_path_factory, tmpdir, tmpdir_factory
+>       use 'pytest --fixtures [testpath]' for help on them.
+
+/home/ringo/RingoStrike-main/backend/tests/test_profile.py:123
+________ ERROR at setup of test_achievement_unlocks_after_first_checkin ________
+file /home/ringo/RingoStrike-main/backend/tests/test_progression.py, line 4
+  def test_achievement_unlocks_after_first_checkin(client):
+E       fixture 'client' not found
+>       available fixtures: cache, capfd, capfdbinary, caplog, capsys, capsysbinary, doctest_namespace, monkeypatch, pytestconfig, record_property, record_testsuite_property, record_xml_attribute, recwarn, tmp_path, tmp_path_factory, tmpdir, tmpdir_factory
+>       use 'pytest --fixtures [testpath]' for help on them.
+
+/home/ringo/RingoStrike-main/backend/tests/test_progression.py:4
+____ ERROR at setup of test_leaderboard_rank_and_enrollment_reset_metadata _____
+file /home/ringo/RingoStrike-main/backend/tests/test_progression.py, line 98
+  def test_leaderboard_rank_and_enrollment_reset_metadata(client):
+E       fixture 'client' not found
+>       available fixtures: cache, capfd, capfdbinary, caplog, capsys, capsysbinary, doctest_namespace, monkeypatch, pytestconfig, record_property, record_testsuite_property, record_xml_attribute, recwarn, tmp_path, tmp_path_factory, tmpdir, tmpdir_factory
+>       use 'pytest --fixtures [testpath]' for help on them.
+
+/home/ringo/RingoStrike-main/backend/tests/test_progression.py:98
+=========================== short test summary info ============================
+ERROR tests/test_auth.py::test_health
+ERROR tests/test_auth.py::test_register_login_and_me_with_bearer
+ERROR tests/test_auth.py::test_username_validation_register_flow
+ERROR tests/test_auth.py::test_logout_clears_cookie_session
+ERROR tests/test_challenges.py::test_join_checkin_duplicate_and_stats_core_loop
+ERROR tests/test_challenges.py::test_invite_only_challenge_join_flow
+ERROR tests/test_challenges.py::test_challenge_access_rules_for_private_archived_and_missing
+ERROR tests/test_profile.py::test_public_profile_visibility_privacy_flow
+ERROR tests/test_profile.py::test_profile_update_validation
+ERROR tests/test_profile.py::test_public_consistency_and_achievements_respect_profile_privacy
+ERROR tests/test_progression.py::test_achievement_unlocks_after_first_checkin
+ERROR tests/test_progression.py::test_leaderboard_rank_and_enrollment_reset_metadata
+12 errors in 0.04s

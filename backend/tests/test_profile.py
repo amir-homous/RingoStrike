@@ -1,0 +1,210 @@
+from helpers import auth_headers, register_user
+
+
+def test_public_profile_visibility_privacy_flow(client):
+    user = register_user(client, username="PrivacyUser")
+    headers = auth_headers(user["access_token"])
+
+    public_res = client.get("/api/public/profile/privacyuser")
+
+    assert public_res.status_code == 200
+    public_data = public_res.get_json()
+    assert public_data["ok"] is True
+    assert public_data["profile"]["username"] == "privacyuser"
+    assert public_data["profile"]["name"] == "PrivacyUser"
+
+    private_res = client.patch(
+        "/api/profile/visibility",
+        json={"visibility": "private"},
+        headers=headers,
+    )
+
+    assert private_res.status_code == 200
+    private_data = private_res.get_json()
+    assert private_data["ok"] is True
+
+    blocked_public_res = client.get("/api/public/profile/privacyuser")
+
+    assert blocked_public_res.status_code == 403
+    blocked_public_data = blocked_public_res.get_json()
+    assert blocked_public_data["ok"] is False
+    assert blocked_public_data["error"] == "profile_private"
+
+    me_profile_res = client.get("/me/profile", headers=headers)
+
+    assert me_profile_res.status_code == 200
+    me_profile_data = me_profile_res.get_json()
+    assert me_profile_data["ok"] is True
+    assert me_profile_data["profile"]["username"] == "privacyuser"
+    assert me_profile_data["profile"]["profile_visibility"] == "private"
+
+    public_again_res = client.patch(
+        "/api/profile/visibility",
+        json={"visibility": "public"},
+        headers=headers,
+    )
+
+    assert public_again_res.status_code == 200
+    public_again_data = public_again_res.get_json()
+    assert public_again_data["ok"] is True
+
+    restored_public_res = client.get("/api/public/profile/privacyuser")
+
+    assert restored_public_res.status_code == 200
+    restored_public_data = restored_public_res.get_json()
+    assert restored_public_data["ok"] is True
+    assert restored_public_data["profile"]["username"] == "privacyuser"
+
+
+def test_profile_update_validation(client):
+    user = register_user(client, username="ProfileValidationUser")
+    headers = auth_headers(user["access_token"])
+
+    invalid_name_res = client.patch(
+        "/api/profile",
+        json={"name": 123},
+        headers=headers,
+    )
+
+    assert invalid_name_res.status_code == 400
+    invalid_name_data = invalid_name_res.get_json()
+    assert invalid_name_data["ok"] is False
+    assert invalid_name_data["error"] == "invalid_name_type"
+
+    long_bio_res = client.patch(
+        "/api/me/profile/settings",
+        json={"bio": "x" * 281},
+        headers=headers,
+    )
+
+    assert long_bio_res.status_code == 400
+    long_bio_data = long_bio_res.get_json()
+    assert long_bio_data["ok"] is False
+    assert long_bio_data["error"] == "bio_too_long"
+
+    invalid_avatar_res = client.patch(
+        "/api/me/profile/settings",
+        json={"avatar_url": "javascript:alert(1)"},
+        headers=headers,
+    )
+
+    assert invalid_avatar_res.status_code == 400
+    invalid_avatar_data = invalid_avatar_res.get_json()
+    assert invalid_avatar_data["ok"] is False
+    assert invalid_avatar_data["error"] == "invalid_avatar_url"
+
+    valid_settings_res = client.patch(
+        "/api/me/profile/settings",
+        json={
+            "bio": "Building consistency.",
+            "avatar_url": "/avatars/avatar-1.png",
+            "profile_visibility": "private",
+        },
+        headers=headers,
+    )
+
+    assert valid_settings_res.status_code == 200
+    valid_settings_data = valid_settings_res.get_json()
+    assert valid_settings_data["ok"] is True
+
+    settings_res = client.get(
+        "/api/me/profile/settings",
+        headers=headers,
+    )
+
+    assert settings_res.status_code == 200
+    settings_data = settings_res.get_json()
+    assert settings_data["ok"] is True
+    assert settings_data["settings"]["bio"] == "Building consistency."
+    assert settings_data["settings"]["avatar_url"] == "/avatars/avatar-1.png"
+    assert settings_data["settings"]["profile_visibility"] == "private"
+
+
+def test_public_consistency_and_achievements_respect_profile_privacy(client):
+    user = register_user(client, username="PublicPrivacyUser")
+    headers = auth_headers(user["access_token"])
+
+    challenges_res = client.get("/challenges", headers=headers)
+
+    assert challenges_res.status_code == 200
+    challenges_data = challenges_res.get_json()
+    assert challenges_data["ok"] is True
+
+    public_challenge = next(
+        item for item in challenges_data["items"]
+        if item["visibility"] == "public" and not item["is_joined"]
+    )
+
+    join_res = client.post(
+        f"/challenges/{public_challenge['challenge_id']}/join",
+        json={},
+        headers=headers,
+    )
+
+    assert join_res.status_code == 200
+    join_data = join_res.get_json()
+    assert join_data["ok"] is True
+
+    enrollment_id = join_data["enrollment_id"]
+
+    checkin_res = client.post(
+        f"/me/challenges/{enrollment_id}/checkin",
+        headers=headers,
+    )
+
+    assert checkin_res.status_code == 200
+    checkin_data = checkin_res.get_json()
+    assert checkin_data["ok"] is True
+
+    public_consistency_res = client.get(
+        "/api/public/profile/publicprivacyuser/consistency"
+    )
+
+    assert public_consistency_res.status_code == 200
+    public_consistency_data = public_consistency_res.get_json()
+    assert public_consistency_data["ok"] is True
+    assert len(public_consistency_data["days"]) >= 1
+
+    public_achievements_res = client.get(
+        "/api/public/profile/publicprivacyuser/achievements"
+    )
+
+    assert public_achievements_res.status_code == 200
+    public_achievements_data = public_achievements_res.get_json()
+    assert public_achievements_data["ok"] is True
+
+    achievement_keys = {
+        achievement["key"]
+        for achievement in public_achievements_data["achievements"]
+    }
+
+    assert "first_checkin" in achievement_keys
+    assert "first_challenge_completed" in achievement_keys
+
+    private_res = client.patch(
+        "/api/profile/visibility",
+        json={"visibility": "private"},
+        headers=headers,
+    )
+
+    assert private_res.status_code == 200
+    private_data = private_res.get_json()
+    assert private_data["ok"] is True
+
+    blocked_consistency_res = client.get(
+        "/api/public/profile/publicprivacyuser/consistency"
+    )
+
+    assert blocked_consistency_res.status_code == 403
+    blocked_consistency_data = blocked_consistency_res.get_json()
+    assert blocked_consistency_data["ok"] is False
+    assert blocked_consistency_data["error"] == "profile_private"
+
+    blocked_achievements_res = client.get(
+        "/api/public/profile/publicprivacyuser/achievements"
+    )
+
+    assert blocked_achievements_res.status_code == 403
+    blocked_achievements_data = blocked_achievements_res.get_json()
+    assert blocked_achievements_data["ok"] is False
+    assert blocked_achievements_data["error"] == "profile_private"
