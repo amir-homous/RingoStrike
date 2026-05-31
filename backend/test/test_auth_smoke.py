@@ -703,3 +703,131 @@ def test_public_consistency_and_achievements_respect_profile_privacy(client):
     blocked_achievements_data = blocked_achievements_res.get_json()
     assert blocked_achievements_data["ok"] is False
     assert blocked_achievements_data["error"] == "profile_private"
+
+def test_leaderboard_rank_and_enrollment_reset_metadata(client):
+    first_user = register_user(client, username="RankUserOne")
+    first_headers = auth_headers(first_user["access_token"])
+
+    second_user = register_user(client, username="RankUserTwo")
+    second_headers = auth_headers(second_user["access_token"])
+    client.delete_cookie("ringo_token")
+
+    challenges_res = client.get("/challenges", headers=first_headers)
+
+    assert challenges_res.status_code == 200
+    challenges_data = challenges_res.get_json()
+    assert challenges_data["ok"] is True
+
+    public_challenge = next(
+        item for item in challenges_data["items"]
+        if item["visibility"] == "public" and not item["is_joined"]
+    )
+
+    challenge_id = public_challenge["challenge_id"]
+
+    first_join_res = client.post(
+        f"/challenges/{challenge_id}/join",
+        json={},
+        headers=first_headers,
+    )
+
+    assert first_join_res.status_code == 200
+    first_join_data = first_join_res.get_json()
+    assert first_join_data["ok"] is True
+    first_enrollment_id = first_join_data["enrollment_id"]
+
+    second_join_res = client.post(
+        f"/challenges/{challenge_id}/join",
+        json={},
+        headers=second_headers,
+    )
+
+    assert second_join_res.status_code == 200
+    second_join_data = second_join_res.get_json()
+    assert second_join_data["ok"] is True
+    second_enrollment_id = second_join_data["enrollment_id"]
+
+    first_enrollment_res = client.get(
+        f"/me/enrollments/{first_enrollment_id}",
+        headers=first_headers,
+    )
+
+    assert first_enrollment_res.status_code == 200
+    first_enrollment_data = first_enrollment_res.get_json()
+    assert first_enrollment_data["ok"] is True
+
+    first_enrollment = first_enrollment_data["enrollment"]
+
+    assert first_enrollment["today_date"]
+    assert first_enrollment["next_reset_at"]
+    assert first_enrollment["reset_timezone"] == "UTC"
+
+    first_checkin_res = client.post(
+        f"/me/challenges/{first_enrollment_id}/checkin",
+        headers=first_headers,
+    )
+
+    assert first_checkin_res.status_code == 200
+    first_checkin_data = first_checkin_res.get_json()
+    assert first_checkin_data["ok"] is True
+
+    leaderboard_res = client.get(
+        f"/me/enrollments/{first_enrollment_id}/leaderboard",
+        headers=first_headers,
+    )
+
+    assert leaderboard_res.status_code == 200
+    leaderboard_data = leaderboard_res.get_json()
+    assert leaderboard_data["ok"] is True
+
+    assert "overall" in leaderboard_data
+    assert "today" in leaderboard_data
+    assert "tie_breakers" in leaderboard_data
+
+    assert leaderboard_data["tie_breakers"]["overall"] == [
+        "total_checkins_desc",
+        "current_streak_desc",
+        "name_asc",
+        "enrollment_id_asc",
+    ]
+
+    assert leaderboard_data["tie_breakers"]["today"] == [
+        "current_streak_desc",
+        "total_checkins_desc",
+        "name_asc",
+        "enrollment_id_asc",
+    ]
+
+    overall = leaderboard_data["overall"]
+    today = leaderboard_data["today"]
+
+    assert len(overall) >= 2
+    assert len(today) >= 1
+
+    first_row = next(
+        row for row in overall
+        if row["enrollment_id"] == first_enrollment_id
+    )
+
+    second_row = next(
+        row for row in overall
+        if row["enrollment_id"] == second_enrollment_id
+    )
+
+    assert first_row["rank"] == 1
+    assert first_row["today_checked"] is True
+    assert first_row["total_checkins"] >= 1
+    assert first_row["current_streak"] >= 1
+
+    assert second_row["rank"] >= 2
+    assert second_row["today_checked"] is False
+    assert second_row["total_checkins"] == 0
+    assert second_row["current_streak"] == 0
+
+    today_row = next(
+        row for row in today
+        if row["enrollment_id"] == first_enrollment_id
+    )
+
+    assert today_row["rank"] == 1
+    assert today_row["today_checked"] is True

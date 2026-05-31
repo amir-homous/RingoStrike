@@ -23,13 +23,25 @@ Added backend smoke test coverage for:
 - Health endpoint.
 - Local register/login flow.
 - Authenticated `/me`.
+- Username validation.
+- Reserved username rejection.
+- Duplicate username rejection.
+- Logout cookie-session clearing.
 - Challenge listing.
 - Public challenge join.
+- Invite-only challenge join.
+- Join payload validation for invite-only flow.
 - Enrollment detail after join.
+- Enrollment reset metadata.
 - Daily check-in.
 - Duplicate check-in behavior.
 - Stats update after check-in.
+- Leaderboard rank metadata.
+- Leaderboard today status metadata.
+- Leaderboard deterministic tie-breaker metadata.
 - Public/private profile visibility.
+- Public consistency privacy.
+- Public achievements privacy.
 - Achievement unlock after first check-in.
 - Profile update validation.
 
@@ -120,7 +132,7 @@ Leaderboard
 
 Updated leaderboard behavior and UI:
 
-Overall leaderboard rows now include rank.
+Overall leaderboard rows include rank.
 Today leaderboard rows include rank.
 Rows include today check-in status.
 Deterministic tie-breakers are exposed.
@@ -153,6 +165,7 @@ Aligned frontend session handling with current cookie-based auth behavior:
 
 Removed frontend api.setToken() assumption.
 Preserved backend support for cookie and Bearer token auth.
+Added logout cookie-session behavior coverage.
 Debug Endpoint Hardening
 
 SQLite debug endpoints are development-only:
@@ -181,6 +194,7 @@ Frequent-query indexes added for enrollments and check-ins.
 Unused sessions table initialization removed.
 Legacy local database helpers removed.
 Runtime database and Jupyter workspace files are ignored by git.
+Test suite uses temporary SQLite databases.
 Legacy Auth Cleanup
 
 Removed unused duplicate auth-service path:
@@ -203,6 +217,7 @@ Current frontend API usage.
 Current database initialization behavior.
 Stabilization progress.
 Launch-readiness priorities.
+Expanded backend smoke test coverage.
 Public Profile And Identity Layer
 
 Implemented and stabilized:
@@ -217,6 +232,7 @@ Profile settings endpoint.
 Username normalization.
 Reserved username handling.
 Public-safe activity filtering.
+Privacy coverage for public profile, consistency, and achievements endpoints.
 Progression System
 
 Implemented:
@@ -231,6 +247,7 @@ First-check-in achievements.
 Streak-based achievement definitions.
 Check-in-count achievement definitions.
 XP milestone achievement definitions.
+Achievement unlock smoke coverage.
 Core App Foundation
 
 Implemented:
@@ -252,12 +269,6 @@ Profile.
 Public identity.
 Remaining Known Work
 Before First Public Launch
-Add username validation and logout tests.
-Add invite-only challenge tests.
-Add reset metadata response tests.
-Add leaderboard rank/tie-breaker tests.
-Add public consistency/privacy tests.
-Add public achievements/privacy tests.
 Run full launch QA checklist.
 Add rate limiting for auth endpoints.
 Define shared API error response shape.
@@ -266,6 +277,11 @@ Add deployment/backup checklist.
 Add production monitoring/error logging.
 Review API naming consistency.
 Review profile update endpoint overlap.
+Add frontend smoke tests or complete manual QA pass.
+Add private/archived challenge access tests.
+Add malformed JSON tests for key endpoints.
+Add public profile not-found tests.
+Add leaderboard exact tie-ordering tests.
 Future Product Expansion
 Telegram reminders.
 Telegram login if still desired.
@@ -279,5 +295,3 @@ Late check-in status.
 Public share cards.
 OpenGraph profile/achievement previews.
 Social inspiration mechanics.
-
----

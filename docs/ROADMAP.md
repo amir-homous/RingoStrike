@@ -87,12 +87,20 @@ The product has moved beyond raw MVP. The core progression identity system is im
 
 - Health endpoint smoke test.
 - Local register/login `/me` auth smoke test.
+- Username validation and reserved username smoke test.
+- Duplicate username smoke test.
+- Logout cookie-session smoke test.
 - Challenge list/join/check-in core loop smoke test.
+- Invite-only challenge join smoke test.
 - Duplicate check-in behavior smoke test.
 - Stats update after check-in smoke test.
 - Public/private profile visibility smoke test.
+- Public consistency privacy smoke test.
+- Public achievements privacy smoke test.
 - Achievement unlock after first check-in smoke test.
 - Profile validation smoke test.
+- Enrollment reset metadata smoke test.
+- Leaderboard rank/tie-breaker smoke test.
 - Temporary SQLite test database setup.
 
 ---
@@ -101,10 +109,8 @@ The product has moved beyond raw MVP. The core progression identity system is im
 
 These items should happen before expanding product scope:
 
-- Add username normalization and reserved username tests.
-- Add logout test coverage.
-- Add tests for invite-only challenge join behavior.
-- Add tests for public consistency and public achievements privacy.
+- Add tests for invalid challenge join payloads if not already covered separately from invite-only flow.
+- Add tests for `/auth/logout` edge cases if token blacklist/session invalidation is introduced later.
 - Add frontend smoke tests or manual QA pass for router guard, login, dashboard, challenge join, check-in, profile, and public profile rendering.
 - Add rate limiting for auth endpoints.
 - Normalize API naming conventions where practical (`/api/...` vs non-`/api/...`).
@@ -120,14 +126,14 @@ These items should happen before expanding product scope:
 
 ### Backend Reliability
 
-- Add tests for `POST /auth/logout`.
-- Add tests for username normalization and reserved username validation.
-- Add tests for invite-only challenge join.
-- Add tests for invalid challenge join payloads.
-- Add tests for public consistency privacy behavior.
-- Add tests for public achievements privacy behavior.
-- Add tests for reset metadata shape on enrollment detail.
-- Add tests for leaderboard rank/tie-breaker shape.
+- Add tests for reset edge cases when user timezone support is introduced.
+- Add tests for leaderboard ordering with exact tie scenarios.
+- Add tests for archived challenges and inactive challenge joins.
+- Add tests for private challenge join rejection.
+- Add tests for malformed JSON across important endpoints.
+- Add tests for profile visibility invalid payloads.
+- Add tests for public profile not-found behavior.
+- Add tests for auth failure behavior on protected endpoints.
 
 ### Frontend Reliability
 
@@ -216,17 +222,14 @@ Recommended Next Issue
 
 The next highest-value issue is:
 
-Tests: add coverage for username validation and logout flow.
+Tests: add private and inactive challenge access coverage.
 
 Suggested target:
 
-Invalid usernames.
-Reserved usernames.
-Duplicate usernames.
-Logout clears auth cookie.
-/me is blocked after logout if no Bearer token is used.
-
-This improves launch confidence around auth and identity safety.
-
+Private challenge appears only when already enrolled.
+Private challenge join returns challenge_private.
+Archived challenge join returns challenge_inactive.
+Inactive/archived challenges do not appear in normal discovery.
+Public challenge detail remains readable.
 
 ---
