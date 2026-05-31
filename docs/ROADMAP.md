@@ -1,5 +1,15 @@
 # RingoStrike - Roadmap
 
+## Current Product Stage
+
+RingoStrike is currently in:
+
+> Post-MVP Stabilization / Pre-Launch Hardening
+
+The product has moved beyond raw MVP. The core progression identity system is implemented, and the current priority is reliability, security, documentation, testing, and launch readiness before larger product expansion.
+
+---
+
 ## Completed Foundations
 
 ### Core App
@@ -8,7 +18,9 @@
 - Vue 3 + Vite frontend.
 - Local auth with JWT cookie/Bearer support.
 - SQLite schema initialization.
-- Challenge, enrollment, check-in, history, and leaderboard flows.
+- Challenge listing, detail, join, enrollment, check-in, history, and leaderboard flows.
+- Public and authenticated API surfaces.
+- Frontend API docs surface.
 
 ### Progression
 
@@ -18,6 +30,9 @@
 - Dashboard stats.
 - Activity feed.
 - Achievement definitions and unlock tracking.
+- First-check-in achievement rewards.
+- Stats sync after check-in.
+- Duplicate check-in handling.
 
 ### Profile And Public Identity
 
@@ -30,6 +45,21 @@
 - Public/private profile visibility.
 - Public route `/u/:username`.
 - Username normalization and reserved username list.
+- Profile settings endpoint.
+- Profile update validation for name, bio, avatar URL, and visibility.
+
+### Challenge And Social Momentum
+
+- Default launch challenge seeding.
+- Challenge discovery UI polish.
+- Challenge card compact mode for dashboard.
+- Member count and member preview on challenge discovery.
+- Leaderboard rank metadata.
+- Deterministic leaderboard tie-breakers.
+- Today leaderboard data.
+- Leaderboard UI showing rank and today check-in status.
+- Enrollment UI with challenge remaining time.
+- Enrollment UI with daily reset rhythm and urgency states.
 
 ### Stabilization Progress Completed
 
@@ -49,34 +79,55 @@
 - Added `.gitignore` coverage for local runtime files.
 - Synced `DATABASE_SCHEMA.md` with current database implementation.
 - Synced `ApiDocsView.vue` with current backend endpoints.
+- Added challenge join payload validation.
+- Added profile update/profile settings validation.
+- Added launch QA checklist.
+
+### Backend Test Coverage Added
+
+- Health endpoint smoke test.
+- Local register/login `/me` auth smoke test.
+- Challenge list/join/check-in core loop smoke test.
+- Duplicate check-in behavior smoke test.
+- Stats update after check-in smoke test.
+- Public/private profile visibility smoke test.
+- Achievement unlock after first check-in smoke test.
+- Profile validation smoke test.
+- Temporary SQLite test database setup.
+
+---
 
 ## Now: Stabilization Milestone
 
 These items should happen before expanding product scope:
 
-- Add backend tests for auth, username validation, challenge joining, duplicate check-ins, stats sync, achievements, and public profile privacy.
-- Add frontend smoke tests for router guard, login, dashboard load, check-in flow, and public profile rendering.
+- Add username normalization and reserved username tests.
+- Add logout test coverage.
+- Add tests for invite-only challenge join behavior.
+- Add tests for public consistency and public achievements privacy.
+- Add frontend smoke tests or manual QA pass for router guard, login, dashboard, challenge join, check-in, profile, and public profile rendering.
 - Add rate limiting for auth endpoints.
-- Add input validation for profile avatar URLs and challenge join payloads.
 - Normalize API naming conventions where practical (`/api/...` vs non-`/api/...`).
 - Add structured error codes and a shared API error shape.
 - Add a real migration strategy instead of ad hoc table changes in app startup.
 - Review profile update endpoints and reduce overlap where possible.
 - Review public challenge/member endpoints and confirm intended visibility.
+- Run full `docs/LAUNCH_QA_CHECKLIST.md` before release candidate.
+
+---
 
 ## Next Sprint: Quality And Reliability
 
 ### Backend Reliability
 
-- Add tests for `POST /auth/register`.
-- Add tests for `POST /auth/login`.
 - Add tests for `POST /auth/logout`.
 - Add tests for username normalization and reserved username validation.
-- Add tests for `POST /challenges/:id/join`.
-- Add tests for duplicate daily check-ins.
-- Add tests for stats sync after check-in.
-- Add tests for achievement unlock evaluation.
-- Add tests for public/private profile visibility.
+- Add tests for invite-only challenge join.
+- Add tests for invalid challenge join payloads.
+- Add tests for public consistency privacy behavior.
+- Add tests for public achievements privacy behavior.
+- Add tests for reset metadata shape on enrollment detail.
+- Add tests for leaderboard rank/tie-breaker shape.
 
 ### Frontend Reliability
 
@@ -86,6 +137,8 @@ These items should happen before expanding product scope:
 - Add smoke test for challenge join/check-in flow.
 - Add smoke test for profile loading.
 - Add smoke test for public profile rendering.
+- Run responsive UI pass using launch QA checklist.
+- Run browser console pass on major routes.
 
 ### API Reliability
 
@@ -94,6 +147,10 @@ These items should happen before expanding product scope:
 - Document endpoint ownership clearly.
 - Avoid duplicate route ownership.
 - Avoid duplicate progression calculations outside `stats_service.py`.
+- Keep validation close to route/service boundaries.
+- Preserve privacy enforcement on public identity endpoints.
+
+---
 
 ## Product Expansion: Social Momentum
 
@@ -101,11 +158,14 @@ After stabilization:
 
 - Public share cards for profiles and achievements.
 - Public profile OpenGraph metadata if server-side rendering or a share proxy is added.
-- Challenge discovery improvements.
+- Challenge discovery improvements with categories/tags.
 - Safer public activity controls.
 - Social follow or inspiration mechanics that avoid toxic competition.
 - Public achievement sharing.
 - Profile identity polish for shareable progression.
+- Better leaderboard identity states and optional public rank surfaces.
+
+---
 
 ## Product Expansion: Automation And Insights
 
@@ -113,12 +173,19 @@ After launch-readiness foundations:
 
 - Telegram login route if Telegram auth is still desired.
 - Telegram reminders.
+- Per-challenge reminder time.
+- Preferred daily check-in window.
+- Late check-in status.
+- Normal vs late check-in distinction.
+- User timezone preferences.
 - Weekly summaries.
 - Streak-risk warnings.
 - AI-generated progress insights.
 - n8n workflow integration hardening.
 - Notification-ready check-in reminders.
 - Progress recap automation.
+
+---
 
 ## Launch Readiness
 
@@ -133,31 +200,33 @@ Before first public launch:
 - Public profile visibility controls review.
 - Demo data and onboarding.
 - Performance pass for dashboard/profile query load.
-- Security pass for auth, debug routes, and public endpoints.
-- Manual QA checklist for core user flow.
+- Security pass for auth, debug routes, validation, and public endpoints.
+- Manual QA checklist pass for core user flow.
+- Frontend production build verification.
+- Backend smoke test verification.
 
-## Current Product Stage
+Required commands:
 
-RingoStrike is currently in:
-
-> Post-MVP Stabilization / Pre-Launch Hardening
-
-The product has moved beyond a raw MVP. The core progression identity system is implemented, and the current priority is making the architecture reliable, secure, documented, and testable before adding larger product expansion features.
-
-## Recommended Next Issue
+```bash
+cd backend
+py -m pytest -q
+cd frontend
+npm run build
+Recommended Next Issue
 
 The next highest-value issue is:
 
-> Add backend tests for auth and check-in reliability.
+Tests: add coverage for username validation and logout flow.
 
-Suggested first testing target:
+Suggested target:
 
-- Register
-- Login
-- `/me`
-- Join challenge
-- Check-in
-- Duplicate check-in handling
-- `/me/stats`
+Invalid usernames.
+Reserved usernames.
+Duplicate usernames.
+Logout clears auth cookie.
+/me is blocked after logout if no Bearer token is used.
 
-This gives the project a safety net before more refactors or product expansion.
+This improves launch confidence around auth and identity safety.
+
+
+---
