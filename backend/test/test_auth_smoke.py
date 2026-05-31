@@ -614,3 +614,92 @@ def test_invite_only_challenge_join_flow(client):
     assert second_join_data["mode"] == "existing"
     assert second_join_data["challenge_id"] == invite_challenge_id
     assert second_join_data["enrollment_id"] == valid_join_data["enrollment_id"]
+
+def test_public_consistency_and_achievements_respect_profile_privacy(client):
+    user = register_user(client, username="PublicPrivacyUser")
+    headers = auth_headers(user["access_token"])
+
+    challenges_res = client.get("/challenges", headers=headers)
+
+    assert challenges_res.status_code == 200
+    challenges_data = challenges_res.get_json()
+    assert challenges_data["ok"] is True
+
+    public_challenge = next(
+        item for item in challenges_data["items"]
+        if item["visibility"] == "public" and not item["is_joined"]
+    )
+
+    join_res = client.post(
+        f"/challenges/{public_challenge['challenge_id']}/join",
+        json={},
+        headers=headers,
+    )
+
+    assert join_res.status_code == 200
+    join_data = join_res.get_json()
+    assert join_data["ok"] is True
+
+    enrollment_id = join_data["enrollment_id"]
+
+    checkin_res = client.post(
+        f"/me/challenges/{enrollment_id}/checkin",
+        headers=headers,
+    )
+
+    assert checkin_res.status_code == 200
+    checkin_data = checkin_res.get_json()
+    assert checkin_data["ok"] is True
+
+    public_consistency_res = client.get(
+        "/api/public/profile/publicprivacyuser/consistency"
+    )
+
+    assert public_consistency_res.status_code == 200
+    public_consistency_data = public_consistency_res.get_json()
+    assert public_consistency_data["ok"] is True
+    assert len(public_consistency_data["days"]) >= 1
+
+    public_achievements_res = client.get(
+        "/api/public/profile/publicprivacyuser/achievements"
+    )
+
+    assert public_achievements_res.status_code == 200
+    public_achievements_data = public_achievements_res.get_json()
+    assert public_achievements_data["ok"] is True
+
+    achievement_keys = {
+        achievement["key"]
+        for achievement in public_achievements_data["achievements"]
+    }
+
+    assert "first_checkin" in achievement_keys
+    assert "first_challenge_completed" in achievement_keys
+
+    private_res = client.patch(
+        "/api/profile/visibility",
+        json={"visibility": "private"},
+        headers=headers,
+    )
+
+    assert private_res.status_code == 200
+    private_data = private_res.get_json()
+    assert private_data["ok"] is True
+
+    blocked_consistency_res = client.get(
+        "/api/public/profile/publicprivacyuser/consistency"
+    )
+
+    assert blocked_consistency_res.status_code == 403
+    blocked_consistency_data = blocked_consistency_res.get_json()
+    assert blocked_consistency_data["ok"] is False
+    assert blocked_consistency_data["error"] == "profile_private"
+
+    blocked_achievements_res = client.get(
+        "/api/public/profile/publicprivacyuser/achievements"
+    )
+
+    assert blocked_achievements_res.status_code == 403
+    blocked_achievements_data = blocked_achievements_res.get_json()
+    assert blocked_achievements_data["ok"] is False
+    assert blocked_achievements_data["error"] == "profile_private"
