@@ -1,4 +1,5 @@
 import sqlite3
+from datetime import datetime, timedelta
 
 from database import get_db_connection
 from services.stats_service import calculate_current_streak
@@ -235,6 +236,7 @@ def get_enrollment_detail(user_id: int, enrollment_id: int):
                 e.user_id AS user_id,
                 e.challenge_id AS challenge_id,
                 e.status AS status,
+                e.joined_at AS joined_at,
                 c.name AS challenge_name,
                 c.description AS challenge_description,
                 c.duration_days AS duration_days
@@ -272,6 +274,25 @@ def get_enrollment_detail(user_id: int, enrollment_id: int):
             (enrollment_id,),
         ).fetchall()
 
+        duration_days = int(row["duration_days"] or 0)
+        joined_at = row["joined_at"]
+
+        start_date = None
+        end_date = None
+        remaining_days = None
+        progress_percent = 0
+
+        if joined_at and duration_days > 0:
+            joined_date = datetime.fromisoformat(str(joined_at).replace("Z", "+00:00")).date()
+            today_date = datetime.fromisoformat(today).date()
+
+            start_date = joined_date.isoformat()
+            end_date = (joined_date + timedelta(days=duration_days)).isoformat()
+
+            days_elapsed = max(0, (today_date - joined_date).days)
+            remaining_days = max(0, duration_days - days_elapsed)
+            progress_percent = min(100, int((days_elapsed / duration_days) * 100))
+
         return {
             "ok": True,
             "enrollment": {
@@ -279,6 +300,11 @@ def get_enrollment_detail(user_id: int, enrollment_id: int):
                 "name": row["challenge_name"],
                 "status": row["status"],
                 "challenge_id": row["challenge_id"],
+                "joined_at": joined_at,
+                "start_date": start_date,
+                "end_date": end_date,
+                "remaining_days": remaining_days,
+                "progress_percent": progress_percent,
                 "today_checked": bool(today_checked),
                 "total_checkins": int(total_checkins),
                 "current_streak": int(current_streak),
@@ -287,7 +313,7 @@ def get_enrollment_detail(user_id: int, enrollment_id: int):
                 "id": row["challenge_id"],
                 "name": row["challenge_name"],
                 "description": row["challenge_description"],
-                "duration_days": row["duration_days"],
+                "duration_days": duration_days,
             },
             "recent_logs": [{"daily_log_id": r["daily_log_id"], "date": r["date"]} for r in logs],
         }, 200
