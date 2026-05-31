@@ -831,3 +831,166 @@ def test_leaderboard_rank_and_enrollment_reset_metadata(client):
 
     assert today_row["rank"] == 1
     assert today_row["today_checked"] is True
+
+def test_challenge_access_rules_for_private_archived_and_missing(client):
+    user = register_user(client, username="ChallengeAccessUser")
+    headers = auth_headers(user["access_token"])
+
+    import database
+
+    conn = database.get_db_connection()
+    try:
+        private_cur = conn.execute(
+            """
+            INSERT INTO challenges (
+                name,
+                description,
+                visibility,
+                status,
+                duration_days,
+                join_code,
+                max_members,
+                requires_proof,
+                checkin_method,
+                goal_type,
+                tags
+            )
+            VALUES (
+                'Private Test Challenge',
+                'Should not be joinable directly',
+                'Private',
+                'Active',
+                14,
+                NULL,
+                0,
+                0,
+                'Manual',
+                'Daily',
+                'test,private'
+            )
+            """
+        )
+        private_challenge_id = private_cur.lastrowid
+
+        archived_cur = conn.execute(
+            """
+            INSERT INTO challenges (
+                name,
+                description,
+                visibility,
+                status,
+                duration_days,
+                join_code,
+                max_members,
+                requires_proof,
+                checkin_method,
+                goal_type,
+                tags
+            )
+            VALUES (
+                'Archived Test Challenge',
+                'Should not appear in discovery or allow join',
+                'Public',
+                'Archived',
+                14,
+                NULL,
+                0,
+                0,
+                'Manual',
+                'Daily',
+                'test,archived'
+            )
+            """
+        )
+        archived_challenge_id = archived_cur.lastrowid
+
+        public_cur = conn.execute(
+            """
+            INSERT INTO challenges (
+                name,
+                description,
+                visibility,
+                status,
+                duration_days,
+                join_code,
+                max_members,
+                requires_proof,
+                checkin_method,
+                goal_type,
+                tags
+            )
+            VALUES (
+                'Readable Public Challenge',
+                'Public challenge detail should be readable',
+                'Public',
+                'Active',
+                7,
+                NULL,
+                0,
+                0,
+                'Manual',
+                'Daily',
+                'test,public'
+            )
+            """
+        )
+        public_challenge_id = public_cur.lastrowid
+
+        conn.commit()
+    finally:
+        conn.close()
+
+    list_res = client.get("/challenges", headers=headers)
+
+    assert list_res.status_code == 200
+    list_data = list_res.get_json()
+    assert list_data["ok"] is True
+
+    challenge_ids = {
+        item["challenge_id"]
+        for item in list_data["items"]
+    }
+
+    assert private_challenge_id not in challenge_ids
+    assert archived_challenge_id not in challenge_ids
+    assert public_challenge_id in challenge_ids
+
+    private_join_res = client.post(
+        f"/challenges/{private_challenge_id}/join",
+        json={},
+        headers=headers,
+    )
+
+    assert private_join_res.status_code == 403
+    private_join_data = private_join_res.get_json()
+    assert private_join_data["ok"] is False
+    assert private_join_data["error"] == "challenge_private"
+
+    archived_join_res = client.post(
+        f"/challenges/{archived_challenge_id}/join",
+        json={},
+        headers=headers,
+    )
+
+    assert archived_join_res.status_code == 403
+    archived_join_data = archived_join_res.get_json()
+    assert archived_join_data["ok"] is False
+    assert archived_join_data["error"] == "challenge_inactive"
+
+    public_detail_res = client.get(
+        f"/challenges/{public_challenge_id}",
+        headers=headers,
+    )
+
+    assert public_detail_res.status_code == 200
+    public_detail_data = public_detail_res.get_json()
+    assert public_detail_data["ok"] is True
+    assert public_detail_data["item"]["challenge_id"] == public_challenge_id
+    assert public_detail_data["item"]["visibility"] == "Public"
+    assert public_detail_data["item"]["status"] == "Active"
+
+    missing_detail_res = client.get("/challenges/999999", headers=headers)
+
+    assert missing_detail_res.status_code == 404
+    missing_detail_data = missing_detail_res.get_json()
+    assert missing_detail_data["ok"] is False
