@@ -1,5 +1,5 @@
 import sqlite3
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from database import get_db_connection
 from services.stats_service import calculate_current_streak
@@ -228,6 +228,11 @@ def join_challenge(user_id: int, challenge_id: int, provided_code: str):
 def get_enrollment_detail(user_id: int, enrollment_id: int):
     conn = get_db_connection()
     today = utc_today_iso()
+    next_reset_at = (
+        datetime.fromisoformat(today)
+        .replace(tzinfo=timezone.utc)
+        + timedelta(days=1)
+    ).isoformat().replace("+00:00", "Z")
     try:
         row = conn.execute(
             """
@@ -307,7 +312,11 @@ def get_enrollment_detail(user_id: int, enrollment_id: int):
                 "progress_percent": progress_percent,
                 "today_checked": bool(today_checked),
                 "total_checkins": int(total_checkins),
+                "today_date": today,
+                "next_reset_at": next_reset_at,
+                "reset_timezone": "UTC",
                 "current_streak": int(current_streak),
+                
             },
             "challenge": {
                 "id": row["challenge_id"],
