@@ -216,9 +216,16 @@ Required commands:
 ```bash
 cd backend
 py -m pytest -q
+```
+
+```bash
 cd frontend
 npm run build
-Recommended Next Issue
+```
+
+
+
+## Recommended Next Issue
 
 The next highest-value issue is:
 
