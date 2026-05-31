@@ -175,3 +175,58 @@ def test_join_checkin_duplicate_and_stats_core_loop(client):
     assert stats_data["stats"]["total_checkins"] >= 1
     assert stats_data["stats"]["current_streak"] >= 1
     assert stats_data["stats"]["total_points"] >= 10
+
+
+def test_public_profile_visibility_privacy_flow(client):
+    user = register_user(client, username="PrivacyUser")
+    headers = auth_headers(user["access_token"])
+
+    public_res = client.get("/api/public/profile/privacyuser")
+
+    assert public_res.status_code == 200
+    public_data = public_res.get_json()
+    assert public_data["ok"] is True
+    assert public_data["profile"]["username"] == "privacyuser"
+    assert public_data["profile"]["name"] == "PrivacyUser"
+
+    private_res = client.patch(
+        "/api/profile/visibility",
+        json={"visibility": "private"},
+        headers=headers,
+    )
+
+    assert private_res.status_code == 200
+    private_data = private_res.get_json()
+    assert private_data["ok"] is True
+
+    blocked_public_res = client.get("/api/public/profile/privacyuser")
+
+    assert blocked_public_res.status_code == 403
+    blocked_public_data = blocked_public_res.get_json()
+    assert blocked_public_data["ok"] is False
+    assert blocked_public_data["error"] == "profile_private"
+
+    me_profile_res = client.get("/me/profile", headers=headers)
+
+    assert me_profile_res.status_code == 200
+    me_profile_data = me_profile_res.get_json()
+    assert me_profile_data["ok"] is True
+    assert me_profile_data["profile"]["username"] == "privacyuser"
+    assert me_profile_data["profile"]["profile_visibility"] == "private"
+
+    public_again_res = client.patch(
+        "/api/profile/visibility",
+        json={"visibility": "public"},
+        headers=headers,
+    )
+
+    assert public_again_res.status_code == 200
+    public_again_data = public_again_res.get_json()
+    assert public_again_data["ok"] is True
+
+    restored_public_res = client.get("/api/public/profile/privacyuser")
+
+    assert restored_public_res.status_code == 200
+    restored_public_data = restored_public_res.get_json()
+    assert restored_public_data["ok"] is True
+    assert restored_public_data["profile"]["username"] == "privacyuser"
