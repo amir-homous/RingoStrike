@@ -157,3 +157,29 @@ def test_logout_clears_cookie_session(client):
     bearer_me_data = bearer_me_res.get_json()
     assert bearer_me_data["ok"] is True
     assert bearer_me_data["username"] == "logoutuser"
+
+
+def test_cors_allows_configured_frontend_origin(client, monkeypatch):
+    monkeypatch.setenv(
+        "FRONTEND_ORIGIN",
+        "https://www.ringostrike.com",
+    )
+
+    import app as app_module
+
+    flask_app = app_module.create_app()
+    flask_app.config.update(TESTING=True)
+
+    with flask_app.test_client() as test_client:
+        res = test_client.get(
+            "/health",
+            headers={
+                "Origin": "https://www.ringostrike.com",
+            },
+        )
+
+    assert res.status_code == 200
+    assert (
+        res.headers.get("Access-Control-Allow-Origin")
+        == "https://www.ringostrike.com"
+    )
