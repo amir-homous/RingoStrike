@@ -485,3 +485,132 @@ def test_logout_clears_cookie_session(client):
     bearer_me_data = bearer_me_res.get_json()
     assert bearer_me_data["ok"] is True
     assert bearer_me_data["username"] == "logoutuser"
+
+
+def test_invite_only_challenge_join_flow(client):
+    user = register_user(client, username="InviteUser")
+    headers = auth_headers(user["access_token"])
+
+    import database
+
+    conn = database.get_db_connection()
+    try:
+        cur = conn.execute(
+            """
+            INSERT INTO challenges (
+                name,
+                description,
+                visibility,
+                status,
+                duration_days,
+                join_code,
+                max_members,
+                requires_proof,
+                checkin_method,
+                goal_type,
+                tags
+            )
+            VALUES (
+                'Invite Only Test',
+                'Private launch test challenge',
+                'Invite-only',
+                'Active',
+                14,
+                'SECRET123',
+                0,
+                0,
+                'Manual',
+                'Daily',
+                'test,invite'
+            )
+            """
+        )
+        invite_challenge_id = cur.lastrowid
+        conn.commit()
+    finally:
+        conn.close()
+
+    list_res = client.get("/challenges", headers=headers)
+
+    assert list_res.status_code == 200
+    list_data = list_res.get_json()
+    assert list_data["ok"] is True
+
+    invite_item = next(
+        item for item in list_data["items"]
+        if item["challenge_id"] == invite_challenge_id
+    )
+
+    assert invite_item["visibility"] == "invite-only"
+    assert invite_item["needs_code"] is True
+    assert invite_item["is_joined"] is False
+
+    missing_code_res = client.post(
+        f"/challenges/{invite_challenge_id}/join",
+        json={},
+        headers=headers,
+    )
+
+    assert missing_code_res.status_code == 400
+    missing_code_data = missing_code_res.get_json()
+    assert missing_code_data["ok"] is False
+    assert missing_code_data["error"] == "join_code_required"
+
+    invalid_code_res = client.post(
+        f"/challenges/{invite_challenge_id}/join",
+        json={"join_code": "WRONG"},
+        headers=headers,
+    )
+
+    assert invalid_code_res.status_code == 403
+    invalid_code_data = invalid_code_res.get_json()
+    assert invalid_code_data["ok"] is False
+    assert invalid_code_data["error"] == "invalid_join_code"
+
+    invalid_type_res = client.post(
+        f"/challenges/{invite_challenge_id}/join",
+        json={"join_code": 123},
+        headers=headers,
+    )
+
+    assert invalid_type_res.status_code == 400
+    invalid_type_data = invalid_type_res.get_json()
+    assert invalid_type_data["ok"] is False
+    assert invalid_type_data["error"] == "invalid_join_code_type"
+
+    too_long_res = client.post(
+        f"/challenges/{invite_challenge_id}/join",
+        json={"join_code": "x" * 65},
+        headers=headers,
+    )
+
+    assert too_long_res.status_code == 400
+    too_long_data = too_long_res.get_json()
+    assert too_long_data["ok"] is False
+    assert too_long_data["error"] == "join_code_too_long"
+
+    valid_join_res = client.post(
+        f"/challenges/{invite_challenge_id}/join",
+        json={"join_code": "SECRET123"},
+        headers=headers,
+    )
+
+    assert valid_join_res.status_code == 200
+    valid_join_data = valid_join_res.get_json()
+    assert valid_join_data["ok"] is True
+    assert valid_join_data["mode"] == "created"
+    assert valid_join_data["challenge_id"] == invite_challenge_id
+    assert valid_join_data["enrollment_id"]
+
+    second_join_res = client.post(
+        f"/challenges/{invite_challenge_id}/join",
+        json={"join_code": "SECRET123"},
+        headers=headers,
+    )
+
+    assert second_join_res.status_code == 200
+    second_join_data = second_join_res.get_json()
+    assert second_join_data["ok"] is True
+    assert second_join_data["mode"] == "existing"
+    assert second_join_data["challenge_id"] == invite_challenge_id
+    assert second_join_data["enrollment_id"] == valid_join_data["enrollment_id"]
