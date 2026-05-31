@@ -6,10 +6,12 @@ from datetime import datetime, timezone,timedelta
 DB_NAME = os.getenv("DB_PATH", "users.db")
 
 def get_db_connection():
-    """Get database connection with row factory"""
+    """Get database connection with row factory and FK enforcement"""
     conn = sqlite3.connect(DB_NAME)
+    conn.execute("PRAGMA foreign_keys = ON")
     conn.row_factory = sqlite3.Row
     return conn
+
 
 def init_db():
     """Initialize database with all necessary tables"""
