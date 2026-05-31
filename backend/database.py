@@ -46,15 +46,6 @@ def init_db():
         c.execute("ALTER TABLE users ADD COLUMN profile_visibility TEXT DEFAULT 'public'")
         
     
-    # # Sessions table for token management
-    # c.execute('''CREATE TABLE IF NOT EXISTS sessions
-    #              (id INTEGER PRIMARY KEY AUTOINCREMENT,
-    #               user_id INTEGER NOT NULL,
-    #               token TEXT UNIQUE NOT NULL,
-    #               created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    #               expires_at TIMESTAMP NOT NULL,
-    #               FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE)''')
-    
     # User stats table for tracking streaks and check-ins
     c.execute('''CREATE TABLE IF NOT EXISTS user_stats
                  (id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -163,6 +154,80 @@ def init_db():
     c.execute("CREATE INDEX IF NOT EXISTS idx_checkins_user_date ON checkins(user_id, date)")
     c.execute("CREATE INDEX IF NOT EXISTS idx_checkins_enrollment_date ON checkins(enrollment_id, date)")
     c.execute("CREATE INDEX IF NOT EXISTS idx_checkins_challenge ON checkins(challenge_id)")
+
+    default_challenges = [
+    {
+        "name": "Daily Strike",
+        "description": "Build the core habit of showing up every day. One simple check-in, one visible strike.",
+        "duration_days": 30,
+        "goal_type": "Daily",
+        "tags": "consistency,starter,momentum",
+    },
+    {
+        "name": "Deep Work Sprint",
+        "description": "Protect focused time and complete one meaningful deep-work session per day.",
+        "duration_days": 14,
+        "goal_type": "Daily",
+        "tags": "focus,work,discipline",
+    },
+    {
+        "name": "Move Your Body",
+        "description": "Create physical momentum with a daily walk, workout, stretch, or movement session.",
+        "duration_days": 21,
+        "goal_type": "Daily",
+        "tags": "health,energy,movement",
+    },
+    {
+        "name": "Learn One Thing",
+        "description": "Learn, read, watch, practice, or document one useful thing every day.",
+        "duration_days": 30,
+        "goal_type": "Daily",
+        "tags": "learning,growth,knowledge",
+    },
+    {
+        "name": "Mind Reset",
+        "description": "Take a short daily reset for reflection, breathing, journaling, or mental clarity.",
+        "duration_days": 7,
+        "goal_type": "Daily",
+        "tags": "mindfulness,reset,clarity",
+    },
+]
+
+    for challenge in default_challenges:
+        exists = c.execute(
+            "SELECT 1 FROM challenges WHERE name = ? LIMIT 1",
+            (challenge["name"],),
+        ).fetchone()
+
+        if exists:
+            continue
+
+        c.execute(
+            """
+            INSERT INTO challenges (
+                name,
+                description,
+                visibility,
+                status,
+                duration_days,
+                join_code,
+                max_members,
+                requires_proof,
+                checkin_method,
+                goal_type,
+                tags
+            )
+            VALUES (?, ?, 'Public', 'Active', ?, NULL, 0, 0, 'Manual', ?, ?)
+            """,
+            (
+                challenge["name"],
+                challenge["description"],
+                challenge["duration_days"],
+                challenge["goal_type"],
+                challenge["tags"],
+            ),
+        )
+
 
     conn.commit()
     conn.close()
