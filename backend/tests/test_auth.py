@@ -183,3 +183,47 @@ def test_cors_allows_configured_frontend_origin(client, monkeypatch):
         res.headers.get("Access-Control-Allow-Origin")
         == "https://www.ringostrike.com"
     )
+
+def test_login_cookie_uses_configured_security_settings(client, monkeypatch):
+    monkeypatch.setenv("JWT_COOKIE_NAME", "custom_ringo_token")
+    monkeypatch.setenv("JWT_COOKIE_SECURE", "1")
+    monkeypatch.setenv("JWT_COOKIE_SAMESITE", "Strict")
+
+    register_res = client.post(
+        "/auth/register",
+        json={
+            "username": "CookieUser",
+            "password": "secret123",
+            "name": "Cookie User",
+            "email": "cookie@example.com",
+        },
+    )
+
+    assert register_res.status_code == 201
+
+    cookie_header = register_res.headers.get("Set-Cookie", "")
+
+    assert "custom_ringo_token=" in cookie_header
+    assert "HttpOnly" in cookie_header
+    assert "Secure" in cookie_header
+    assert "SameSite=Strict" in cookie_header
+    assert "Path=/" in cookie_header
+
+
+def test_logout_cookie_uses_configured_security_settings(client, monkeypatch):
+    monkeypatch.setenv("JWT_COOKIE_NAME", "custom_logout_token")
+    monkeypatch.setenv("JWT_COOKIE_SECURE", "1")
+    monkeypatch.setenv("JWT_COOKIE_SAMESITE", "Strict")
+
+    res = client.post("/auth/logout")
+
+    assert res.status_code == 200
+
+    cookie_header = res.headers.get("Set-Cookie", "")
+
+    assert "custom_logout_token=" in cookie_header
+    assert "Max-Age=0" in cookie_header
+    assert "HttpOnly" in cookie_header
+    assert "Secure" in cookie_header
+    assert "SameSite=Strict" in cookie_header
+    assert "Path=/" in cookie_header

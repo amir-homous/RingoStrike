@@ -10,6 +10,17 @@ JWT_SECRET = os.getenv("JWT_SECRET", "your-secret-key-change-this")
 JWT_ALGORITHM = "HS256"
 JWT_EXPIRATION_HOURS = 24 * 7  # 7 days
 
+def get_auth_cookie_config():
+    """Return safe auth cookie configuration from environment."""
+    return {
+        "name": os.getenv("JWT_COOKIE_NAME", "ringo_token"),
+        "secure": os.getenv("JWT_COOKIE_SECURE", "0") == "1",
+        "samesite": os.getenv("JWT_COOKIE_SAMESITE", "Lax"),
+        "httponly": True,
+        "path": "/",
+        "max_age": JWT_EXPIRATION_HOURS * 3600,
+    }
+
 def make_jwt(payload: dict):
     """Create JWT token"""
     exp = datetime.now(timezone.utc) + timedelta(hours=JWT_EXPIRATION_HOURS)
@@ -187,24 +198,24 @@ def register_auth_routes(app):
         
         return set_auth_cookie(resp, token), 200
 
-    @app.post("/auth/logout")
+    @ app.post("/auth/logout")
     def logout():
         """Logout user"""
         from flask import make_response
+
         resp = make_response(jsonify({"ok": True}), 200)
-        
-        cookie_name = os.getenv("JWT_COOKIE_NAME", "ringo_token")
-        secure = os.getenv("JWT_COOKIE_SECURE", "0") == "1"
-        samesite = os.getenv("JWT_COOKIE_SAMESITE", "Lax")
-        
+
+        cookie_config = get_auth_cookie_config()
+
         resp.set_cookie(
-            cookie_name,
+            cookie_config["name"],
             "",
             max_age=0,
             expires=0,
-            httponly=True,
-            secure=secure,
-            samesite=samesite,
-            path="/",
+            httponly=cookie_config["httponly"],
+            secure=cookie_config["secure"],
+            samesite=cookie_config["samesite"],
+            path=cookie_config["path"],
         )
+
         return resp
