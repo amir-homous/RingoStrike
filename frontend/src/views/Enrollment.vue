@@ -42,6 +42,10 @@
                 <span v-if="enrollment.start_date" class="metaPill">
                   Started {{ formatDate(enrollment.start_date) }}
                 </span>
+
+                <span v-if="enrollment.reset_timezone" class="metaPill">
+                  Reset: {{ enrollment.reset_timezone }}
+                </span>
               </div>
             </div>
 
@@ -77,6 +81,13 @@
             <div class="metricHint">{{ timingHint }}</div>
           </BaseCard>
 
+          <BaseCard class="metricCard resetMetric" :class="resetUrgencyClass" :padded="true">
+            <div class="metricIcon">🌗</div>
+            <div class="metricLabel">Daily Reset</div>
+            <div class="metricValue resetValue">{{ resetCountdownText }}</div>
+            <div class="metricHint">{{ resetHint }}</div>
+          </BaseCard>
+
           <BaseCard class="metricCard" :padded="true">
             <div class="metricIcon">✅</div>
             <div class="metricLabel">Total Check-ins</div>
@@ -90,14 +101,56 @@
             <div class="metricValue">{{ currentStreak }}</div>
             <div class="metricHint">Your active momentum chain.</div>
           </BaseCard>
-
-          <BaseCard class="metricCard" :padded="true">
-            <div class="metricIcon">📈</div>
-            <div class="metricLabel">Timeline Progress</div>
-            <div class="metricValue">{{ timelinePercent }}%</div>
-            <div class="metricHint">Based on challenge duration.</div>
-          </BaseCard>
         </section>
+
+        <BaseCard class="resetCard" :class="resetUrgencyClass" :padded="true">
+          <div class="sectionHead">
+            <div>
+              <div class="eyebrow">Daily Check-in Window</div>
+              <h2 class="h2">Reset Rhythm</h2>
+              <div class="caption">
+                RingoStrike currently resets daily progress at midnight UTC.
+              </div>
+            </div>
+
+            <div class="resetBadge">
+              {{ resetBadgeText }}
+            </div>
+          </div>
+
+          <div class="resetGrid">
+            <div class="resetInfoBox">
+              <span class="resetIcon">⏱</span>
+              <div>
+                <div class="caption">Time until reset</div>
+                <strong>{{ resetCountdownText }}</strong>
+              </div>
+            </div>
+
+            <div class="resetInfoBox">
+              <span class="resetIcon">📍</span>
+              <div>
+                <div class="caption">Next reset</div>
+                <strong>{{ formattedNextReset }}</strong>
+              </div>
+            </div>
+
+            <div class="resetInfoBox">
+              <span class="resetIcon">🌍</span>
+              <div>
+                <div class="caption">Timezone</div>
+                <strong>{{ enrollment.reset_timezone || "UTC" }}</strong>
+              </div>
+            </div>
+          </div>
+
+          <div class="futureNote">
+            <span class="futureIcon">🔔</span>
+            <span>
+              Future reminder system: custom reminder time, preferred daily window, and late check-in state.
+            </span>
+          </div>
+        </BaseCard>
 
         <BaseCard class="timelineCard" :padded="true">
           <div class="sectionHead">
@@ -167,8 +220,8 @@
             </div>
 
             <div class="miniStat">
-              <span>Streak</span>
-              <strong>{{ currentStreak }}</strong>
+              <span>Next Reset</span>
+              <strong>{{ resetCountdownText }}</strong>
             </div>
           </div>
         </BaseCard>
@@ -231,7 +284,7 @@
 <script setup>
 import Leaderboard from "./Leaderboard.vue";
 
-import { onMounted, ref, computed } from "vue";
+import { onMounted, onUnmounted, ref, computed } from "vue";
 import { useRoute } from "vue-router";
 import api from "../lib/api";
 
@@ -253,6 +306,9 @@ const recentLogs = ref([]);
 
 const checkedDays = ref(0);
 const totalDays = ref(0);
+const now = ref(new Date());
+
+let resetTimer = null;
 
 const durationDays = computed(() => {
   return Number(challenge.value?.duration_days || enrollment.value?.duration_days || totalDays.value || 0);
@@ -301,6 +357,74 @@ const progressText = computed(() => {
   if (!durationDays.value) return "Progress is based on check-ins.";
   if (enrollment.value?.remaining_days == null) return `${durationDays.value} day challenge.`;
   return `${remainingDaysText.value} remaining`;
+});
+
+const nextResetDate = computed(() => {
+  if (!enrollment.value?.next_reset_at) return null;
+
+  const date = new Date(enrollment.value.next_reset_at);
+  if (Number.isNaN(date.getTime())) return null;
+
+  return date;
+});
+
+const resetMsRemaining = computed(() => {
+  if (!nextResetDate.value) return null;
+  return Math.max(0, nextResetDate.value.getTime() - now.value.getTime());
+});
+
+const resetHoursRemaining = computed(() => {
+  if (resetMsRemaining.value == null) return null;
+  return resetMsRemaining.value / 1000 / 60 / 60;
+});
+
+const resetCountdownText = computed(() => {
+  if (resetMsRemaining.value == null) return "—";
+
+  const totalMinutes = Math.max(0, Math.floor(resetMsRemaining.value / 1000 / 60));
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+
+  if (hours <= 0 && minutes <= 0) return "Resetting soon";
+  if (hours <= 0) return `${minutes}m`;
+  return `${hours}h ${minutes}m`;
+});
+
+const resetUrgencyClass = computed(() => {
+  if (enrollment.value?.today_checked) return "reset-secure";
+  if (resetHoursRemaining.value == null) return "reset-neutral";
+  if (resetHoursRemaining.value <= 2) return "reset-urgent";
+  if (resetHoursRemaining.value <= 6) return "reset-warning";
+  return "reset-calm";
+});
+
+const resetBadgeText = computed(() => {
+  if (enrollment.value?.today_checked) return "Today secured";
+  if (resetHoursRemaining.value == null) return "Reset unknown";
+  if (resetHoursRemaining.value <= 2) return "Final window";
+  if (resetHoursRemaining.value <= 6) return "Reset approaching";
+  return "Open window";
+});
+
+const resetHint = computed(() => {
+  if (!nextResetDate.value) return "Reset metadata is not available.";
+  if (enrollment.value?.today_checked) return "Your strike is already secured until the next reset.";
+  if (resetHoursRemaining.value <= 2) return "The daily window is almost closed.";
+  if (resetHoursRemaining.value <= 6) return "Good time to complete your daily strike.";
+  return "Daily reset is based on UTC midnight.";
+});
+
+const formattedNextReset = computed(() => {
+  if (!nextResetDate.value) return "—";
+
+  return new Intl.DateTimeFormat("en", {
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "UTC",
+    timeZoneName: "short",
+  }).format(nextResetDate.value);
 });
 
 const barColor = computed(() => {
@@ -367,7 +491,19 @@ async function checkin() {
   }
 }
 
-onMounted(load);
+onMounted(() => {
+  load();
+
+  resetTimer = window.setInterval(() => {
+    now.value = new Date();
+  }, 30000);
+});
+
+onUnmounted(() => {
+  if (resetTimer) {
+    window.clearInterval(resetTimer);
+  }
+});
 </script>
 
 <style scoped>
@@ -440,7 +576,8 @@ onMounted(load);
 .metaPill,
 .timelineBadge,
 .scoreBadge,
-.ctaLink {
+.ctaLink,
+.resetBadge {
   display: inline-flex;
   align-items: center;
   gap: 7px;
@@ -525,6 +662,27 @@ onMounted(load);
     rgba(255, 255, 255, 0.025);
 }
 
+.metricCard.reset-secure {
+  border-color: rgba(74, 222, 128, 0.22);
+  background:
+    radial-gradient(circle at 0% 0%, rgba(74, 222, 128, 0.12), transparent 38%),
+    rgba(255, 255, 255, 0.025);
+}
+
+.metricCard.reset-warning {
+  border-color: rgba(255, 228, 168, 0.26);
+  background:
+    radial-gradient(circle at 0% 0%, rgba(255, 228, 168, 0.14), transparent 38%),
+    rgba(255, 255, 255, 0.025);
+}
+
+.metricCard.reset-urgent {
+  border-color: rgba(239, 68, 68, 0.26);
+  background:
+    radial-gradient(circle at 0% 0%, rgba(239, 68, 68, 0.14), transparent 38%),
+    rgba(255, 255, 255, 0.025);
+}
+
 .metricIcon {
   width: 38px;
   height: 38px;
@@ -554,6 +712,10 @@ onMounted(load);
   font-variant-numeric: tabular-nums;
 }
 
+.resetValue {
+  font-size: 1.55rem;
+}
+
 .metricHint {
   margin-top: var(--s-8);
   color: rgba(255, 255, 255, 0.56);
@@ -563,10 +725,112 @@ onMounted(load);
 
 .timelineCard,
 .progressCard,
-.logsCard {
+.logsCard,
+.resetCard {
   background:
     radial-gradient(circle at 0% 0%, rgba(195, 90, 214, 0.07), transparent 35%),
     rgba(255, 255, 255, 0.02);
+}
+
+.resetCard.reset-secure {
+  border-color: rgba(74, 222, 128, 0.20);
+  background:
+    radial-gradient(circle at 0% 0%, rgba(74, 222, 128, 0.10), transparent 35%),
+    rgba(255, 255, 255, 0.02);
+}
+
+.resetCard.reset-warning {
+  border-color: rgba(255, 228, 168, 0.22);
+  background:
+    radial-gradient(circle at 0% 0%, rgba(255, 228, 168, 0.11), transparent 35%),
+    rgba(255, 255, 255, 0.02);
+}
+
+.resetCard.reset-urgent {
+  border-color: rgba(239, 68, 68, 0.22);
+  background:
+    radial-gradient(circle at 0% 0%, rgba(239, 68, 68, 0.11), transparent 35%),
+    rgba(255, 255, 255, 0.02);
+}
+
+.resetBadge {
+  padding: 8px 12px;
+}
+
+.reset-secure .resetBadge {
+  color: #4ade80;
+  background: rgba(74, 222, 128, 0.10);
+  border-color: rgba(74, 222, 128, 0.18);
+}
+
+.reset-warning .resetBadge {
+  color: rgba(255, 228, 168, 0.95);
+  background: rgba(255, 228, 168, 0.10);
+  border-color: rgba(255, 228, 168, 0.18);
+}
+
+.reset-urgent .resetBadge {
+  color: rgba(255, 150, 150, 0.98);
+  background: rgba(239, 68, 68, 0.10);
+  border-color: rgba(239, 68, 68, 0.18);
+}
+
+.resetGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--s-12);
+  margin-top: var(--s-16);
+}
+
+.resetInfoBox {
+  display: flex;
+  align-items: center;
+  gap: var(--s-12);
+  padding: 13px;
+  border-radius: var(--r-12);
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(255, 255, 255, 0.075);
+}
+
+.resetIcon {
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.055);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+}
+
+.resetInfoBox strong {
+  display: block;
+  margin-top: 3px;
+  color: white;
+  font-variant-numeric: tabular-nums;
+}
+
+.futureNote {
+  display: flex;
+  align-items: center;
+  gap: var(--s-10);
+  margin-top: var(--s-16);
+  padding: 13px;
+  border-radius: var(--r-12);
+  color: rgba(255, 255, 255, 0.62);
+  background: rgba(255, 255, 255, 0.028);
+  border: 1px dashed rgba(255, 255, 255, 0.10);
+  font-size: 0.84rem;
+  line-height: 1.5;
+}
+
+.futureIcon {
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.055);
 }
 
 .sectionHead {
@@ -768,6 +1032,10 @@ onMounted(load);
 
   .insightGrid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .resetGrid {
+    grid-template-columns: 1fr;
   }
 
   .checkinPanel {
