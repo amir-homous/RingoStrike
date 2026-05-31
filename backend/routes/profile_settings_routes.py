@@ -39,7 +39,10 @@ def get_my_profile_settings(claims):
 def update_my_profile_settings(claims):
     user_id = claims["user_id"]
 
-    payload = request.json or {}
+    payload = request.get_json(silent=True)
+
+    if payload is None:
+        payload = {}
 
     response, code = update_profile_settings(
         user_id,

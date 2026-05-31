@@ -324,3 +324,67 @@ def test_achievement_unlocks_after_first_checkin(client):
 
         assert "first_checkin" not in duplicate_reward_keys
         assert "first_challenge_completed" not in duplicate_reward_keys
+
+
+def test_profile_update_validation(client):
+    user = register_user(client, username="ProfileValidationUser")
+    headers = auth_headers(user["access_token"])
+
+    invalid_name_res = client.patch(
+        "/api/profile",
+        json={"name": 123},
+        headers=headers,
+    )
+
+    assert invalid_name_res.status_code == 400
+    invalid_name_data = invalid_name_res.get_json()
+    assert invalid_name_data["ok"] is False
+    assert invalid_name_data["error"] == "invalid_name_type"
+
+    long_bio_res = client.patch(
+        "/api/me/profile/settings",
+        json={"bio": "x" * 281},
+        headers=headers,
+    )
+
+    assert long_bio_res.status_code == 400
+    long_bio_data = long_bio_res.get_json()
+    assert long_bio_data["ok"] is False
+    assert long_bio_data["error"] == "bio_too_long"
+
+    invalid_avatar_res = client.patch(
+        "/api/me/profile/settings",
+        json={"avatar_url": "javascript:alert(1)"},
+        headers=headers,
+    )
+
+    assert invalid_avatar_res.status_code == 400
+    invalid_avatar_data = invalid_avatar_res.get_json()
+    assert invalid_avatar_data["ok"] is False
+    assert invalid_avatar_data["error"] == "invalid_avatar_url"
+
+    valid_settings_res = client.patch(
+        "/api/me/profile/settings",
+        json={
+            "bio": "Building consistency.",
+            "avatar_url": "/avatars/avatar-1.png",
+            "profile_visibility": "private",
+        },
+        headers=headers,
+    )
+
+    assert valid_settings_res.status_code == 200
+    valid_settings_data = valid_settings_res.get_json()
+    assert valid_settings_data["ok"] is True
+
+    settings_res = client.get(
+        "/api/me/profile/settings",
+        headers=headers,
+    )
+
+    assert settings_res.status_code == 200
+    settings_data = settings_res.get_json()
+    assert settings_data["ok"] is True
+    assert settings_data["settings"]["bio"] == "Building consistency."
+    assert settings_data["settings"]["avatar_url"] == "/avatars/avatar-1.png"
+    assert settings_data["settings"]["profile_visibility"] == "private"

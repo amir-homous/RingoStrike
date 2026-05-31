@@ -8,6 +8,47 @@ ALLOWED_VISIBILITY = {
     "private",
 }
 
+MAX_BIO_LENGTH = 280
+MAX_AVATAR_URL_LENGTH = 500
+
+
+def _validate_optional_string(value, field_name: str):
+    if value is None:
+        return "", None, None
+
+    if not isinstance(value, str):
+        return None, {
+            "ok": False,
+            "error": f"invalid_{field_name}_type",
+        }, 400
+
+    return value.strip(), None, None
+
+
+def _validate_avatar_url(value: str):
+    if not value:
+        return None, None
+
+    if len(value) > MAX_AVATAR_URL_LENGTH:
+        return {
+            "ok": False,
+            "error": "avatar_url_too_long",
+        }, 400
+
+    allowed_prefixes = (
+        "/",
+        "http://",
+        "https://",
+    )
+
+    if not value.startswith(allowed_prefixes):
+        return {
+            "ok": False,
+            "error": "invalid_avatar_url",
+        }, 400
+
+    return None, None
+
 
 def get_profile_settings(user_id: int):
     conn = get_db_connection()
@@ -49,6 +90,12 @@ def update_profile_settings(
     user_id: int,
     payload: dict,
 ):
+    if not isinstance(payload, dict):
+        return {
+            "ok": False,
+            "error": "invalid_json_body",
+        }, 400
+
     conn = get_db_connection()
 
     try:
@@ -67,20 +114,42 @@ def update_profile_settings(
                 "error": "user_not_found",
             }, 404
 
-        bio = (
-            payload.get("bio", "")
-            .strip()
-        )[:280]
-
-        avatar_url = (
-            payload.get("avatar_url")
-            or None
+        bio, error, code = _validate_optional_string(
+            payload.get("bio", ""),
+            "bio",
         )
+        if error:
+            return error, code
+
+        avatar_url, error, code = _validate_optional_string(
+            payload.get("avatar_url"),
+            "avatar_url",
+        )
+        if error:
+            return error, code
+
+        if len(bio) > MAX_BIO_LENGTH:
+            return {
+                "ok": False,
+                "error": "bio_too_long",
+            }, 400
+
+        avatar_error, avatar_code = _validate_avatar_url(avatar_url)
+        if avatar_error:
+            return avatar_error, avatar_code
 
         profile_visibility = (
             payload.get("profile_visibility")
             or "public"
-        ).lower()
+        )
+
+        if not isinstance(profile_visibility, str):
+            return {
+                "ok": False,
+                "error": "invalid_visibility_type",
+            }, 400
+
+        profile_visibility = profile_visibility.lower().strip()
 
         if (
             profile_visibility
@@ -103,7 +172,7 @@ def update_profile_settings(
             """,
             (
                 bio,
-                avatar_url,
+                avatar_url or None,
                 profile_visibility,
                 user_id,
             ),
