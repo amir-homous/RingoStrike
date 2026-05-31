@@ -7,6 +7,29 @@ def test_health(client):
     assert res.status_code == 200
     assert res.get_json() == {"ok": True}
 
+def test_health_config_does_not_expose_secrets(client):
+    res = client.get("/health/config")
+
+    assert res.status_code == 200
+
+    data = res.get_json()
+
+    assert data["ok"] is True
+    assert "env" in data
+    assert "database_configured" in data
+    assert "local_login_enabled" in data
+    assert "jwt_cookie_secure" in data
+    assert "jwt_cookie_samesite" in data
+    assert "public_base_url_configured" in data
+    assert "frontend_base_url_configured" in data
+
+    serialized = str(data).lower()
+
+    assert "secret-key" not in serialized
+    assert "test-jwt-secret" not in serialized
+    assert "notion_token" not in serialized
+    assert "telegram_bot_token" not in serialized
+
 
 def test_register_login_and_me_with_bearer(client):
     register_data = register_user(client)
