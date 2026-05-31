@@ -304,6 +304,8 @@ const statusHintText = computed(() => {
     border-color 180ms ease,
     background 180ms ease,
     box-shadow 180ms ease;
+    margin-top: 10px;
+    
 }
 
 .challengeCard:hover {
