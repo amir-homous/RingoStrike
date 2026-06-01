@@ -1,6 +1,5 @@
 from flask import (
     Blueprint,
-    jsonify,
     request,
 )
 
@@ -11,11 +10,32 @@ from services.profile_settings_service import (
     update_profile_settings,
 )
 
+from utils.api_response import (
+    error_response,
+    ok_response,
+)
+
 
 profile_settings_bp = Blueprint(
     "profile_settings_bp",
     __name__,
 )
+
+
+def _service_response(payload: dict, code: int):
+    if not payload.get("ok"):
+        return error_response(
+            payload.get("error", "profile_settings_error"),
+            code,
+        )
+
+    clean_payload = {
+        key: value
+        for key, value in payload.items()
+        if key != "ok"
+    }
+
+    return ok_response(clean_payload, code)
 
 
 @profile_settings_bp.get(
@@ -29,7 +49,7 @@ def get_my_profile_settings(claims):
         user_id
     )
 
-    return jsonify(payload), code
+    return _service_response(payload, code)
 
 
 @profile_settings_bp.patch(
@@ -49,4 +69,4 @@ def update_my_profile_settings(claims):
         payload,
     )
 
-    return jsonify(response), code
+    return _service_response(response, code)
