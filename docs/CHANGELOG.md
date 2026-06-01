@@ -29,6 +29,10 @@ Added production-readiness improvements:
 - Added production secret requirement tests.
 - Cleaned duplicated legacy auth logic from `config.py`.
 - Added `scripts/smoke_backend.py` for deployment smoke checks.
+- Added basic in-memory auth rate limiting for login/register endpoints.
+- Added shared API response helper foundation.
+- Added malformed JSON coverage for key endpoints.
+- Added public profile not-found coverage.
 
 ### Testing
 
@@ -62,6 +66,11 @@ Added backend smoke test coverage for:
 - Production CORS origin behavior.
 - Auth cookie Secure/SameSite/name behavior.
 - Production secret requirements.
+- Auth register/login rate limiting.
+- Shared API response helper shape.
+- Malformed JSON handling for auth, profile settings, and challenge join.
+- Public profile, consistency, and achievements not-found behavior.
+
 
 Current backend test command:
 
@@ -73,7 +82,7 @@ py -m pytest -q
 Latest local result:
 
 ```txt
-19 passed
+30 passed
 ```
 
 ### Profile Validation
@@ -304,9 +313,6 @@ Dashboard.
 Profile.
 Public identity.
 
-## Remaining Known Work
-
-### Before First Public Launch
 
 Run full launch QA checklist.
 Add rate limiting for auth endpoints.
@@ -323,6 +329,10 @@ Add private/archived challenge access tests.
 Add malformed JSON tests for key endpoints.
 Add public profile not-found tests.
 Add leaderboard exact tie-ordering tests.
+
+Expand shared API response helper usage across existing routes.
+Investigate reliable service-level coverage for exact leaderboard tie-ordering.
+docs/ROADMAP.md
 
 ### Future Product Expansion
 Telegram reminders.

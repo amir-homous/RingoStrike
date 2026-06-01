@@ -90,6 +90,11 @@ The product has moved beyond raw MVP. The core progression identity system is im
 - Added production secret requirement tests.
 - Cleaned duplicated legacy auth logic from `config.py`.
 - Added backend deployment smoke script.
+- Added basic in-memory auth rate limiting for login/register endpoints.
+- Added shared API response helper foundation.
+- Added malformed JSON handling coverage for key endpoints.
+- Added public profile not-found coverage.
+
 
 ### Backend Test Coverage Added
 
@@ -114,6 +119,13 @@ The product has moved beyond raw MVP. The core progression identity system is im
 - Production CORS origin smoke test.
 - Production auth cookie configuration smoke tests.
 - Production secret requirement tests.
+- Auth register/login rate limiting smoke tests.
+- Shared API response helper tests.
+- Auth malformed JSON payload tests.
+- Profile settings malformed JSON payload test.
+- Challenge join malformed JSON payload test.
+- Public profile not-found smoke tests.
+
 
 
 ---
@@ -127,13 +139,14 @@ These items should happen before expanding product scope:
 - Resolve or document remaining GitHub Actions frontend build instability if it reappears.
 - Run deployment smoke script after every production/pre-launch deployment.
 - Finalize production `.env` values for backend and frontend.
-- Add rate limiting for auth endpoints.
 - Normalize API naming conventions where practical (`/api/...` vs non-`/api/...`).
-- Add structured error codes and a shared API error shape.
 - Add a real migration strategy instead of ad hoc table changes in app startup.
 - Review profile update endpoints and reduce overlap where possible.
 - Review public challenge/member endpoints and confirm intended visibility.
 - Run full `docs/LAUNCH_QA_CHECKLIST.md` before release candidate.
+- Expand shared API response helper usage across existing routes.
+- Investigate reliable service-level coverage for exact leaderboard tie-ordering.
+
 
 ---
 
@@ -145,10 +158,12 @@ These items should happen before expanding product scope:
 - Add tests for leaderboard ordering with exact tie scenarios.
 - Add tests for archived challenges and inactive challenge joins.
 - Add tests for private challenge join rejection.
-- Add tests for malformed JSON across important endpoints.
 - Add tests for profile visibility invalid payloads.
-- Add tests for public profile not-found behavior.
 - Add tests for auth failure behavior on protected endpoints.
+- Expand malformed JSON coverage to any remaining mutation endpoints.
+- Add reliable service-level tests for leaderboard exact tie scenarios.
+
+
 
 ### Frontend Reliability
 
@@ -250,15 +265,13 @@ python scripts/smoke_backend.py --base-url http://localhost:5005
 
 The next highest-value issue is:
 
-Docs: update README with current launch readiness workflow.
+Tests: investigate and add reliable leaderboard tie-ordering coverage.
 
 Suggested target:
 
-- Explain current product stage.
-- Add local development startup commands.
-- Add backend test and frontend build commands.
-- Add backend smoke script usage.
-- Add GitHub Actions notes.
-- Add pre-launch deployment checklist links.
+- Review `leaderboard_service.py` sorting behavior.
+- Add service-level or database-level test coverage instead of brittle route-level assumptions.
+- Verify exact tie ordering by total check-ins, current streak, name, and enrollment id.
+- Preserve current route behavior and response shape.
 
 ---

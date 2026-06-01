@@ -1,4 +1,4 @@
-from helpers import auth_headers, register_user
+from helpers import auth_headers, insert_challenge, register_user
 
 
 def test_achievement_unlocks_after_first_checkin(client):
