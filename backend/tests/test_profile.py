@@ -208,3 +208,35 @@ def test_public_consistency_and_achievements_respect_profile_privacy(client):
     blocked_achievements_data = blocked_achievements_res.get_json()
     assert blocked_achievements_data["ok"] is False
     assert blocked_achievements_data["error"] == "profile_private"
+
+def test_public_profile_not_found_returns_404(client):
+    res = client.get("/api/public/profile/does_not_exist_user")
+
+    assert res.status_code == 404
+
+    data = res.get_json()
+
+    assert data["ok"] is False
+    assert data["error"] == "profile_not_found"
+
+
+def test_public_consistency_not_found_returns_404(client):
+    res = client.get("/api/public/profile/does_not_exist_user/consistency")
+
+    assert res.status_code == 404
+
+    data = res.get_json()
+
+    assert data["ok"] is False
+    assert data["error"] == "profile_not_found"
+
+
+def test_public_achievements_not_found_returns_404(client):
+    res = client.get("/api/public/profile/does_not_exist_user/achievements")
+
+    assert res.status_code == 404
+
+    data = res.get_json()
+
+    assert data["ok"] is False
+    assert data["error"] == "profile_not_found"
