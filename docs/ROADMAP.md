@@ -82,6 +82,14 @@ The product has moved beyond raw MVP. The core progression identity system is im
 - Added challenge join payload validation.
 - Added profile update/profile settings validation.
 - Added launch QA checklist.
+- Added backend `.env.example` launch-ready environment documentation.
+- Added deployment readiness checklist.
+- Added safe `/health/config` production-readiness endpoint.
+- Added environment-driven production CORS origin support.
+- Added production auth cookie configuration coverage.
+- Added production secret requirement tests.
+- Cleaned duplicated legacy auth logic from `config.py`.
+- Added backend deployment smoke script.
 
 ### Backend Test Coverage Added
 
@@ -102,6 +110,11 @@ The product has moved beyond raw MVP. The core progression identity system is im
 - Enrollment reset metadata smoke test.
 - Leaderboard rank/tie-breaker smoke test.
 - Temporary SQLite test database setup.
+- Safe `/health/config` smoke test.
+- Production CORS origin smoke test.
+- Production auth cookie configuration smoke tests.
+- Production secret requirement tests.
+
 
 ---
 
@@ -111,7 +124,9 @@ These items should happen before expanding product scope:
 
 - Add tests for invalid challenge join payloads if not already covered separately from invite-only flow.
 - Add tests for `/auth/logout` edge cases if token blacklist/session invalidation is introduced later.
-- Add frontend smoke tests or manual QA pass for router guard, login, dashboard, challenge join, check-in, profile, and public profile rendering.
+- Resolve or document remaining GitHub Actions frontend build instability if it reappears.
+- Run deployment smoke script after every production/pre-launch deployment.
+- Finalize production `.env` values for backend and frontend.
 - Add rate limiting for auth endpoints.
 - Normalize API naming conventions where practical (`/api/...` vs non-`/api/...`).
 - Add structured error codes and a shared API error shape.
@@ -210,6 +225,10 @@ Before first public launch:
 - Manual QA checklist pass for core user flow.
 - Frontend production build verification.
 - Backend smoke test verification.
+- Safe config health verification.
+- Production CORS origin verification.
+- Auth cookie production settings verification.
+- Deployment smoke script execution.
 
 Required commands:
 
@@ -223,20 +242,23 @@ cd frontend
 npm run build
 ```
 
-
+```bash
+python scripts/smoke_backend.py --base-url http://localhost:5005
+```
 
 ## Recommended Next Issue
 
 The next highest-value issue is:
 
-Tests: add private and inactive challenge access coverage.
+Docs: update README with current launch readiness workflow.
 
 Suggested target:
 
-Private challenge appears only when already enrolled.
-Private challenge join returns challenge_private.
-Archived challenge join returns challenge_inactive.
-Inactive/archived challenges do not appear in normal discovery.
-Public challenge detail remains readable.
+- Explain current product stage.
+- Add local development startup commands.
+- Add backend test and frontend build commands.
+- Add backend smoke script usage.
+- Add GitHub Actions notes.
+- Add pre-launch deployment checklist links.
 
 ---

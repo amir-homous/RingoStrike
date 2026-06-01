@@ -16,6 +16,20 @@ The project has moved beyond raw MVP. Core progression identity is implemented. 
 
 ## Latest Launch-Hardening Updates
 
+### Production Readiness
+
+Added production-readiness improvements:
+
+- Added backend `.env.example` refresh for launch configuration.
+- Added `docs/DEPLOYMENT_CHECKLIST.md`.
+- Added safe `/health/config` endpoint.
+- Moved `/health` into a dedicated health blueprint.
+- Added environment-driven CORS origin configuration.
+- Added production auth cookie configuration coverage.
+- Added production secret requirement tests.
+- Cleaned duplicated legacy auth logic from `config.py`.
+- Added `scripts/smoke_backend.py` for deployment smoke checks.
+
 ### Testing
 
 Added backend smoke test coverage for:
@@ -44,13 +58,25 @@ Added backend smoke test coverage for:
 - Public achievements privacy.
 - Achievement unlock after first check-in.
 - Profile update validation.
+- Safe config health endpoint.
+- Production CORS origin behavior.
+- Auth cookie Secure/SameSite/name behavior.
+- Production secret requirements.
 
 Current backend test command:
 
 ```bash
 cd backend
 py -m pytest -q
-Profile Validation
+```
+
+Latest local result:
+
+```txt
+19 passed
+```
+
+### Profile Validation
 
 Added validation for profile and profile settings inputs:
 
@@ -60,7 +86,8 @@ Reject invalid avatar URL schemes.
 Accept local avatar paths.
 Validate profile visibility values.
 Preserve public/private profile behavior.
-Challenge Join Validation
+
+### Challenge Join Validation
 
 Added validation for challenge join payloads:
 
@@ -69,7 +96,8 @@ Non-object JSON is rejected.
 Non-string join_code is rejected.
 Overly long join_code is rejected.
 Existing public and invite-only join behavior is preserved.
-Launch QA Documentation
+
+### Launch QA Documentation
 
 Added:
 
@@ -95,9 +123,9 @@ Database checks.
 Responsive UI pass.
 Browser console pass.
 Pre-launch decision checklist.
-Product And UX Updates
-Challenge Discovery
 
+### Product And UX Updates
+#### Challenge Discovery
 Updated challenge discovery experience:
 
 Premium challenge discovery hero.
@@ -107,7 +135,8 @@ Member count and member preview where available.
 Access, duration, reward, and status metadata.
 Invite-code UI preserved.
 Dashboard-specific compact challenge card mode.
-Enrollment Detail
+
+#### Enrollment Detail
 
 Updated enrollment detail experience:
 
@@ -128,7 +157,8 @@ Preferred daily window.
 Late check-in status.
 Normal vs late check-in distinction.
 User timezone preferences.
-Leaderboard
+
+#### Leaderboard
 
 Updated leaderboard behavior and UI:
 
@@ -139,7 +169,8 @@ Deterministic tie-breakers are exposed.
 Full leaderboard UI shows rank and today status.
 Today leaderboard section added.
 Embedded leaderboard preview remains supported.
-Default Launch Challenges
+
+#### Default Launch Challenges
 
 Added default launch challenge seeding:
 
@@ -151,22 +182,24 @@ Mind Reset.
 
 Default challenges are inserted only when missing and are not duplicated on repeated app startup.
 
-Backend Stabilization Updates
-Stats Endpoint Ownership
+### Backend Stabilization Updates
+
+#### Stats Endpoint Ownership
 
 Resolved duplicate /me/stats route ownership:
 
 Removed duplicate route from dashboard routes.
 Standardized /me/stats through stats_routes.py.
 Centralized payload generation in stats_service.py.
-Auth And Session Frontend Alignment
+#### Auth And Session Frontend Alignment
 
 Aligned frontend session handling with current cookie-based auth behavior:
 
 Removed frontend api.setToken() assumption.
 Preserved backend support for cookie and Bearer token auth.
 Added logout cookie-session behavior coverage.
-Debug Endpoint Hardening
+
+#### Debug Endpoint Hardening
 
 SQLite debug endpoints are development-only:
 
@@ -175,7 +208,7 @@ SQLite debug endpoints are development-only:
 
 They are blocked outside development mode.
 
-Production Secret Hardening
+#### Production Secret Hardening
 
 Production startup now requires safe secrets:
 
@@ -184,7 +217,7 @@ JWT_SECRET
 
 Unsafe fallback behavior was removed from active auth paths.
 
-Database Reliability
+#### Database Reliability
 
 Improved SQLite reliability:
 
@@ -195,12 +228,12 @@ Unused sessions table initialization removed.
 Legacy local database helpers removed.
 Runtime database and Jupyter workspace files are ignored by git.
 Test suite uses temporary SQLite databases.
-Legacy Auth Cleanup
+#### Legacy Auth Cleanup
 
 Removed unused duplicate auth-service path:
 
 services/auth_service.py was removed because active route registration still uses backend/auth.py.
-Documentation Sync
+#### Documentation Sync
 
 Updated documentation to reflect the actual codebase:
 
@@ -218,7 +251,8 @@ Current database initialization behavior.
 Stabilization progress.
 Launch-readiness priorities.
 Expanded backend smoke test coverage.
-Public Profile And Identity Layer
+
+#### Public Profile And Identity Layer
 
 Implemented and stabilized:
 
@@ -233,7 +267,8 @@ Username normalization.
 Reserved username handling.
 Public-safe activity filtering.
 Privacy coverage for public profile, consistency, and achievements endpoints.
-Progression System
+
+#### Progression System
 
 Implemented:
 
@@ -248,7 +283,8 @@ Streak-based achievement definitions.
 Check-in-count achievement definitions.
 XP milestone achievement definitions.
 Achievement unlock smoke coverage.
-Core App Foundation
+
+#### Core App Foundation
 
 Implemented:
 
@@ -267,8 +303,11 @@ Leaderboards.
 Dashboard.
 Profile.
 Public identity.
-Remaining Known Work
-Before First Public Launch
+
+## Remaining Known Work
+
+### Before First Public Launch
+
 Run full launch QA checklist.
 Add rate limiting for auth endpoints.
 Define shared API error response shape.
@@ -277,12 +316,15 @@ Add deployment/backup checklist.
 Add production monitoring/error logging.
 Review API naming consistency.
 Review profile update endpoint overlap.
-Add frontend smoke tests or complete manual QA pass.
+Resolve or document remaining GitHub Actions frontend build instability if it reappears.
+Run production deployment smoke script after deploy.
+Finalize backend/frontend production `.env` values.
 Add private/archived challenge access tests.
 Add malformed JSON tests for key endpoints.
 Add public profile not-found tests.
 Add leaderboard exact tie-ordering tests.
-Future Product Expansion
+
+### Future Product Expansion
 Telegram reminders.
 Telegram login if still desired.
 Android app / widget support.
