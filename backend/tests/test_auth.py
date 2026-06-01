@@ -227,3 +227,78 @@ def test_logout_cookie_uses_configured_security_settings(client, monkeypatch):
     assert "Secure" in cookie_header
     assert "SameSite=Strict" in cookie_header
     assert "Path=/" in cookie_header
+
+def test_register_rate_limit(client):
+    from services.rate_limit_service import reset_rate_limits
+
+    reset_rate_limits()
+
+    for i in range(10):
+        res = client.post(
+            "/auth/register",
+            json={
+                "username": f"ratelimituser{i}",
+                "password": "secret123",
+                "name": f"Rate Limit User {i}",
+                "email": f"ratelimit{i}@example.com",
+            },
+            headers={
+                "X-Forwarded-For": "203.0.113.10",
+            },
+        )
+
+        assert res.status_code == 201
+
+    limited_res = client.post(
+        "/auth/register",
+        json={
+            "username": "ratelimituserlimited",
+            "password": "secret123",
+            "name": "Rate Limited User",
+            "email": "ratelimited@example.com",
+        },
+        headers={
+            "X-Forwarded-For": "203.0.113.10",
+        },
+    )
+
+    assert limited_res.status_code == 429
+    data = limited_res.get_json()
+    assert data["ok"] is False
+    assert data["error"] == "rate_limited"
+
+
+def test_login_rate_limit(client):
+    from services.rate_limit_service import reset_rate_limits
+
+    reset_rate_limits()
+
+    for i in range(10):
+        res = client.post(
+            "/auth/login",
+            json={
+                "username": "missinguser",
+                "password": "wrongpassword",
+            },
+            headers={
+                "X-Forwarded-For": "203.0.113.11",
+            },
+        )
+
+        assert res.status_code in {400, 401}
+
+    limited_res = client.post(
+        "/auth/login",
+        json={
+            "username": "missinguser",
+            "password": "wrongpassword",
+        },
+        headers={
+            "X-Forwarded-For": "203.0.113.11",
+        },
+    )
+
+    assert limited_res.status_code == 429
+    data = limited_res.get_json()
+    assert data["ok"] is False
+    assert data["error"] == "rate_limited"

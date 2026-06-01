@@ -26,6 +26,10 @@ def client(tmp_path, monkeypatch):
 
     import auth
     import app as app_module
+    from services.rate_limit_service import reset_rate_limits
+
+    reset_rate_limits()
+    
     import database
 
     auth.JWT_SECRET = "test-jwt-secret"

@@ -4,6 +4,7 @@ import jwt
 from datetime import datetime, timedelta, timezone
 from database import get_user_by_username, verify_password, get_user_by_id, create_user, get_user_by_telegram_id
 from services.username_service import normalize_username, is_valid_username
+from services.rate_limit_service import is_rate_limited
 import os
 
 JWT_SECRET = os.getenv("JWT_SECRET", "your-secret-key-change-this")
@@ -102,6 +103,15 @@ def get_token_from_request():
 
     return token
 
+def _client_rate_limit_key(action: str) -> str:
+    forwarded_for = request.headers.get("X-Forwarded-For", "")
+    ip = forwarded_for.split(",", 1)[0].strip()
+
+    if not ip:
+        ip = request.remote_addr or "unknown"
+
+    return f"auth:{action}:{ip}"
+
 # ==================== AUTH ROUTES ====================
 
 def register_auth_routes(app):
@@ -111,6 +121,16 @@ def register_auth_routes(app):
     def register():
         """Register new user with username and password"""
         data = request.get_json(silent=True) or {}
+
+        if is_rate_limited(
+            _client_rate_limit_key("register"),
+            limit=10,
+            window_seconds=60,
+        ):
+            return jsonify({
+                "ok": False,
+                "error": "rate_limited",
+            }), 429
         
         # username = (data.get("username") or "").strip()
         username = normalize_username(data.get("username"))
@@ -166,6 +186,16 @@ def register_auth_routes(app):
     def auth_login():
         """Login with username and password"""
         data = request.get_json(silent=True) or {}
+
+        if is_rate_limited(
+            _client_rate_limit_key("login"),
+            limit=10,
+            window_seconds=60,
+        ):
+            return jsonify({
+                "ok": False,
+                "error": "rate_limited",
+            }), 429
         
         #username = (data.get("username") or "").strip()
         username = normalize_username(data.get("username"))
