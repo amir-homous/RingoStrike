@@ -338,3 +338,49 @@ def test_auth_login_rejects_non_object_json(client):
         "invalid_json_body",
         "username_and_password_required",
     }
+
+def test_protected_endpoints_reject_missing_auth(client):
+    endpoints = [
+        "/me",
+        "/me/stats",
+        "/me/challenges",
+        "/me/activity",
+        "/me/achievements",
+        "/me/profile",
+        "/api/me/profile/settings",
+    ]
+
+    for endpoint in endpoints:
+        res = client.get(endpoint)
+
+        assert res.status_code == 401
+
+        data = res.get_json()
+        assert data["ok"] is False
+        assert data["error"] == "unauthorized"
+
+
+def test_protected_endpoints_reject_invalid_bearer_token(client):
+    endpoints = [
+        "/me",
+        "/me/stats",
+        "/me/challenges",
+        "/me/activity",
+        "/me/achievements",
+        "/me/profile",
+        "/api/me/profile/settings",
+    ]
+
+    for endpoint in endpoints:
+        res = client.get(
+            endpoint,
+            headers={
+                "Authorization": "Bearer invalid.token.value",
+            },
+        )
+
+        assert res.status_code == 401
+
+        data = res.get_json()
+        assert data["ok"] is False
+        assert data["error"] == "invalid_token"
