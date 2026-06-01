@@ -268,3 +268,27 @@ def test_challenge_access_rules_for_private_archived_and_missing(client):
     assert missing_detail_res.status_code == 404
     missing_detail_data = missing_detail_res.get_json()
     assert missing_detail_data["ok"] is False
+
+
+def test_challenge_join_rejects_non_object_json(client):
+    user = register_user(
+        client,
+        username="ChallengeJsonUser",
+    )
+
+    challenge_id = insert_challenge(
+        name="Malformed Join Payload Challenge",
+        description="Used to verify malformed join playload handling",
+        visibility="Public",
+    )
+
+    res = client.post(
+        f"/challenges/{challenge_id}/join",
+        json=["not", "an", "object"],
+        headers=auth_headers(user["access_token"]),
+    )
+
+    assert res.status_code == 400
+    data = res.get_json()
+    assert data["ok"] is False
+    assert data["error"] == "invalid_json_body"

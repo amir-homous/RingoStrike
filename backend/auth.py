@@ -122,6 +122,12 @@ def register_auth_routes(app):
         """Register new user with username and password"""
         data = request.get_json(silent=True) or {}
 
+        if not isinstance(data, dict):
+            return jsonify({
+                "ok": False,
+                "error": "invalid_json_body",
+            }), 400
+
         if is_rate_limited(
             _client_rate_limit_key("register"),
             limit=10,
@@ -186,6 +192,12 @@ def register_auth_routes(app):
     def auth_login():
         """Login with username and password"""
         data = request.get_json(silent=True) or {}
+
+        if not isinstance(data, dict):
+            return jsonify({
+                "ok": False,
+                "error": "invalid_json_body",
+            }), 400
 
         if is_rate_limited(
             _client_rate_limit_key("login"),

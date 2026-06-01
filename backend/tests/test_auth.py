@@ -302,3 +302,39 @@ def test_login_rate_limit(client):
     data = limited_res.get_json()
     assert data["ok"] is False
     assert data["error"] == "rate_limited"
+
+
+def test_auth_register_rejects_non_object_json(client):
+    res = client.post(
+        "/auth/register",
+        json=["not", "an", "object"],
+        headers={
+            "X-Forwarded-For": "203.0.113.20",
+        },
+    )
+
+    assert res.status_code == 400
+    data = res.get_json()
+    assert data["ok"] is False
+    assert data["error"] in {
+        "invalid_json_body",
+        "invalid_username",
+    }
+
+
+def test_auth_login_rejects_non_object_json(client):
+    res = client.post(
+        "/auth/login",
+        json=["not", "an", "object"],
+        headers={
+            "X-Forwarded-For": "203.0.113.21",
+        },
+    )
+
+    assert res.status_code == 400
+    data = res.get_json()
+    assert data["ok"] is False
+    assert data["error"] in {
+        "invalid_json_body",
+        "username_and_password_required",
+    }
