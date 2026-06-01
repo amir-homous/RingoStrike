@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 import os
-from flask import Blueprint, jsonify
+from flask import Blueprint
 
 from config import Config
-
+from utils .api_response import ok_response
 
 health_bp = Blueprint("health_bp", __name__)
 
@@ -29,7 +29,7 @@ def _is_configured(value) -> bool:
 
 @health_bp.get("/health")
 def health():
-    return jsonify({"ok": True}), 200
+    return ok_response()
 
 
 @health_bp.get("/health/config")
@@ -62,7 +62,6 @@ def health_config():
     )
 
     payload = {
-        "ok": True,
         "env": flask_env,
         "database_configured": _is_configured(db_path),
         "local_login_enabled": _env_bool(
@@ -94,4 +93,4 @@ def health_config():
         ),
     }
 
-    return jsonify(payload), 200
+    return ok_response(payload)
