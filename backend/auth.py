@@ -5,9 +5,10 @@ from datetime import datetime, timedelta, timezone
 from database import get_user_by_username, verify_password, get_user_by_id, create_user, get_user_by_telegram_id
 from services.username_service import normalize_username, is_valid_username
 from services.rate_limit_service import is_rate_limited
+from config import Config
 import os
 
-JWT_SECRET = os.getenv("JWT_SECRET", "your-secret-key-change-this")
+JWT_SECRET = Config.JWT_SECRET
 JWT_ALGORITHM = "HS256"
 JWT_EXPIRATION_HOURS = 24 * 7  # 7 days
 
