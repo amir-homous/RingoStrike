@@ -125,6 +125,10 @@ The product has moved beyond raw MVP. The core progression identity system is im
 - Profile settings malformed JSON payload test.
 - Challenge join malformed JSON payload test.
 - Public profile not-found smoke tests.
+- Protected endpoint missing-auth smoke tests.
+- Protected endpoint invalid bearer-token smoke tests.
+- Profile settings unauthorized PATCH smoke tests.
+- Expand protected-endpoint auth failure coverage as new authenticated routes are added.
 
 
 

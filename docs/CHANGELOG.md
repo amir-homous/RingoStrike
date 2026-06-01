@@ -70,7 +70,9 @@ Added backend smoke test coverage for:
 - Shared API response helper shape.
 - Malformed JSON handling for auth, profile settings, and challenge join.
 - Public profile, consistency, and achievements not-found behavior.
-
+- Protected endpoint missing-auth behavior.
+- Protected endpoint invalid bearer-token behavior.
+- Profile settings unauthorized PATCH behavior.
 
 Current backend test command:
 
@@ -82,7 +84,7 @@ py -m pytest -q
 Latest local result:
 
 ```txt
-30 passed
+34 passed
 ```
 
 ### Profile Validation
