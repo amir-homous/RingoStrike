@@ -106,6 +106,7 @@ The product has moved beyond raw MVP. The core progression identity system is im
 - Made progression surfaces consistently ignore uncounted check-ins.
 - Preserved uncounted check-in state in enrollment history.
 - Normalized public profile username lookups.
+- Centralized public identity privacy enforcement for public profile, consistency, and achievements endpoints.
 - Hardened the active local auth form to use the shared API client, remove auth payload console logging, honor post-login redirects, and match backend password validation.
 - Removed stale frontend route/file clutter around the legacy login import and stray `Untitled` view snippet.
 - Aligned auth callback token storage with the shared API client Bearer fallback, constrained callback redirects to internal paths, and cleared stored callback tokens on logout.
@@ -218,7 +219,7 @@ These items should happen before expanding product scope:
 - Keep duplicate route ownership guard aligned as routes change.
 - Keep progression calculations centralized in `stats_service.py`.
 - Keep validation boundary ownership aligned as mutation routes change.
-- Preserve privacy enforcement on public identity endpoints.
+- Keep public identity privacy enforcement centralized as public surfaces change.
 
 ---
 
@@ -295,17 +296,14 @@ npm run build
 python scripts/smoke_backend.py --base-url http://localhost:5005
 ```
 
-## Recommended Next Issue
+## Lunch Readiness Status
 
-The next highest-value issue is:
+Actionable launch-hardening fixes targeted before lunch are complete.
 
-API: preserve privacy enforcement on public identity endpoints.
+Recommended next work should move from "fix before lunch" to final review:
 
-Suggested target:
-
-- Re-check public profile, public consistency, and public achievement privacy tests.
-- Add or tighten coverage for username normalization and private-profile behavior if any gap remains.
-- Preserve current public endpoint response shapes.
-- Keep public identity services as the privacy enforcement boundary.
+- Review the latest commits and commit titles.
+- Run any manual smoke checks you want before lunch.
+- Keep the ongoing maintenance notes above aligned as future features change.
 
 ---

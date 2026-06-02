@@ -1,32 +1,14 @@
 from database import get_db_connection
-from services.username_service import normalize_username
+from services.public_identity_service import get_public_identity
 
 
 def get_public_consistency(username: str):
-    username = normalize_username(username)
     conn = get_db_connection()
 
     try:
-        user = conn.execute(
-            """
-            SELECT id, profile_visibility
-            FROM users
-            WHERE lower(username) = lower(?)
-            """,
-            (username,),
-        ).fetchone()
-
-        if not user:
-            return {
-                "ok": False,
-                "error": "profile_not_found",
-            }, 404
-
-        if user["profile_visibility"] != "public":
-            return {
-                "ok": False,
-                "error": "profile_private",
-            }, 403
+        user, error_payload, code = get_public_identity(username, conn=conn)
+        if error_payload:
+            return error_payload, code
 
         rows = conn.execute(
             """

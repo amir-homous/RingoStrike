@@ -2,29 +2,17 @@ from __future__ import annotations
 
 from database import get_db_connection
 from services.public_activity_service import get_public_activity_feed
+from services.public_identity_service import get_public_identity
 from services.profile_service import get_profile
-from services.username_service import normalize_username
 
 
 def get_public_profile(username: str):
-    username = normalize_username(username)
     conn = get_db_connection()
 
     try:
-        user = conn.execute(
-            """
-            SELECT id, username, profile_visibility
-            FROM users
-            WHERE lower(username) = lower(?)
-            """,
-            (username,),
-        ).fetchone()
-
-        if not user:
-            return {"ok": False, "error": "profile_not_found"}, 404
-
-        if user["profile_visibility"] != "public":
-            return {"ok": False, "error": "profile_private"}, 403
+        user, error_payload, code = get_public_identity(username, conn=conn)
+        if error_payload:
+            return error_payload, code
 
         profile_payload, profile_code = get_profile(user["id"])
 

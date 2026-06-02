@@ -16,6 +16,15 @@ The project has moved beyond raw MVP. Core progression identity is implemented. 
 
 ## Latest Launch-Hardening Updates
 
+### Public Identity Privacy Enforcement
+
+Centralized public identity privacy enforcement:
+
+- Added a shared public identity service gate for username normalization, not-found handling, and private-profile blocking.
+- Migrated public profile, public consistency, and public achievements services to the shared gate.
+- Preserved public endpoint response shapes.
+- Added coverage for normalized private-profile blocking and shared not-found responses.
+
 ### Validation Boundary Ownership
 
 Tightened mutation endpoint validation boundaries:

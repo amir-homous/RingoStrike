@@ -443,6 +443,54 @@ def test_public_consistency_and_achievements_respect_profile_privacy(client):
     assert blocked_achievements_data["error"] == "profile_private"
 
 
+def test_public_identity_endpoints_block_private_profile_with_normalized_username(client):
+    user = register_user(client, username="PrivateNormalizedUser")
+    headers = auth_headers(user["access_token"])
+
+    private_res = client.patch(
+        "/api/profile/visibility",
+        json={"visibility": "private"},
+        headers=headers,
+    )
+
+    assert private_res.status_code == 200
+
+    spaced_username = "%20PrivateNormalizedUser%20"
+    endpoints = [
+        f"/api/public/profile/{spaced_username}",
+        f"/api/public/profile/{spaced_username}/consistency",
+        f"/api/public/profile/{spaced_username}/achievements",
+    ]
+
+    for endpoint in endpoints:
+        res = client.get(endpoint)
+        data = res.get_json()
+
+        assert res.status_code == 403
+        assert data == {
+            "ok": False,
+            "error": "profile_private",
+        }
+
+
+def test_public_identity_endpoints_share_not_found_response_shape(client):
+    endpoints = [
+        "/api/public/profile/%20missing_identity_user%20",
+        "/api/public/profile/%20missing_identity_user%20/consistency",
+        "/api/public/profile/%20missing_identity_user%20/achievements",
+    ]
+
+    for endpoint in endpoints:
+        res = client.get(endpoint)
+        data = res.get_json()
+
+        assert res.status_code == 404
+        assert data == {
+            "ok": False,
+            "error": "profile_not_found",
+        }
+
+
 def test_public_consistency_returns_unique_dates(client):
     user = register_user(client, username="UniqueConsistencyUser")
     today = "2026-01-15"
