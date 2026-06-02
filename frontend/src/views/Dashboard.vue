@@ -182,6 +182,13 @@ import ChallengeCard from "@/components/challenges/ChallengeCard.vue";
 import RewardFeedback from "@/components/feedback/RewardFeedback.vue";
 import ActivityTimeline from "@/components/activity/ActivityTimeline.vue";
 import AchievementPreview from "@/components/achievements/AchievementPreview.vue";
+import {
+  DASHBOARD_CHALLENGE_LIMIT,
+  buildTodayFocus,
+  getVisibleDashboardChallenges,
+  loadDashboardData,
+  orderDashboardChallenges,
+} from "./dashboardFlow";
 
 const router = useRouter();
 
@@ -200,7 +207,7 @@ const achievements = ref([]);
 const showAllChallenges = ref(false);
 
 const XP_PER_CHECKIN = 10;
-const challengeLimit = 4;
+const challengeLimit = DASHBOARD_CHALLENGE_LIMIT;
 
 const firstName = computed(() => {
   return String(user.value?.name || "there").trim().split(" ")[0];
@@ -215,14 +222,15 @@ const readyTodayCount = computed(() => {
 });
 
 const orderedChallenges = computed(() => {
-  const ready = challenges.value.filter((challenge) => !challenge.today_checked);
-  const done = challenges.value.filter((challenge) => Boolean(challenge.today_checked));
-  return [...ready, ...done];
+  return orderDashboardChallenges(challenges.value);
 });
 
 const visibleChallenges = computed(() => {
-  if (showAllChallenges.value) return orderedChallenges.value;
-  return orderedChallenges.value.slice(0, challengeLimit);
+  return getVisibleDashboardChallenges(
+    challenges.value,
+    showAllChallenges.value,
+    challengeLimit,
+  );
 });
 
 const hasHiddenChallenges = computed(() => {
@@ -230,22 +238,11 @@ const hasHiddenChallenges = computed(() => {
 });
 
 const todayFocusTitle = computed(() => {
-  if (!challenges.value.length) return "Choose your first path";
-  if (readyTodayCount.value === 0) return "All active paths are secured";
-  if (readyTodayCount.value === 1) return "One path is waiting";
-  return `${readyTodayCount.value} paths are waiting`;
+  return buildTodayFocus(challenges.value).title;
 });
 
 const todayFocusText = computed(() => {
-  if (!challenges.value.length) {
-    return "Start with one simple challenge. The product becomes meaningful when your day has a clear anchor.";
-  }
-
-  if (readyTodayCount.value === 0) {
-    return "Today’s check-ins are complete. You can review progress, achievements, or prepare your next path.";
-  }
-
-  return "Focus on ready paths first. Small daily completions compound into streaks, XP, and identity.";
+  return buildTodayFocus(challenges.value).text;
 });
 
 function pushToast(text, type = "success") {
@@ -257,56 +254,19 @@ function pushToast(text, type = "success") {
   }, 1800);
 }
 
-async function hydrateChallengeMeta() {
-  const detailCalls = challenges.value.map((c) =>
-    api.get(`/me/enrollments/${c.enrollment_id}`)
-  );
-
-  const results = await Promise.allSettled(detailCalls);
-
-  challenges.value = challenges.value.map((c, idx) => {
-    const rs = results[idx];
-
-    if (rs.status !== "fulfilled") return c;
-
-    const payload = rs.value?.data || {};
-
-    return {
-      ...c,
-      description: payload.challenge?.description || "",
-      duration_days: payload.challenge?.duration_days || null,
-      current_streak: payload.enrollment?.current_streak || 0,
-    };
-  });
-}
-
 async function loadDashboard() {
   error.value = "";
   loading.value = true;
 
   try {
-    const [dashboardResp, statsResp] = await Promise.all([
-      api.get("/me/challenges"),
-      api.get("/me/stats"),
-    ]);
+    const data = await loadDashboardData(api, new Date().toLocaleDateString());
 
-    const dashboardData = dashboardResp.data;
-    const statsData = statsResp.data;
-
-    user.value = statsData.user || dashboardData.user || null;
-    stats.value = statsData.stats || null;
-    challenges.value = (dashboardData.challenges || []).map((c) => ({ ...c }));
-    date.value = dashboardData.date || new Date().toLocaleDateString();
-
-    const [activityResp, achievementsResp] = await Promise.all([
-      api.get("/me/activity"),
-      api.get("/me/achievements"),
-    ]);
-
-    activityEvents.value = activityResp.data?.events || [];
-    achievements.value = achievementsResp.data?.achievements || [];
-
-    await hydrateChallengeMeta();
+    user.value = data.user;
+    stats.value = data.stats;
+    challenges.value = data.challenges;
+    date.value = data.date;
+    activityEvents.value = data.activityEvents;
+    achievements.value = data.achievements;
   } catch (e) {
     console.error(e);
     error.value = e?.response?.data?.error || e?.message || String(e);

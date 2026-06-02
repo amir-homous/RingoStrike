@@ -16,6 +16,15 @@ The project has moved beyond raw MVP. Core progression identity is implemented. 
 
 ## Latest Launch-Hardening Updates
 
+### Frontend Dashboard Loading Smoke Coverage
+
+Added a dependency-free frontend smoke test for dashboard loading behavior:
+
+- Extracted dashboard data loading and summary logic into a testable module.
+- Verified dashboard requests use the shared API client endpoints.
+- Verified empty, error, ready, and completed challenge summary states.
+- Verified representative challenge payloads hydrate card summary metadata.
+
 ### Frontend Login Flow Smoke Coverage
 
 Added a dependency-free frontend smoke test for local auth flow behavior:
