@@ -108,18 +108,10 @@ onMounted(fetchLeaderboard);
 <template>
   <div v-if="embedded" class="leaderboardBlock embedded stack-16">
     <BaseCard>
-      <UiState
-        :loading="loading"
-        :error="!!error"
-        :empty="isEmpty"
-        loading-title="Loading leaderboard…"
-        loading-text="Getting the latest rankings."
-        empty-title="No leaderboard data yet"
-        empty-text="Once people check in, rankings will show here."
-        error-title="Couldn’t load leaderboard"
-        :error-text="errorText"
-        @retry="fetchLeaderboard"
-      />
+      <UiState :loading="loading" :error="!!error" :empty="isEmpty" loading-title="Loading leaderboard…"
+        loading-text="Getting the latest rankings." empty-title="No leaderboard data yet"
+        empty-text="Once people check in, rankings will show here." error-title="Couldn’t load leaderboard"
+        :error-text="errorText" @retry="fetchLeaderboard" />
 
       <div v-if="!loading && !error && overall.length" class="leaderboardPanel">
         <div class="panelHeader">
@@ -150,11 +142,8 @@ onMounted(fetchLeaderboard);
             </thead>
 
             <tbody>
-              <tr
-                v-for="(row, index) in visibleOverall"
-                :key="row.enrollment_id || index"
-                :class="{ topRank: (row.rank ?? index + 1) <= 3 }"
-              >
+              <tr v-for="(row, index) in visibleOverall" :key="row.enrollment_id || index"
+                :class="{ topRank: (row.rank ?? index + 1) <= 3 }">
                 <td class="rank">
                   <span class="rankPill">#{{ row.rank ?? index + 1 }}</span>
                 </td>
@@ -184,12 +173,7 @@ onMounted(fetchLeaderboard);
           </table>
         </div>
 
-        <button
-          v-if="hasHiddenOverall"
-          type="button"
-          class="showMoreButton"
-          @click="showAllOverall = !showAllOverall"
-        >
+        <button v-if="hasHiddenOverall" type="button" class="showMoreButton" @click="showAllOverall = !showAllOverall">
           {{ showAllOverall ? "Show fewer" : `Show ${overall.length - overallLimit} more` }}
         </button>
       </div>
@@ -235,18 +219,10 @@ onMounted(fetchLeaderboard);
       </section>
 
       <BaseCard>
-        <UiState
-          :loading="loading"
-          :error="!!error"
-          :empty="isEmpty"
-          loading-title="Loading leaderboard…"
-          loading-text="Getting the latest rankings."
-          empty-title="No leaderboard data yet"
-          empty-text="Once people check in, rankings will show here."
-          error-title="Couldn’t load leaderboard"
-          :error-text="errorText"
-          @retry="fetchLeaderboard"
-        />
+        <UiState :loading="loading" :error="!!error" :empty="isEmpty" loading-title="Loading leaderboard…"
+          loading-text="Getting the latest rankings." empty-title="No leaderboard data yet"
+          empty-text="Once people check in, rankings will show here." error-title="Couldn’t load leaderboard"
+          :error-text="errorText" @retry="fetchLeaderboard" />
 
         <div v-if="!loading && !error && overall.length" class="leaderboardPanel">
           <div class="panelHeader">
@@ -264,11 +240,8 @@ onMounted(fetchLeaderboard);
           </div>
 
           <div class="podium" v-if="topThree.length >= 3">
-            <div
-              v-for="row in topThree"
-              :key="`podium-${row.enrollment_id}`"
-              :class="['podiumCard', `rank-${row.rank}`]"
-            >
+            <div v-for="row in topThree" :key="`podium-${row.enrollment_id}`"
+              :class="['podiumCard', `rank-${row.rank}`]">
               <div class="podiumRank">#{{ row.rank }}</div>
               <div class="podiumAvatar">
                 {{ (row.name || row.username || "?").slice(0, 1).toUpperCase() }}
@@ -295,11 +268,8 @@ onMounted(fetchLeaderboard);
               </thead>
 
               <tbody>
-                <tr
-                  v-for="(row, index) in visibleOverall"
-                  :key="row.enrollment_id || index"
-                  :class="{ topRank: (row.rank ?? index + 1) <= 3 }"
-                >
+                <tr v-for="(row, index) in visibleOverall" :key="row.enrollment_id || index"
+                  :class="{ topRank: (row.rank ?? index + 1) <= 3 }">
                   <td class="rank">
                     <span class="rankPill">#{{ row.rank ?? index + 1 }}</span>
                   </td>
@@ -329,12 +299,8 @@ onMounted(fetchLeaderboard);
             </table>
           </div>
 
-          <button
-            v-if="hasHiddenOverall"
-            type="button"
-            class="showMoreButton"
-            @click="showAllOverall = !showAllOverall"
-          >
+          <button v-if="hasHiddenOverall" type="button" class="showMoreButton"
+            @click="showAllOverall = !showAllOverall">
             {{ showAllOverall ? "Show fewer standings" : `Show ${overall.length - pageLimit} more standings` }}
           </button>
 
@@ -398,12 +364,7 @@ onMounted(fetchLeaderboard);
             </table>
           </div>
 
-          <button
-            v-if="hasHiddenToday"
-            type="button"
-            class="showMoreButton"
-            @click="showAllToday = !showAllToday"
-          >
+          <button v-if="hasHiddenToday" type="button" class="showMoreButton" @click="showAllToday = !showAllToday">
             {{ showAllToday ? "Show fewer today" : `Show ${today.length - todayLimit} more today` }}
           </button>
 
@@ -749,6 +710,7 @@ tbody tr.topRank {
   background: rgba(255, 255, 255, 0.055);
   border: 1px solid rgba(255, 255, 255, 0.09);
   font-variant-numeric: tabular-nums;
+  margin-left: 10px;
 }
 
 .rankPill.active {
@@ -819,6 +781,7 @@ tbody tr.topRank {
   font-size: 0.72rem;
   font-weight: 850;
   border: 1px solid rgba(255, 255, 255, 0.08);
+  margin-left: 10px;
 }
 
 .todayBadge.done {
@@ -896,18 +859,49 @@ tbody tr.topRank {
 }
 
 @media (max-width: 760px) {
+  .leaderboardBlock {
+    min-width: 0;
+  }
+
+  .heroCard {
+    padding: 18px;
+    border-radius: 20px;
+  }
+
   .heroContent,
   .panelHeader {
     align-items: flex-start;
     flex-direction: column;
+    min-width: 0;
+  }
+
+  .titleWithIcon {
+    align-items: flex-start;
+    min-width: 0;
+  }
+
+  .titleWithIcon>div,
+  .panelHeader>div {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .h1,
+  .panelTitle,
+  .caption {
+    overflow-wrap: anywhere;
   }
 
   .heroStats {
     width: 100%;
+    display: grid;
+    grid-template-columns: 1fr;
   }
 
-  .heroStat {
-    flex: 1;
+  .heroStat,
+  .panelMetric {
+    width: 100%;
+    min-width: 0;
     text-align: left;
   }
 
@@ -915,8 +909,144 @@ tbody tr.topRank {
     grid-template-columns: 1fr;
   }
 
+  .podiumCard {
+    min-width: 0;
+  }
+
+  .podiumName,
+  .podiumMeta {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .rulesChip {
+    max-width: 100%;
+    white-space: normal;
+  }
+
+  .tableWrap {
+    overflow-x: visible;
+    border: 0;
+    background: transparent;
+  }
+
   .table {
-    min-width: 680px;
+    min-width: 0;
+    display: block;
+  }
+
+  .table thead {
+    display: none;
+  }
+
+  .table tbody {
+    display: grid;
+    gap: 10px;
+  }
+
+  .table tbody tr {
+    display: block;
+    padding: 12px;
+    border-radius: 16px;
+    background:
+      linear-gradient(135deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.018));
+    border: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  .table tbody tr.topRank {
+    background:
+      linear-gradient(135deg, rgba(110, 229, 255, 0.08), rgba(255, 255, 255, 0.018));
+  }
+
+  .table tbody tr:hover {
+    transform: none;
+  }
+
+  .table tbody td {
+    display: block;
+    min-width: 0;
+    padding: 0;
+    border-bottom: 0;
+  }
+
+  .table .user {
+    max-width: none;
+    margin-top: 10px;
+    margin-bottom: 10px;
+  }
+
+  .userCell {
+    align-items: flex-start;
+    min-width: 0;
+    gap: 10px;
+  }
+
+  .userCell>div:last-child {
+    min-width: 0;
+  }
+
+  .uname,
+  .userCell .caption {
+    overflow-wrap: anywhere;
+  }
+
+  .rank,
+  .status,
+  .num {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+    color: rgba(255, 255, 255, 0.78);
+    font-size: 0.82rem;
+  }
+
+  .status,
+  .num {
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    text-align: right;
+  }
+
+  .rank::before,
+  .status::before {
+    color: var(--muted2);
+    font-size: 0.68rem;
+    font-weight: 850;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  .rank::before {
+    content: "Rank";
+  }
+
+  .status::before {
+    content: "Today";
+  }
+
+  .num::before {
+    content: "Total";
+    color: var(--muted2);
+    font-size: 0.68rem;
+    font-weight: 850;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  .streakNum::before {
+    content: "Streak";
+  }
+
+  .todayBadge {
+    min-width: 0;
+  }
+
+  .rankingNote,
+  .todayEmpty {
+    min-width: 0;
+    overflow-wrap: anywhere;
   }
 }
 </style>
