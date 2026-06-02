@@ -81,6 +81,7 @@
 
 <script>
 import api from "../lib/api";
+import { submitAuthFlow } from "./authFlow";
 
 export default {
   name: 'AuthForm',
@@ -115,54 +116,16 @@ export default {
       this.success = null
       this.loading = true
 
-      // Validate
-      if (!this.form.username || this.form.username.length < 3) {
-        this.error = 'Username must be at least 3 characters'
-        this.loading = false
-        return
-      }
-
-      if (!this.form.password) {
-        this.error = 'Password is required'
-        this.loading = false
-        return
-      }
-
-      if (!this.isLogin && this.form.password.length < 6) {
-        this.error = 'Password must be at least 6 characters'
-        this.loading = false
-        return
-      }
-
-      const endpoint = this.isLogin ? '/auth/login' : '/auth/register'
-      
       try {
-        const response = await api.post(endpoint, {
-          username: this.form.username,
-          password: this.form.password,
-          ...(this.isLogin ? {} : {
-            name: this.form.name || this.form.username,
-            email: this.form.email || null
-          })
+        const result = await submitAuthFlow({
+          apiClient: api,
+          router: this.$router,
+          route: this.$route,
+          form: this.form,
+          isLogin: this.isLogin,
         })
 
-        const data = response.data || {}
-
-        if (!data.ok) {
-          throw new Error(data.error || 'Authentication failed')
-        }
-
-        this.success = this.isLogin ? 'Login successful!' : 'Registration successful!'
-
-        const next = this.$route.query.next
-        const nextPath = typeof next === 'string' && next.startsWith('/')
-          ? next
-          : '/dashboard'
-
-        setTimeout(() => {
-          this.$router.push(nextPath)
-        }, 1000)
-        
+        this.success = result.success
       } catch (err) {
         const apiError = err.response?.data?.error
         this.error = apiError || err.message || 'An error occurred. Please try again.'

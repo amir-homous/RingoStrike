@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "test:auth": "node scripts/smoke_auth_flow.mjs",
     "test:router": "node scripts/smoke_router_guard.mjs",
     "preview": "vite preview"
   },

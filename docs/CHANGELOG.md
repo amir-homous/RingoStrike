@@ -16,6 +16,16 @@ The project has moved beyond raw MVP. Core progression identity is implemented. 
 
 ## Latest Launch-Hardening Updates
 
+### Frontend Login Flow Smoke Coverage
+
+Added a dependency-free frontend smoke test for local auth flow behavior:
+
+- Extracted login/register submission logic into a testable module.
+- Verified local login posts through the shared API client.
+- Verified successful auth redirects to a safe `next` path or dashboard fallback.
+- Verified failed auth surfaces backend error text.
+- Verified local login does not write tokens to local storage.
+
 ### Frontend Router Guard Smoke Coverage
 
 Added a dependency-free frontend smoke test for router guard behavior:
