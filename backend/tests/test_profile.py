@@ -142,6 +142,28 @@ def test_profile_update_validation(client):
     assert invalid_avatar_data["ok"] is False
     assert invalid_avatar_data["error"] == "invalid_avatar_url"
 
+    protocol_relative_avatar_res = client.patch(
+        "/api/me/profile/settings",
+        json={"avatar_url": "//example.com/avatar.png"},
+        headers=headers,
+    )
+
+    assert protocol_relative_avatar_res.status_code == 400
+    protocol_relative_avatar_data = protocol_relative_avatar_res.get_json()
+    assert protocol_relative_avatar_data["ok"] is False
+    assert protocol_relative_avatar_data["error"] == "invalid_avatar_url"
+
+    protocol_relative_profile_res = client.patch(
+        "/api/profile",
+        json={"avatar_url": "//example.com/avatar.png"},
+        headers=headers,
+    )
+
+    assert protocol_relative_profile_res.status_code == 400
+    protocol_relative_profile_data = protocol_relative_profile_res.get_json()
+    assert protocol_relative_profile_data["ok"] is False
+    assert protocol_relative_profile_data["error"] == "invalid_avatar_url"
+
     valid_settings_res = client.patch(
         "/api/me/profile/settings",
         json={

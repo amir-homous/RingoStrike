@@ -35,13 +35,16 @@ def _validate_avatar_url(value: str):
             "error": "avatar_url_too_long",
         }, 400
 
-    allowed_prefixes = (
-        "/",
-        "http://",
-        "https://",
+    is_local_path = (
+        value.startswith("/")
+        and not value.startswith("//")
+    )
+    is_absolute_url = (
+        value.startswith("http://")
+        or value.startswith("https://")
     )
 
-    if not value.startswith(allowed_prefixes):
+    if not (is_local_path or is_absolute_url):
         return {
             "ok": False,
             "error": "invalid_avatar_url",
