@@ -461,6 +461,26 @@ def test_challenge_access_rules_for_private_archived_and_missing(client):
     assert archived_join_data["ok"] is False
     assert archived_join_data["error"] == "challenge_inactive"
 
+    archived_detail_res = client.get(
+        f"/challenges/{archived_challenge_id}",
+        headers=headers,
+    )
+
+    assert archived_detail_res.status_code == 403
+    archived_detail_data = archived_detail_res.get_json()
+    assert archived_detail_data["ok"] is False
+    assert archived_detail_data["error"] == "challenge_inactive"
+
+    archived_members_res = client.get(
+        f"/challenges/{archived_challenge_id}/members",
+        headers=headers,
+    )
+
+    assert archived_members_res.status_code == 403
+    archived_members_data = archived_members_res.get_json()
+    assert archived_members_data["ok"] is False
+    assert archived_members_data["error"] == "challenge_inactive"
+
     public_detail_res = client.get(
         f"/challenges/{public_challenge_id}",
         headers=headers,

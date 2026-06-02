@@ -103,8 +103,15 @@ def get_challenge_detail(challenge_id: int):
         if row is None:
             return {"ok": False, "error": f"Challenge with ID {challenge_id} not found"}, 404
 
-        if (row["visibility"] or "Private") == "Private":
+        visibility = (row["visibility"] or "Private").strip()
+        visibility_key = visibility.lower()
+        status = (row["status"] or "Active").strip()
+
+        if visibility_key == "private":
             return {"ok": False, "error": "challenge_private"}, 403
+
+        if status.lower() != "active":
+            return {"ok": False, "error": "challenge_inactive"}, 403
 
         count_row = conn.execute(
             "SELECT COUNT(*) FROM enrollments WHERE challenge_id = ? AND status = 'Active'",
@@ -128,7 +135,7 @@ def get_challenge_detail(challenge_id: int):
                 "goal_type": row["goal_type"] or "",
                 "tags": tags_list,
                 "members_count": members_count,
-                "join_code_required": (row["visibility"] == "Invite-only" and bool(row["join_code"])),
+                "join_code_required": (visibility_key == "invite-only" and bool(row["join_code"])),
             },
         }, 200
     finally:
@@ -139,15 +146,21 @@ def get_challenge_members(challenge_id: int, limit_arg, offset_arg):
     conn = get_db_connection()
     try:
         challenge = conn.execute(
-            "SELECT visibility FROM challenges WHERE id = ?",
+            "SELECT visibility, status FROM challenges WHERE id = ?",
             (challenge_id,),
         ).fetchone()
 
         if not challenge:
             return {"ok": False, "error": "challenge_not_found"}, 404
 
-        if (challenge["visibility"] or "Private") == "Private":
+        visibility_key = (challenge["visibility"] or "Private").strip().lower()
+        status = (challenge["status"] or "Active").strip()
+
+        if visibility_key == "private":
             return {"ok": False, "error": "challenge_private"}, 403
+
+        if status.lower() != "active":
+            return {"ok": False, "error": "challenge_inactive"}, 403
 
         limit = max(1, min(safe_int(limit_arg, 20), 50))
         offset = max(0, safe_int(offset_arg, 0))
@@ -199,12 +212,13 @@ def join_challenge(user_id: int, challenge_id: int, provided_code: str):
             return {"ok": False, "error": "challenge_inactive"}, 403
 
         visibility = (ch["visibility"] or "Private").strip()
+        visibility_key = visibility.lower()
         required = (ch["join_code"] or "").strip()
 
-        if visibility == "Private":
+        if visibility_key == "private":
             return {"ok": False, "error": "challenge_private"}, 403
 
-        if visibility == "Invite-only":
+        if visibility_key == "invite-only":
             if not required:
                 return {"ok": False, "error": "invite_only_not_configured"}, 403
             if not provided_code:
