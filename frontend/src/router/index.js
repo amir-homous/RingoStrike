@@ -1,5 +1,4 @@
 import { createRouter, createWebHistory } from "vue-router";
-import Login from "../views/Login.vue";
 import Dashboard from "../views/Dashboard.vue";
 import Challenges from "../views/Challenges.vue";
 import AuthCallback from "../views/AuthCallback.vue";

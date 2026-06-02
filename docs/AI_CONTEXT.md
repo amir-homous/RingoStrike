@@ -39,6 +39,7 @@ RingoStrike should feel like a premium consistency and progression system, not a
 - Vue 3 + Vite application in `frontend/`.
 - Vue Router routes for login, auth callback, dashboard, challenges, profile, enrollment, leaderboard, public profile, API docs, and redirects.
 - Axios API client in `frontend/src/lib/api.js` using `VITE_API_BASE` or `http://localhost:5005`, credentials enabled.
+- Active local auth UI is `frontend/src/components/AuthForm.vue`; it uses the shared API client and honors the `next` redirect query.
 - Shared CSS tokens in `frontend/src/styles/tokens.css` and base styles in `frontend/src/styles/base.css`.
 - Component groups for UI primitives, progress, achievements, activity, challenge cards, profile, and feedback.
 - Public profile page consumes `/api/public/profile/:username`, `/consistency`, and `/achievements`.
@@ -55,6 +56,8 @@ RingoStrike should feel like a premium consistency and progression system, not a
 ## Critical Engineering Notes
 
 - `frontend/src/stores/session.js` is aligned with cookie-based auth and no longer expects `api.setToken()`.
+- `frontend/src/components/AuthForm.vue` should stay aligned with `frontend/src/lib/api.js`; avoid hard-coded backend origins or auth payload logging.
+- `frontend/src/views/Login.vue` is a Telegram-oriented view and is not the active `/login` route while local username/password auth remains the primary flow.
 - `GET /me/stats` is owned by `stats_routes.py` and delegates to `stats_service.py`.
 - `backend/services/auth_service.py` has been removed; active auth routes are still registered through `backend/auth.py`.
 - The old `sessions` table is no longer initialized by `init_db()`; active auth uses stateless JWT cookies.

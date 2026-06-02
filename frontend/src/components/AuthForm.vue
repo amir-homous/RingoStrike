@@ -80,6 +80,8 @@
 </template>
 
 <script>
+import api from "../lib/api";
+
 export default {
   name: 'AuthForm',
   data() {
@@ -120,7 +122,13 @@ export default {
         return
       }
 
-      if (!this.form.password || this.form.password.length < 6) {
+      if (!this.form.password) {
+        this.error = 'Password is required'
+        this.loading = false
+        return
+      }
+
+      if (!this.isLogin && this.form.password.length < 6) {
         this.error = 'Password must be at least 6 characters'
         this.loading = false
         return
@@ -129,60 +137,35 @@ export default {
       const endpoint = this.isLogin ? '/auth/login' : '/auth/register'
       
       try {
-        console.log('Sending request to:', endpoint)
-        console.log('Form data:', this.form)
-
-        const response = await fetch(`http://localhost:5005${endpoint}`, {
-          method: 'POST',
-          headers: { 
-            'Content-Type': 'application/json',
-          },
-          credentials: 'include', // Include cookies
-          body: JSON.stringify({
-            username: this.form.username,
-            password: this.form.password,
-            ...(this.isLogin ? {} : {
-              name: this.form.name || this.form.username,
-              email: this.form.email || null
-            })
+        const response = await api.post(endpoint, {
+          username: this.form.username,
+          password: this.form.password,
+          ...(this.isLogin ? {} : {
+            name: this.form.name || this.form.username,
+            email: this.form.email || null
           })
         })
 
-        console.log('Response status:', response.status)
-        console.log('Response headers:', response.headers)
+        const data = response.data || {}
 
-        // Check if response is JSON
-        const contentType = response.headers.get('content-type')
-        if (!contentType || !contentType.includes('application/json')) {
-          const text = await response.text()
-          console.error('Response is not JSON:', text)
-          throw new Error('Server returned invalid response')
-        }
-
-        const data = await response.json()
-        console.log('Response data:', data)
-
-        if (!response.ok) {
+        if (!data.ok) {
           throw new Error(data.error || 'Authentication failed')
         }
 
-        // Success
         this.success = this.isLogin ? 'Login successful!' : 'Registration successful!'
-        
-        // Save token
-        if (data.access_token) {
-          localStorage.setItem('access_token', data.access_token)
-          console.log('Token saved to localStorage')
-        }
 
-        // Redirect to dashboard
+        const next = this.$route.query.next
+        const nextPath = typeof next === 'string' && next.startsWith('/')
+          ? next
+          : '/dashboard'
+
         setTimeout(() => {
-          this.$router.push('/dashboard')
+          this.$router.push(nextPath)
         }, 1000)
         
       } catch (err) {
-        console.error('Error:', err)
-        this.error = err.message || 'An error occurred. Check console for details.'
+        const apiError = err.response?.data?.error
+        this.error = apiError || err.message || 'An error occurred. Please try again.'
       } finally {
         this.loading = false
       }

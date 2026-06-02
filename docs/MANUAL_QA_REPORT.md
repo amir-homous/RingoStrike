@@ -27,8 +27,7 @@ Verify the core RingoStrike user journey manually after backend stabilization, f
 Command:
 
 ```bash
-cd backend
-py -m pytest -q
+./venv/bin/pytest backend/tests
 ```
 
 Result:
@@ -40,7 +39,7 @@ PASS
 Notes:
 
 ```txt
-Backend pytest suite passed locally after the latest pre-launch UI polish work.
+48 backend tests passed locally after the active auth form hardening pass.
 ```
 
 ### Frontend Build
@@ -61,7 +60,7 @@ PASS
 Notes:
 
 ```txt
-Frontend production build passed locally after dashboard, challenges, profile, enrollment, and leaderboard polish.
+Frontend production build passed locally after active auth form hardening and stale frontend cleanup.
 ```
 
 ### GitHub Actions
@@ -86,7 +85,7 @@ PENDING / PASS
 Notes:
 
 ```txt
-Backend CI passed after push. Frontend CI may require follow-up depending on GitHub Actions npm install stability.
+Backend CI previously passed after push. Frontend CI npm registry timeout was fixed in the latest committed workflow update; confirm the next GitHub Actions run after pushing this pass.
 ```
 
 ---
@@ -112,7 +111,7 @@ PASS
 Notes:
 
 ```txt
-Auth flow was previously checked as part of the core manual QA pass.
+Active local auth form now uses the shared frontend API client instead of a hard-coded localhost fetch, avoids auth payload console logging, and honors the next redirect query after login/register.
 ```
 
 ### Dashboard

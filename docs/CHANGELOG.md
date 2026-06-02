@@ -16,6 +16,17 @@ The project has moved beyond raw MVP. Core progression identity is implemented. 
 
 ## Latest Launch-Hardening Updates
 
+### Frontend Auth Form Hardening
+
+Updated the active local auth form:
+
+- Replaced hard-coded `http://localhost:5005` fetch calls with the shared frontend API client.
+- Removed console logging of auth form payloads and responses.
+- Preserved HttpOnly cookie-based auth behavior without writing local login tokens to local storage.
+- Honored the `next` query parameter after successful login/register.
+- Aligned client-side password validation with backend behavior: login requires a password, registration requires at least six characters.
+- Removed a stale `frontend/src/views/Untitled` backend snippet and an unused router import.
+
 ### Production Readiness
 
 Added production-readiness improvements:
@@ -98,13 +109,13 @@ Added backend smoke test coverage for:
 Current backend test command:
 
 ```bash
-backend/venv/bin/python -m pytest -q
+./venv/bin/pytest backend/tests
 ```
 
 Latest local result:
 
 ```txt
-41 passed
+48 passed
 ```
 
 ### Profile Validation
