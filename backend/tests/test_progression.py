@@ -1,4 +1,5 @@
 from helpers import auth_headers, insert_challenge, register_user
+from utils.date_utils import utc_today_iso
 
 
 def test_achievement_unlocks_after_first_checkin(client):
@@ -105,6 +106,148 @@ def test_achievement_unlocks_after_first_checkin(client):
 
         assert "first_checkin" not in duplicate_reward_keys
         assert "first_challenge_completed" not in duplicate_reward_keys
+
+
+def test_checkin_requires_active_enrollment(client):
+    user = register_user(client, username="InactiveCheckinUser")
+    headers = auth_headers(user["access_token"])
+    challenge_id = insert_challenge(
+        name="Inactive Checkin Challenge",
+        description="Used to verify inactive enrollment check-ins.",
+        visibility="Public",
+    )
+
+    import database
+
+    conn = database.get_db_connection()
+    try:
+        cur = conn.execute(
+            """
+            INSERT INTO enrollments (
+                user_id,
+                challenge_id,
+                status
+            )
+            VALUES (?, ?, 'Left')
+            """,
+            (
+                user["user_id"],
+                challenge_id,
+            ),
+        )
+        enrollment_id = cur.lastrowid
+        conn.commit()
+    finally:
+        conn.close()
+
+    res = client.post(
+        f"/me/challenges/{enrollment_id}/checkin",
+        headers=headers,
+    )
+
+    assert res.status_code == 403
+    data = res.get_json()
+    assert data["ok"] is False
+    assert data["error"] == "enrollment_inactive"
+
+    conn = database.get_db_connection()
+    try:
+        checkin_count = conn.execute(
+            "SELECT COUNT(*) AS n FROM checkins WHERE enrollment_id = ?",
+            (enrollment_id,),
+        ).fetchone()["n"]
+    finally:
+        conn.close()
+
+    assert checkin_count == 0
+
+
+def test_checkin_recovers_existing_uncounted_today_row(client):
+    user = register_user(client, username="RecoveredCheckinUser")
+    headers = auth_headers(user["access_token"])
+    challenge_id = insert_challenge(
+        name="Recovered Checkin Challenge",
+        description="Used to verify existing same-day check-ins are counted.",
+        visibility="Public",
+    )
+    today = utc_today_iso()
+
+    import database
+
+    conn = database.get_db_connection()
+    try:
+        enrollment_cur = conn.execute(
+            """
+            INSERT INTO enrollments (
+                user_id,
+                challenge_id,
+                status
+            )
+            VALUES (?, ?, 'Active')
+            """,
+            (
+                user["user_id"],
+                challenge_id,
+            ),
+        )
+        enrollment_id = enrollment_cur.lastrowid
+        conn.execute(
+            """
+            INSERT INTO checkins (
+                enrollment_id,
+                user_id,
+                challenge_id,
+                date,
+                status,
+                is_counted
+            )
+            VALUES (?, ?, ?, ?, 'Skipped', 0)
+            """,
+            (
+                enrollment_id,
+                user["user_id"],
+                challenge_id,
+                today,
+            ),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+    res = client.post(
+        f"/me/challenges/{enrollment_id}/checkin",
+        headers=headers,
+    )
+
+    assert res.status_code == 200
+    data = res.get_json()
+    assert data["ok"] is True
+
+    conn = database.get_db_connection()
+    try:
+        row = conn.execute(
+            """
+            SELECT status, is_counted
+            FROM checkins
+            WHERE enrollment_id = ? AND date = ?
+            """,
+            (
+                enrollment_id,
+                today,
+            ),
+        ).fetchone()
+    finally:
+        conn.close()
+
+    assert row["status"] == "Done"
+    assert row["is_counted"] == 1
+
+    stats_res = client.get("/me/stats", headers=headers)
+
+    assert stats_res.status_code == 200
+    stats_data = stats_res.get_json()
+    assert stats_data["ok"] is True
+    assert stats_data["stats"]["total_checkins"] == 1
 
 
 def test_leaderboard_rank_and_enrollment_reset_metadata(client):

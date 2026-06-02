@@ -259,7 +259,7 @@ Returns enrollment summary, challenge details, recent logs, `today_checked`, `to
 
 Auth: required.
 
-Creates or updates today's check-in for the enrollment.
+Creates or updates today's check-in for an active enrollment.
 
 Success:
 
@@ -273,6 +273,12 @@ Success:
     "achievement_xp_reward": 0
   }
 }
+```
+
+Inactive enrollment error `403`:
+
+```json
+{ "ok": false, "error": "enrollment_inactive" }
 ```
 
 ### `GET /me/challenges/:enrollment_id/history?days=30`

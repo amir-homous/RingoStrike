@@ -7,10 +7,11 @@ from services.achievement_service import evaluate_and_unlock
 def checkin(user_id:int,enrollment_id:int):
     date_iso=utc_today_iso(); conn=get_db_connection()
     try:
-        enroll=conn.execute("SELECT id, challenge_id FROM enrollments WHERE id=? AND user_id=?",(enrollment_id,user_id)).fetchone()
+        enroll=conn.execute("SELECT id, challenge_id, status FROM enrollments WHERE id=? AND user_id=?",(enrollment_id,user_id)).fetchone()
         if not enroll: return {"ok":False,"error":"forbidden_enrollment"},403
+        if (enroll["status"] or "") != "Active": return {"ok":False,"error":"enrollment_inactive"},403
         ex=conn.execute("SELECT id FROM checkins WHERE enrollment_id=? AND date=?",(enrollment_id,date_iso)).fetchone()
-        if ex: conn.execute("UPDATE checkins SET status='Done' WHERE id=?",(ex['id'],))
+        if ex: conn.execute("UPDATE checkins SET status='Done', is_counted=1 WHERE id=?",(ex['id'],))
         else: conn.execute("INSERT INTO checkins (enrollment_id, user_id, challenge_id, date, status, is_counted) VALUES (?, ?, ?, ?, 'Done', 1)",(enrollment_id,user_id,enroll['challenge_id'],date_iso))
         conn.commit()
     finally:
