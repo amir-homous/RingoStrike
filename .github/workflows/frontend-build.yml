@@ -52,7 +52,7 @@ jobs:
 
       - name: Install frontend dependencies
         run: npm ci --include=dev --no-audit --no-fund --prefer-offline
-        timeout-minutes: 8
+        timeout-minutes: 12
 
       - name: Verify frontend dependencies
         run: |
