@@ -1,0 +1,19 @@
+{
+  "folders": [
+    {
+      "name": "RingoStrike",
+      "path": "."
+    }
+  ],
+  "settings": {
+    "terminal.integrated.defaultProfile.linux": "zsh",
+    "editor.formatOnSave": true,
+    "files.exclude": {
+      "**/__pycache__": true,
+      "**/.pytest_cache": true,
+      "**/node_modules": true,
+      "**/.venv": true,
+      "**/venv": true
+    }
+  }
+}
