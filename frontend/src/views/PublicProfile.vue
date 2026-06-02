@@ -148,6 +148,10 @@ import ConsistencyHeatmap from "@/components/profile/ConsistencyHeatmap.vue";
 
 import AchievementPreview from "@/components/achievements/AchievementPreview.vue";
 import ActivityTimeline from "@/components/activity/ActivityTimeline.vue";
+import {
+  getPublicProfileTitleText,
+  loadPublicProfileState,
+} from "./publicProfileFlow";
 
 const route = useRoute();
 
@@ -166,17 +170,7 @@ const username = computed(() => {
 });
 
 const profileTitleText = computed(() => {
-  const title = profile.value?.title;
-
-  if (!title) return "Builder";
-
-  if (typeof title === "string") return title;
-
-  if (typeof title === "object") {
-    return title.label || title.key || "Builder";
-  }
-
-  return "Builder";
+  return getPublicProfileTitleText(profile.value);
 });
 
 async function load() {
@@ -186,35 +180,14 @@ async function load() {
   isNotFound.value = false;
 
   try {
-    const currentUsername = username.value;
+    const state = await loadPublicProfileState(api, username.value);
 
-    const [p, c, a] = await Promise.all([
-      api.get(`/api/public/profile/${currentUsername}`),
-      api.get(`/api/public/profile/${currentUsername}/consistency`),
-      api.get(`/api/public/profile/${currentUsername}/achievements`),
-    ]);
-
-    profile.value = p.data.profile;
-    consistency.value = c.data.days || [];
-    achievements.value = a.data.achievements || [];
-  } catch (err) {
-    const code = err?.response?.data?.error;
-
-    profile.value = null;
-    consistency.value = [];
-    achievements.value = [];
-
-    if (code === "profile_private") {
-      isPrivate.value = true;
-      return;
-    }
-
-    if (code === "profile_not_found") {
-      isNotFound.value = true;
-      return;
-    }
-
-    error.value = code || err?.message || "Failed loading profile";
+    profile.value = state.profile;
+    consistency.value = state.consistency;
+    achievements.value = state.achievements;
+    isPrivate.value = state.isPrivate;
+    isNotFound.value = state.isNotFound;
+    error.value = state.error;
   } finally {
     loading.value = false;
   }

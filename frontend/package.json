@@ -10,6 +10,7 @@
     "test:challenge": "node scripts/smoke_challenge_flow.mjs",
     "test:dashboard": "node scripts/smoke_dashboard_flow.mjs",
     "test:profile": "node scripts/smoke_profile_flow.mjs",
+    "test:public-profile": "node scripts/smoke_public_profile_flow.mjs",
     "test:router": "node scripts/smoke_router_guard.mjs",
     "preview": "vite preview"
   },

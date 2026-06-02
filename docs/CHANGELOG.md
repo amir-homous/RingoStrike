@@ -16,6 +16,15 @@ The project has moved beyond raw MVP. Core progression identity is implemented. 
 
 ## Latest Launch-Hardening Updates
 
+### Frontend Public Profile Smoke Coverage
+
+Added a dependency-free frontend smoke test for public profile rendering behavior:
+
+- Extracted public profile loading and display-state mapping into a testable module.
+- Verified public profile, consistency, and achievement requests use the shared API client endpoints.
+- Verified private and not-found API states map to stable display states.
+- Verified representative public profile payloads preserve public activity and identity title data.
+
 ### Frontend Profile Loading Smoke Coverage
 
 Added a dependency-free frontend smoke test for private profile loading and settings behavior:
