@@ -706,10 +706,23 @@ onMounted(load);
   .segmentedControl {
     width: 100%;
     border-radius: 18px;
+    flex-wrap: wrap;
   }
 
   .segmentedControl button {
     flex: 1;
+    min-width: calc(50% - 4px);
+    padding-inline: 10px;
+    white-space: normal;
+  }
+
+  .inviteBox {
+    margin-inline: 0;
+  }
+
+  .inviteCopy {
+    min-width: 0;
+    width: 100%;
   }
 
   .inviteControls {

@@ -400,6 +400,7 @@ onMounted(load);
   .publicAction {
     width: 100%;
     text-align: center;
+    white-space: normal;
   }
 
   .stateCard {

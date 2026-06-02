@@ -456,6 +456,7 @@ onMounted(load);
 
   .headActions {
     flex-direction: column;
+    align-items: stretch;
   }
 
   .profileAction {

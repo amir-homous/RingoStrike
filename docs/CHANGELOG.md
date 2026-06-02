@@ -16,6 +16,15 @@ The project has moved beyond raw MVP. Core progression identity is implemented. 
 
 ## Latest Launch-Hardening Updates
 
+### Frontend Responsive UI Hardening
+
+Tightened responsive behavior across core frontend surfaces:
+
+- Added shared min-width guards to app containers and cards.
+- Made the consistency heatmap use a more readable mobile grid.
+- Improved mobile challenge filters and invite-code controls.
+- Let dashboard, private profile, and public profile action buttons wrap cleanly on narrow screens.
+
 ### Frontend Public Profile Smoke Coverage
 
 Added a dependency-free frontend smoke test for public profile rendering behavior:

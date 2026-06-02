@@ -207,7 +207,7 @@ These items should happen before expanding product scope:
 - Keep challenge join/check-in smoke coverage aligned as challenge flow behavior changes.
 - Keep profile loading smoke coverage aligned as profile behavior changes.
 - Keep public profile smoke coverage aligned as public profile behavior changes.
-- Run responsive UI pass using launch QA checklist.
+- Keep responsive UI pass findings aligned as core route layouts change.
 - Run browser console pass on major routes.
 
 ### API Reliability
@@ -299,13 +299,13 @@ python scripts/smoke_backend.py --base-url http://localhost:5005
 
 The next highest-value issue is:
 
-Frontend: run responsive UI pass using launch QA checklist.
+Frontend: run browser console pass on major routes.
 
 Suggested target:
 
-- Check core routes at mobile and desktop widths.
-- Verify no horizontal scrolling, overlap, or clipped text.
-- Prioritize dashboard, challenges, enrollment, leaderboard, private profile, and public profile.
-- Document or fix any layout issue found before the browser console pass.
+- Check dashboard, challenges, enrollment, leaderboard, private profile, and public profile.
+- Verify no uncaught runtime errors or failed frontend-side requests.
+- Document any expected backend/API failures separately from frontend console issues.
+- Fix any frontend runtime warning or error found during the pass.
 
 ---

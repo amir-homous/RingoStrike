@@ -65,4 +65,4 @@ const cells = computed(() => {
   return out;
 });
 </script>
-<style scoped>.head{display:flex;justify-content:space-between;margin-bottom:10px}.grid{display:grid;grid-template-columns:repeat(28,1fr);gap:4px}.cell{aspect-ratio:1;border:0;border-radius:4px;background:rgba(255,255,255,.05)}.i-1{background:rgba(99,102,241,.32)}.i-2{background:rgba(99,102,241,.48)}.i-3{background:rgba(56,189,248,.56)}.i-4{background:rgba(56,189,248,.75)}</style>
+<style scoped>.head{display:flex;justify-content:space-between;gap:10px;margin-bottom:10px}.grid{display:grid;grid-template-columns:repeat(28,1fr);gap:4px}.cell{aspect-ratio:1;border:0;border-radius:4px;background:rgba(255,255,255,.05)}.i-1{background:rgba(99,102,241,.32)}.i-2{background:rgba(99,102,241,.48)}.i-3{background:rgba(56,189,248,.56)}.i-4{background:rgba(56,189,248,.75)}@media(max-width:640px){.head{align-items:flex-start;flex-direction:column}.grid{grid-template-columns:repeat(14,1fr);gap:5px}.cell{border-radius:5px}}@media(max-width:380px){.grid{gap:4px}}</style>

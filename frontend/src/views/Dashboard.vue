@@ -684,6 +684,8 @@ onMounted(loadDashboard);
   .primaryLink,
   .ghostLink {
     width: 100%;
+    white-space: normal;
+    text-align: center;
   }
 
   .focusStats {

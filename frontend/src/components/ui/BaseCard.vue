@@ -12,6 +12,7 @@ defineProps({
 
 <style scoped>
 .card{
+  min-width: 0;
   background: linear-gradient(180deg, var(--card2), var(--card));
   border: 1px solid var(--border);
   border-radius: var(--r-12);
