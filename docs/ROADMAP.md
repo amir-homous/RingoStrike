@@ -212,7 +212,7 @@ These items should happen before expanding product scope:
 
 ### API Reliability
 
-- Define a shared API error response convention.
+- Keep shared API error response convention aligned as routes migrate.
 - Keep backward-compatible response shapes for active frontend usage.
 - Document endpoint ownership clearly.
 - Avoid duplicate route ownership.
@@ -299,13 +299,13 @@ python scripts/smoke_backend.py --base-url http://localhost:5005
 
 The next highest-value issue is:
 
-API: define a shared API error response convention.
+API: document endpoint ownership clearly.
 
 Suggested target:
 
-- Inventory current error response shapes across active routes.
-- Define canonical fields for frontend-safe errors.
-- Preserve backward-compatible response shapes where the active frontend depends on them.
-- Start migration through the existing shared API response helper.
+- Inventory active route modules and owning services.
+- Mark public, authenticated, and development-only surfaces.
+- Document duplicate-ownership risks and current canonical owners.
+- Keep the document aligned with active frontend usage.
 
 ---

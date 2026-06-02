@@ -1,8 +1,9 @@
 import os
 
-from flask import Blueprint, jsonify
+from flask import Blueprint
 
 from services.debug_service import sqlite_counts, sqlite_schema
+from utils.api_response import error_response, service_response
 
 debug_bp = Blueprint("debug_bp", __name__)
 
@@ -12,7 +13,7 @@ def _debug_enabled():
 
 
 def _debug_disabled_response():
-    return jsonify({"ok": False, "error": "debug_disabled"}), 403
+    return error_response("debug_disabled", 403)
 
 
 @debug_bp.get("/debug/sqlite/schema/<table>")
@@ -21,7 +22,11 @@ def debug_sqlite_schema(table):
         return _debug_disabled_response()
 
     payload, code = sqlite_schema(table)
-    return jsonify(payload), code
+    return service_response(
+        payload,
+        code,
+        fallback_error="debug_error",
+    )
 
 
 @debug_bp.get("/debug/sqlite/counts")
@@ -30,4 +35,8 @@ def debug_sqlite_counts():
         return _debug_disabled_response()
 
     payload, code = sqlite_counts()
-    return jsonify(payload), code
+    return service_response(
+        payload,
+        code,
+        fallback_error="debug_error",
+    )

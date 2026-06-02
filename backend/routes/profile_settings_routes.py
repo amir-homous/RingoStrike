@@ -11,8 +11,7 @@ from services.profile_settings_service import (
 )
 
 from utils.api_response import (
-    error_response,
-    ok_response,
+    service_response,
 )
 
 
@@ -23,19 +22,11 @@ profile_settings_bp = Blueprint(
 
 
 def _service_response(payload: dict, code: int):
-    if not payload.get("ok"):
-        return error_response(
-            payload.get("error", "profile_settings_error"),
-            code,
-        )
-
-    clean_payload = {
-        key: value
-        for key, value in payload.items()
-        if key != "ok"
-    }
-
-    return ok_response(clean_payload, code)
+    return service_response(
+        payload,
+        code,
+        fallback_error="profile_settings_error",
+    )
 
 
 @profile_settings_bp.get(

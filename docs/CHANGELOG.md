@@ -16,6 +16,15 @@ The project has moved beyond raw MVP. Core progression identity is implemented. 
 
 ## Latest Launch-Hardening Updates
 
+### Shared API Error Response Convention
+
+Defined and started migrating the shared API error response convention:
+
+- Canonical API errors require `ok: false` and `error`.
+- Optional frontend-safe fields are `message` and `details`.
+- Added a shared `service_response` adapter for service payloads.
+- Migrated selected challenge, stats, debug, leaderboard, and profile settings routes without changing active response shapes.
+
 ### Frontend Browser Console Pass
 
 Added a headless browser console smoke pass for major frontend routes:
