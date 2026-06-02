@@ -14,17 +14,24 @@ const error = ref("");
 
 onMounted(() => {
   const hash = window.location.hash.startsWith("#") ? window.location.hash.slice(1) : "";
-  const params = new URLSearchParams(hash);
+  const params = new URLSearchParams(hash || window.location.search.slice(1));
 
   const token = params.get("token");
-  const next = params.get("next") || "/dashboard";
+  const next = params.get("next");
+  const nextPath = next && next.startsWith("/") ? next : "/dashboard";
 
   if (!token) {
     error.value = "Missing token";
     return;
   }
 
-  localStorage.setItem("ringo_token", token);
-  router.replace(next);
+  try {
+    localStorage.setItem("ringo_token", token);
+  } catch {
+    error.value = "Could not store auth token";
+    return;
+  }
+
+  router.replace(nextPath);
 });
 </script>

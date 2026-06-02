@@ -16,6 +16,15 @@ The project has moved beyond raw MVP. Core progression identity is implemented. 
 
 ## Latest Launch-Hardening Updates
 
+### Auth Callback Fallback Alignment
+
+Updated the frontend auth callback path:
+
+- `frontend/src/lib/api.js` now sends a stored callback token as a Bearer fallback when no explicit Authorization header is set.
+- `frontend/src/views/AuthCallback.vue` accepts token/next data from hash or query params.
+- Callback redirects are constrained to internal app paths.
+- Logout clears the stored callback token along with the backend auth cookie request.
+
 ### Frontend Auth Form Hardening
 
 Updated the active local auth form:

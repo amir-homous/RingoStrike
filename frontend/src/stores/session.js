@@ -45,6 +45,12 @@ export const useSessionStore = defineStore("session", {
       } catch (error) {
         // Keep logout resilient even if the backend request fails.
       } finally {
+        try {
+          localStorage.removeItem("ringo_token");
+        } catch {
+          // Ignore storage failures; the backend cookie clear is the primary logout path.
+        }
+
         this.me = null;
         this.bootstrapped = true;
       }
