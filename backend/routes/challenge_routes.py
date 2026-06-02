@@ -10,6 +10,7 @@ from services.challenge_service import (
     list_public_challenges,
 )
 from utils.api_response import error_response, ok_response, service_response
+from utils.validation_utils import parse_json_object_payload
 
 challenge_bp = Blueprint("challenge_bp", __name__)
 
@@ -52,13 +53,10 @@ def enrollment_detail_route(claims, enrollment_id):
 @challenge_bp.post('/challenges/<int:challenge_id>/join')
 @require_auth()
 def join_challenge_route(claims, challenge_id):
-    body = request.get_json(silent=True)
+    body, payload_error = parse_json_object_payload(request)
 
-    if body is None:
-        body = {}
-
-    if not isinstance(body, dict):
-        return error_response("invalid_json_body", 400)
+    if payload_error:
+        return error_response(payload_error, 400)
 
     join_code = body.get("join_code", "")
 

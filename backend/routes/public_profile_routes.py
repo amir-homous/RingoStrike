@@ -22,6 +22,8 @@ from services.profile_update_service import (
     FIELD_UNSET,
     update_profile,
 )
+from utils.api_response import error_response
+from utils.validation_utils import parse_json_object_payload
 
 public_profile_bp = Blueprint(
     "public_profile_bp",
@@ -56,16 +58,10 @@ def public_consistency(username):
 )
 @require_auth()
 def patch_profile_visibility(claims):
-    data = request.get_json(silent=True)
+    data, payload_error = parse_json_object_payload(request)
 
-    if data is None:
-        data = {}
-
-    if not isinstance(data, dict):
-        return jsonify({
-            "ok": False,
-            "error": "invalid_json_body",
-        }), 400
+    if payload_error:
+        return error_response(payload_error, 400)
 
     visibility = data.get("visibility")
 
@@ -82,16 +78,10 @@ def patch_profile_visibility(claims):
 
 @require_auth()
 def patch_profile(claims):
-    data = request.get_json(silent=True)
+    data, payload_error = parse_json_object_payload(request)
 
-    if data is None:
-        data = {}
-
-    if not isinstance(data, dict):
-        return jsonify({
-            "ok": False,
-            "error": "invalid_json_body",
-        }), 400
+    if payload_error:
+        return error_response(payload_error, 400)
 
     payload, code = update_profile(
         user_id=claims["user_id"],

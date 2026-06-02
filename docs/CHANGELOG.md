@@ -16,6 +16,15 @@ The project has moved beyond raw MVP. Core progression identity is implemented. 
 
 ## Latest Launch-Hardening Updates
 
+### Validation Boundary Ownership
+
+Tightened mutation endpoint validation boundaries:
+
+- Added a shared JSON-object payload parser for route-level request shape validation.
+- Migrated auth, challenge join, profile settings, profile visibility, and profile update mutation routes to the shared parser.
+- Kept domain/business validation in services.
+- Added focused tests for non-object JSON payload rejection at route boundaries.
+
 ### Progression Calculation Ownership
 
 Centralized level/progress calculations through `stats_service.py`:

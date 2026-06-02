@@ -217,7 +217,7 @@ These items should happen before expanding product scope:
 - Keep endpoint ownership documentation aligned as routes change.
 - Keep duplicate route ownership guard aligned as routes change.
 - Keep progression calculations centralized in `stats_service.py`.
-- Keep validation close to route/service boundaries.
+- Keep validation boundary ownership aligned as mutation routes change.
 - Preserve privacy enforcement on public identity endpoints.
 
 ---
@@ -299,13 +299,13 @@ python scripts/smoke_backend.py --base-url http://localhost:5005
 
 The next highest-value issue is:
 
-API: keep validation close to route/service boundaries.
+API: preserve privacy enforcement on public identity endpoints.
 
 Suggested target:
 
-- Inventory active mutation endpoints and their validation boundaries.
-- Keep JSON shape/type validation in routes where it protects service contracts.
-- Keep domain/business validation in services.
-- Add focused coverage for any mutation route missing boundary validation.
+- Re-check public profile, public consistency, and public achievement privacy tests.
+- Add or tighten coverage for username normalization and private-profile behavior if any gap remains.
+- Preserve current public endpoint response shapes.
+- Keep public identity services as the privacy enforcement boundary.
 
 ---

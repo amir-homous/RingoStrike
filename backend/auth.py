@@ -5,6 +5,7 @@ from datetime import datetime, timedelta, timezone
 from database import get_user_by_username, verify_password, get_user_by_id, create_user, get_user_by_telegram_id
 from services.username_service import normalize_username, is_valid_username
 from services.rate_limit_service import is_rate_limited
+from utils.validation_utils import parse_json_object_payload
 from config import Config
 import os
 
@@ -148,12 +149,12 @@ def register_auth_routes(app):
                 "error": "local_login_disabled",
             }), 403
 
-        data = request.get_json(silent=True) or {}
+        data, payload_error = parse_json_object_payload(request)
 
-        if not isinstance(data, dict):
+        if payload_error:
             return jsonify({
                 "ok": False,
-                "error": "invalid_json_body",
+                "error": payload_error,
             }), 400
 
         if is_rate_limited(
@@ -225,12 +226,12 @@ def register_auth_routes(app):
                 "error": "local_login_disabled",
             }), 403
 
-        data = request.get_json(silent=True) or {}
+        data, payload_error = parse_json_object_payload(request)
 
-        if not isinstance(data, dict):
+        if payload_error:
             return jsonify({
                 "ok": False,
-                "error": "invalid_json_body",
+                "error": payload_error,
             }), 400
 
         if is_rate_limited(

@@ -13,6 +13,7 @@ from services.profile_settings_service import (
 from utils.api_response import (
     service_response,
 )
+from utils.validation_utils import parse_json_object_payload
 
 
 profile_settings_bp = Blueprint(
@@ -50,10 +51,16 @@ def get_my_profile_settings(claims):
 def update_my_profile_settings(claims):
     user_id = claims["user_id"]
 
-    payload = request.get_json(silent=True)
+    payload, payload_error = parse_json_object_payload(request)
 
-    if payload is None:
-        payload = {}
+    if payload_error:
+        return _service_response(
+            {
+                "ok": False,
+                "error": payload_error,
+            },
+            400,
+        )
 
     response, code = update_profile_settings(
         user_id,

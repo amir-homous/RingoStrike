@@ -384,10 +384,7 @@ def test_auth_register_rejects_non_object_json(client):
     assert res.status_code == 400
     data = res.get_json()
     assert data["ok"] is False
-    assert data["error"] in {
-        "invalid_json_body",
-        "invalid_username",
-    }
+    assert data["error"] == "invalid_json_body"
 
 
 def test_auth_login_rejects_non_object_json(client):
@@ -402,10 +399,7 @@ def test_auth_login_rejects_non_object_json(client):
     assert res.status_code == 400
     data = res.get_json()
     assert data["ok"] is False
-    assert data["error"] in {
-        "invalid_json_body",
-        "username_and_password_required",
-    }
+    assert data["error"] == "invalid_json_body"
 
 def test_protected_endpoints_reject_missing_auth(client):
     endpoints = [
