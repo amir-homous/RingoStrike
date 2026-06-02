@@ -197,6 +197,26 @@ def test_uncounted_checkins_do_not_affect_progress_surfaces(client):
     assert today in consistency_dates
     assert yesterday not in consistency_dates
 
+    history_res = client.get(
+        f"/me/challenges/{enrollment_id}/history?days=3",
+        headers=headers,
+    )
+
+    assert history_res.status_code == 200
+    history_data = history_res.get_json()
+    assert history_data["ok"] is True
+    assert history_data["summary"]["checked_days"] == 1
+
+    history_by_date = {
+        item["date"]: item
+        for item in history_data["items"]
+    }
+
+    assert history_by_date[today]["status"] == "Done"
+    assert history_by_date[today]["is_counted"] is True
+    assert history_by_date[yesterday]["status"] == "Done"
+    assert history_by_date[yesterday]["is_counted"] is False
+
 
 def test_invite_only_challenge_join_flow(client):
     user = register_user(client, username="InviteUser")
