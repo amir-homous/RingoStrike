@@ -92,11 +92,6 @@ def evaluate_and_unlock(user_id: int):
                 })
 
         total_reward = sum(a["xp_reward"] for a in newly)
-        if total_reward > 0:
-            conn.execute(
-                "UPDATE user_stats SET total_points = total_points + ?, updated_at=CURRENT_TIMESTAMP WHERE user_id=?",
-                (total_reward, user_id),
-            )
         conn.commit()
         return {"ok": True, "newly_unlocked": newly, "xp_reward_total": total_reward}
     finally:

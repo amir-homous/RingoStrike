@@ -59,6 +59,18 @@ def test_achievement_unlocks_after_first_checkin(client):
     assert "first_checkin" in reward_keys
     assert "first_challenge_completed" in reward_keys
     assert checkin_data["rewards"]["achievement_xp_reward"] >= 25
+    assert checkin_data["rewards"]["xp_total"] >= (
+        10 + checkin_data["rewards"]["achievement_xp_reward"]
+    )
+
+    stats_res = client.get("/me/stats", headers=headers)
+
+    assert stats_res.status_code == 200
+    stats_data = stats_res.get_json()
+    assert stats_data["ok"] is True
+    assert stats_data["stats"]["total_points"] >= (
+        10 + checkin_data["rewards"]["achievement_xp_reward"]
+    )
 
     after_res = client.get("/me/achievements", headers=headers)
 

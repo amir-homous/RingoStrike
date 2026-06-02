@@ -85,15 +85,25 @@ def build_user_stats_payload(user_id: int) -> tuple[dict, int]:
         if not user:
             return {"ok": False, "error": "user_not_found"}, 404
 
-        totals_row = conn.execute(
+        checkin_totals_row = conn.execute(
             """
             SELECT
                 CAST(COUNT(*) AS INTEGER) AS total_checkins,
-                CAST(COUNT(*) * ? AS INTEGER) AS total_points
+                CAST(COUNT(*) * ? AS INTEGER) AS base_points
             FROM checkins
             WHERE user_id = ? AND status = 'Done'
             """,
             (XP_PER_CHECKIN, user_id),
+        ).fetchone()
+
+        achievement_reward_row = conn.execute(
+            """
+            SELECT CAST(COALESCE(SUM(a.xp_reward), 0) AS INTEGER) AS reward_points
+            FROM user_achievements ua
+            JOIN achievements a ON a.id = ua.achievement_id
+            WHERE ua.user_id = ?
+            """,
+            (user_id,),
         ).fetchone()
 
         rows = conn.execute(
@@ -102,8 +112,10 @@ def build_user_stats_payload(user_id: int) -> tuple[dict, int]:
         ).fetchall()
 
         dates = [row["date"] for row in rows]
-        total_checkins = int((totals_row or {})["total_checkins"] or 0)
-        total_points = int((totals_row or {})["total_points"] or 0)
+        total_checkins = int((checkin_totals_row or {})["total_checkins"] or 0)
+        base_points = int((checkin_totals_row or {})["base_points"] or 0)
+        reward_points = int((achievement_reward_row or {})["reward_points"] or 0)
+        total_points = base_points + reward_points
         current_streak = calculate_current_streak(dates, utc_today_iso())
         longest_streak = calculate_longest_streak(dates)
 
