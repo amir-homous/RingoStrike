@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 
 from database import get_db_connection
-from services.stats_service import sync_user_stats
+from services.stats_service import build_level_progress, sync_user_stats
 from services.title_service import evaluate_user_title
 
 
@@ -60,7 +60,7 @@ def get_profile(user_id: int):
         total_checkins = int(sync.get("total_checkins", 0))
         current_streak = int(sync.get("current_streak", 0))
         longest_streak = int(sync.get("longest_streak", 0))
-        level = max(1, total_xp // 100 + 1)
+        level = build_level_progress(total_xp)["level"]
 
         title = evaluate_user_title(
             level=level,

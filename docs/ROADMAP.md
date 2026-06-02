@@ -216,7 +216,7 @@ These items should happen before expanding product scope:
 - Keep backward-compatible response shapes for active frontend usage.
 - Keep endpoint ownership documentation aligned as routes change.
 - Keep duplicate route ownership guard aligned as routes change.
-- Avoid duplicate progression calculations outside `stats_service.py`.
+- Keep progression calculations centralized in `stats_service.py`.
 - Keep validation close to route/service boundaries.
 - Preserve privacy enforcement on public identity endpoints.
 
@@ -299,13 +299,13 @@ python scripts/smoke_backend.py --base-url http://localhost:5005
 
 The next highest-value issue is:
 
-API: avoid duplicate progression calculations outside `stats_service.py`.
+API: keep validation close to route/service boundaries.
 
 Suggested target:
 
-- Inventory level, XP, streak, and progress calculations outside `stats_service.py`.
-- Move or document any unavoidable local calculations.
-- Add a guard test for canonical progression helper usage where practical.
-- Preserve current response shapes for active frontend surfaces.
+- Inventory active mutation endpoints and their validation boundaries.
+- Keep JSON shape/type validation in routes where it protects service contracts.
+- Keep domain/business validation in services.
+- Add focused coverage for any mutation route missing boundary validation.
 
 ---

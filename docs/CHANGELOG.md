@@ -16,6 +16,15 @@ The project has moved beyond raw MVP. Core progression identity is implemented. 
 
 ## Latest Launch-Hardening Updates
 
+### Progression Calculation Ownership
+
+Centralized level/progress calculations through `stats_service.py`:
+
+- Added a canonical `build_level_progress` helper.
+- Removed duplicate level/progress calculation logic from dashboard/profile services.
+- Preserved existing response field names for active frontend surfaces.
+- Added a guard test that catches local level/progress calculation drift in services.
+
 ### Duplicate Route Ownership Guard
 
 Added backend route ownership tests that protect API reliability:

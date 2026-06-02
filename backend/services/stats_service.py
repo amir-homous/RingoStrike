@@ -78,6 +78,18 @@ def calculate_progress_percent(xp: int, level: int) -> int:
     return max(0, min(100, percent))
 
 
+def build_level_progress(xp: int) -> dict:
+    safe_xp = max(0, int(xp))
+    level = calculate_level(safe_xp)
+
+    return {
+        "xp": safe_xp,
+        "level": level,
+        "next_level_xp": calculate_next_level_xp(level),
+        "progress_percent": calculate_progress_percent(safe_xp, level),
+    }
+
+
 def build_user_stats_payload(user_id: int) -> tuple[dict, int]:
     conn = get_db_connection()
     try:
@@ -139,10 +151,7 @@ def build_user_stats_payload(user_id: int) -> tuple[dict, int]:
         )
         conn.commit()
 
-        xp = total_points
-        level = calculate_level(xp)
-        next_level_xp = calculate_next_level_xp(level)
-        progress_percent = calculate_progress_percent(xp, level)
+        level_progress = build_level_progress(total_points)
 
         return {
             "ok": True,
@@ -152,10 +161,10 @@ def build_user_stats_payload(user_id: int) -> tuple[dict, int]:
                 "longest_streak": longest_streak,
                 "total_checkins": total_checkins,
                 "total_points": total_points,
-                "xp": xp,
-                "level": level,
-                "next_level_xp": next_level_xp,
-                "progress_percent": progress_percent,
+                "xp": level_progress["xp"],
+                "level": level_progress["level"],
+                "next_level_xp": level_progress["next_level_xp"],
+                "progress_percent": level_progress["progress_percent"],
             },
         }, 200
     except DatabaseError:
