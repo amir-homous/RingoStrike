@@ -1,5 +1,8 @@
+from datetime import datetime, timedelta
+
 from database import get_db_connection
 from services.leaderboard_service import enrollment_leaderboard
+from utils.date_utils import utc_today_iso
 
 
 def create_user(conn, username, name):
@@ -88,6 +91,130 @@ def add_checkin(conn, enrollment_id, user_id, challenge_id, date):
             1,
         ),
     )
+
+
+def add_checkins(conn, enrollment_id, user_id, challenge_id, dates):
+    for date in dates:
+        add_checkin(conn, enrollment_id, user_id, challenge_id, date)
+
+
+def days_ago(days):
+    today = datetime.strptime(utc_today_iso(), "%Y-%m-%d").date()
+    return (today - timedelta(days=days)).isoformat()
+
+
+def test_leaderboard_service_orders_overall_and_today_by_documented_tie_breakers(client):
+    conn = get_db_connection()
+
+    try:
+        challenge_id = create_challenge(conn)
+
+        volume_user_id = create_user(
+            conn,
+            "tievolumeuser",
+            "Tie Volume User",
+        )
+        streak_user_id = create_user(
+            conn,
+            "tiestreakuser",
+            "Tie Streak User",
+        )
+        alpha_user_id = create_user(
+            conn,
+            "tiealphaorder",
+            "Tie Alpha Order",
+        )
+        beta_user_id = create_user(
+            conn,
+            "tiebetaorder",
+            "Tie Beta Order",
+        )
+
+        volume_enrollment_id = create_enrollment(
+            conn,
+            volume_user_id,
+            challenge_id,
+        )
+        streak_enrollment_id = create_enrollment(
+            conn,
+            streak_user_id,
+            challenge_id,
+        )
+        beta_enrollment_id = create_enrollment(
+            conn,
+            beta_user_id,
+            challenge_id,
+        )
+        alpha_enrollment_id = create_enrollment(
+            conn,
+            alpha_user_id,
+            challenge_id,
+        )
+
+        add_checkins(
+            conn,
+            volume_enrollment_id,
+            volume_user_id,
+            challenge_id,
+            [days_ago(0), days_ago(7), days_ago(8)],
+        )
+        add_checkins(
+            conn,
+            streak_enrollment_id,
+            streak_user_id,
+            challenge_id,
+            [days_ago(0), days_ago(1)],
+        )
+
+        for enrollment_id, user_id in (
+            (beta_enrollment_id, beta_user_id),
+            (alpha_enrollment_id, alpha_user_id),
+        ):
+            add_checkins(
+                conn,
+                enrollment_id,
+                user_id,
+                challenge_id,
+                [days_ago(12)],
+            )
+
+        conn.commit()
+
+    finally:
+        conn.close()
+
+    payload, code = enrollment_leaderboard(volume_enrollment_id)
+
+    assert code == 200
+    assert payload["ok"] is True
+    assert payload["tie_breakers"] == {
+        "overall": [
+            "total_checkins_desc",
+            "current_streak_desc",
+            "name_asc",
+            "enrollment_id_asc",
+        ],
+        "today": [
+            "current_streak_desc",
+            "total_checkins_desc",
+            "name_asc",
+            "enrollment_id_asc",
+        ],
+    }
+
+    assert [row["username"] for row in payload["overall"]] == [
+        "tievolumeuser",
+        "tiestreakuser",
+        "tiealphaorder",
+        "tiebetaorder",
+    ]
+    assert [row["rank"] for row in payload["overall"]] == [1, 2, 3, 4]
+
+    assert [row["username"] for row in payload["today"]] == [
+        "tiestreakuser",
+        "tievolumeuser",
+    ]
+    assert [row["rank"] for row in payload["today"]] == [1, 2]
 
 
 def test_leaderboard_service_exact_tie_orders_by_name(client):

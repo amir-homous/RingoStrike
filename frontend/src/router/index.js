@@ -6,6 +6,7 @@ import Enrollment from "../views/Enrollment.vue";
 import Leaderboard from "../views/Leaderboard.vue"
 import api from "../lib/api";
 import AuthForm from '../components/AuthForm.vue'
+import { createAuthGuard } from "./authGuard";
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -34,21 +35,6 @@ const router = createRouter({
 
 
 
-router.beforeEach(async (to) => {
-  // 1. اگر مسیر صراحتاً گفته نیاز به لاگین ندارد، اجازه عبور بده
-  // این شامل /login, /auth/callback و /docs می‌شود
-  if (to.meta.requiresAuth === false) {
-    return true;
-  }
-
-  try {
-    // 2. برای بقیه مسیرها (که یا true هستند یا تعریف نشده‌اند) لاگین را چک کن
-    await api.get("/me");
-    return true;
-  } catch (e) {
-    // 3. اگر لاگین نبود، بفرست به صفحه لاگین
-    return { path: "/login", query: { next: to.fullPath } };
-  }
-});
+router.beforeEach(createAuthGuard(api));
 
 export default router;

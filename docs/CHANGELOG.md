@@ -16,6 +16,23 @@ The project has moved beyond raw MVP. Core progression identity is implemented. 
 
 ## Latest Launch-Hardening Updates
 
+### Frontend Router Guard Smoke Coverage
+
+Added a dependency-free frontend smoke test for router guard behavior:
+
+- Extracted the guard into a small testable module.
+- Verified explicit public routes skip `/me`.
+- Verified authenticated protected routes continue.
+- Verified unauthenticated protected routes redirect to `/login?next=...`.
+
+### Leaderboard Ordering Coverage
+
+Added service-level leaderboard tests that verify:
+
+- Overall ordering uses total check-ins, current streak, name, then enrollment id.
+- Today ordering uses current streak, total check-ins, name, then enrollment id.
+- The documented `tie_breakers` metadata stays aligned with response ordering.
+
 ### Auth Callback Fallback Alignment
 
 Updated the frontend auth callback path:

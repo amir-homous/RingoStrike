@@ -152,6 +152,8 @@ The product has moved beyond raw MVP. The core progression identity system is im
 - Achievement XP persistence smoke test.
 - Uncounted check-in progression/history smoke tests.
 - Public profile username normalization smoke test.
+- Service-level leaderboard ordering coverage for overall and today tie-breaker rules.
+- Frontend router guard smoke test.
 - Expand protected-endpoint auth failure coverage as new authenticated routes are added.
 
 
@@ -173,7 +175,7 @@ These items should happen before expanding product scope:
 - Public challenge/member endpoint visibility has been hardened for private challenges; keep intended policy documented as product scope evolves.
 - Run full `docs/LAUNCH_QA_CHECKLIST.md` before release candidate.
 - Expand shared API response helper usage across existing routes.
-- Investigate reliable service-level coverage for exact leaderboard tie-ordering.
+- Keep service-level leaderboard ordering coverage aligned if tie-breaker behavior changes.
 
 
 ---
@@ -188,13 +190,13 @@ These items should happen before expanding product scope:
 - Expand profile visibility tests if new visibility states are added.
 - Add tests for auth failure behavior on protected endpoints.
 - Expand malformed JSON coverage to any remaining mutation endpoints.
-- Add reliable service-level tests for leaderboard exact tie scenarios.
+- Keep reliable service-level tests for leaderboard exact tie scenarios aligned with product policy.
 
 
 
 ### Frontend Reliability
 
-- Add smoke test for router guard.
+- Keep router guard smoke coverage aligned as route auth policy changes.
 - Add smoke test for login flow.
 - Add smoke test for dashboard loading.
 - Add smoke test for challenge join/check-in flow.
@@ -292,13 +294,13 @@ python scripts/smoke_backend.py --base-url http://localhost:5005
 
 The next highest-value issue is:
 
-Tests: investigate and add reliable leaderboard tie-ordering coverage.
+Frontend: add a smoke test for login flow.
 
 Suggested target:
 
-- Review `leaderboard_service.py` sorting behavior.
-- Add service-level or database-level test coverage instead of brittle route-level assumptions.
-- Verify exact tie ordering by total check-ins, current streak, name, and enrollment id.
-- Preserve current route behavior and response shape.
+- Verify local login submits through the shared API client.
+- Verify successful login navigates to the `next` query value or dashboard fallback.
+- Verify invalid login shows a clear error state.
+- Preserve cookie-based auth behavior without storing local-login tokens.
 
 ---
