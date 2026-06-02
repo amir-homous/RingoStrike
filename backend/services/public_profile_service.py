@@ -3,9 +3,11 @@ from __future__ import annotations
 from database import get_db_connection
 from services.public_activity_service import get_public_activity_feed
 from services.profile_service import get_profile
+from services.username_service import normalize_username
 
 
 def get_public_profile(username: str):
+    username = normalize_username(username)
     conn = get_db_connection()
 
     try:

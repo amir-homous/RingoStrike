@@ -56,6 +56,62 @@ def test_public_profile_visibility_privacy_flow(client):
     assert restored_public_data["profile"]["username"] == "privacyuser"
 
 
+def test_public_profile_username_lookup_is_normalized(client):
+    user = register_user(client, username="NormalizedPublicUser")
+    headers = auth_headers(user["access_token"])
+
+    challenges_res = client.get("/challenges", headers=headers)
+
+    assert challenges_res.status_code == 200
+    challenges_data = challenges_res.get_json()
+    assert challenges_data["ok"] is True
+
+    public_challenge = next(
+        item for item in challenges_data["items"]
+        if item["visibility"] == "public" and not item["is_joined"]
+    )
+
+    join_res = client.post(
+        f"/challenges/{public_challenge['challenge_id']}/join",
+        json={},
+        headers=headers,
+    )
+
+    assert join_res.status_code == 200
+    join_data = join_res.get_json()
+    assert join_data["ok"] is True
+
+    checkin_res = client.post(
+        f"/me/challenges/{join_data['enrollment_id']}/checkin",
+        headers=headers,
+    )
+
+    assert checkin_res.status_code == 200
+
+    spaced_username = "%20NormalizedPublicUser%20"
+
+    profile_res = client.get(f"/api/public/profile/{spaced_username}")
+    consistency_res = client.get(
+        f"/api/public/profile/{spaced_username}/consistency"
+    )
+    achievements_res = client.get(
+        f"/api/public/profile/{spaced_username}/achievements"
+    )
+
+    assert profile_res.status_code == 200
+    profile_data = profile_res.get_json()
+    assert profile_data["ok"] is True
+    assert profile_data["profile"]["username"] == "normalizedpublicuser"
+
+    assert consistency_res.status_code == 200
+    consistency_data = consistency_res.get_json()
+    assert consistency_data["ok"] is True
+
+    assert achievements_res.status_code == 200
+    achievements_data = achievements_res.get_json()
+    assert achievements_data["ok"] is True
+
+
 def test_profile_visibility_validation(client):
     user = register_user(client, username="VisibilityValidationUser")
     headers = auth_headers(user["access_token"])

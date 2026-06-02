@@ -1,7 +1,9 @@
 from database import get_db_connection
+from services.username_service import normalize_username
 
 
 def get_public_consistency(username: str):
+    username = normalize_username(username)
     conn = get_db_connection()
 
     try:
