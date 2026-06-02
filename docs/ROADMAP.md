@@ -215,7 +215,7 @@ These items should happen before expanding product scope:
 - Keep shared API error response convention aligned as routes migrate.
 - Keep backward-compatible response shapes for active frontend usage.
 - Keep endpoint ownership documentation aligned as routes change.
-- Avoid duplicate route ownership.
+- Keep duplicate route ownership guard aligned as routes change.
 - Avoid duplicate progression calculations outside `stats_service.py`.
 - Keep validation close to route/service boundaries.
 - Preserve privacy enforcement on public identity endpoints.
@@ -299,13 +299,13 @@ python scripts/smoke_backend.py --base-url http://localhost:5005
 
 The next highest-value issue is:
 
-API: avoid duplicate route ownership.
+API: avoid duplicate progression calculations outside `stats_service.py`.
 
 Suggested target:
 
-- Scan app registration and route modules for duplicate method/path registrations.
-- Add or update a test that fails when duplicate active routes are registered.
-- Preserve intentional Flask automatic `HEAD`/`OPTIONS` behavior.
-- Keep canonical owners documented in `docs/API_ENDPOINT_OWNERSHIP.md`.
+- Inventory level, XP, streak, and progress calculations outside `stats_service.py`.
+- Move or document any unavoidable local calculations.
+- Add a guard test for canonical progression helper usage where practical.
+- Preserve current response shapes for active frontend surfaces.
 
 ---

@@ -16,6 +16,15 @@ The project has moved beyond raw MVP. Core progression identity is implemented. 
 
 ## Latest Launch-Hardening Updates
 
+### Duplicate Route Ownership Guard
+
+Added backend route ownership tests that protect API reliability:
+
+- The test fails if an active method/path is registered by more than one endpoint.
+- Flask automatic `HEAD` and `OPTIONS` methods are ignored.
+- Canonical owners for stats, leaderboard, public profile, and debug routes are asserted.
+- This supports the endpoint ownership documentation and helps prevent future route drift.
+
 ### API Endpoint Ownership Documentation
 
 Added `docs/API_ENDPOINT_OWNERSHIP.md` to clarify backend endpoint ownership:
