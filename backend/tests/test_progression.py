@@ -172,6 +172,16 @@ def test_leaderboard_rank_and_enrollment_reset_metadata(client):
     leaderboard_data = leaderboard_res.get_json()
     assert leaderboard_data["ok"] is True
 
+    unauthorized_leaderboard_res = client.get(
+        f"/me/enrollments/{first_enrollment_id}/leaderboard",
+        headers=second_headers,
+    )
+
+    assert unauthorized_leaderboard_res.status_code == 404
+    unauthorized_leaderboard_data = unauthorized_leaderboard_res.get_json()
+    assert unauthorized_leaderboard_data["ok"] is False
+    assert unauthorized_leaderboard_data["error"] == "not_found"
+
     assert "overall" in leaderboard_data
     assert "today" in leaderboard_data
     assert "tie_breakers" in leaderboard_data

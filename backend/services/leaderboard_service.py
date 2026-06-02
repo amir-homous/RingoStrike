@@ -13,16 +13,22 @@ def _with_ranks(items):
     ]
 
 
-def enrollment_leaderboard(enrollment_id: int):
+def enrollment_leaderboard(
+    enrollment_id: int,
+    user_id: int | None = None,
+):
     conn = get_db_connection()
 
     try:
         enroll = conn.execute(
-            "SELECT challenge_id FROM enrollments WHERE id = ?",
+            "SELECT challenge_id, user_id FROM enrollments WHERE id = ?",
             (enrollment_id,),
         ).fetchone()
 
         if not enroll:
+            return {"ok": False, "error": "not_found"}, 404
+
+        if user_id is not None and int(enroll["user_id"]) != int(user_id):
             return {"ok": False, "error": "not_found"}, 404
 
         rows = conn.execute(

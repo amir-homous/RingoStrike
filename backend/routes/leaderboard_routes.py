@@ -11,7 +11,10 @@ leaderboard_bp = Blueprint("leaderboard_bp", __name__)
 @leaderboard_bp.get("/me/enrollments/<int:enrollment_id>/leaderboard")
 @require_auth()
 def enrollment_leaderboard_route(claims, enrollment_id):
-    payload, code = enrollment_leaderboard(enrollment_id)
+    payload, code = enrollment_leaderboard(
+        enrollment_id,
+        int(claims["user_id"]),
+    )
 
     if not payload.get("ok"):
         return error_response(
