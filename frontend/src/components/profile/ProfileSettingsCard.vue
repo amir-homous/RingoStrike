@@ -7,6 +7,7 @@ import BaseCard from "@/components/ui/BaseCard.vue";
 
 const loading = ref(false);
 const saved = ref(false);
+const error = ref("");
 
 const form = ref({
   bio: "",
@@ -43,6 +44,8 @@ const avatars = [
 
 
 async function loadProfile() {
+  error.value = "";
+
   try {
     const response = await api.get("/me/profile");
 
@@ -55,14 +58,14 @@ async function loadProfile() {
     form.value.profile_visibility =
       profile.profile_visibility || "public";
   } catch (err) {
-    console.error(err);
+    error.value = err.response?.data?.error || "Could not load profile settings.";
   }
 }
 
 async function saveProfile() {
-  console.log("SAVE CLICKED");
   loading.value = true;
   saved.value = false;
+  error.value = "";
 
   try {
     await api.patch("/api/me/profile/settings", {
@@ -79,7 +82,7 @@ async function saveProfile() {
     }, 2000);
 
   } catch (err) {
-    console.error(err);
+    error.value = err.response?.data?.error || "Could not save profile settings.";
   } finally {
     loading.value = false;
   }
@@ -133,6 +136,10 @@ onMounted(loadProfile);
       </select>
     </div>
 
+    <p v-if="error" class="error-message">
+      {{ error }}
+    </p>
+
     <div class="actions">
   <button
     class="cancel-btn"
@@ -172,6 +179,16 @@ onMounted(loadProfile);
 .caption{
   opacity:.65;
   margin-top:6px;
+}
+
+.error-message{
+  margin:12px 0 0;
+  padding:12px 14px;
+  border-radius:14px;
+  border:1px solid rgba(248,113,113,.28);
+  background:rgba(248,113,113,.10);
+  color:#fecaca;
+  font-size:.9rem;
 }
 
 .form{
