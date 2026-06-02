@@ -473,6 +473,34 @@ def test_challenge_access_rules_for_private_archived_and_missing(client):
     assert public_detail_data["item"]["visibility"] == "Public"
     assert public_detail_data["item"]["status"] == "Active"
 
+    public_join_res = client.post(
+        f"/challenges/{public_challenge_id}/join",
+        json={},
+        headers=headers,
+    )
+
+    assert public_join_res.status_code == 200
+    public_join_data = public_join_res.get_json()
+    assert public_join_data["ok"] is True
+
+    public_members_res = client.get(
+        f"/challenges/{public_challenge_id}/members",
+        headers=headers,
+    )
+
+    assert public_members_res.status_code == 200
+    public_members_data = public_members_res.get_json()
+    assert public_members_data["ok"] is True
+
+    public_member = next(
+        item
+        for item in public_members_data["items"]
+        if item["user_id"] == user["user_id"]
+    )
+
+    assert public_member["username"] == "challengeaccessuser"
+    assert public_member["telegram_username"] == "challengeaccessuser"
+
     missing_detail_res = client.get("/challenges/999999", headers=headers)
 
     assert missing_detail_res.status_code == 404

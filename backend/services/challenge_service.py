@@ -176,6 +176,7 @@ def get_challenge_members(challenge_id: int, limit_arg, offset_arg):
                 "role": row[2] if len(row) > 2 else "Member",
                 "user_id": row["u_id"],
                 "user_name": row["name"],
+                "username": row["username"],
                 "telegram_username": row["username"],
             }
             for row in rows

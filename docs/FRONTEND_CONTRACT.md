@@ -184,12 +184,15 @@ Returns active member rows:
       "role": "Member",
       "user_id": 1,
       "user_name": "Alice",
+      "username": "alice",
       "telegram_username": "alice"
     }
   ],
   "has_more": false
 }
 ```
+
+`username` is the canonical local/public username. `telegram_username` is kept as a backward-compatible alias for older frontend/API consumers.
 
 ### `POST /challenges/:challenge_id/join`
 
