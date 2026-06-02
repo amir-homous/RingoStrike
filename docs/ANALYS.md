@@ -12,7 +12,8 @@ Rationale:
 - Progression, achievement, activity, profile, and public profile systems are mostly separated.
 - Frontend component grouping is healthy and feature-oriented.
 - Recent stabilization removed several transitional problems: duplicate stats route ownership, unused auth-service duplication, old session-table initialization, public debug exposure, and the broken Pinia session-store assumption.
-- Remaining technical debt is mostly around auth route/service separation, API naming consistency, migration strategy, and frontend smoke coverage.
+- Recent privacy/progression fixes tightened profile validation, private challenge visibility, leaderboard ownership, left-enrollment discovery, uncounted-check-in handling, achievement XP persistence, local-login disabling, and public username lookup normalization.
+- Remaining technical debt is mostly around auth route/service separation, API naming consistency, migration/backup strategy, and frontend smoke coverage.
 
 ### Coupling Issues
 
@@ -41,6 +42,7 @@ Recently fixed:
 
 - `backend/auth.py` now uses centralized `Config.JWT_SECRET` for JWT signing and verification.
 - `backend/config.py` requires `SECRET_KEY` and `JWT_SECRET` outside development.
+- Active local register/login routes respect `LOCAL_LOGIN_ENABLED`.
 - Login/register have basic in-memory rate limiting.
 - Debug endpoints are blocked outside development mode.
 
@@ -57,8 +59,8 @@ Medium:
 
 ### API Risks
 
-- `/api/profile` accepts `avatar_url` with only length trimming; URL/path validation is not enforced.
-- Profile bio/name updates trim length but do not apply explicit content rules beyond that.
+- Profile avatar URLs reject invalid schemes and protocol-relative URLs.
+- Profile bio/name updates trim and validate type/length, but do not apply deeper content moderation rules.
 - `debug_service.sqlite_schema()` uses a table allowlist, and route access is development-only.
 - No central request schema validation layer exists.
 
@@ -160,8 +162,10 @@ Issues:
 3. Debug endpoints are blocked outside development.
 4. `GET /me/stats` is standardized through `stats_routes.py` and `stats_service.py`.
 5. `frontend/src/stores/session.js` is aligned with cookie-based auth.
-6. Public/private profile visibility has smoke coverage.
-7. Backend tests currently pass locally: `34 passed`.
+6. Public/private profile visibility and public profile not-found/privacy behavior have smoke coverage.
+7. Private challenge detail/member endpoints and leaderboard ownership have privacy coverage.
+8. Progression stats, history, consistency, activity, and achievements respect uncounted check-ins.
+9. Backend tests currently pass locally: `41 passed`.
 
 ### Important - Next Sprint
 
@@ -171,7 +175,7 @@ Issues:
 4. Normalize profile update endpoints into one clear contract.
 5. Add frontend smoke tests for login, router guard, dashboard, challenge check-in, profile, and public profile.
 6. Add explicit database migrations instead of ad hoc startup migrations.
-7. Review public challenge detail/member endpoints and document intended visibility.
+7. Keep public challenge/member visibility documented as the product policy evolves.
 
 ### Optional - Future Improvement
 

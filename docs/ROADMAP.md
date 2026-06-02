@@ -95,6 +95,17 @@ The product has moved beyond raw MVP. The core progression identity system is im
 - Added shared API response helper foundation.
 - Added malformed JSON handling coverage for key endpoints.
 - Added public profile not-found coverage.
+- Enforced local auth disable behavior through `LOCAL_LOGIN_ENABLED`.
+- Preserved omitted profile fields on partial profile updates.
+- Hardened profile visibility payload validation.
+- Rejected protocol-relative avatar URLs.
+- Blocked private challenge detail/member reads.
+- Enforced enrollment ownership on leaderboard routes.
+- Ignored left enrollments during challenge discovery joined-state checks.
+- Included achievement XP rewards in persisted stats.
+- Made progression surfaces consistently ignore uncounted check-ins.
+- Preserved uncounted check-in state in enrollment history.
+- Normalized public profile username lookups.
 
 
 ### Backend Test Coverage Added
@@ -129,6 +140,15 @@ The product has moved beyond raw MVP. The core progression identity system is im
 - Protected endpoint missing-auth smoke tests.
 - Protected endpoint invalid bearer-token smoke tests.
 - Profile settings unauthorized PATCH smoke tests.
+- Local auth disabled smoke test.
+- Profile partial-update preservation smoke test.
+- Profile visibility invalid payload smoke test.
+- Private challenge detail/member privacy smoke tests.
+- Leaderboard enrollment ownership smoke test.
+- Left-enrollment challenge discovery smoke test.
+- Achievement XP persistence smoke test.
+- Uncounted check-in progression/history smoke tests.
+- Public profile username normalization smoke test.
 - Expand protected-endpoint auth failure coverage as new authenticated routes are added.
 
 
@@ -139,7 +159,7 @@ The product has moved beyond raw MVP. The core progression identity system is im
 
 These items should happen before expanding product scope:
 
-- Add tests for invalid challenge join payloads if not already covered separately from invite-only flow.
+- Keep invalid challenge join payload coverage as route behavior evolves.
 - Add tests for `/auth/logout` edge cases if token blacklist/session invalidation is introduced later.
 - Resolve or document remaining GitHub Actions frontend build instability if it reappears.
 - Run deployment smoke script after every production/pre-launch deployment.
@@ -147,7 +167,7 @@ These items should happen before expanding product scope:
 - Normalize API naming conventions where practical (`/api/...` vs non-`/api/...`).
 - Add a real migration strategy instead of ad hoc table changes in app startup.
 - Review profile update endpoints and reduce overlap where possible.
-- Review public challenge/member endpoints and confirm intended visibility.
+- Public challenge/member endpoint visibility has been hardened for private challenges; keep intended policy documented as product scope evolves.
 - Run full `docs/LAUNCH_QA_CHECKLIST.md` before release candidate.
 - Expand shared API response helper usage across existing routes.
 - Investigate reliable service-level coverage for exact leaderboard tie-ordering.
@@ -160,10 +180,9 @@ These items should happen before expanding product scope:
 ### Backend Reliability
 
 - Add tests for reset edge cases when user timezone support is introduced.
-- Add tests for leaderboard ordering with exact tie scenarios.
-- Add tests for archived challenges and inactive challenge joins.
-- Add tests for private challenge join rejection.
-- Add tests for profile visibility invalid payloads.
+- Expand leaderboard ordering tests if tie-breaker behavior changes.
+- Expand archived/private challenge tests if challenge lifecycle behavior changes.
+- Expand profile visibility tests if new visibility states are added.
 - Add tests for auth failure behavior on protected endpoints.
 - Expand malformed JSON coverage to any remaining mutation endpoints.
 - Add reliable service-level tests for leaderboard exact tie scenarios.

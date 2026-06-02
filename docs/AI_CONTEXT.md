@@ -61,6 +61,11 @@ RingoStrike should feel like a premium consistency and progression system, not a
 - Debug routes are development-only and return `debug_disabled` outside development mode.
 - `SECRET_KEY` and `JWT_SECRET` are required outside development by `backend/config.py`.
 - `backend/auth.py` uses centralized `Config.JWT_SECRET` for JWT signing and verification.
+- `LOCAL_LOGIN_ENABLED=0` disables active username/password register and login routes.
+- `stats_service.py` is the source of truth for total XP, including base check-in XP and unlocked achievement XP rewards.
+- Progression surfaces should consistently filter counted check-ins with `status = 'Done' AND is_counted = 1`.
+- Public profile, consistency, and achievement username lookups normalize route usernames before lookup.
+- Private challenge detail/member endpoints and `/me/enrollments/:id/leaderboard` enforce privacy/ownership checks.
 - `backend/users.db`, Python caches, `backend/venv`, `backend/.venv`, and `frontend/node_modules` are present in the working tree and should not be treated as application source.
 
 ## Current Roadmap Position
@@ -73,4 +78,4 @@ The project has moved beyond the older v0.3 dashboard/profile milestone. Public 
 - profile settings and avatar/bio fields
 - public consistency and public achievements endpoints
 
-The next highest-value work is launch hardening: add a migration strategy, normalize API prefixes, reduce profile update endpoint overlap, expand frontend smoke tests, and review public challenge/member visibility before launch.
+The next highest-value work is launch hardening: finalize production environment values, run the launch QA checklist, add frontend smoke tests, add a migration/backup plan, and continue reducing profile/API contract overlap.

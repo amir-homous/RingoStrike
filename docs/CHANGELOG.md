@@ -34,6 +34,16 @@ Added production-readiness improvements:
 - Added shared API response helper foundation.
 - Added malformed JSON coverage for key endpoints.
 - Added public profile not-found coverage.
+- Enforced `LOCAL_LOGIN_ENABLED` in active local auth routes.
+- Hardened profile PATCH behavior so omitted fields are preserved.
+- Hardened profile visibility and avatar URL validation.
+- Hardened private challenge detail/member visibility.
+- Enforced enrollment ownership for leaderboard routes.
+- Fixed challenge discovery joined-state behavior for left enrollments.
+- Persisted achievement XP through derived stats.
+- Made progression surfaces consistently respect `is_counted`.
+- Preserved uncounted check-in state in enrollment history.
+- Normalized public profile username lookup.
 
 ### Testing
 
@@ -74,6 +84,16 @@ Added backend smoke test coverage for:
 - Protected endpoint missing-auth behavior.
 - Protected endpoint invalid bearer-token behavior.
 - Profile settings unauthorized PATCH behavior.
+- Local auth disabled behavior.
+- Profile partial-update preservation.
+- Profile visibility invalid payload behavior.
+- Protocol-relative avatar URL rejection.
+- Private challenge detail/member privacy.
+- Leaderboard enrollment ownership.
+- Left-enrollment discovery behavior.
+- Achievement XP persistence in stats.
+- Uncounted check-in handling across progress/history surfaces.
+- Public profile username normalization.
 
 Current backend test command:
 
@@ -84,7 +104,7 @@ backend/venv/bin/python -m pytest -q
 Latest local result:
 
 ```txt
-34 passed
+41 passed
 ```
 
 ### Profile Validation

@@ -112,4 +112,8 @@ Based on git history, the project has progressed through:
 - SQLite debug endpoints are blocked outside development mode.
 - Legacy `services/auth_service.py` and old `sessions` table initialization were removed.
 - `backend/auth.py` now uses centralized `Config.JWT_SECRET` instead of a separate JWT fallback.
-- Backend smoke coverage currently reports `34 passed` in the local `backend/venv` environment.
+- Local auth can be disabled through `LOCAL_LOGIN_ENABLED`.
+- Profile, challenge, leaderboard, public identity, and progression privacy edge cases have been hardened.
+- Progression surfaces consistently ignore uncounted check-ins.
+- Achievement XP rewards are included in persisted stats.
+- Backend smoke coverage currently reports `41 passed` in the local `backend/venv` environment.
