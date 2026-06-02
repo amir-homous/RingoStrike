@@ -280,24 +280,55 @@ def get_enrollment_detail(user_id: int, enrollment_id: int):
 
         today_checked = (
             conn.execute(
-                "SELECT 1 FROM checkins WHERE enrollment_id = ? AND date = ? LIMIT 1",
+                """
+                SELECT 1
+                FROM checkins
+                WHERE enrollment_id = ?
+                  AND date = ?
+                  AND status = 'Done'
+                  AND is_counted = 1
+                LIMIT 1
+                """,
                 (enrollment_id, today),
             ).fetchone()
             is not None
         )
 
         total_checkins = conn.execute(
-            "SELECT COUNT(*) AS n FROM checkins WHERE enrollment_id = ?", (enrollment_id,)
+            """
+            SELECT COUNT(*) AS n
+            FROM checkins
+            WHERE enrollment_id = ?
+              AND status = 'Done'
+              AND is_counted = 1
+            """,
+            (enrollment_id,),
         ).fetchone()["n"]
 
         dates = conn.execute(
-            "SELECT date FROM checkins WHERE enrollment_id = ? GROUP BY date ORDER BY date DESC",
+            """
+            SELECT date
+            FROM checkins
+            WHERE enrollment_id = ?
+              AND status = 'Done'
+              AND is_counted = 1
+            GROUP BY date
+            ORDER BY date DESC
+            """,
             (enrollment_id,),
         ).fetchall()
         current_streak = calculate_current_streak([r["date"] for r in dates if r["date"]], today)
 
         logs = conn.execute(
-            "SELECT id AS daily_log_id, date FROM checkins WHERE enrollment_id = ? ORDER BY date DESC, id DESC LIMIT 20",
+            """
+            SELECT id AS daily_log_id, date
+            FROM checkins
+            WHERE enrollment_id = ?
+              AND status = 'Done'
+              AND is_counted = 1
+            ORDER BY date DESC, id DESC
+            LIMIT 20
+            """,
             (enrollment_id,),
         ).fetchall()
 

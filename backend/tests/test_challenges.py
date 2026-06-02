@@ -1,4 +1,7 @@
+from datetime import datetime, timedelta
+
 from helpers import auth_headers, insert_challenge, register_user
+from utils.date_utils import utc_today_iso
 
 
 def test_join_checkin_duplicate_and_stats_core_loop(client):
@@ -81,6 +84,118 @@ def test_join_checkin_duplicate_and_stats_core_loop(client):
     assert stats_data["stats"]["total_checkins"] >= 1
     assert stats_data["stats"]["current_streak"] >= 1
     assert stats_data["stats"]["total_points"] >= 10
+
+
+def test_uncounted_checkins_do_not_affect_progress_surfaces(client):
+    user = register_user(client, username="UncountedProgressUser")
+    headers = auth_headers(user["access_token"])
+
+    challenges_res = client.get("/challenges", headers=headers)
+
+    assert challenges_res.status_code == 200
+    challenges_data = challenges_res.get_json()
+    assert challenges_data["ok"] is True
+
+    public_challenge = next(
+        item for item in challenges_data["items"]
+        if item["visibility"] == "public" and not item["is_joined"]
+    )
+
+    join_res = client.post(
+        f"/challenges/{public_challenge['challenge_id']}/join",
+        json={},
+        headers=headers,
+    )
+
+    assert join_res.status_code == 200
+    join_data = join_res.get_json()
+    assert join_data["ok"] is True
+
+    enrollment_id = join_data["enrollment_id"]
+    challenge_id = public_challenge["challenge_id"]
+
+    checkin_res = client.post(
+        f"/me/challenges/{enrollment_id}/checkin",
+        headers=headers,
+    )
+
+    assert checkin_res.status_code == 200
+    checkin_data = checkin_res.get_json()
+    assert checkin_data["ok"] is True
+
+    today = utc_today_iso()
+    yesterday = (
+        datetime.strptime(today, "%Y-%m-%d").date()
+        - timedelta(days=1)
+    ).isoformat()
+
+    import database
+
+    conn = database.get_db_connection()
+    try:
+        conn.execute(
+            """
+            INSERT INTO checkins (
+                enrollment_id,
+                user_id,
+                challenge_id,
+                date,
+                status,
+                is_counted
+            )
+            VALUES (?, ?, ?, ?, 'Done', 0)
+            """,
+            (
+                enrollment_id,
+                user["user_id"],
+                challenge_id,
+                yesterday,
+            ),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+    enrollment_res = client.get(
+        f"/me/enrollments/{enrollment_id}",
+        headers=headers,
+    )
+
+    assert enrollment_res.status_code == 200
+    enrollment_data = enrollment_res.get_json()
+    assert enrollment_data["ok"] is True
+    assert enrollment_data["enrollment"]["total_checkins"] == 1
+    assert enrollment_data["enrollment"]["current_streak"] == 1
+
+    recent_log_dates = {
+        item["date"]
+        for item in enrollment_data["recent_logs"]
+    }
+
+    assert today in recent_log_dates
+    assert yesterday not in recent_log_dates
+
+    stats_res = client.get("/me/stats", headers=headers)
+
+    assert stats_res.status_code == 200
+    stats_data = stats_res.get_json()
+    assert stats_data["ok"] is True
+    assert stats_data["stats"]["total_checkins"] == 1
+    assert stats_data["stats"]["current_streak"] == 1
+
+    consistency_res = client.get("/me/consistency", headers=headers)
+
+    assert consistency_res.status_code == 200
+    consistency_data = consistency_res.get_json()
+    assert consistency_data["ok"] is True
+
+    consistency_dates = {
+        item["date"]
+        for item in consistency_data["days"]
+    }
+
+    assert today in consistency_dates
+    assert yesterday not in consistency_dates
 
 
 def test_invite_only_challenge_join_flow(client):

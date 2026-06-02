@@ -17,13 +17,19 @@ def get_activity_feed(user_id: int, limit: int = 40):
         rows = conn.execute(
             """SELECT c.id, c.date, ch.name AS challenge_name
             FROM checkins c JOIN challenges ch ON ch.id = c.challenge_id
-            WHERE c.user_id = ? AND c.status = 'Done'
+            WHERE c.user_id = ? AND c.status = 'Done' AND c.is_counted = 1
             ORDER BY c.date DESC, c.id DESC LIMIT ?""",
             (user_id, safe_limit),
         ).fetchall()
 
         all_dates = [r["date"] for r in conn.execute(
-            "SELECT DISTINCT date FROM checkins WHERE user_id = ? AND status = 'Done' ORDER BY date ASC", (user_id,)
+            """
+            SELECT DISTINCT date
+            FROM checkins
+            WHERE user_id = ? AND status = 'Done' AND is_counted = 1
+            ORDER BY date ASC
+            """,
+            (user_id,),
         ).fetchall()]
 
         events = []

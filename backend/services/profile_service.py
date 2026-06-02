@@ -45,7 +45,14 @@ def get_profile(user_id: int):
             "SELECT CAST(COUNT(*) AS INTEGER) AS n FROM enrollments WHERE user_id=? AND status='Active'", (user_id,)
         ).fetchone()["n"]
         recent_7 = conn.execute(
-            "SELECT CAST(COUNT(*) AS INTEGER) AS n FROM checkins WHERE user_id=? AND status='Done' AND date >= date('now','-6 day')",
+            """
+            SELECT CAST(COUNT(*) AS INTEGER) AS n
+            FROM checkins
+            WHERE user_id=?
+              AND status='Done'
+              AND is_counted = 1
+              AND date >= date('now','-6 day')
+            """,
             (user_id,),
         ).fetchone()["n"]
 

@@ -22,7 +22,7 @@ def get_dashboard(user_id:int):
         rows=conn.execute("SELECT e.id AS enrollment_id,c.name AS enrollment_name,e.status AS status,c.id AS challenge_id FROM enrollments e JOIN challenges c ON e.challenge_id=c.id WHERE e.user_id=? AND e.status='Active'",(user_id,)).fetchall()
         items=[]
         for r in rows:
-            checkin=conn.execute("SELECT 1 FROM checkins WHERE enrollment_id=? AND date=? AND status='Done' LIMIT 1",(r['enrollment_id'],today)).fetchone()
+            checkin=conn.execute("SELECT 1 FROM checkins WHERE enrollment_id=? AND date=? AND status='Done' AND is_counted = 1 LIMIT 1",(r['enrollment_id'],today)).fetchone()
             items.append({"enrollment_id":r['enrollment_id'],"enrollment_name":r['enrollment_name'],"status":r['status'],"challenge_id":r['challenge_id'],"today_checked":bool(checkin)})
         return {"ok":True,"date":today,"user":{"name":user_info['name'],"stats":{"total_points":user_info['total_points'],"current_streak":user_info['current_streak'],"longest_streak":user_info['longest_streak']}},"challenges":items},200
     finally: conn.close()

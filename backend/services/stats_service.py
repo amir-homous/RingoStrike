@@ -91,7 +91,7 @@ def build_user_stats_payload(user_id: int) -> tuple[dict, int]:
                 CAST(COUNT(*) AS INTEGER) AS total_checkins,
                 CAST(COUNT(*) * ? AS INTEGER) AS base_points
             FROM checkins
-            WHERE user_id = ? AND status = 'Done'
+            WHERE user_id = ? AND status = 'Done' AND is_counted = 1
             """,
             (XP_PER_CHECKIN, user_id),
         ).fetchone()
@@ -107,7 +107,12 @@ def build_user_stats_payload(user_id: int) -> tuple[dict, int]:
         ).fetchone()
 
         rows = conn.execute(
-            "SELECT DISTINCT date FROM checkins WHERE user_id = ? AND status = 'Done' ORDER BY date DESC",
+            """
+            SELECT DISTINCT date
+            FROM checkins
+            WHERE user_id = ? AND status = 'Done' AND is_counted = 1
+            ORDER BY date DESC
+            """,
             (user_id,),
         ).fetchall()
 

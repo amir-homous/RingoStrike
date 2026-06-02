@@ -45,7 +45,11 @@ def _build_metrics(conn, user_id: int) -> dict:
         (user_id,),
     ).fetchone()
     challenge_progress = conn.execute(
-        "SELECT CAST(COUNT(*) AS INTEGER) AS n FROM checkins WHERE user_id=? AND status='Done'",
+        """
+        SELECT CAST(COUNT(*) AS INTEGER) AS n
+        FROM checkins
+        WHERE user_id=? AND status='Done' AND is_counted = 1
+        """,
         (user_id,),
     ).fetchone()["n"]
     xp = int((stats or {})["total_points"] or 0)

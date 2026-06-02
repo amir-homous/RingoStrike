@@ -16,7 +16,10 @@ def get_consistency(user_id: int, days: int = 140):
             """
             SELECT date, CAST(COUNT(*) AS INTEGER) AS count
             FROM checkins
-            WHERE user_id = ? AND status='Done' AND date BETWEEN ? AND ?
+            WHERE user_id = ?
+              AND status = 'Done'
+              AND is_counted = 1
+              AND date BETWEEN ? AND ?
             GROUP BY date
             ORDER BY date ASC
             """,
