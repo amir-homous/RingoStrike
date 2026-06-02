@@ -16,6 +16,15 @@ The project has moved beyond raw MVP. Core progression identity is implemented. 
 
 ## Latest Launch-Hardening Updates
 
+### Frontend Browser Console Pass
+
+Added a headless browser console smoke pass for major frontend routes:
+
+- Added a Chrome DevTools Protocol script that checks dashboard, challenges, enrollment, leaderboard, private profile, and public profile routes.
+- The script provisions a temporary user and enrollment through the backend API.
+- Verified the intended local frontend origin, `localhost:5173`, has no uncaught browser errors or failed route requests.
+- Documented that Vite fallback ports such as `5174` are outside the backend default CORS allowlist.
+
 ### Frontend Responsive UI Hardening
 
 Tightened responsive behavior across core frontend surfaces:

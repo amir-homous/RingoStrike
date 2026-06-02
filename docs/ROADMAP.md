@@ -208,7 +208,7 @@ These items should happen before expanding product scope:
 - Keep profile loading smoke coverage aligned as profile behavior changes.
 - Keep public profile smoke coverage aligned as public profile behavior changes.
 - Keep responsive UI pass findings aligned as core route layouts change.
-- Run browser console pass on major routes.
+- Keep browser console pass coverage aligned as major route behavior changes.
 
 ### API Reliability
 
@@ -299,13 +299,13 @@ python scripts/smoke_backend.py --base-url http://localhost:5005
 
 The next highest-value issue is:
 
-Frontend: run browser console pass on major routes.
+API: define a shared API error response convention.
 
 Suggested target:
 
-- Check dashboard, challenges, enrollment, leaderboard, private profile, and public profile.
-- Verify no uncaught runtime errors or failed frontend-side requests.
-- Document any expected backend/API failures separately from frontend console issues.
-- Fix any frontend runtime warning or error found during the pass.
+- Inventory current error response shapes across active routes.
+- Define canonical fields for frontend-safe errors.
+- Preserve backward-compatible response shapes where the active frontend depends on them.
+- Start migration through the existing shared API response helper.
 
 ---
