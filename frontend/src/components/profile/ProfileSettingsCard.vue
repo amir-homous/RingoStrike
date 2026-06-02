@@ -4,6 +4,10 @@ import { ref, onMounted } from "vue";
 import api from "@/lib/api";
 
 import BaseCard from "@/components/ui/BaseCard.vue";
+import {
+  loadProfileSettings,
+  saveProfileSettings,
+} from "@/views/profileFlow";
 
 const loading = ref(false);
 const saved = ref(false);
@@ -47,16 +51,7 @@ async function loadProfile() {
   error.value = "";
 
   try {
-    const response = await api.get("/me/profile");
-
-    const profile = response.data.profile;
-
-    form.value.bio = profile.bio || "";
-    form.value.avatar_url =
-      profile.avatar_url || "";
-
-    form.value.profile_visibility =
-      profile.profile_visibility || "public";
+    form.value = await loadProfileSettings(api);
   } catch (err) {
     error.value = err.response?.data?.error || "Could not load profile settings.";
   }
@@ -68,11 +63,7 @@ async function saveProfile() {
   error.value = "";
 
   try {
-    await api.patch("/api/me/profile/settings", {
-      bio: form.value.bio,
-      avatar_url: form.value.avatar_url,
-      profile_visibility: form.value.profile_visibility,
-    });
+    await saveProfileSettings(api, form.value);
 
     saved.value = true;
     emit("saved");

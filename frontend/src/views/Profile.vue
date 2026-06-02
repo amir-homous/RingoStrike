@@ -151,6 +151,14 @@ import ProfileSettingsCard from "@/components/profile/ProfileSettingsCard.vue";
 import AchievementPreview from "@/components/achievements/AchievementPreview.vue";
 import ActivityTimeline from "@/components/activity/ActivityTimeline.vue";
 import RewardFeedback from "@/components/feedback/RewardFeedback.vue";
+import {
+  countUnlockedAchievements,
+  getProfileIdentityStatus,
+  getProfileTitleText,
+  getProfileVisibilityHint,
+  getProfileVisibilityLabel,
+  loadPrivateProfileData,
+} from "./profileFlow";
 
 const loading = ref(true);
 const error = ref("");
@@ -165,45 +173,27 @@ const showEditProfile = ref(false);
 const rewardToasts = ref([]);
 
 const visibilityLabel = computed(() => {
-  const value = profile.value?.profile_visibility || profile.value?.visibility || "public";
-  return value === "private" ? "Private" : "Public";
+  return getProfileVisibilityLabel(profile.value);
 });
 
 const visibilityHint = computed(() => {
-  return visibilityLabel.value === "Private"
-    ? "Only you can view the public profile data."
-    : "Your progression identity is shareable.";
+  return getProfileVisibilityHint(profile.value);
 });
 
 const unlockedAchievementCount = computed(() => {
-  return achievements.value.filter((achievement) => achievement.unlocked).length;
+  return countUnlockedAchievements(achievements.value);
 });
 
 const identityStatusTitle = computed(() => {
-  if (visibilityLabel.value === "Private") return "Private progression mode";
-  return "Public identity is active";
+  return getProfileIdentityStatus(profile.value).title;
 });
 
 const identityStatusText = computed(() => {
-  if (visibilityLabel.value === "Private") {
-    return "Your profile is protected. You can still build momentum privately and publish later when ready.";
-  }
-
-  return "Your public profile can communicate consistency, achievements, and identity without exposing private app controls.";
+  return getProfileIdentityStatus(profile.value).text;
 });
 
 const profileTitleText = computed(() => {
-  const title = profile.value?.title;
-
-  if (!title) return "Progression Builder";
-
-  if (typeof title === "string") return title;
-
-  if (typeof title === "object") {
-    return title.label || title.key || "Progression Builder";
-  }
-
-  return "Progression Builder";
+  return getProfileTitleText(profile.value);
 });
 
 function pushToast(text, type = "success") {
@@ -235,17 +225,12 @@ async function load() {
   error.value = "";
 
   try {
-    const [p, c, a, t] = await Promise.all([
-      api.get("/me/profile"),
-      api.get("/me/consistency"),
-      api.get("/me/achievements"),
-      api.get("/me/activity"),
-    ]);
+    const data = await loadPrivateProfileData(api);
 
-    profile.value = p.data.profile;
-    consistency.value = c.data.days || [];
-    achievements.value = a.data.achievements || [];
-    activityEvents.value = t.data.events || [];
+    profile.value = data.profile;
+    consistency.value = data.consistency;
+    achievements.value = data.achievements;
+    activityEvents.value = data.activityEvents;
   } catch (e) {
     error.value = e?.message || String(e);
   } finally {

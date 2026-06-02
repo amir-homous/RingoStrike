@@ -157,6 +157,7 @@ The product has moved beyond raw MVP. The core progression identity system is im
 - Frontend login flow smoke test.
 - Frontend dashboard loading smoke test.
 - Frontend challenge join/check-in flow smoke test.
+- Frontend profile loading smoke test.
 - Expand protected-endpoint auth failure coverage as new authenticated routes are added.
 
 
@@ -203,7 +204,7 @@ These items should happen before expanding product scope:
 - Keep login flow smoke coverage aligned as auth UI behavior changes.
 - Keep dashboard loading smoke coverage aligned as dashboard API usage changes.
 - Keep challenge join/check-in smoke coverage aligned as challenge flow behavior changes.
-- Add smoke test for profile loading.
+- Keep profile loading smoke coverage aligned as profile behavior changes.
 - Add smoke test for public profile rendering.
 - Run responsive UI pass using launch QA checklist.
 - Run browser console pass on major routes.
@@ -297,13 +298,13 @@ python scripts/smoke_backend.py --base-url http://localhost:5005
 
 The next highest-value issue is:
 
-Frontend: add a smoke test for profile loading.
+Frontend: add a smoke test for public profile rendering.
 
 Suggested target:
 
-- Verify private profile data requests use the shared API client.
-- Verify profile settings payloads preserve omitted fields.
-- Verify loading, empty, and error states remain stable.
-- Keep the smoke independent of backend availability by testing extracted profile logic.
+- Verify public profile data requests use the shared API client.
+- Verify private/not-found states map to stable display states.
+- Verify consistency and achievement payloads render from representative public data.
+- Keep the smoke independent of backend availability by testing extracted public profile logic.
 
 ---
