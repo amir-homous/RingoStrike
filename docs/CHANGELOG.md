@@ -16,6 +16,15 @@ The project has moved beyond raw MVP. Core progression identity is implemented. 
 
 ## Latest Launch-Hardening Updates
 
+### API Endpoint Ownership Documentation
+
+Added `docs/API_ENDPOINT_OWNERSHIP.md` to clarify backend endpoint ownership:
+
+- Inventoried public, authenticated, and development-only endpoints.
+- Documented route owners, service owners, and active compatibility notes.
+- Called out canonical owners for stats, leaderboard, profile settings, public profiles, and debug surfaces.
+- Listed duplicate ownership risks to avoid as API reliability work continues.
+
 ### Shared API Error Response Convention
 
 Defined and started migrating the shared API error response convention:
