@@ -57,6 +57,7 @@ def enrollment_leaderboard(
                 SELECT COUNT(*) AS n
                 FROM checkins
                 WHERE enrollment_id = ?
+                  AND status = 'Done'
                   AND is_counted = 1
                 """,
                 (eid,),
@@ -67,6 +68,7 @@ def enrollment_leaderboard(
                 SELECT date
                 FROM checkins
                 WHERE enrollment_id = ?
+                  AND status = 'Done'
                   AND is_counted = 1
                 ORDER BY date DESC
                 """,
@@ -85,6 +87,7 @@ def enrollment_leaderboard(
                     FROM checkins
                     WHERE enrollment_id = ?
                       AND date = ?
+                      AND status = 'Done'
                       AND is_counted = 1
                     LIMIT 1
                     """,

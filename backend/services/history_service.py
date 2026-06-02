@@ -16,7 +16,7 @@ def enrollment_history(user_id:int,enrollment_id:int,days_param):
         for i in range(days):
             d=(start+timedelta(days=i)).isoformat(); row=by.get(d)
             st=row["status"] if row else None
-            is_counted=bool(row["is_counted"]) if row else False
+            is_counted=bool(row["is_counted"]) and st == "Done" if row else False
             if is_counted: checked+=1
             timeline.append({"date":d,"status":st,"is_counted":is_counted})
         return {"ok":True,"summary":{"checked_days":checked,"total_days":days},"items":timeline},200

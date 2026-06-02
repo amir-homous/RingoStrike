@@ -33,6 +33,7 @@ def get_public_consistency(username: str):
             SELECT date
             FROM checkins
             WHERE user_id = ?
+              AND status = 'Done'
               AND is_counted = 1
             ORDER BY date DESC
             LIMIT 365

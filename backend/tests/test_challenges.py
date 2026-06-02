@@ -128,6 +128,10 @@ def test_uncounted_checkins_do_not_affect_progress_surfaces(client):
         datetime.strptime(today, "%Y-%m-%d").date()
         - timedelta(days=1)
     ).isoformat()
+    two_days_ago = (
+        datetime.strptime(today, "%Y-%m-%d").date()
+        - timedelta(days=2)
+    ).isoformat()
 
     import database
 
@@ -150,6 +154,25 @@ def test_uncounted_checkins_do_not_affect_progress_surfaces(client):
                 user["user_id"],
                 challenge_id,
                 yesterday,
+            ),
+        )
+        conn.execute(
+            """
+            INSERT INTO checkins (
+                enrollment_id,
+                user_id,
+                challenge_id,
+                date,
+                status,
+                is_counted
+            )
+            VALUES (?, ?, ?, ?, 'Skipped', 1)
+            """,
+            (
+                enrollment_id,
+                user["user_id"],
+                challenge_id,
+                two_days_ago,
             ),
         )
         conn.commit()
@@ -196,6 +219,36 @@ def test_uncounted_checkins_do_not_affect_progress_surfaces(client):
 
     assert today in consistency_dates
     assert yesterday not in consistency_dates
+    assert two_days_ago not in consistency_dates
+
+    public_consistency_res = client.get(
+        "/api/public/profile/uncountedprogressuser/consistency"
+    )
+
+    assert public_consistency_res.status_code == 200
+    public_consistency_data = public_consistency_res.get_json()
+    assert public_consistency_data["ok"] is True
+    assert today in public_consistency_data["days"]
+    assert yesterday not in public_consistency_data["days"]
+    assert two_days_ago not in public_consistency_data["days"]
+
+    leaderboard_res = client.get(
+        f"/me/enrollments/{enrollment_id}/leaderboard",
+        headers=headers,
+    )
+
+    assert leaderboard_res.status_code == 200
+    leaderboard_data = leaderboard_res.get_json()
+    assert leaderboard_data["ok"] is True
+
+    leaderboard_row = next(
+        item
+        for item in leaderboard_data["overall"]
+        if item["enrollment_id"] == enrollment_id
+    )
+
+    assert leaderboard_row["total_checkins"] == 1
+    assert leaderboard_row["current_streak"] == 1
 
     history_res = client.get(
         f"/me/challenges/{enrollment_id}/history?days=3",
@@ -216,6 +269,8 @@ def test_uncounted_checkins_do_not_affect_progress_surfaces(client):
     assert history_by_date[today]["is_counted"] is True
     assert history_by_date[yesterday]["status"] == "Done"
     assert history_by_date[yesterday]["is_counted"] is False
+    assert history_by_date[two_days_ago]["status"] == "Skipped"
+    assert history_by_date[two_days_ago]["is_counted"] is False
 
 
 def test_invite_only_challenge_join_flow(client):
