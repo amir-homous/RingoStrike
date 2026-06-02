@@ -240,6 +240,26 @@ def test_challenge_access_rules_for_private_archived_and_missing(client):
     assert private_join_data["ok"] is False
     assert private_join_data["error"] == "challenge_private"
 
+    private_detail_res = client.get(
+        f"/challenges/{private_challenge_id}",
+        headers=headers,
+    )
+
+    assert private_detail_res.status_code == 403
+    private_detail_data = private_detail_res.get_json()
+    assert private_detail_data["ok"] is False
+    assert private_detail_data["error"] == "challenge_private"
+
+    private_members_res = client.get(
+        f"/challenges/{private_challenge_id}/members",
+        headers=headers,
+    )
+
+    assert private_members_res.status_code == 403
+    private_members_data = private_members_res.get_json()
+    assert private_members_data["ok"] is False
+    assert private_members_data["error"] == "challenge_private"
+
     archived_join_res = client.post(
         f"/challenges/{archived_challenge_id}/join",
         json={},
@@ -268,6 +288,13 @@ def test_challenge_access_rules_for_private_archived_and_missing(client):
     assert missing_detail_res.status_code == 404
     missing_detail_data = missing_detail_res.get_json()
     assert missing_detail_data["ok"] is False
+
+    missing_members_res = client.get("/challenges/999999/members", headers=headers)
+
+    assert missing_members_res.status_code == 404
+    missing_members_data = missing_members_res.get_json()
+    assert missing_members_data["ok"] is False
+    assert missing_members_data["error"] == "challenge_not_found"
 
 
 def test_challenge_join_rejects_non_object_json(client):

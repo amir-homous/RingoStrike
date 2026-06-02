@@ -95,6 +95,9 @@ def get_challenge_detail(challenge_id: int):
         if row is None:
             return {"ok": False, "error": f"Challenge with ID {challenge_id} not found"}, 404
 
+        if (row["visibility"] or "Private") == "Private":
+            return {"ok": False, "error": "challenge_private"}, 403
+
         count_row = conn.execute(
             "SELECT COUNT(*) FROM enrollments WHERE challenge_id = ? AND status = 'Active'",
             (challenge_id,),
@@ -127,6 +130,17 @@ def get_challenge_detail(challenge_id: int):
 def get_challenge_members(challenge_id: int, limit_arg, offset_arg):
     conn = get_db_connection()
     try:
+        challenge = conn.execute(
+            "SELECT visibility FROM challenges WHERE id = ?",
+            (challenge_id,),
+        ).fetchone()
+
+        if not challenge:
+            return {"ok": False, "error": "challenge_not_found"}, 404
+
+        if (challenge["visibility"] or "Private") == "Private":
+            return {"ok": False, "error": "challenge_private"}, 403
+
         limit = max(1, min(safe_int(limit_arg, 20), 50))
         offset = safe_int(offset_arg, 0)
 
