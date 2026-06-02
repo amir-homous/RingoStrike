@@ -31,7 +31,9 @@ def update_profile_visibility(
         conn.execute(
             """
             UPDATE users
-            SET profile_visibility = ?
+            SET
+                profile_visibility = ?,
+                updated_at = CURRENT_TIMESTAMP
             WHERE id = ?
             """,
             (visibility, user_id),

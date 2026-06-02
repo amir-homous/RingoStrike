@@ -161,6 +161,56 @@ def test_profile_visibility_validation(client):
     assert invalid_body_data["error"] == "invalid_json_body"
 
 
+def test_profile_visibility_updates_user_timestamp(client):
+    user = register_user(client, username="VisibilityTimestampUser")
+    headers = auth_headers(user["access_token"])
+
+    import database
+
+    conn = database.get_db_connection()
+    try:
+        conn.execute(
+            """
+            UPDATE users
+            SET updated_at = ?
+            WHERE id = ?
+            """,
+            (
+                "2000-01-01 00:00:00",
+                user["user_id"],
+            ),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+    res = client.patch(
+        "/api/profile/visibility",
+        json={"visibility": "private"},
+        headers=headers,
+    )
+
+    assert res.status_code == 200
+    data = res.get_json()
+    assert data["ok"] is True
+
+    conn = database.get_db_connection()
+    try:
+        row = conn.execute(
+            """
+            SELECT profile_visibility, updated_at
+            FROM users
+            WHERE id = ?
+            """,
+            (user["user_id"],),
+        ).fetchone()
+    finally:
+        conn.close()
+
+    assert row["profile_visibility"] == "private"
+    assert row["updated_at"] != "2000-01-01 00:00:00"
+
+
 def test_profile_update_validation(client):
     user = register_user(client, username="ProfileValidationUser")
     headers = auth_headers(user["access_token"])
