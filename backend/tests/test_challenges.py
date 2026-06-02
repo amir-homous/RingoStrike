@@ -297,6 +297,72 @@ def test_challenge_access_rules_for_private_archived_and_missing(client):
     assert missing_members_data["error"] == "challenge_not_found"
 
 
+def test_challenge_discovery_ignores_left_enrollments(client):
+    user = register_user(client, username="LeftEnrollmentUser")
+    headers = auth_headers(user["access_token"])
+    user_id = user["user_id"]
+
+    private_challenge_id = insert_challenge(
+        name="Left Private Challenge",
+        description="Left private enrollment should not reveal challenge.",
+        visibility="Private",
+        status="Active",
+        duration_days=14,
+        tags="test,left,private",
+    )
+
+    public_challenge_id = insert_challenge(
+        name="Left Public Challenge",
+        description="Left public enrollment should not look joined.",
+        visibility="Public",
+        status="Active",
+        duration_days=14,
+        tags="test,left,public",
+    )
+
+    import database
+
+    conn = database.get_db_connection()
+    try:
+        for challenge_id in (
+            private_challenge_id,
+            public_challenge_id,
+        ):
+            conn.execute(
+                """
+                INSERT INTO enrollments (
+                    user_id,
+                    challenge_id,
+                    status
+                )
+                VALUES (?, ?, 'Left')
+                """,
+                (
+                    user_id,
+                    challenge_id,
+                ),
+            )
+        conn.commit()
+    finally:
+        conn.close()
+
+    list_res = client.get("/challenges", headers=headers)
+
+    assert list_res.status_code == 200
+    list_data = list_res.get_json()
+    assert list_data["ok"] is True
+
+    items_by_id = {
+        item["challenge_id"]: item
+        for item in list_data["items"]
+    }
+
+    assert private_challenge_id not in items_by_id
+    assert public_challenge_id in items_by_id
+    assert items_by_id[public_challenge_id]["is_joined"] is False
+    assert items_by_id[public_challenge_id]["enrollment_id"] is None
+
+
 def test_challenge_join_rejects_non_object_json(client):
     user = register_user(
         client,

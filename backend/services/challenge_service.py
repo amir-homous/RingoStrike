@@ -34,7 +34,10 @@ def list_challenges(user_id: int):
         challenges = conn.execute(
             """
             SELECT c.* FROM challenges c
-            LEFT JOIN enrollments e ON c.id = e.challenge_id AND e.user_id = ?
+            LEFT JOIN enrollments e
+              ON c.id = e.challenge_id
+             AND e.user_id = ?
+             AND e.status = 'Active'
             WHERE c.status = 'Active'
             AND (c.visibility IN ('Public', 'Invite-only') OR e.id IS NOT NULL)
             """,
@@ -42,7 +45,12 @@ def list_challenges(user_id: int):
         ).fetchall()
 
         enrollments = conn.execute(
-            "SELECT id, challenge_id FROM enrollments WHERE user_id = ?", (user_id,)
+            """
+            SELECT id, challenge_id
+            FROM enrollments
+            WHERE user_id = ? AND status = 'Active'
+            """,
+            (user_id,),
         ).fetchall()
         enroll_map = {e["challenge_id"]: e["id"] for e in enrollments}
 
