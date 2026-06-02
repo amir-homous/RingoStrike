@@ -152,3 +152,11 @@ class Config:
         "DEMO_USER_ID",
         "12345",
     )
+
+    TELEGRAM_BOT_TOKEN = os.getenv(
+        "TELEGRAM_BOT_TOKEN"
+    )
+
+    TELEGRAM_TEST_CHAT_ID = os.getenv(
+        "TELEGRAM_TEST_CHAT_ID"
+    )
