@@ -113,6 +113,27 @@ def _client_rate_limit_key(action: str) -> str:
 
     return f"auth:{action}:{ip}"
 
+
+def _env_bool(name: str, default: bool = False) -> bool:
+    value = os.getenv(name)
+
+    if value is None:
+        return default
+
+    return str(value).strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
+
+
+def local_login_enabled() -> bool:
+    return _env_bool(
+        "LOCAL_LOGIN_ENABLED",
+        default=bool(Config.LOCAL_LOGIN_ENABLED),
+    )
+
 # ==================== AUTH ROUTES ====================
 
 def register_auth_routes(app):
@@ -121,6 +142,12 @@ def register_auth_routes(app):
     @app.post("/auth/register")
     def register():
         """Register new user with username and password"""
+        if not local_login_enabled():
+            return jsonify({
+                "ok": False,
+                "error": "local_login_disabled",
+            }), 403
+
         data = request.get_json(silent=True) or {}
 
         if not isinstance(data, dict):
@@ -192,6 +219,12 @@ def register_auth_routes(app):
     @app.post("/auth/login")
     def auth_login():
         """Login with username and password"""
+        if not local_login_enabled():
+            return jsonify({
+                "ok": False,
+                "error": "local_login_disabled",
+            }), 403
+
         data = request.get_json(silent=True) or {}
 
         if not isinstance(data, dict):

@@ -61,6 +61,38 @@ def test_register_login_and_me_with_bearer(client):
     assert me_data["auth_method"] == "local"
 
 
+def test_local_login_can_be_disabled(client, monkeypatch):
+    monkeypatch.setenv("LOCAL_LOGIN_ENABLED", "0")
+
+    register_res = client.post(
+        "/auth/register",
+        json={
+            "username": "DisabledLocalUser",
+            "password": "secret123",
+            "name": "Disabled Local User",
+            "email": "disabled-local@example.com",
+        },
+    )
+
+    assert register_res.status_code == 403
+    register_data = register_res.get_json()
+    assert register_data["ok"] is False
+    assert register_data["error"] == "local_login_disabled"
+
+    login_res = client.post(
+        "/auth/login",
+        json={
+            "username": "DisabledLocalUser",
+            "password": "secret123",
+        },
+    )
+
+    assert login_res.status_code == 403
+    login_data = login_res.get_json()
+    assert login_data["ok"] is False
+    assert login_data["error"] == "local_login_disabled"
+
+
 def test_username_validation_register_flow(client):
     invalid_cases = [
         ("ab", "invalid_username"),
