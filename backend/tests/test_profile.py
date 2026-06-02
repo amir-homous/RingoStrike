@@ -56,6 +56,55 @@ def test_public_profile_visibility_privacy_flow(client):
     assert restored_public_data["profile"]["username"] == "privacyuser"
 
 
+def test_profile_visibility_validation(client):
+    user = register_user(client, username="VisibilityValidationUser")
+    headers = auth_headers(user["access_token"])
+
+    normalized_res = client.patch(
+        "/api/profile/visibility",
+        json={"visibility": " Private "},
+        headers=headers,
+    )
+
+    assert normalized_res.status_code == 200
+    normalized_data = normalized_res.get_json()
+    assert normalized_data["ok"] is True
+    assert normalized_data["visibility"] == "private"
+
+    invalid_type_res = client.patch(
+        "/api/profile/visibility",
+        json={"visibility": 123},
+        headers=headers,
+    )
+
+    assert invalid_type_res.status_code == 400
+    invalid_type_data = invalid_type_res.get_json()
+    assert invalid_type_data["ok"] is False
+    assert invalid_type_data["error"] == "invalid_visibility_type"
+
+    invalid_value_res = client.patch(
+        "/api/profile/visibility",
+        json={"visibility": "friends"},
+        headers=headers,
+    )
+
+    assert invalid_value_res.status_code == 400
+    invalid_value_data = invalid_value_res.get_json()
+    assert invalid_value_data["ok"] is False
+    assert invalid_value_data["error"] == "invalid_visibility"
+
+    invalid_body_res = client.patch(
+        "/api/profile/visibility",
+        json=[],
+        headers=headers,
+    )
+
+    assert invalid_body_res.status_code == 400
+    invalid_body_data = invalid_body_res.get_json()
+    assert invalid_body_data["ok"] is False
+    assert invalid_body_data["error"] == "invalid_json_body"
+
+
 def test_profile_update_validation(client):
     user = register_user(client, username="ProfileValidationUser")
     headers = auth_headers(user["access_token"])

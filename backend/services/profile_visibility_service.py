@@ -11,6 +11,14 @@ def update_profile_visibility(
     user_id: int,
     visibility: str,
 ):
+    if not isinstance(visibility, str):
+        return {
+            "ok": False,
+            "error": "invalid_visibility_type",
+        }, 400
+
+    visibility = visibility.lower().strip()
+
     if visibility not in ALLOWED_VISIBILITY:
         return {
             "ok": False,

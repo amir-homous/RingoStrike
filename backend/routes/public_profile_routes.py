@@ -56,7 +56,16 @@ def public_consistency(username):
 )
 @require_auth()
 def patch_profile_visibility(claims):
-    data = request.get_json(silent=True) or {}
+    data = request.get_json(silent=True)
+
+    if data is None:
+        data = {}
+
+    if not isinstance(data, dict):
+        return jsonify({
+            "ok": False,
+            "error": "invalid_json_body",
+        }), 400
 
     visibility = data.get("visibility")
 
