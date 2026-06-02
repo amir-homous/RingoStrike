@@ -120,6 +120,62 @@ def test_profile_update_validation(client):
     assert settings_data["settings"]["profile_visibility"] == "private"
 
 
+def test_profile_update_preserves_omitted_fields(client):
+    user = register_user(client, username="PartialProfileUser")
+    headers = auth_headers(user["access_token"])
+
+    full_update_res = client.patch(
+        "/api/profile",
+        json={
+            "name": "Partial Player",
+            "bio": "Original bio.",
+            "avatar_url": "/avatars/avatar-2.png",
+        },
+        headers=headers,
+    )
+
+    assert full_update_res.status_code == 200
+    full_update_data = full_update_res.get_json()
+    assert full_update_data["ok"] is True
+
+    partial_update_res = client.patch(
+        "/api/profile",
+        json={
+            "bio": "Updated bio only.",
+        },
+        headers=headers,
+    )
+
+    assert partial_update_res.status_code == 200
+    partial_update_data = partial_update_res.get_json()
+    assert partial_update_data["ok"] is True
+
+    profile_res = client.get("/me/profile", headers=headers)
+
+    assert profile_res.status_code == 200
+    profile_data = profile_res.get_json()
+    assert profile_data["ok"] is True
+    assert profile_data["profile"]["name"] == "Partial Player"
+    assert profile_data["profile"]["bio"] == "Updated bio only."
+    assert profile_data["profile"]["avatar_url"] == "/avatars/avatar-2.png"
+
+
+def test_profile_update_rejects_non_object_json(client):
+    user = register_user(client, username="ProfileBodyUser")
+    headers = auth_headers(user["access_token"])
+
+    res = client.patch(
+        "/api/profile",
+        json=[],
+        headers=headers,
+    )
+
+    assert res.status_code == 400
+    data = res.get_json()
+    assert data["ok"] is False
+    assert data["error"] == "invalid_json_body"
+
+
 def test_public_consistency_and_achievements_respect_profile_privacy(client):
     user = register_user(client, username="PublicPrivacyUser")
     headers = auth_headers(user["access_token"])

@@ -4,9 +4,13 @@ from database import get_db_connection
 MAX_NAME_LENGTH = 60
 MAX_BIO_LENGTH = 280
 MAX_AVATAR_URL_LENGTH = 500
+FIELD_UNSET = object()
 
 
 def _validate_optional_string(value, field_name: str):
+    if value is FIELD_UNSET:
+        return FIELD_UNSET, None, None
+
     if value is None:
         return "", None, None
 
@@ -46,9 +50,9 @@ def _validate_avatar_url(value: str):
 
 def update_profile(
     user_id: int,
-    name: str | None = None,
-    bio: str | None = None,
-    avatar_url: str | None = None,
+    name: str | None | object = FIELD_UNSET,
+    bio: str | None | object = FIELD_UNSET,
+    avatar_url: str | None | object = FIELD_UNSET,
 ):
     conn = get_db_connection()
 
@@ -80,37 +84,59 @@ def update_profile(
         if error:
             return error, code
 
-        if len(clean_name) > MAX_NAME_LENGTH:
+        if (
+            clean_name is not FIELD_UNSET
+            and len(clean_name) > MAX_NAME_LENGTH
+        ):
             return {
                 "ok": False,
                 "error": "name_too_long",
             }, 400
 
-        if len(clean_bio) > MAX_BIO_LENGTH:
+        if (
+            clean_bio is not FIELD_UNSET
+            and len(clean_bio) > MAX_BIO_LENGTH
+        ):
             return {
                 "ok": False,
                 "error": "bio_too_long",
             }, 400
 
-        avatar_error, avatar_code = _validate_avatar_url(clean_avatar)
-        if avatar_error:
-            return avatar_error, avatar_code
+        if clean_avatar is not FIELD_UNSET:
+            avatar_error, avatar_code = _validate_avatar_url(clean_avatar)
+            if avatar_error:
+                return avatar_error, avatar_code
+
+        updates = []
+        values = []
+
+        if clean_name is not FIELD_UNSET:
+            updates.append("name = ?")
+            values.append(clean_name)
+
+        if clean_bio is not FIELD_UNSET:
+            updates.append("bio = ?")
+            values.append(clean_bio)
+
+        if clean_avatar is not FIELD_UNSET:
+            updates.append("avatar_url = ?")
+            values.append(clean_avatar or None)
+
+        if not updates:
+            return {
+                "ok": True,
+            }, 200
+
+        updates.append("updated_at = CURRENT_TIMESTAMP")
+        values.append(user_id)
 
         conn.execute(
-            """
+            f"""
             UPDATE users
-            SET
-                name = ?,
-                bio = ?,
-                avatar_url = ?
+            SET {", ".join(updates)}
             WHERE id = ?
             """,
-            (
-                clean_name,
-                clean_bio,
-                clean_avatar,
-                user_id,
-            ),
+            values,
         )
 
         conn.commit()

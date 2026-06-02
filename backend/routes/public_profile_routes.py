@@ -19,6 +19,7 @@ from services.public_achievement_service import (
 )
 
 from services.profile_update_service import (
+    FIELD_UNSET,
     update_profile,
 )
 
@@ -72,13 +73,26 @@ def patch_profile_visibility(claims):
 
 @require_auth()
 def patch_profile(claims):
-    data = request.get_json(silent=True) or {}
+    data = request.get_json(silent=True)
+
+    if data is None:
+        data = {}
+
+    if not isinstance(data, dict):
+        return jsonify({
+            "ok": False,
+            "error": "invalid_json_body",
+        }), 400
 
     payload, code = update_profile(
         user_id=claims["user_id"],
-        name=data.get("name"),
-        bio=data.get("bio"),
-        avatar_url=data.get("avatar_url"),
+        name=data["name"] if "name" in data else FIELD_UNSET,
+        bio=data["bio"] if "bio" in data else FIELD_UNSET,
+        avatar_url=(
+            data["avatar_url"]
+            if "avatar_url" in data
+            else FIELD_UNSET
+        ),
     )
 
     return jsonify(payload), code
