@@ -69,6 +69,7 @@ The product has moved beyond raw MVP. The core progression identity system is im
 - Removed frontend `api.setToken()` assumption.
 - Gated SQLite debug endpoints behind development environment config.
 - Required production `SECRET_KEY` and `JWT_SECRET`.
+- Centralized active JWT signing/verification on `Config.JWT_SECRET`.
 - Removed unsafe JWT secret fallback from active auth code.
 - Added frequent-query indexes for `checkins` and `enrollments`.
 - Made SQLite `DB_PATH` launch-location safe.

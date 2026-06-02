@@ -55,6 +55,7 @@ Registered route sources:
 - `routes/stats_routes.py`
 - `routes/public_profile_routes.py`
 - `routes/profile_settings_routes.py`
+- `routes/health_routes.py`
 
 ## Backend Layering
 
@@ -109,7 +110,7 @@ Service layer
       v
 SQLite tables
   users, user_stats, challenges, enrollments,
-  checkins, achievements, user_achievements, sessions
+  checkins, achievements, user_achievements
 ```
 
 ## Authentication Flow
@@ -123,6 +124,12 @@ Local auth is active:
 5. `require_auth()` checks the cookie first, then `Authorization: Bearer`.
 6. Protected routes receive decoded JWT claims.
 7. `POST /auth/logout` clears the cookie.
+
+Secret handling:
+
+- `backend/config.py` owns `SECRET_KEY` and `JWT_SECRET` validation.
+- Outside development, startup fails if either required secret is missing.
+- `backend/auth.py` uses `Config.JWT_SECRET` for JWT signing and verification.
 
 Telegram auth status:
 
@@ -155,7 +162,7 @@ Router guard behavior:
 
 ## Frontend State Flow
 
-The app mostly uses component-local state and direct API calls. Pinia exists and `stores/session.js` defines a session store, but that store is currently incompatible with `lib/api.js` because it calls a missing `api.setToken()` method.
+The app mostly uses component-local state and direct API calls. Pinia exists and `stores/session.js` defines a small cookie-auth session store around `GET /me` and `POST /auth/logout`. The frontend relies on HttpOnly cookies through Axios `withCredentials`, while the backend still supports Bearer token fallback.
 
 ## Design System Architecture
 
@@ -170,8 +177,9 @@ The actual UI is implemented with Vue component CSS plus shared base primitives 
 
 ## Known Architecture Risks
 
-- Duplicate `GET /me/stats` route registration.
-- Active auth code in `backend/auth.py` and unused duplicated auth service in `services/auth_service.py`.
-- Stateless JWT auth despite a `sessions` table existing.
-- Unauthenticated debug endpoints.
-- SQLite path defaults to `users.db` relative to the process working directory, which can create different databases depending on launch directory.
+- Auth route handlers still live in `backend/auth.py` rather than a cleaner route/service split.
+- Auth remains stateless JWT; there is no token revocation or session blacklist.
+- SQLite is suitable for local/MVP use but will need migrations and likely PostgreSQL before serious multi-user scale.
+- Some read endpoints perform derived calculations or stats sync work, which can become expensive as data grows.
+- API prefixes are mixed (`/me/...`, `/api/me/...`, `/api/profile...`) and should be normalized over time.
+- Profile update responsibilities overlap across profile settings/update/visibility endpoints.

@@ -20,6 +20,7 @@ The project has moved beyond raw MVP. Core progression identity is implemented. 
 
 Added production-readiness improvements:
 
+- Updated active auth to use centralized `Config.JWT_SECRET` for JWT signing and verification.
 - Added backend `.env.example` refresh for launch configuration.
 - Added `docs/DEPLOYMENT_CHECKLIST.md`.
 - Added safe `/health/config` endpoint.
@@ -77,8 +78,7 @@ Added backend smoke test coverage for:
 Current backend test command:
 
 ```bash
-cd backend
-py -m pytest -q
+backend/venv/bin/python -m pytest -q
 ```
 
 Latest local result:

@@ -21,7 +21,8 @@ The current product is both private-progression focused and public-identity capa
 - Public profiles at `/u/:username` backed by public API endpoints.
 - Profile visibility controls: public/private.
 - API docs page in the frontend.
-- SQLite debug endpoints.
+- SQLite debug endpoints gated to development mode.
+- Safe `/health/config` readiness endpoint.
 
 ## Technology
 
@@ -97,10 +98,18 @@ Based on git history, the project has progressed through:
 
 ## Known Stabilization Needs
 
-- Fix duplicate `/me/stats` backend route registration.
-- Fix or remove unused `services/auth_service.py` duplication.
-- Implement or remove `sessions` table usage.
-- Protect or disable debug endpoints outside development.
-- Fix `stores/session.js` vs `lib/api.js` mismatch.
-- Update frontend `ApiDocsView.vue` to match the actual backend contract.
-- Add tests for auth, check-in idempotency, stats, achievements, and public visibility.
+- Add a real migration strategy instead of startup-time schema changes.
+- Normalize API naming conventions where practical (`/me/...` vs `/api/...`).
+- Review overlapping profile update endpoints and choose one long-term contract.
+- Review public challenge/member endpoint visibility before public launch.
+- Continue expanding shared API response helper usage.
+- Add frontend smoke tests for router guard, login, dashboard, challenge check-in, profile, and public profile rendering.
+
+## Recently Stabilized
+
+- Duplicate `/me/stats` route ownership was removed; `stats_routes.py` owns the endpoint.
+- `frontend/src/stores/session.js` now follows cookie-based auth and no longer expects `api.setToken()`.
+- SQLite debug endpoints are blocked outside development mode.
+- Legacy `services/auth_service.py` and old `sessions` table initialization were removed.
+- `backend/auth.py` now uses centralized `Config.JWT_SECRET` instead of a separate JWT fallback.
+- Backend smoke coverage currently reports `34 passed` in the local `backend/venv` environment.

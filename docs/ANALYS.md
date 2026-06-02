@@ -4,50 +4,50 @@
 
 ### Architecture Quality Score
 
-Overall score: 7/10.
+Overall score: 8/10.
 
 Rationale:
 
 - Strong modular direction with Flask blueprints and service files.
 - Progression, achievement, activity, profile, and public profile systems are mostly separated.
 - Frontend component grouping is healthy and feature-oriented.
-- Some technical debt remains from transitional refactors: duplicate auth logic, duplicate stats route, unused session table, API docs drift, and a broken Pinia session store integration.
+- Recent stabilization removed several transitional problems: duplicate stats route ownership, unused auth-service duplication, old session-table initialization, public debug exposure, and the broken Pinia session-store assumption.
+- Remaining technical debt is mostly around auth route/service separation, API naming consistency, migration strategy, and frontend smoke coverage.
 
 ### Coupling Issues
 
 - `backend/auth.py` combines decorators, JWT helpers, cookie helpers, and route handlers.
-- `services/auth_service.py` duplicates auth behavior but is not active.
 - Public profile aggregation calls private `get_profile()`, which syncs stats and queries private profile data before projecting public fields.
 - Activity feed is derived from check-ins and achievements on read rather than persisted as an event table; this is simple now but couples feed behavior to current query logic.
 - Frontend views call backend endpoints directly; Pinia is not consistently used as a stable state boundary.
 
 ### Duplication Hotspots
 
-- Auth logic: `backend/auth.py` and `backend/services/auth_service.py`.
-- Stats route: `dashboard_routes.py` and `stats_routes.py` both define `GET /me/stats`.
-- Level calculation differs between `stats_service.py` and `dashboard_service.py`; one uses nonlinear thresholds and the other uses 100-point levels.
+- Active auth code still combines route handling and auth helpers in `backend/auth.py`.
 - Profile update paths overlap: `/api/me/profile/settings`, `/api/profile/visibility`, and `/api/profile` update related user profile fields.
+- API route naming is mixed across `/me/...`, `/api/me/...`, and `/api/profile...`.
 
 ### Complexity Analysis
 
 - Backend complexity is moderate. Services are understandable, but several endpoints trigger multiple per-item queries.
 - Frontend complexity is moderate. Component split is good, but state ownership is inconsistent.
-- Database complexity is low-to-moderate. Schema is small but lacks migrations and important indexes.
+- Database complexity is low-to-moderate. Schema is small and indexed for common check-in/enrollment access, but lacks an explicit migration framework.
 
 ## B) Security Review
 
-### Auth Vulnerabilities
+### Auth And Configuration
 
-Critical:
+Recently fixed:
 
-- `JWT_SECRET` has a development fallback in `backend/auth.py`; production with fallback would make tokens forgeable.
-- `SECRET_KEY` and `JWT_SECRET` also have defaults in `backend/config.py`.
+- `backend/auth.py` now uses centralized `Config.JWT_SECRET` for JWT signing and verification.
+- `backend/config.py` requires `SECRET_KEY` and `JWT_SECRET` outside development.
+- Login/register have basic in-memory rate limiting.
+- Debug endpoints are blocked outside development mode.
 
-High:
+Remaining risks:
 
-- Debug endpoints are public and expose schema/count metadata.
-- No rate limiting on login/register.
-- JWT sessions are stateless with no revocation list despite a `sessions` table existing.
+- JWT sessions are stateless with no revocation list or server-side session invalidation.
+- Auth helpers and auth route handlers still live together in `backend/auth.py`.
 
 Medium:
 
@@ -59,14 +59,14 @@ Medium:
 
 - `/api/profile` accepts `avatar_url` with only length trimming; URL/path validation is not enforced.
 - Profile bio/name updates trim length but do not apply explicit content rules beyond that.
-- `debug_service.sqlite_schema()` uses a table allowlist, which reduces SQL injection risk, but the endpoint should still not be public.
+- `debug_service.sqlite_schema()` uses a table allowlist, and route access is development-only.
 - No central request schema validation layer exists.
 
 ### DB Exposure Risks
 
 - Local `backend/users.db` exists in the tree; ensure real user data is not committed or distributed.
-- SQLite database path depends on process working directory by default.
-- Foreign keys are declared but SQLite requires `PRAGMA foreign_keys = ON` per connection to enforce them; current connection helper does not enable it.
+- SQLite database path is anchored through `backend/database.py` when `DB_PATH` is not provided.
+- Foreign key enforcement is enabled per database connection.
 
 ## C) Performance Issues
 
@@ -87,12 +87,15 @@ Medium:
 
 Missing or recommended indexes:
 
+- `users(lower(username))` cannot be indexed directly in older SQLite forms without an expression index; current public profile lookups use `lower(username) = lower(?)`.
+
+Already present:
+
 - `checkins(user_id, date)`
 - `checkins(enrollment_id, date)`
 - `checkins(challenge_id)`
 - `enrollments(user_id, status)`
 - `enrollments(challenge_id, status)`
-- `users(lower(username))` cannot be indexed directly in older SQLite forms without an expression index; current public profile lookups use `lower(username) = lower(?)`.
 
 ## D) Scalability Analysis
 
@@ -109,7 +112,6 @@ Missing or recommended indexes:
 - Move from SQLite to PostgreSQL before multi-user production scale.
 - Add migrations with Alembic or another explicit migration tool.
 - Introduce persisted activity/progression events if timeline becomes a core social surface.
-- Consolidate stats calculation into one service and one API contract.
 - Use aggregate queries for leaderboard and challenge member counts.
 - Define a single profile settings/update API.
 
@@ -127,7 +129,7 @@ Strengths:
 Weaknesses:
 
 - Some services write during read endpoints (`sync_user_stats` during profile/dashboard reads).
-- Auth service duplication creates uncertainty about canonical implementation.
+- Auth route handlers and auth helper logic are still grouped in one module.
 - Some files use dense one-line formatting, reducing maintainability.
 - Error shapes are mostly consistent but not formally centralized.
 
@@ -140,7 +142,6 @@ Mostly good:
 Needs improvement:
 
 - Active auth routes live in `backend/auth.py` rather than a normal route module/service split.
-- Duplicate `/me/stats` route should be resolved.
 
 ### Naming Consistency
 
@@ -152,23 +153,25 @@ Issues:
 
 ## F) Prioritized Action Plan
 
-### Critical - Must Fix Now
+### Completed Stabilization
 
-1. Set mandatory production secrets and fail startup when `JWT_SECRET`/`SECRET_KEY` are defaults outside development.
-2. Protect or remove `/debug/sqlite/schema/:table` and `/debug/sqlite/counts` in non-development environments.
-3. Resolve duplicate `GET /me/stats` route and standardize on the `stats_service.py` calculation model.
-4. Fix `frontend/src/stores/session.js` or remove it if cookie-only auth is the intended architecture.
-5. Add tests for public/private profile visibility to prevent data leaks.
+1. Production secret requirements are enforced outside development.
+2. Active JWT signing/verification uses centralized `Config.JWT_SECRET`.
+3. Debug endpoints are blocked outside development.
+4. `GET /me/stats` is standardized through `stats_routes.py` and `stats_service.py`.
+5. `frontend/src/stores/session.js` is aligned with cookie-based auth.
+6. Public/private profile visibility has smoke coverage.
+7. Backend tests currently pass locally: `34 passed`.
 
 ### Important - Next Sprint
 
-1. Consolidate active auth code into route + service modules and remove unused duplication.
-2. Add database indexes for check-ins, enrollments, and public username lookup.
-3. Add request validation for profile updates and auth payloads.
-4. Update `frontend/src/views/ApiDocsView.vue` to match real backend routes.
-5. Add rate limiting for auth endpoints.
-6. Enable SQLite foreign keys on connection or document why they are not used.
-7. Normalize profile update endpoints into one clear contract.
+1. Consolidate active auth code into route + service modules.
+2. Add or evaluate an index strategy for public username lookup.
+3. Continue expanding shared request/response validation patterns.
+4. Normalize profile update endpoints into one clear contract.
+5. Add frontend smoke tests for login, router guard, dashboard, challenge check-in, profile, and public profile.
+6. Add explicit database migrations instead of ad hoc startup migrations.
+7. Review public challenge detail/member endpoints and document intended visibility.
 
 ### Optional - Future Improvement
 

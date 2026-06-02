@@ -31,7 +31,8 @@ RingoStrike should feel like a premium consistency and progression system, not a
 - Activity feed derived from check-ins, streak moments, level-ups, and achievements.
 - Private profile aggregation and public profile endpoints with visibility enforcement.
 - Profile settings and profile update endpoints.
-- Debug endpoints for SQLite schema and counts.
+- Debug endpoints for SQLite schema and counts, blocked outside development mode.
+- Safe `/health/config` endpoint that reports readiness flags without exposing secrets.
 
 ## Implemented Frontend Systems
 
@@ -41,7 +42,7 @@ RingoStrike should feel like a premium consistency and progression system, not a
 - Shared CSS tokens in `frontend/src/styles/tokens.css` and base styles in `frontend/src/styles/base.css`.
 - Component groups for UI primitives, progress, achievements, activity, challenge cards, profile, and feedback.
 - Public profile page consumes `/api/public/profile/:username`, `/consistency`, and `/achievements`.
-- API docs view contains an older endpoint list and should be checked before relying on it as the source of truth.
+- API docs view has been brought closer to the backend contract, but route files remain the final source of truth.
 
 ## Source Of Truth Rules
 
@@ -53,12 +54,13 @@ RingoStrike should feel like a premium consistency and progression system, not a
 
 ## Critical Engineering Notes
 
-- `frontend/src/stores/session.js` calls `api.setToken()`, but `frontend/src/lib/api.js` does not expose `setToken`. This store is currently inconsistent with the API client.
-- Two route modules register `GET /me/stats`: `dashboard_routes.py` and `stats_routes.py`. Because `dashboard_bp` is registered before `stats_bp`, the dashboard implementation is the effective route in normal Flask dispatch order; the duplicate route should be removed or unified.
-- `backend/services/auth_service.py` duplicates auth logic but is not used by `backend/routes/auth_routes.py`; active auth routes are registered through `backend/auth.py`.
-- `sessions` table exists but active auth uses stateless JWT cookies and does not write session rows.
-- Debug routes are unauthenticated and expose schema/count metadata.
-- `JWT_SECRET` and `SECRET_KEY` have development fallbacks. Production must set secure environment values.
+- `frontend/src/stores/session.js` is aligned with cookie-based auth and no longer expects `api.setToken()`.
+- `GET /me/stats` is owned by `stats_routes.py` and delegates to `stats_service.py`.
+- `backend/services/auth_service.py` has been removed; active auth routes are still registered through `backend/auth.py`.
+- The old `sessions` table is no longer initialized by `init_db()`; active auth uses stateless JWT cookies.
+- Debug routes are development-only and return `debug_disabled` outside development mode.
+- `SECRET_KEY` and `JWT_SECRET` are required outside development by `backend/config.py`.
+- `backend/auth.py` uses centralized `Config.JWT_SECRET` for JWT signing and verification.
 - `backend/users.db`, Python caches, `backend/venv`, `backend/.venv`, and `frontend/node_modules` are present in the working tree and should not be treated as application source.
 
 ## Current Roadmap Position
@@ -71,4 +73,4 @@ The project has moved beyond the older v0.3 dashboard/profile milestone. Public 
 - profile settings and avatar/bio fields
 - public consistency and public achievements endpoints
 
-The next highest-value work is stabilization: remove duplicate/unused paths, fix frontend API client/session mismatch, harden auth/config, and align API docs with backend truth.
+The next highest-value work is launch hardening: add a migration strategy, normalize API prefixes, reduce profile update endpoint overlap, expand frontend smoke tests, and review public challenge/member visibility before launch.

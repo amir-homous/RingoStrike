@@ -12,7 +12,7 @@ timeout = 15000
 
 The backend supports HttpOnly cookie auth and Bearer token fallback. The frontend mainly relies on cookies because `withCredentials` is enabled.
 
-Important mismatch: `frontend/src/stores/session.js` expects `api.setToken()`, but `lib/api.js` does not implement it.
+`frontend/src/stores/session.js` is aligned with this cookie-based model and uses `/me` plus `/auth/logout`; it does not require `api.setToken()`.
 
 ## Auth Endpoints
 
@@ -106,6 +106,12 @@ Auth: public.
 ```json
 { "ok": true }
 ```
+
+### `GET /health/config`
+
+Auth: public.
+
+Returns a safe production-readiness snapshot with boolean/configuration flags. It must not expose secrets, tokens, full database paths, or integration credentials.
 
 ## Challenges
 
@@ -300,7 +306,7 @@ Returns leaderboard for the challenge connected to the enrollment:
 
 Auth: required.
 
-Effective route is currently `dashboard_routes.py` because another duplicate route exists in `stats_routes.py`.
+Owned by `stats_routes.py` and generated through `stats_service.build_user_stats_payload()`.
 
 Response:
 
@@ -421,8 +427,12 @@ Auth: public. Returns up to 6 unlocked achievements for public profiles.
 
 ### `GET /debug/sqlite/schema/:table`
 
-Auth: public in current code. Allowed tables: `users`, `challenges`, `enrollments`, `checkins`, `user_stats`, `sessions`.
+Auth: development-only endpoint. Outside development mode, returns `403 debug_disabled`.
+
+Allowed tables: `users`, `challenges`, `enrollments`, `checkins`, `user_stats`, `sessions`.
 
 ### `GET /debug/sqlite/counts`
 
-Auth: public in current code. Returns counts for users, challenges, enrollments, checkins, and user_stats.
+Auth: development-only endpoint. Outside development mode, returns `403 debug_disabled`.
+
+Returns counts for users, challenges, enrollments, checkins, and user_stats.
