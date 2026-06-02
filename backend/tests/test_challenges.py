@@ -515,6 +515,93 @@ def test_challenge_access_rules_for_private_archived_and_missing(client):
     assert missing_members_data["error"] == "challenge_not_found"
 
 
+def test_challenge_members_pagination_reports_real_next_page(client):
+    user_one = register_user(client, username="MembersPageOne")
+    user_two = register_user(client, username="MembersPageTwo")
+    user_three = register_user(client, username="MembersPageThree")
+
+    challenge_id = insert_challenge(
+        name="Members Pagination Challenge",
+        description="Used to verify public member pagination.",
+        visibility="Public",
+        status="Active",
+    )
+
+    import database
+
+    conn = database.get_db_connection()
+    try:
+        for user_id in (
+            user_one["user_id"],
+            user_two["user_id"],
+        ):
+            conn.execute(
+                """
+                INSERT INTO enrollments (
+                    user_id,
+                    challenge_id,
+                    status
+                )
+                VALUES (?, ?, 'Active')
+                """,
+                (
+                    user_id,
+                    challenge_id,
+                ),
+            )
+        conn.commit()
+    finally:
+        conn.close()
+
+    exact_page_res = client.get(
+        f"/challenges/{challenge_id}/members?limit=2"
+    )
+
+    assert exact_page_res.status_code == 200
+    exact_page_data = exact_page_res.get_json()
+    assert exact_page_data["ok"] is True
+    assert len(exact_page_data["items"]) == 2
+    assert exact_page_data["has_more"] is False
+
+    conn = database.get_db_connection()
+    try:
+        conn.execute(
+            """
+            INSERT INTO enrollments (
+                user_id,
+                challenge_id,
+                status
+            )
+            VALUES (?, ?, 'Active')
+            """,
+            (
+                user_three["user_id"],
+                challenge_id,
+            ),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+    first_page_res = client.get(
+        f"/challenges/{challenge_id}/members?limit=2"
+    )
+    negative_offset_res = client.get(
+        f"/challenges/{challenge_id}/members?limit=2&offset=-10"
+    )
+
+    assert first_page_res.status_code == 200
+    first_page_data = first_page_res.get_json()
+    assert first_page_data["ok"] is True
+    assert len(first_page_data["items"]) == 2
+    assert first_page_data["has_more"] is True
+
+    assert negative_offset_res.status_code == 200
+    negative_offset_data = negative_offset_res.get_json()
+    assert negative_offset_data["ok"] is True
+    assert negative_offset_data["items"] == first_page_data["items"]
+
+
 def test_challenge_discovery_ignores_left_enrollments(client):
     user = register_user(client, username="LeftEnrollmentUser")
     headers = auth_headers(user["access_token"])

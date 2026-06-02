@@ -30,7 +30,7 @@ def get_public_consistency(username: str):
 
         rows = conn.execute(
             """
-            SELECT date
+            SELECT DISTINCT date
             FROM checkins
             WHERE user_id = ?
               AND status = 'Done'

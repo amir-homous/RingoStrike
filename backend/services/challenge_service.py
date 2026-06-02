@@ -150,7 +150,7 @@ def get_challenge_members(challenge_id: int, limit_arg, offset_arg):
             return {"ok": False, "error": "challenge_private"}, 403
 
         limit = max(1, min(safe_int(limit_arg, 20), 50))
-        offset = safe_int(offset_arg, 0)
+        offset = max(0, safe_int(offset_arg, 0))
 
         rows = conn.execute(
             """
@@ -166,7 +166,7 @@ def get_challenge_members(challenge_id: int, limit_arg, offset_arg):
             WHERE enrollments.challenge_id = ? AND enrollments.status = 'Active'
             LIMIT ? OFFSET ?
             """,
-            (challenge_id, limit, offset),
+            (challenge_id, limit + 1, offset),
         ).fetchall()
 
         items = [
@@ -179,10 +179,10 @@ def get_challenge_members(challenge_id: int, limit_arg, offset_arg):
                 "username": row["username"],
                 "telegram_username": row["username"],
             }
-            for row in rows
+            for row in rows[:limit]
         ]
 
-        return {"ok": True, "challenge_id": challenge_id, "items": items, "has_more": len(items) == limit}, 200
+        return {"ok": True, "challenge_id": challenge_id, "items": items, "has_more": len(rows) > limit}, 200
     finally:
         conn.close()
 

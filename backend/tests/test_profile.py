@@ -1,4 +1,4 @@
-from helpers import auth_headers, register_user
+from helpers import auth_headers, insert_challenge, register_user
 
 
 def test_public_profile_visibility_privacy_flow(client):
@@ -441,6 +441,76 @@ def test_public_consistency_and_achievements_respect_profile_privacy(client):
     blocked_achievements_data = blocked_achievements_res.get_json()
     assert blocked_achievements_data["ok"] is False
     assert blocked_achievements_data["error"] == "profile_private"
+
+
+def test_public_consistency_returns_unique_dates(client):
+    user = register_user(client, username="UniqueConsistencyUser")
+    today = "2026-01-15"
+    challenge_one_id = insert_challenge(
+        name="Unique Consistency One",
+        description="First same-day public consistency challenge.",
+        visibility="Public",
+    )
+    challenge_two_id = insert_challenge(
+        name="Unique Consistency Two",
+        description="Second same-day public consistency challenge.",
+        visibility="Public",
+    )
+
+    import database
+
+    conn = database.get_db_connection()
+    try:
+        for challenge_id in (
+            challenge_one_id,
+            challenge_two_id,
+        ):
+            cur = conn.execute(
+                """
+                INSERT INTO enrollments (
+                    user_id,
+                    challenge_id,
+                    status
+                )
+                VALUES (?, ?, 'Active')
+                """,
+                (
+                    user["user_id"],
+                    challenge_id,
+                ),
+            )
+            conn.execute(
+                """
+                INSERT INTO checkins (
+                    enrollment_id,
+                    user_id,
+                    challenge_id,
+                    date,
+                    status,
+                    is_counted
+                )
+                VALUES (?, ?, ?, ?, 'Done', 1)
+                """,
+                (
+                    cur.lastrowid,
+                    user["user_id"],
+                    challenge_id,
+                    today,
+                ),
+            )
+        conn.commit()
+    finally:
+        conn.close()
+
+    res = client.get(
+        "/api/public/profile/uniqueconsistencyuser/consistency"
+    )
+
+    assert res.status_code == 200
+    data = res.get_json()
+    assert data["ok"] is True
+    assert data["days"].count(today) == 1
+
 
 def test_public_profile_not_found_returns_404(client):
     res = client.get("/api/public/profile/does_not_exist_user")
