@@ -432,7 +432,7 @@ Auth: public. Returns up to 6 unlocked achievements for public profiles.
 
 Auth: development-only endpoint. Outside development mode, returns `403 debug_disabled`.
 
-Allowed tables: `users`, `challenges`, `enrollments`, `checkins`, `user_stats`, `sessions`.
+Allowed tables: `users`, `challenges`, `enrollments`, `checkins`, `user_stats`.
 
 ### `GET /debug/sqlite/counts`
 

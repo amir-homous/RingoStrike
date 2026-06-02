@@ -31,6 +31,42 @@ def test_health_config_does_not_expose_secrets(client):
     assert "telegram_bot_token" not in serialized
 
 
+def test_debug_endpoints_are_disabled_outside_development(client):
+    schema_res = client.get("/debug/sqlite/schema/users")
+    counts_res = client.get("/debug/sqlite/counts")
+
+    assert schema_res.status_code == 403
+    assert schema_res.get_json() == {
+        "ok": False,
+        "error": "debug_disabled",
+    }
+
+    assert counts_res.status_code == 403
+    assert counts_res.get_json() == {
+        "ok": False,
+        "error": "debug_disabled",
+    }
+
+
+def test_debug_schema_uses_active_table_allowlist(client, monkeypatch):
+    monkeypatch.setenv("FLASK_ENV", "development")
+
+    users_res = client.get("/debug/sqlite/schema/users")
+    sessions_res = client.get("/debug/sqlite/schema/sessions")
+
+    assert users_res.status_code == 200
+    users_data = users_res.get_json()
+    assert users_data["ok"] is True
+    assert users_data["table"] == "users"
+    assert users_data["columns"]
+
+    assert sessions_res.status_code == 400
+    assert sessions_res.get_json() == {
+        "ok": False,
+        "error": "table_not_allowed",
+    }
+
+
 def test_register_login_and_me_with_bearer(client):
     register_data = register_user(client)
 

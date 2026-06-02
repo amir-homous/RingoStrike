@@ -2,7 +2,7 @@ from database import get_db_connection
 
 
 def sqlite_schema(table:str):
-    allowed={"users","challenges","enrollments","checkins","user_stats","sessions"}
+    allowed={"users","challenges","enrollments","checkins","user_stats"}
     if table not in allowed:
         return {"ok":False,"error":"table_not_allowed"},400
     conn=get_db_connection()
