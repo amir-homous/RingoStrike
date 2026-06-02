@@ -16,6 +16,15 @@ The project has moved beyond raw MVP. Core progression identity is implemented. 
 
 ## Latest Launch-Hardening Updates
 
+### Frontend Challenge Flow Smoke Coverage
+
+Added a dependency-free frontend smoke test for challenge join and dashboard check-in behavior:
+
+- Extracted join payload, invite-code validation, and join navigation behavior into a testable module.
+- Verified challenge joins submit through the shared API client.
+- Verified dashboard check-ins apply optimistic progress updates.
+- Verified failed check-ins roll back optimistic state and preserve the previous activity feed.
+
 ### Frontend Dashboard Loading Smoke Coverage
 
 Added a dependency-free frontend smoke test for dashboard loading behavior:

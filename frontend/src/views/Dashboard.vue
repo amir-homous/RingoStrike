@@ -189,6 +189,10 @@ import {
   loadDashboardData,
   orderDashboardChallenges,
 } from "./dashboardFlow";
+import {
+  CHECKIN_XP,
+  submitCheckinFlow,
+} from "./challengeFlow";
 
 const router = useRouter();
 
@@ -206,7 +210,7 @@ const activityEvents = ref([]);
 const achievements = ref([]);
 const showAllChallenges = ref(false);
 
-const XP_PER_CHECKIN = 10;
+const XP_PER_CHECKIN = CHECKIN_XP;
 const challengeLimit = DASHBOARD_CHALLENGE_LIMIT;
 
 const firstName = computed(() => {
@@ -275,117 +279,49 @@ async function loadDashboard() {
   }
 }
 
-function buildOptimisticEvents(target, oldLevel, newLevel) {
-  const now = new Date().toISOString();
-
-  const events = [
-    {
-      id: `optimistic-checkin-${Date.now()}`,
-      type: "checkin",
-      title: `Completed ${target.enrollment_name}`,
-      subtitle: `+${XP_PER_CHECKIN} XP earned`,
-      xp_delta: XP_PER_CHECKIN,
-      icon: "check",
-      created_at: now,
-    },
-    {
-      id: `optimistic-streak-${Date.now()}`,
-      type: "streak",
-      title: `${target.current_streak || 1}-day streak maintained`,
-      subtitle: "Consistency is compounding",
-      icon: "flame",
-      created_at: now,
-    },
-  ];
-
-  if (newLevel > oldLevel) {
-    events.push({
-      id: `optimistic-level-${Date.now()}`,
-      type: "level_up",
-      title: `Reached Level ${newLevel}`,
-      subtitle: "Milestone unlocked",
-      icon: "level",
-      created_at: now,
-    });
-  }
-
-  return events;
-}
-
 async function checkin(enrollmentId) {
-  const oldStats = stats.value ? { ...stats.value } : null;
-  const target = challenges.value.find((c) => c.enrollment_id === enrollmentId);
-
-  if (!target || target.today_checked || !stats.value) return;
-
   checkingId.value = enrollmentId;
-  error.value = "";
-
-  const oldActivity = [...activityEvents.value];
-
-  target.today_checked = true;
-  target.current_streak = (target.current_streak || 0) + 1;
-
-  stats.value = {
-    ...stats.value,
-    total_points: stats.value.total_points + XP_PER_CHECKIN,
-    total_checkins: stats.value.total_checkins + 1,
-    current_streak: Math.max(stats.value.current_streak, target.current_streak || 0),
-    xp: Math.min(stats.value.next_level_xp, stats.value.xp + XP_PER_CHECKIN),
-    progress_percent: Math.min(
-      100,
-      stats.value.progress_percent + Math.round((XP_PER_CHECKIN / 100) * 100)
-    ),
-  };
-
-  activityEvents.value = [
-    ...buildOptimisticEvents(target, oldStats?.level || 1, stats.value.level || 1),
-    ...activityEvents.value,
-  ];
-
-  xpPulse.value = true;
-
-  setTimeout(() => {
-    xpPulse.value = false;
-  }, 520);
 
   try {
-    const checkinResp = await api.post(`/me/challenges/${enrollmentId}/checkin`);
+    const state = {
+      challenges: challenges.value,
+      stats: stats.value,
+      activityEvents: activityEvents.value,
+      achievements: achievements.value,
+      error: error.value,
+    };
 
-    const unlocked = checkinResp.data?.rewards?.achievements || [];
+    const syncState = (nextState) => {
+      challenges.value = nextState.challenges;
+      stats.value = nextState.stats;
+      activityEvents.value = nextState.activityEvents;
+      achievements.value = nextState.achievements;
+      error.value = nextState.error || "";
+    };
 
-    for (const a of unlocked) {
+    const result = await submitCheckinFlow({
+      apiClient: api,
+      state,
+      enrollmentId,
+      onStateChange: syncState,
+      setPulse: (value) => {
+        xpPulse.value = value;
+      },
+    });
+
+    if (result.skipped || result.error) return;
+
+    for (const a of result.unlocked) {
       pushToast(`🏆 ${a.title}`, "achievement");
     }
-
-    const [statsResp, activityResp, achievementsResp] = await Promise.all([
-      api.get("/me/stats"),
-      api.get("/me/activity"),
-      api.get("/me/achievements"),
-    ]);
-
-    stats.value = statsResp.data.stats || stats.value;
-    activityEvents.value = activityResp.data?.events || activityEvents.value;
-    achievements.value = achievementsResp.data?.achievements || achievements.value;
 
     pushToast(`+${XP_PER_CHECKIN} XP`, "success");
     pushToast("🔥 Streak maintained", "success");
 
-    if (oldStats && stats.value.level > oldStats.level) {
+    if (result.oldStats && stats.value.level > result.oldStats.level) {
       pushToast(`Level Up → Level ${stats.value.level}`, "level");
     }
   } catch (e) {
-    if (oldStats) {
-      stats.value = oldStats;
-    }
-
-    activityEvents.value = oldActivity;
-
-    if (target) {
-      target.today_checked = false;
-      target.current_streak = Math.max((target.current_streak || 1) - 1, 0);
-    }
-
     error.value = e?.response?.data?.error || e?.message || String(e);
   } finally {
     checkingId.value = null;

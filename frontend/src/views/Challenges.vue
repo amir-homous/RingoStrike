@@ -223,6 +223,11 @@ import BaseCard from "@/components/ui/BaseCard.vue";
 import BaseButton from "@/components/ui/BaseButton.vue";
 import UiState from "@/components/ui/UiState.vue";
 import ChallengeCard from "@/components/challenges/ChallengeCard.vue";
+import {
+  humanizeJoinError,
+  isInviteOnlyChallenge,
+  submitJoinFlow,
+} from "./challengeFlow";
 
 const router = useRouter();
 
@@ -250,7 +255,7 @@ const inviteOnlyCount = computed(() => {
 });
 
 function isInviteOnly(challenge) {
-  return String(challenge.visibility || "").toLowerCase() === "invite-only";
+  return isInviteOnlyChallenge(challenge);
 }
 
 const filteredItems = computed(() => {
@@ -292,16 +297,7 @@ function setFilter(value) {
 }
 
 function humanizeError(msg) {
-  if (!msg) return "";
-  if (msg === "invite_code_required") return "Invite code is required.";
-  if (msg === "join_code_required") return "Invite code is required.";
-  if (msg === "invalid_join_code") return "Invalid invite code.";
-  if (msg === "invalid_join_code_type") return "Invite code must be text.";
-  if (msg === "join_code_too_long") return "Invite code is too long.";
-  if (msg === "challenge_private") return "This challenge is private.";
-  if (msg === "challenge_inactive") return "This challenge is not active.";
-  if (typeof msg === "string") return msg.replaceAll("_", " ");
-  return String(msg);
+  return humanizeJoinError(msg);
 }
 
 async function load() {
@@ -324,31 +320,14 @@ async function join(challenge) {
   errors.value[challenge.challenge_id] = "";
   joiningId.value = challenge.challenge_id;
 
-  const needsCode = isInviteOnly(challenge) || challenge.needs_code;
-
   try {
-    let payload = {};
-
-    if (needsCode) {
-      const code = (codes.value[challenge.challenge_id] || "").trim();
-
-      if (!code) {
-        errors.value[challenge.challenge_id] = "invite_code_required";
-        joiningId.value = null;
-        return;
-      }
-
-      payload = { join_code: code };
-    }
-
-    const { data } = await api.post(`/challenges/${challenge.challenge_id}/join`, payload);
-
-    if (data?.enrollment_id) {
-      router.push(`/enrollment/${data.enrollment_id}`);
-      return;
-    }
-
-    await load();
+    await submitJoinFlow({
+      apiClient: api,
+      router,
+      challenge,
+      codes: codes.value,
+      reload: load,
+    });
   } catch (e) {
     const msg = e?.response?.data?.error || e?.message || String(e);
     errors.value[challenge.challenge_id] = msg;
