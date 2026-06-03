@@ -252,6 +252,33 @@ def test_cors_allows_configured_frontend_origin(client, monkeypatch):
         == "https://www.ringostrike.com"
     )
 
+
+def test_cors_allows_origins_from_cors_origins_list(client, monkeypatch):
+    monkeypatch.setenv(
+        "CORS_ORIGINS",
+        "http://82.115.24.10, https://www.ringostrike.com",
+    )
+
+    import app as app_module
+
+    flask_app = app_module.create_app()
+    flask_app.config.update(TESTING=True)
+
+    with flask_app.test_client() as test_client:
+        res = test_client.get(
+            "/health",
+            headers={
+                "Origin": "http://82.115.24.10",
+            },
+        )
+
+    assert res.status_code == 200
+    assert (
+        res.headers.get("Access-Control-Allow-Origin")
+        == "http://82.115.24.10"
+    )
+
+
 def test_login_cookie_uses_configured_security_settings(client, monkeypatch):
     monkeypatch.setenv("JWT_COOKIE_NAME", "custom_ringo_token")
     monkeypatch.setenv("JWT_COOKIE_SECURE", "1")

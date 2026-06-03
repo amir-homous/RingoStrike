@@ -5,7 +5,7 @@
         <h1>🛠 RingoStrike API Explorer</h1>
         <p class="subtitle">Interactive API reference for the current Flask + SQLite backend</p>
       </div>
-      <div class="env-badge">Backend: {{ API_BASE }}</div>
+      <div class="env-badge">Backend: {{ API_BASE_LABEL }}</div>
     </header>
 
     <div class="docs-grid">
@@ -99,9 +99,8 @@
 
 <script setup>
 import { reactive } from 'vue';
-import axios from 'axios';
 
-const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:5005';
+import apiClient, { API_BASE_LABEL } from '@/lib/api';
 
 const publicApis = [
   {
@@ -684,7 +683,7 @@ const runTest = async (api) => {
   try {
     const config = {
       method: api.method,
-      url: `${API_BASE}${finalPath}`,
+      url: finalPath,
       withCredentials: true,
     };
 
@@ -692,7 +691,7 @@ const runTest = async (api) => {
       config.data = JSON.parse(state.body || '{}');
     }
 
-    const res = await axios(config);
+    const res = await apiClient.request(config);
     state.response = res.data;
     state.status = res.status;
   } catch (err) {

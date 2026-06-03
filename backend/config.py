@@ -80,6 +80,10 @@ class Config:
         FRONTEND_BASE_URL,
     )
 
+    CORS_ORIGINS = os.getenv(
+        "CORS_ORIGINS",
+    )
+
     # Cookie auth
     JWT_COOKIE_NAME = os.getenv(
         "JWT_COOKIE_NAME",

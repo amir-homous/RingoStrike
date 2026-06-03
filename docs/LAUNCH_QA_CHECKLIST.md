@@ -38,7 +38,7 @@ Expected:
 
 {"ok": true}
 Frontend
- VITE_API_BASE points to the correct backend.
+ VITE_API_BASE is omitted for same-origin production or points to the correct separate backend origin.
  Frontend starts without errors.
 
 Command:

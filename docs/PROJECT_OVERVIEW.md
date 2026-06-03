@@ -67,7 +67,7 @@ npm run dev
 
 Default Vite URL: `http://localhost:5173`.
 
-Frontend API base is `VITE_API_BASE` or `http://localhost:5005`.
+Frontend API base uses `VITE_API_BASE` when set. Without it, Vite dev mode falls back to `http://localhost:5005`; production builds use same-origin relative API paths for Nginx deployments.
 
 Selected frontend language is stored in `localStorage.ringostrike_locale`.
 

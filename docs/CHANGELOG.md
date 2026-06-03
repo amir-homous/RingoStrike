@@ -16,6 +16,16 @@ The project has moved beyond raw MVP. Core progression identity is implemented. 
 
 ## Latest Launch-Hardening Updates
 
+### Same-Origin Production API Routing
+
+Hardened frontend/backend deployment configuration for VPS/Nginx serving:
+
+- Updated the shared frontend API client to use same-origin relative requests in production when `VITE_API_BASE` is unset.
+- Kept `http://localhost:5005` as a development-only fallback.
+- Updated the API explorer to use the shared API client instead of rebuilding hard-coded URLs.
+- Added `CORS_ORIGINS` support alongside `FRONTEND_ORIGIN` and `FRONTEND_BASE_URL`.
+- Updated env examples and deployment docs to avoid baking localhost into production builds.
+
 ### Telegram Reminder Settings
 
 Completed the first user-controlled Telegram reminder foundation:

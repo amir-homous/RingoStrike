@@ -1,9 +1,40 @@
 import axios from "axios";
 
-const API_BASE = (
-  import.meta.env.VITE_API_BASE ||
-  "http://localhost:5005"
-).replace(/\/+$/, "");
+export function normalizeApiBase(value) {
+  return String(value || "").trim().replace(/\/+$/, "");
+}
+
+export function isLoopbackApiBase(value) {
+  const base = normalizeApiBase(value);
+
+  return /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(base);
+}
+
+export function getDefaultApiBase() {
+  if (import.meta.env.DEV) {
+    return "http://localhost:5005";
+  }
+
+  return "";
+}
+
+function resolveApiBase() {
+  const configuredBase = normalizeApiBase(import.meta.env.VITE_API_BASE);
+
+  if (configuredBase) {
+    if (import.meta.env.PROD && isLoopbackApiBase(configuredBase)) {
+      return "";
+    }
+
+    return configuredBase;
+  }
+
+  return getDefaultApiBase();
+}
+
+export const API_BASE = resolveApiBase();
+
+export const API_BASE_LABEL = API_BASE || "same-origin";
 
 const instance = axios.create({
   baseURL: API_BASE,
@@ -37,6 +68,7 @@ instance.interceptors.request.use((config) => {
 });
 
 export default {
+  request: (...args) => instance.request(...args),
   get: (...args) => instance.get(...args),
   post: (...args) => instance.post(...args),
 

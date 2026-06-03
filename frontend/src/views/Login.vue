@@ -88,17 +88,15 @@ import AppContainer from "@/components/ui/AppContainer.vue";
 import AppHeader from "@/components/ui/AppHeader.vue";
 import BaseCard from "@/components/ui/BaseCard.vue";
 import BaseButton from "@/components/ui/BaseButton.vue";
+import { API_BASE } from "@/lib/api";
 
 const route = useRoute();
-
-const backendBaseRaw = import.meta.env.VITE_API_BASE || "http://localhost:5005";
-const backendBase = String(backendBaseRaw).replace(/\/+$/, "");
 
 const next = route.query.next || "/dashboard";
 const nextPath = computed(() => (typeof next === "string" ? next : "/dashboard"));
 
 const loginUrl = computed(() => {
-  return `${backendBase}/login?next=${encodeURIComponent(nextPath.value)}`;
+  return `${API_BASE}/login?next=${encodeURIComponent(nextPath.value)}`;
 });
 </script>
 

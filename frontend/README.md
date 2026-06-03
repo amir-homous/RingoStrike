@@ -337,6 +337,7 @@ Important backend variables:
 - `PUBLIC_BASE_URL`
 - `FRONTEND_BASE_URL`
 - `FRONTEND_ORIGIN`
+- `CORS_ORIGINS`
 - `TELEGRAM_BOT_TOKEN`
 - `TELEGRAM_BOT_USERNAME`
 - `NOTION_TOKEN`
@@ -372,14 +373,14 @@ VITE_BASE=/
 Production examples:
 
 ```env
-VITE_API_BASE=https://api.ringostrike.com
+# Same-origin Nginx deployment: omit VITE_API_BASE.
 VITE_BASE=/
 ```
 
 or:
 
 ```env
-VITE_API_BASE=https://www.ringostrike.com
+VITE_API_BASE=https://api.ringostrike.com
 VITE_BASE=/
 ```
 

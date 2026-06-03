@@ -5,10 +5,12 @@
 Frontend API client: `frontend/src/lib/api.js`.
 
 ```js
-baseURL = import.meta.env.VITE_API_BASE || "http://localhost:5005"
+baseURL = import.meta.env.VITE_API_BASE || (import.meta.env.DEV ? "http://localhost:5005" : "")
 withCredentials = true
 timeout = 15000
 ```
+
+Production builds default to same-origin relative API requests. This supports Nginx deployments where the SPA and Flask routes are served from the same host, for example `http://82.115.24.10/auth/login`. Local development can still set `VITE_API_BASE=http://localhost:5005`. If a production build accidentally contains a loopback API base such as `http://localhost:5005` or `http://127.0.0.1:5005`, the client falls back to same-origin because browser loopback would point at the user's machine, not the VPS.
 
 The backend supports HttpOnly cookie auth and Bearer token fallback. The frontend mainly relies on cookies because `withCredentials` is enabled.
 

@@ -42,7 +42,7 @@ Generated/dependency directories such as `backend/venv`, `backend/.venv`, `front
 
 ## Backend Runtime
 
-`backend/app.py` creates the Flask application, loads config, enables CORS for local frontend origins, initializes SQLite tables, registers auth routes, registers blueprints, and exposes `/health`.
+`backend/app.py` creates the Flask application, loads config, enables credentialed CORS for local frontend origins plus env-driven `CORS_ORIGINS` / `FRONTEND_ORIGIN` / `FRONTEND_BASE_URL`, initializes SQLite tables, registers auth routes, registers blueprints, and exposes `/health`.
 
 Registered route sources:
 

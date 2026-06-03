@@ -53,6 +53,7 @@ Required values:
 - [ ] `PUBLIC_BASE_URL`
 - [ ] `FRONTEND_BASE_URL`
 - [ ] `FRONTEND_ORIGIN`
+- [ ] `CORS_ORIGINS` if more than one browser origin must be allowed.
 
 Optional / integration values:
 
@@ -77,20 +78,20 @@ frontend/.env
 
 Required values:
 
-- [ ] `VITE_API_BASE`
 - [ ] `VITE_BASE`
 
 Production examples:
 
 ```env
-VITE_API_BASE=https://api.ringostrike.com
+# Same-origin Nginx deployment:
+# omit VITE_API_BASE so the frontend calls /auth/login, /me, /challenges, etc.
 VITE_BASE=/
 ```
 
 or:
 
 ```env
-VITE_API_BASE=https://www.ringostrike.com
+VITE_API_BASE=https://api.ringostrike.com
 VITE_BASE=/
 ```
 
@@ -141,7 +142,7 @@ curl http://localhost:5005/health
 - [ ] Build frontend.
 - [ ] Confirm generated `dist/`.
 - [ ] Serve frontend from correct root/subpath.
-- [ ] Confirm `VITE_API_BASE` points to production backend.
+- [ ] Confirm `VITE_API_BASE` is omitted for same-origin production or points to the separate production API origin.
 - [ ] Confirm routes work after refresh.
 
 Build command:

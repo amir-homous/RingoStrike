@@ -31,6 +31,7 @@ def get_cors_origins() -> list[str]:
     env_origins = []
 
     for key in (
+        "CORS_ORIGINS",
         "FRONTEND_ORIGIN",
         "FRONTEND_BASE_URL",
     ):

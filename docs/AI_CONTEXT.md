@@ -38,7 +38,7 @@ RingoStrike should feel like a premium consistency and progression system, not a
 
 - Vue 3 + Vite application in `frontend/`.
 - Vue Router routes for login, auth callback, dashboard, challenges, profile, enrollment, leaderboard, public profile, API docs, and redirects.
-- Axios API client in `frontend/src/lib/api.js` using `VITE_API_BASE` or `http://localhost:5005`, credentials enabled, and callback-token Bearer fallback support.
+- Axios API client in `frontend/src/lib/api.js` using `VITE_API_BASE` when provided, `http://localhost:5005` only in Vite dev mode, and same-origin relative API paths in production by default. Credentials are enabled and callback-token Bearer fallback support remains.
 - Active local auth UI is `frontend/src/components/AuthForm.vue`; it uses the shared API client and honors the `next` redirect query.
 - Shared CSS tokens in `frontend/src/styles/tokens.css` and base styles in `frontend/src/styles/base.css`.
 - Frontend i18n is implemented with `vue-i18n` in `frontend/src/i18n/`, currently supporting English (`en`) and Persian (`fa`).
