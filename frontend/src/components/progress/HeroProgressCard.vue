@@ -2,16 +2,16 @@
   <BaseCard class="hero">
     <div class="row">
       <div class="stack-8">
-        <p class="caption">Your Progress</p>
+        <p class="caption">{{ t("progress.yourProgress") }}</p>
         <h2 class="h2">{{ greeting }}</h2>
-        <p class="mood">Level {{ stats.level }} • {{ stats.total_points }} total XP</p>
+        <p class="mood">{{ t("progress.totalXpLine", { level: stats.level, xp: stats.total_points }) }}</p>
       </div>
 
       <div class="streak">
         <span aria-hidden="true">🔥</span>
         <div>
           <b>{{ stats.current_streak }}</b>
-          <span class="caption">Day Streak</span>
+          <span class="caption">{{ t("progress.dayStreak") }}</span>
         </div>
       </div>
     </div>
@@ -22,6 +22,7 @@
 
 <script setup>
 import { computed } from "vue";
+import { useI18n } from "vue-i18n";
 import BaseCard from "@/components/ui/BaseCard.vue";
 import XPProgressBar from "@/components/progress/XPProgressBar.vue";
 
@@ -31,7 +32,9 @@ const props = defineProps({
   animatePulse: { type: Boolean, default: false },
 });
 
-const greeting = computed(() => `${props.userName}, keep your momentum up!`);
+const { t } = useI18n();
+
+const greeting = computed(() => t("progress.greeting", { name: props.userName }));
 </script>
 
 <style scoped>

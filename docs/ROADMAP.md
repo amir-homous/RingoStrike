@@ -110,6 +110,8 @@ The product has moved beyond raw MVP. The core progression identity system is im
 - Hardened the active local auth form to use the shared API client, remove auth payload console logging, honor post-login redirects, and match backend password validation.
 - Removed stale frontend route/file clutter around the legacy login import and stray `Untitled` view snippet.
 - Aligned auth callback token storage with the shared API client Bearer fallback, constrained callback redirects to internal paths, and cleared stored callback tokens on logout.
+- Added frontend-only Persian/English i18n with `vue-i18n`, persisted locale selection, automatic `lang`/`dir` updates, and a header language switcher.
+- Added Persian-only Vazirmatn typography through the active global CSS layer while preserving the existing English system font stack.
 
 
 ### Backend Test Coverage Added

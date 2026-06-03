@@ -29,6 +29,7 @@ backend/
 frontend/
   src/
     components/
+    i18n/
     lib/api.js
     router/index.js
     stores/session.js
@@ -141,6 +142,14 @@ Telegram auth status:
 
 `frontend/src/main.js` installs Pinia and Vue Router, imports CSS tokens/base styles, and mounts `App.vue`.
 
+It also installs `vue-i18n` from `frontend/src/i18n/index.js`. The i18n layer:
+
+- loads English and Persian locale catalogs from `frontend/src/i18n/locales/`
+- persists the selected locale in `localStorage.ringostrike_locale`
+- sets `document.documentElement.lang`
+- sets `document.documentElement.dir` to `rtl` for Persian and `ltr` for English
+- keeps backend values as raw logic inputs while components translate display labels
+
 Router paths:
 
 - `/login`
@@ -170,6 +179,8 @@ Active global styles are:
 
 - `frontend/src/styles/tokens.css`
 - `frontend/src/styles/base.css`
+
+`base.css` also defines the local Vazirmatn `@font-face` from `frontend/src/assets/fonts/Vazirmatn.woff2` and applies it only under `html[lang="fa"] body`. English keeps the default system font stack.
 
 `frontend/src/style.css` and `frontend/src/assets/main.css` exist but are not imported by `main.js`.
 

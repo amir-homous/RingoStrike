@@ -1,8 +1,8 @@
 <template>
   <BaseCard class="feed">
     <div class="head">
-      <h3 class="h2">Recent Progress</h3>
-      <span class="caption">Today</span>
+      <h3 class="h2">{{ t("progress.recent") }}</h3>
+      <span class="caption">{{ t("progress.today") }}</span>
     </div>
 
     <ul>
@@ -13,20 +13,22 @@
 
 <script setup>
 import { computed } from "vue";
+import { useI18n } from "vue-i18n";
 import BaseCard from "@/components/ui/BaseCard.vue";
 
 const props = defineProps({ stats: { type: Object, required: true } });
+const { t } = useI18n();
 
 const messages = computed(() => {
   const items = [];
   const estimatedTodayXp = props.stats.current_streak > 0 ? 10 : 0;
-  items.push(`+${estimatedTodayXp} XP from completed check-ins`);
+  items.push(t("progress.xpFromCheckins", { xp: estimatedTodayXp }));
   if (props.stats.current_streak > 0) {
-    items.push("🔥 Streak maintained today");
+    items.push(`🔥 ${t("progress.streakToday")}`);
   } else {
-    items.push("✅ Start a check-in today to begin a streak");
+    items.push(`✅ ${t("progress.startStreak")}`);
   }
-  items.push(`🏁 ${Math.max(0, props.stats.next_level_xp - props.stats.xp)} XP to your next level`);
+  items.push(`🏁 ${t("progress.xpToNext", { xp: Math.max(0, props.stats.next_level_xp - props.stats.xp) })}`);
   return items;
 });
 </script>

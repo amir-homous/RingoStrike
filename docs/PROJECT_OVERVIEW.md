@@ -20,6 +20,8 @@ The current product is both private-progression focused and public-identity capa
 - Private profile page with title, stats, bio, avatar, and consistency heatmap.
 - Public profiles at `/u/:username` backed by public API endpoints.
 - Profile visibility controls: public/private.
+- Frontend Persian/English language switching with persisted locale and automatic `lang`/`dir` updates.
+- Persian UI typography uses the local Vazirmatn variable WOFF2 font while English keeps the existing system font stack.
 - API docs page in the frontend.
 - SQLite debug endpoints gated to development mode.
 - Safe `/health/config` readiness endpoint.
@@ -42,6 +44,7 @@ Frontend:
 - Vue Router
 - Pinia
 - Axios
+- vue-i18n
 - Tailwind dependency present, but active global import is plain CSS tokens/base styles
 
 ## How The App Runs
@@ -65,6 +68,8 @@ npm run dev
 Default Vite URL: `http://localhost:5173`.
 
 Frontend API base is `VITE_API_BASE` or `http://localhost:5005`.
+
+Selected frontend language is stored in `localStorage.ringostrike_locale`.
 
 ## User Flow
 

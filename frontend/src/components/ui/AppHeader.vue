@@ -4,15 +4,15 @@
   
       <nav class="nav">
         <RouterLink class="link" :class="{ active: isActive('/dashboard') }" to="/dashboard">
-          Dashboard
+          {{ t("nav.dashboard") }}
         </RouterLink>
   
         <RouterLink class="link" :class="{ active: isActive('/challenges') }" to="/challenges">
-          Challenges
+          {{ t("nav.challenges") }}
         </RouterLink>
 
         <RouterLink class="link" :class="{ active: isActive('/profile') }" to="/profile">
-          Profile
+          {{ t("nav.profile") }}
         </RouterLink>
   
         <!-- فقط وقتی داخل enrollment هستیم یا id داریم -->
@@ -22,17 +22,22 @@
           :class="{ active: isActive(`/enrollment/${enrollmentId}/leaderboard`) }"
           :to="leaderboardTo"
         >
-          Leaderboard
+          {{ t("nav.leaderboard") }}
         </RouterLink>
       </nav>
+
+      <LanguageSwitcher />
     </header>
   </template>
   
   <script setup>
   import { computed } from "vue";
   import { useRoute } from "vue-router";
+  import { useI18n } from "vue-i18n";
+  import LanguageSwitcher from "@/components/i18n/LanguageSwitcher.vue";
   
   const route = useRoute();
+  const { t } = useI18n();
   
   const enrollmentId = computed(() => {
     const id = route.params.id;
@@ -67,7 +72,7 @@
     color: rgba(255,255,255,0.92);
     text-decoration: none;
   }
-  .nav{ display:flex; gap: var(--s-8); flex-wrap: wrap; justify-content:flex-end; }
+  .nav{ display:flex; gap: var(--s-8); flex-wrap: wrap; justify-content:flex-end; margin-inline-start: auto; }
   .link{
     padding: 8px 10px;
     border-radius: 10px;
@@ -80,6 +85,20 @@
     color: rgba(255,255,255,0.92);
     border-color: rgba(99,102,241,0.35);
     background: rgba(99,102,241,0.18);
+  }
+
+  @media (max-width: 640px) {
+    .hdr {
+      align-items: flex-start;
+      flex-wrap: wrap;
+    }
+
+    .nav {
+      order: 3;
+      width: 100%;
+      justify-content: flex-start;
+      margin-inline-start: 0;
+    }
   }
   </style>
   

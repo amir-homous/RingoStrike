@@ -47,12 +47,21 @@ Current palette is dark graphite with translucent card surfaces and muted white 
 
 `base.css` applies:
 
+- local Vazirmatn `@font-face` for Persian mode
 - global `box-sizing`
 - dark body background from `--bg`
 - white text color
-- system font stack
+- system font stack for English/default UI
+- Vazirmatn font stack only when `html[lang="fa"]`
+- inherited fonts for native buttons and form controls
 - basic link styling
 - utility classes: `.h1`, `.h2`, `.caption`, `.stack-*`, `.hr`
+
+Typography behavior:
+
+- English (`lang="en"`) uses the existing system font stack.
+- Persian (`lang="fa"`) uses `frontend/src/assets/fonts/Vazirmatn.woff2`.
+- Font switching is tied to document `lang`; do not add component-local font overrides for ordinary UI text.
 
 ## Component System
 
@@ -104,6 +113,5 @@ Current views:
 ## Implementation Gaps
 
 - Tailwind is listed in dependencies and `assets/main.css` contains Tailwind directives, but that file is not imported by `main.js`.
-- The active base font is a default system stack, not a custom product font.
 - `frontend/src/style.css` is Vite starter styling and appears unused.
 - API docs view may visually and contractually lag behind the actual backend.

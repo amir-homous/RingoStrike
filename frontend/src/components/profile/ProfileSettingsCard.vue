@@ -1,5 +1,6 @@
 <script setup>
 import { ref, onMounted } from "vue";
+import { useI18n } from "vue-i18n";
 
 import api from "@/lib/api";
 
@@ -12,6 +13,7 @@ import {
 const loading = ref(false);
 const saved = ref(false);
 const error = ref("");
+const { t } = useI18n();
 
 const form = ref({
   bio: "",
@@ -53,7 +55,7 @@ async function loadProfile() {
   try {
     form.value = await loadProfileSettings(api);
   } catch (err) {
-    error.value = err.response?.data?.error || "Could not load profile settings.";
+    error.value = err.response?.data?.error || t("profileComponents.loadError");
   }
 }
 
@@ -73,7 +75,7 @@ async function saveProfile() {
     }, 2000);
 
   } catch (err) {
-    error.value = err.response?.data?.error || "Could not save profile settings.";
+    error.value = err.response?.data?.error || t("profileComponents.saveError");
   } finally {
     loading.value = false;
   }
@@ -86,16 +88,16 @@ onMounted(loadProfile);
   <BaseCard class="settings-card">
     <div class="top">
       <div>
-        <h2>Profile Settings</h2>
+        <h2>{{ t("profileComponents.settingsTitle") }}</h2>
 
         <p class="caption">
-          Customize your public identity.
+          {{ t("profileComponents.settingsCaption") }}
         </p>
       </div>
     </div>
 
     <div class="field">
-      <label>Choose Avatar</label>
+      <label>{{ t("profileComponents.chooseAvatar") }}</label>
 
       <div class="avatar-grid">
         <img v-for="avatar in avatars" :key="avatar" :src="avatar" class="avatar-option" :class="{
@@ -108,21 +110,21 @@ onMounted(loadProfile);
     </div>
 
     <div class="field">
-      <label>Bio</label>
+      <label>{{ t("profileComponents.bio") }}</label>
 
-      <textarea v-model="form.bio" rows="4" placeholder="Tell your progression story..." />
+      <textarea v-model="form.bio" rows="4" :placeholder="t('profileComponents.bioPlaceholder')" />
     </div>
 <br>
     <div class="field">
-      <label>Profile Visibility</label>
+      <label>{{ t("profileComponents.visibility") }}</label>
 
       <select v-model="form.profile_visibility">
         <option value="public">
-          Public
+          {{ t("common.public") }}
         </option>
 
         <option value="private">
-          Private
+          {{ t("common.private") }}
         </option>
       </select>
     </div>
@@ -136,7 +138,7 @@ onMounted(loadProfile);
     class="cancel-btn"
     @click="$emit('close')"
   >
-    Cancel
+    {{ t("profileComponents.cancel") }}
   </button>
 
   <button
@@ -146,10 +148,10 @@ onMounted(loadProfile);
   >
     {{
       loading
-        ? "Saving..."
+        ? t("profileComponents.saving")
         : saved
-        ? "Saved"
-        : "Save Profile"
+        ? t("profileComponents.saved")
+        : t("profileComponents.save")
     }}
   </button>
 </div>

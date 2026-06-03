@@ -23,9 +23,7 @@
         </p>
 
         <p class="caption">
-          Level {{ profile.stats.level }}
-          —
-          {{ profile.title.label }}
+          {{ t("profileComponents.levelTitle", { level: profile.stats.level, title: profile.title.label }) }}
         </p>
 
         <p class="quote">
@@ -36,12 +34,12 @@
       <div class="meta">
         <span>
           🔥 {{ profile.stats.current_streak }}
-          Day Streak
+          {{ t("profileComponents.dayStreak") }}
         </span>
 
         <span>
           🏆 {{ profile.stats.achievements_unlocked }}
-          Achievements
+          {{ t("profileComponents.achievements") }}
         </span>
 
         <span>
@@ -54,14 +52,14 @@
         class="edit"
         @click="openEditProfile"
         >
-        Edit Profile
+        {{ t("profileComponents.edit") }}
         </button>
 
         <button
           class="share"
           @click="shareProfile"
         >
-          {{ copied ? "Copied Link" : "Share Profile" }}
+          {{ copied ? t("profileComponents.copied") : t("profileComponents.share") }}
         </button>
       </div>
     </div>
@@ -70,6 +68,7 @@
 
 <script setup>
 import { ref } from "vue";
+import { useI18n } from "vue-i18n";
 
 import BaseCard from "@/components/ui/BaseCard.vue";
 import UserAvatar from "./UserAvatar.vue";
@@ -88,6 +87,7 @@ const emit = defineEmits([
 ]);
 
 const copied = ref(false);
+const { t } = useI18n();
 
 async function shareProfile() {
   const url =

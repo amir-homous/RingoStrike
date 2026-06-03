@@ -1,6 +1,6 @@
 <template>
   <BaseCard>
-    <div class="head"><h2 class="h2">Activity Timeline</h2><span class="caption">Your progression journey</span></div>
+    <div class="head"><h2 class="h2">{{ t("activity.title") }}</h2><span class="caption">{{ t("activity.subtitle") }}</span></div>
     <div class="stack-8 body">
       <EmptyTimelineState v-if="!events.length && !loading" />
       <template v-else>
@@ -12,11 +12,13 @@
 
 <script setup>
 import { computed } from "vue";
+import { useI18n } from "vue-i18n";
 import BaseCard from "@/components/ui/BaseCard.vue";
 import TimelineDayGroup from "@/components/activity/TimelineDayGroup.vue";
 import EmptyTimelineState from "@/components/activity/EmptyTimelineState.vue";
 
 const props = defineProps({ events: { type: Array, default: () => [] }, loading: { type: Boolean, default: false } });
+const { t } = useI18n();
 
 const grouped = computed(() => {
   const m = new Map();
@@ -28,8 +30,8 @@ const grouped = computed(() => {
     const day = new Date(d); day.setHours(0,0,0,0);
     const key = day.toISOString().slice(0,10);
     let label = d.toLocaleDateString();
-    if (day.getTime() === today.getTime()) label = "Today";
-    else if (day.getTime() === y.getTime()) label = "Yesterday";
+    if (day.getTime() === today.getTime()) label = t("activity.today");
+    else if (day.getTime() === y.getTime()) label = t("activity.yesterday");
     if (!m.has(key)) m.set(key, { key, label, events: [] });
     m.get(key).events.push(ev);
   }

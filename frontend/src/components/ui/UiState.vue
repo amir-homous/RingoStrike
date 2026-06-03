@@ -18,7 +18,7 @@
     <div class="title">{{ errorTitle }}</div>
     <div class="caption">{{ errorText }}</div>
     <div class="actions">
-      <BaseButton variant="secondary" @click="$emit('retry')">Retry</BaseButton>
+      <BaseButton variant="secondary" @click="$emit('retry')">{{ t("common.retry") }}</BaseButton>
     </div>
   </div>
 
@@ -35,13 +35,16 @@
 import BaseButton from './BaseButton.vue'
 import Spinner from './Spinner.vue'
 import SkeletonBlock from './SkeletonBlock.vue'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 defineProps({
   loading: { type: Boolean, default: false },
   empty: { type: Boolean, default: false },
   error: { type: Boolean, default: false },
 
-  loadingTitle: { type: String, default: 'Loading…' },
+  loadingTitle: { type: String, default: 'Loading...' },
   loadingText: { type: String, default: 'Please wait a moment.' },
 
   emptyTitle: { type: String, default: 'Nothing here yet' },

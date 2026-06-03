@@ -16,6 +16,27 @@ The project has moved beyond raw MVP. Core progression identity is implemented. 
 
 ## Latest Launch-Hardening Updates
 
+### Frontend Persian/English i18n
+
+Added frontend-only bilingual UI foundations:
+
+- Installed `vue-i18n` and added English/Persian locale catalogs.
+- Added a compact language switcher to the app header.
+- Persisted the selected locale in `localStorage.ringostrike_locale`.
+- Synced document `lang` and `dir` automatically (`fa` -> `rtl`, `en` -> `ltr`).
+- Translated the main active frontend surfaces: auth, dashboard, challenges, enrollment, leaderboard, profile, public profile, and shared loading/error/empty states.
+- Kept backend API contracts unchanged and preserved raw backend status values for logic.
+
+### Persian Typography
+
+Added Persian-only Vazirmatn font support:
+
+- Added the local variable WOFF2 font at `frontend/src/assets/fonts/Vazirmatn.woff2`.
+- Registered the font in the active global CSS layer.
+- Applied Vazirmatn only for `html[lang="fa"] body`.
+- Kept English/default typography on the existing system font stack.
+- Made native buttons and form controls inherit the active body font.
+
 ### Public Identity Privacy Enforcement
 
 Centralized public identity privacy enforcement:

@@ -14,7 +14,7 @@
         <div class="main">
           <div class="cardEyebrow">
             <span class="signalDot" :class="{ active: isActive }"></span>
-            <span>{{ isJoined ? "Joined Path" : "Available Path" }}</span>
+            <span>{{ isJoined ? t("challengeCard.joinedPath") : t("challengeCard.availablePath") }}</span>
           </div>
 
           <div class="titleRow">
@@ -38,7 +38,7 @@
             class="actionLink primaryLink"
             :to="`/enrollment/${challenge.enrollment_id}`"
           >
-            <span>Open</span>
+            <span>{{ t("challengeCard.open") }}</span>
             <span class="arrow">→</span>
           </RouterLink>
 
@@ -49,8 +49,8 @@
             :disabled="isTodayChecked"
             @click="$emit('checkin', challenge.enrollment_id)"
           >
-            <span v-if="isTodayChecked">Done Today</span>
-            <span v-else>Check in</span>
+            <span v-if="isTodayChecked">{{ t("challengeCard.doneToday") }}</span>
+            <span v-else>{{ t("challengeCard.checkIn") }}</span>
           </BaseButton>
 
           <BaseButton
@@ -59,7 +59,7 @@
             :loading="loading"
             @click="$emit('join')"
           >
-            Join Challenge
+            {{ t("challengeCard.join") }}
           </BaseButton>
         </div>
       </div>
@@ -68,7 +68,7 @@
         <div v-if="hasDuration" class="metaItem">
           <span class="metaIcon">⏱</span>
           <div>
-            <div class="metaLabel">Duration</div>
+            <div class="metaLabel">{{ t("challengeCard.duration") }}</div>
             <div class="metaValue">{{ durationText }}</div>
           </div>
         </div>
@@ -76,7 +76,7 @@
         <div v-if="showMembersMeta" class="metaItem">
           <span class="metaIcon">👥</span>
           <div>
-            <div class="metaLabel">Members</div>
+            <div class="metaLabel">{{ t("challengeCard.members") }}</div>
             <div class="metaValue">{{ membersCount }}</div>
           </div>
         </div>
@@ -84,7 +84,7 @@
         <div v-if="hasVisibility || !compact" class="metaItem">
           <span class="metaIcon">{{ isInviteOnly ? "🔐" : "🔓" }}</span>
           <div>
-            <div class="metaLabel">Access</div>
+            <div class="metaLabel">{{ t("challengeCard.access") }}</div>
             <div class="metaValue">{{ visibilityText }}</div>
           </div>
         </div>
@@ -92,7 +92,7 @@
         <div v-if="!compact" class="metaItem">
           <span class="metaIcon">✨</span>
           <div>
-            <div class="metaLabel">Reward</div>
+            <div class="metaLabel">{{ t("challengeCard.reward") }}</div>
             <div class="metaValue">+{{ xpReward }} XP</div>
           </div>
         </div>
@@ -100,7 +100,7 @@
         <div v-if="compact && hasStreak" class="metaItem">
           <span class="metaIcon">🔥</span>
           <div>
-            <div class="metaLabel">Streak</div>
+            <div class="metaLabel">{{ t("challengeCard.streak") }}</div>
             <div class="metaValue">{{ streakValue }}</div>
           </div>
         </div>
@@ -108,7 +108,7 @@
         <div v-if="compact && hasTotalCheckins" class="metaItem">
           <span class="metaIcon">✅</span>
           <div>
-            <div class="metaLabel">Check-ins</div>
+            <div class="metaLabel">{{ t("challengeCard.checkins") }}</div>
             <div class="metaValue">{{ totalCheckinsValue }}</div>
           </div>
         </div>
@@ -127,14 +127,14 @@
           </span>
 
           <span class="caption previewText">
-            <span>Joined by</span>
+            <span>{{ t("challengeCard.joinedBy") }}</span>
             <b>{{ previewNames.join(", ") }}</b>
-            <span v-if="moreCount > 0">+ {{ moreCount }} more</span>
+            <span v-if="moreCount > 0">{{ t("challengeCard.moreMembers", { count: moreCount }) }}</span>
           </span>
         </div>
 
         <div v-else-if="showEmptyMemberHint" class="memberPreview">
-          <span class="caption muted">Be the first to start this path.</span>
+          <span class="caption muted">{{ t("challengeCard.firstPath") }}</span>
         </div>
 
         <div v-else class="memberPreview compactHint">
@@ -146,11 +146,11 @@
           class="todayBadge"
           :class="{ done: isTodayChecked, pending: !isTodayChecked }"
         >
-          {{ isTodayChecked ? "Completed today" : "Ready today" }}
+          {{ isTodayChecked ? t("challengeCard.completedToday") : t("challengeCard.readyToday") }}
         </span>
 
         <span v-else class="todayBadge pending">
-          Ready to join
+          {{ t("challengeCard.readyJoin") }}
         </span>
       </div>
     </div>
@@ -159,6 +159,7 @@
 
 <script setup>
 import { computed } from "vue";
+import { useI18n } from "vue-i18n";
 import BaseCard from "@/components/ui/BaseCard.vue";
 import BaseButton from "@/components/ui/BaseButton.vue";
 
@@ -173,8 +174,10 @@ const props = defineProps({
 
 defineEmits(["checkin", "join"]);
 
+const { t } = useI18n();
+
 const title = computed(() => {
-  return props.challenge.name || props.challenge.enrollment_name || props.challenge.challenge_name || "Challenge";
+  return props.challenge.name || props.challenge.enrollment_name || props.challenge.challenge_name || t("common.challenge");
 });
 
 const isJoined = computed(() => Boolean(props.challenge.is_joined || props.challenge.enrollment_id));
@@ -191,12 +194,17 @@ const isTodayChecked = computed(() => {
   return false;
 });
 
-const normalizedStatus = computed(() => {
+const rawStatus = computed(() => {
   const value = String(props.challenge.status || "active").toLowerCase();
-  return value.charAt(0).toUpperCase() + value.slice(1);
+  return value;
 });
 
-const isActive = computed(() => normalizedStatus.value.toLowerCase() === "active");
+const normalizedStatus = computed(() => {
+  const value = rawStatus.value;
+  return t(`common.status.${value}`, value.charAt(0).toUpperCase() + value.slice(1));
+});
+
+const isActive = computed(() => rawStatus.value === "active");
 
 const hasVisibility = computed(() => {
   return Object.prototype.hasOwnProperty.call(props.challenge, "visibility");
@@ -204,13 +212,13 @@ const hasVisibility = computed(() => {
 
 const visibilityText = computed(() => {
   const value = String(props.challenge.visibility || "public").toLowerCase();
-  if (value === "invite-only") return "Invite-only";
-  if (value === "private") return "Private";
-  return "Public";
+  if (value === "invite-only") return t("common.inviteOnly");
+  if (value === "private") return t("common.private");
+  return t("common.public");
 });
 
 const isInviteOnly = computed(() => {
-  return visibilityText.value === "Invite-only" || Boolean(props.challenge.needs_code);
+  return String(props.challenge.visibility || "").toLowerCase() === "invite-only" || Boolean(props.challenge.needs_code);
 });
 
 const hasDuration = computed(() => {
@@ -219,7 +227,7 @@ const hasDuration = computed(() => {
 
 const durationText = computed(() => {
   const days = props.challenge.duration_days;
-  return days ? `${days} days` : "Flexible";
+  return days ? t("common.days", { count: days }) : t("common.flexible");
 });
 
 const hasMembersField = computed(() => {
@@ -281,13 +289,13 @@ const hasTotalCheckins = computed(() => {
 const statusHintText = computed(() => {
   if (props.compact) {
     return isTodayChecked.value
-      ? "Momentum secured for today."
-      : "Your daily strike is ready.";
+      ? t("challengeCard.secured")
+      : t("challengeCard.readyStrike");
   }
 
   return isJoined.value
-    ? "Momentum path active."
-    : "Ready to begin.";
+    ? t("challengeCard.activePath")
+    : t("challengeCard.readyBegin");
 });
 </script>
 
