@@ -1,3 +1,11 @@
+@font-face{
+  font-family: "Vazirmatn";
+  src: url("../assets/fonts/Vazirmatn.woff2") format("woff2");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
 *{ box-sizing: border-box; }
 html, body{ height: 100%; }
 body{
@@ -7,6 +15,10 @@ body{
   font-size: var(--body);
   line-height: var(--lh);
   font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, "Apple Color Emoji","Segoe UI Emoji";
+}
+
+html[lang="fa"] body{
+  font-family: "Vazirmatn", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
 html[dir="rtl"] body{
@@ -24,6 +36,13 @@ html[dir="rtl"] input,
 html[dir="rtl"] textarea,
 html[dir="rtl"] select{
   direction: rtl;
+}
+
+button,
+input,
+textarea,
+select{
+  font-family: inherit;
 }
 
 a{ color: inherit; text-decoration: none; }
