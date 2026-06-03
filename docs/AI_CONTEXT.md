@@ -41,6 +41,9 @@ RingoStrike should feel like a premium consistency and progression system, not a
 - Axios API client in `frontend/src/lib/api.js` using `VITE_API_BASE` or `http://localhost:5005`, credentials enabled, and callback-token Bearer fallback support.
 - Active local auth UI is `frontend/src/components/AuthForm.vue`; it uses the shared API client and honors the `next` redirect query.
 - Shared CSS tokens in `frontend/src/styles/tokens.css` and base styles in `frontend/src/styles/base.css`.
+- Frontend i18n is implemented with `vue-i18n` in `frontend/src/i18n/`, currently supporting English (`en`) and Persian (`fa`).
+- The language switcher lives in `frontend/src/components/i18n/LanguageSwitcher.vue`, persists the selected locale in `localStorage.ringostrike_locale`, and updates `document.documentElement.lang` and `dir`.
+- Persian mode uses the local Vazirmatn variable WOFF2 font from `frontend/src/assets/fonts/Vazirmatn.woff2`; English mode keeps the existing system font stack.
 - Component groups for UI primitives, progress, achievements, activity, challenge cards, profile, and feedback.
 - Public profile page consumes `/api/public/profile/:username`, `/consistency`, and `/achievements`.
 - API docs view has been brought closer to the backend contract, but route files remain the final source of truth.
@@ -58,6 +61,8 @@ RingoStrike should feel like a premium consistency and progression system, not a
 - `frontend/src/stores/session.js` is aligned with cookie-based auth and no longer expects `api.setToken()`.
 - Cookies remain the preferred auth path; `localStorage.ringo_token` is only a callback-token fallback and is cleared on logout.
 - `frontend/src/components/AuthForm.vue` should stay aligned with `frontend/src/lib/api.js`; avoid hard-coded backend origins or auth payload logging.
+- Frontend translations should stay frontend-only. Do not change backend response shapes to support locale text; translate display labels at the component/i18n layer and keep raw backend values for logic.
+- When adding Persian UI text, keep `lang="fa"`/`dir="rtl"` behavior centralized through `frontend/src/i18n/index.js`.
 - `frontend/src/views/Login.vue` is a Telegram-oriented view and is not the active `/login` route while local username/password auth remains the primary flow.
 - `GET /me/stats` is owned by `stats_routes.py` and delegates to `stats_service.py`.
 - `backend/services/auth_service.py` has been removed; active auth routes are still registered through `backend/auth.py`.
