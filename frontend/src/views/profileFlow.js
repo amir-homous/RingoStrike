@@ -88,3 +88,32 @@ export async function saveProfileSettings(apiClient, form) {
     buildProfileSettingsPayload(form),
   );
 }
+
+export async function loadTelegramSettings(apiClient) {
+  const response = await apiClient.get("/api/me/telegram/settings");
+  return response.data?.settings || null;
+}
+
+export async function createTelegramConnectCode(apiClient) {
+  const response = await apiClient.post("/api/me/telegram/connect-code");
+  return response.data?.connect_code || null;
+}
+
+export async function saveTelegramSettings(apiClient, settings) {
+  const response = await apiClient.patch(
+    "/api/me/telegram/settings",
+    {
+      reminders_enabled: Boolean(settings?.reminders_enabled),
+      daily_checkin_enabled: Boolean(settings?.daily_checkin_enabled),
+      streak_risk_enabled: Boolean(settings?.streak_risk_enabled),
+      weekly_summary_enabled: Boolean(settings?.weekly_summary_enabled),
+    },
+  );
+
+  return response.data?.settings || null;
+}
+
+export async function disconnectTelegram(apiClient) {
+  const response = await apiClient.post("/api/me/telegram/disconnect");
+  return response.data?.settings || null;
+}

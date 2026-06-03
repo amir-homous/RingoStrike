@@ -6,19 +6,39 @@ import api from "@/lib/api";
 
 import BaseCard from "@/components/ui/BaseCard.vue";
 import {
+  createTelegramConnectCode,
+  disconnectTelegram,
   loadProfileSettings,
+  loadTelegramSettings,
   saveProfileSettings,
+  saveTelegramSettings,
 } from "@/views/profileFlow";
 
 const loading = ref(false);
 const saved = ref(false);
 const error = ref("");
+const telegramLoading = ref(false);
+const telegramSaving = ref(false);
+const telegramSaved = ref(false);
+const telegramError = ref("");
+const connectCode = ref(null);
 const { t } = useI18n();
 
 const form = ref({
   bio: "",
   avatar_url: "",
   profile_visibility: "public",
+});
+
+const telegramSettings = ref({
+  connected: false,
+  telegram_username: "",
+  reminders_enabled: false,
+  daily_checkin_enabled: true,
+  streak_risk_enabled: true,
+  weekly_summary_enabled: false,
+  bot_username: "",
+  bot_link: "",
 });
 
 const emit = defineEmits([
@@ -81,7 +101,92 @@ async function saveProfile() {
   }
 }
 
-onMounted(loadProfile);
+async function loadTelegram() {
+  telegramLoading.value = true;
+  telegramError.value = "";
+
+  try {
+    const settings = await loadTelegramSettings(api);
+
+    if (settings) {
+      telegramSettings.value = {
+        ...telegramSettings.value,
+        ...settings,
+      };
+    }
+  } catch (err) {
+    telegramError.value = err.response?.data?.error || t("profileComponents.telegramLoadError");
+  } finally {
+    telegramLoading.value = false;
+  }
+}
+
+async function generateConnectCode() {
+  telegramSaving.value = true;
+  telegramError.value = "";
+  connectCode.value = null;
+
+  try {
+    connectCode.value = await createTelegramConnectCode(api);
+  } catch (err) {
+    telegramError.value = err.response?.data?.error || t("profileComponents.telegramConnectError");
+  } finally {
+    telegramSaving.value = false;
+  }
+}
+
+async function saveTelegram() {
+  telegramSaving.value = true;
+  telegramSaved.value = false;
+  telegramError.value = "";
+
+  try {
+    const settings = await saveTelegramSettings(api, telegramSettings.value);
+
+    if (settings) {
+      telegramSettings.value = {
+        ...telegramSettings.value,
+        ...settings,
+      };
+    }
+
+    telegramSaved.value = true;
+
+    setTimeout(() => {
+      telegramSaved.value = false;
+    }, 2000);
+  } catch (err) {
+    telegramError.value = err.response?.data?.error || t("profileComponents.telegramSaveError");
+  } finally {
+    telegramSaving.value = false;
+  }
+}
+
+async function disconnectTelegramAccount() {
+  telegramSaving.value = true;
+  telegramError.value = "";
+  connectCode.value = null;
+
+  try {
+    const settings = await disconnectTelegram(api);
+
+    if (settings) {
+      telegramSettings.value = {
+        ...telegramSettings.value,
+        ...settings,
+      };
+    }
+  } catch (err) {
+    telegramError.value = err.response?.data?.error || t("profileComponents.telegramDisconnectError");
+  } finally {
+    telegramSaving.value = false;
+  }
+}
+
+onMounted(() => {
+  loadProfile();
+  loadTelegram();
+});
 </script>
 
 <template>
@@ -127,6 +232,132 @@ onMounted(loadProfile);
           {{ t("common.private") }}
         </option>
       </select>
+    </div>
+
+    <div class="telegram-section">
+      <div class="telegram-heading">
+        <div>
+          <h3>{{ t("profileComponents.telegramTitle") }}</h3>
+
+          <p class="caption">
+            {{ t("profileComponents.telegramCaption") }}
+          </p>
+        </div>
+
+        <span
+          class="status-pill"
+          :class="{ active: telegramSettings.connected }"
+        >
+          {{
+            telegramSettings.connected
+              ? t("profileComponents.telegramConnected")
+              : t("profileComponents.telegramNotConnected")
+          }}
+        </span>
+      </div>
+
+      <p
+        v-if="telegramSettings.connected && telegramSettings.telegram_username"
+        class="telegram-meta"
+      >
+        @{{ telegramSettings.telegram_username }}
+      </p>
+
+      <p v-if="telegramLoading" class="telegram-meta">
+        {{ t("common.loading") }}
+      </p>
+
+      <div class="toggle-list">
+        <label class="toggle-row">
+          <input
+            v-model="telegramSettings.reminders_enabled"
+            type="checkbox"
+          />
+          <span>{{ t("profileComponents.telegramRemindersEnabled") }}</span>
+        </label>
+
+        <label class="toggle-row">
+          <input
+            v-model="telegramSettings.daily_checkin_enabled"
+            type="checkbox"
+          />
+          <span>{{ t("profileComponents.telegramDailyCheckinEnabled") }}</span>
+        </label>
+
+        <label class="toggle-row">
+          <input
+            v-model="telegramSettings.streak_risk_enabled"
+            type="checkbox"
+          />
+          <span>{{ t("profileComponents.telegramStreakRiskEnabled") }}</span>
+        </label>
+
+        <label class="toggle-row">
+          <input
+            v-model="telegramSettings.weekly_summary_enabled"
+            type="checkbox"
+          />
+          <span>{{ t("profileComponents.telegramWeeklySummaryEnabled") }}</span>
+        </label>
+      </div>
+
+      <div v-if="connectCode" class="connect-code">
+        <p class="connect-label">
+          {{ t("profileComponents.telegramConnectCode") }}
+        </p>
+
+        <strong>{{ connectCode.code }}</strong>
+
+        <p class="telegram-meta">
+          {{ t("profileComponents.telegramCodeInstruction") }}
+        </p>
+
+        <a
+          v-if="connectCode.bot_link"
+          :href="connectCode.bot_link"
+          target="_blank"
+          rel="noreferrer"
+        >
+          {{ t("profileComponents.telegramOpenBot") }}
+        </a>
+      </div>
+
+      <p v-if="telegramError" class="error-message">
+        {{ telegramError }}
+      </p>
+
+      <div class="telegram-actions">
+        <button
+          class="cancel-btn"
+          :disabled="telegramSaving"
+          @click="generateConnectCode"
+        >
+          {{ t("profileComponents.telegramGenerateCode") }}
+        </button>
+
+        <button
+          v-if="telegramSettings.connected"
+          class="cancel-btn danger"
+          :disabled="telegramSaving"
+          @click="disconnectTelegramAccount"
+        >
+          {{ t("profileComponents.telegramDisconnect") }}
+        </button>
+
+        <button
+          class="save-btn"
+          :disabled="telegramSaving"
+          @click="saveTelegram"
+        >
+          {{
+            telegramSaving
+              ? t("profileComponents.saving")
+              : telegramSaved
+              ? t("profileComponents.saved")
+              : t("profileComponents.telegramSave")
+          }}
+        </button>
+      </div>
     </div>
 
     <p v-if="error" class="error-message">
@@ -256,6 +487,12 @@ select{
   cursor:pointer;
 }
 
+input[type="checkbox"]{
+  width:18px;
+  height:18px;
+  accent-color:#6366f1;
+}
+
 select option{
   background:#18181b;
   color:white;
@@ -297,6 +534,111 @@ select option{
   box-shadow:
     0 0 0 3px
     rgba(99,102,241,.25);
+}
+
+/* ---------- Telegram Settings ---------- */
+
+.telegram-section{
+  margin-top:24px;
+  padding-top:22px;
+  border-top:1px solid rgba(255,255,255,.08);
+}
+
+.telegram-heading{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:16px;
+  margin-bottom:14px;
+}
+
+.telegram-heading h3{
+  margin:0;
+  font-size:1rem;
+}
+
+.status-pill{
+  flex:0 0 auto;
+  border:1px solid rgba(255,255,255,.12);
+  border-radius:999px;
+  padding:6px 10px;
+  background:rgba(255,255,255,.04);
+  color:rgba(255,255,255,.72);
+  font-size:.78rem;
+  font-weight:700;
+}
+
+.status-pill.active{
+  border-color:rgba(34,197,94,.34);
+  background:rgba(34,197,94,.12);
+  color:#bbf7d0;
+}
+
+.telegram-meta{
+  margin:8px 0 0;
+  color:rgba(255,255,255,.66);
+  font-size:.88rem;
+}
+
+.toggle-list{
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+  margin-top:16px;
+}
+
+.toggle-row{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  padding:10px 12px;
+  border:1px solid rgba(255,255,255,.08);
+  border-radius:14px;
+  background:rgba(255,255,255,.04);
+}
+
+.toggle-row span{
+  font-size:.9rem;
+}
+
+.connect-code{
+  margin-top:16px;
+  padding:14px;
+  border:1px solid rgba(99,102,241,.24);
+  border-radius:14px;
+  background:rgba(99,102,241,.10);
+}
+
+.connect-label{
+  margin:0 0 6px;
+  color:rgba(255,255,255,.68);
+  font-size:.82rem;
+}
+
+.connect-code strong{
+  display:inline-block;
+  letter-spacing:.04em;
+}
+
+.connect-code a{
+  display:inline-block;
+  margin-top:10px;
+  color:#c4b5fd;
+  font-weight:700;
+  text-decoration:none;
+}
+
+.telegram-actions{
+  display:flex;
+  justify-content:flex-end;
+  flex-wrap:wrap;
+  gap:12px;
+  margin-top:16px;
+}
+
+.danger{
+  border-color:rgba(248,113,113,.28);
+  color:#fecaca;
 }
 
 /* ---------- Actions ---------- */

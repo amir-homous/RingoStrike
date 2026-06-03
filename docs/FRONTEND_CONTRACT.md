@@ -402,6 +402,71 @@ Request:
 
 Visibility values: `public`, `private`.
 
+## Telegram Reminder Settings
+
+The frontend does not use Telegram Login and never sends or stores a bot token.
+
+### `GET /api/me/telegram/settings`
+
+Auth: required.
+
+Returns:
+
+```json
+{
+  "ok": true,
+  "settings": {
+    "connected": true,
+    "telegram_username": "alice",
+    "reminders_enabled": true,
+    "daily_checkin_enabled": true,
+    "streak_risk_enabled": true,
+    "weekly_summary_enabled": false,
+    "bot_username": "ringo_strike_bot",
+    "bot_link": "https://t.me/ringo_strike_bot"
+  }
+}
+```
+
+### `POST /api/me/telegram/connect-code`
+
+Auth: required.
+
+Returns a short-lived code and optional bot deep link. A new pending code expires previous pending codes for the same user.
+
+### `PATCH /api/me/telegram/settings`
+
+Auth: required.
+
+Request fields:
+
+```json
+{
+  "reminders_enabled": true,
+  "daily_checkin_enabled": true,
+  "streak_risk_enabled": true,
+  "weekly_summary_enabled": false
+}
+```
+
+### `POST /api/me/telegram/disconnect`
+
+Auth: required. Disconnects the user's Telegram chat and returns the updated settings.
+
+### `POST /api/telegram/connect`
+
+Auth: protected by `X-Reminder-Token`; intended for a bot-side bridge, n8n, or similar automation. The frontend must not call this endpoint.
+
+Request:
+
+```json
+{
+  "code": "RS-ABCDEFGH",
+  "telegram_chat_id": "123456789",
+  "telegram_username": "alice"
+}
+```
+
 ### `PATCH /api/profile/visibility`
 
 Auth: required.

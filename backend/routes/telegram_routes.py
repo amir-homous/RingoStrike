@@ -1,12 +1,31 @@
-from flask import Blueprint, jsonify,request
+from flask import Blueprint, jsonify, request
+
+from auth import require_auth
 from services.telegram_service import send_telegram_message
 from config import Config
 from services.reminder_service import send_unchecked_test_reminder
+from services.telegram_connection_service import (
+    connect_telegram_code,
+    create_connect_code,
+    disconnect_telegram,
+    get_telegram_settings,
+    update_telegram_settings,
+)
+from utils.api_response import service_response
+from utils.validation_utils import parse_json_object_payload
 
 telegram_bp = Blueprint(
     "telegram",
     __name__,
 )
+
+
+def _service_response(payload: dict, code: int):
+    return service_response(
+        payload,
+        code,
+        fallback_error="telegram_error",
+    )
 
 @telegram_bp.route(
     "/api/telegram/test-reminder",
@@ -36,3 +55,76 @@ def remind_unchecked_test():
 
     result = send_unchecked_test_reminder()
     return jsonify(result)
+
+
+@telegram_bp.get("/api/me/telegram/settings")
+@require_auth()
+def get_my_telegram_settings(claims):
+    payload, code = get_telegram_settings(claims["user_id"])
+    return _service_response(payload, code)
+
+
+@telegram_bp.post("/api/me/telegram/connect-code")
+@require_auth()
+def create_my_telegram_connect_code(claims):
+    payload, code = create_connect_code(claims["user_id"])
+    return _service_response(payload, code)
+
+
+@telegram_bp.patch("/api/me/telegram/settings")
+@require_auth()
+def update_my_telegram_settings(claims):
+    payload, payload_error = parse_json_object_payload(request)
+
+    if payload_error:
+        return _service_response(
+            {
+                "ok": False,
+                "error": payload_error,
+            },
+            400,
+        )
+
+    response, code = update_telegram_settings(
+        claims["user_id"],
+        payload,
+    )
+
+    return _service_response(response, code)
+
+
+@telegram_bp.post("/api/me/telegram/disconnect")
+@require_auth()
+def disconnect_my_telegram(claims):
+    payload, code = disconnect_telegram(claims["user_id"])
+    return _service_response(payload, code)
+
+
+@telegram_bp.post("/api/telegram/connect")
+def connect_telegram_chat():
+    token = request.headers.get("X-Reminder-Token")
+
+    if not Config.REMINDER_ADMIN_TOKEN or token != Config.REMINDER_ADMIN_TOKEN:
+        return jsonify({
+            "ok": False,
+            "error": "unauthorized",
+        }), 401
+
+    payload, payload_error = parse_json_object_payload(request)
+
+    if payload_error:
+        return _service_response(
+            {
+                "ok": False,
+                "error": payload_error,
+            },
+            400,
+        )
+
+    response, code = connect_telegram_code(
+        payload.get("code"),
+        payload.get("telegram_chat_id") or payload.get("chat_id"),
+        payload.get("telegram_username") or payload.get("username"),
+    )
+
+    return _service_response(response, code)

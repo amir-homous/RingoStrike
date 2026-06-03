@@ -51,8 +51,19 @@ Current convention:
 | `GET /me/enrollments/<enrollment_id>/leaderboard` | `routes/leaderboard_routes.py` | `services/leaderboard_service.py` | Enrollment ownership is enforced before leaderboard data is returned. |
 | `GET /api/me/profile/settings` | `routes/profile_settings_routes.py` | `services/profile_settings_service.py` | Profile settings form load. |
 | `PATCH /api/me/profile/settings` | `routes/profile_settings_routes.py` | `services/profile_settings_service.py` | Profile settings update. |
+| `GET /api/me/telegram/settings` | `routes/telegram_routes.py` | `services/telegram_connection_service.py` | Current Telegram connection state and reminder preferences. |
+| `POST /api/me/telegram/connect-code` | `routes/telegram_routes.py` | `services/telegram_connection_service.py` | Generates a short-lived Telegram connect code for the authenticated user. |
+| `PATCH /api/me/telegram/settings` | `routes/telegram_routes.py` | `services/telegram_connection_service.py` | Updates reminder preference toggles. |
+| `POST /api/me/telegram/disconnect` | `routes/telegram_routes.py` | `services/telegram_connection_service.py` | Disconnects the authenticated user's Telegram chat. |
 | `PATCH /api/profile/visibility` | `routes/public_profile_routes.py` | `services/profile_visibility_service.py` | Legacy visibility-specific update surface. Prefer `/api/me/profile/settings` for active settings UI. |
 | `PATCH /api/profile` | `routes/public_profile_routes.py` | `services/profile_update_service.py` | Legacy profile update surface. Prefer `/api/me/profile/settings` for active settings UI where possible. |
+
+## Protected Automation Endpoints
+
+| Endpoint | Route owner | Service owner | Notes |
+| --- | --- | --- | --- |
+| `POST /api/telegram/connect` | `routes/telegram_routes.py` | `services/telegram_connection_service.py` | Bot bridge endpoint protected by `X-Reminder-Token`; redeems a connect code and stores the Telegram chat id. |
+| `POST /api/telegram/remind-unchecked-test` | `routes/telegram_routes.py` | `services/reminder_service.py` | Admin-token protected test reminder surface. |
 
 ## Development-Only Endpoints
 

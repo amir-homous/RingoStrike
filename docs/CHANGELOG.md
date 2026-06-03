@@ -16,6 +16,17 @@ The project has moved beyond raw MVP. Core progression identity is implemented. 
 
 ## Latest Launch-Hardening Updates
 
+### Telegram Reminder Settings
+
+Completed the first user-controlled Telegram reminder foundation:
+
+- Added a `telegram_connections` table for connect codes, chat ids, connection status, and reminder preferences.
+- Added authenticated settings endpoints for loading/updating reminder preferences, generating connect codes, and disconnecting Telegram.
+- Added a protected bot-bridge endpoint for redeeming connect codes without Telegram Login.
+- Updated unchecked enrollment reminders to send only to connected users with enabled daily check-in reminders.
+- Added dry-run script support and backend tests for connection flow, preference filtering, checked/unchecked enrollments, and safe missing identity handling.
+- Added Profile Settings UI controls and English/Persian translations for Telegram reminder settings.
+
 ### Frontend Persian/English i18n
 
 Added frontend-only bilingual UI foundations:

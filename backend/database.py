@@ -155,6 +155,31 @@ def init_db():
     c.execute("CREATE INDEX IF NOT EXISTS idx_checkins_enrollment_date ON checkins(enrollment_id, date)")
     c.execute("CREATE INDEX IF NOT EXISTS idx_checkins_challenge ON checkins(challenge_id)")
 
+    c.execute("""
+    CREATE TABLE IF NOT EXISTS telegram_connections (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        code TEXT NOT NULL UNIQUE,
+        status TEXT NOT NULL DEFAULT 'pending'
+            CHECK(status IN ('pending', 'connected', 'expired', 'disconnected')),
+        telegram_chat_id TEXT,
+        telegram_username TEXT,
+        reminders_enabled INTEGER NOT NULL DEFAULT 0,
+        daily_checkin_enabled INTEGER NOT NULL DEFAULT 1,
+        streak_risk_enabled INTEGER NOT NULL DEFAULT 1,
+        weekly_summary_enabled INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        expires_at TEXT,
+        connected_at TEXT,
+        updated_at TEXT,
+        FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+    )
+    """)
+
+    c.execute("CREATE INDEX IF NOT EXISTS idx_telegram_connections_user ON telegram_connections(user_id)")
+    c.execute("CREATE INDEX IF NOT EXISTS idx_telegram_connections_code ON telegram_connections(code)")
+    c.execute("CREATE INDEX IF NOT EXISTS idx_telegram_connections_status ON telegram_connections(status)")
+
     default_challenges = [
     {
         "name": "Daily Strike",
@@ -383,4 +408,3 @@ def get_user_stats(user_id):
     row = c.fetchone()
     conn.close()
     return dict(row) if row else None
-

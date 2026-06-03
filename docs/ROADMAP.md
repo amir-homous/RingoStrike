@@ -245,7 +245,7 @@ After stabilization:
 After launch-readiness foundations:
 
 - Telegram login route if Telegram auth is still desired.
-- Telegram reminders.
+- Telegram reminder delivery hardening and production bot bridge.
 - Per-challenge reminder time.
 - Preferred daily check-in window.
 - Late check-in status.
