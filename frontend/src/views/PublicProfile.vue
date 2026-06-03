@@ -7,20 +7,20 @@
         <div>
           <p class="eyebrow">
             <span class="pulseDot"></span>
-            Public Progression Profile
+            {{ t("publicProfile.eyebrow") }}
           </p>
 
           <h1 class="pageTitle">
-            {{ profile?.name || username }}’s journey
+            {{ t("publicProfile.journey", { name: profile?.name || username }) }}
           </h1>
 
           <p class="pageSubtitle">
-            A public snapshot of consistency, achievements, and recent progression.
+            {{ t("publicProfile.subtitle") }}
           </p>
         </div>
 
         <RouterLink class="publicAction" to="/login">
-          Start your path
+          {{ t("publicProfile.start") }}
         </RouterLink>
       </section>
 
@@ -28,7 +28,7 @@
         :loading="loading"
         :error="!!error"
         :empty="false"
-        loading-title="Loading profile..."
+        :loading-title="t('profile.loadingTitle')"
         :error-text="error"
         @retry="load"
       />
@@ -40,10 +40,10 @@
         <div class="stateIcon">🔒</div>
 
         <div>
-          <h2>Private Profile</h2>
+          <h2>{{ t("publicProfile.privateTitle") }}</h2>
 
           <p class="caption">
-            This user has chosen to keep their progression journey private.
+            {{ t("publicProfile.privateText") }}
           </p>
         </div>
       </BaseCard>
@@ -55,10 +55,10 @@
         <div class="stateIcon">∅</div>
 
         <div>
-          <h2>Profile Not Found</h2>
+          <h2>{{ t("publicProfile.notFoundTitle") }}</h2>
 
           <p class="caption">
-            The requested profile does not exist or the username is unavailable.
+            {{ t("publicProfile.notFoundText") }}
           </p>
         </div>
       </BaseCard>
@@ -66,21 +66,21 @@
       <template v-if="!loading && !error && profile">
         <section class="publicSummary">
           <div class="summaryCard">
-            <span class="summaryLabel">Consistency days</span>
+            <span class="summaryLabel">{{ t("profile.consistencyDays") }}</span>
             <strong>{{ consistency.length }}</strong>
-            <small>Public check-in signal</small>
+            <small>{{ t("publicProfile.publicSignal") }}</small>
           </div>
 
           <div class="summaryCard">
-            <span class="summaryLabel">Achievements</span>
+            <span class="summaryLabel">{{ t("profile.achievements") }}</span>
             <strong>{{ achievements.length }}</strong>
-            <small>Unlocked public milestones</small>
+            <small>{{ t("publicProfile.publicMilestones") }}</small>
           </div>
 
           <div class="summaryCard">
-            <span class="summaryLabel">Identity</span>
+            <span class="summaryLabel">{{ t("publicProfile.identity") }}</span>
             <strong>{{ profileTitleText }}</strong>
-            <small>{{ profile.tagline || "Progression in motion" }}</small>
+            <small>{{ profile.tagline || t("publicProfile.progressionMotion") }}</small>
           </div>
         </section>
 
@@ -100,23 +100,22 @@
 
           <div class="sideColumn">
             <BaseCard class="publicContext">
-              <p class="eyebrow compact">Public signal</p>
+              <p class="eyebrow compact">{{ t("publicProfile.signalEyebrow") }}</p>
 
               <h2 class="cardTitle">
-                Consistency without noise
+                {{ t("publicProfile.signalTitle") }}
               </h2>
 
               <p class="cardText">
-                RingoStrike public profiles are designed to show identity,
-                momentum, and proof of consistency without exposing private app controls.
+                {{ t("publicProfile.signalText") }}
               </p>
             </BaseCard>
 
             <BaseCard class="publicContext">
-              <p class="eyebrow compact">Recent momentum</p>
+              <p class="eyebrow compact">{{ t("publicProfile.recentMomentum") }}</p>
 
               <p class="cardText">
-                Recent public activity appears below when the user chooses to share it.
+                {{ t("publicProfile.recentText") }}
               </p>
             </BaseCard>
           </div>
@@ -134,6 +133,7 @@
 <script setup>
 import { computed, ref, onMounted } from "vue";
 import { useRoute, RouterLink } from "vue-router";
+import { useI18n } from "vue-i18n";
 
 import api from "@/lib/api";
 
@@ -154,6 +154,7 @@ import {
 } from "./publicProfileFlow";
 
 const route = useRoute();
+const { t } = useI18n();
 
 const isPrivate = ref(false);
 const isNotFound = ref(false);

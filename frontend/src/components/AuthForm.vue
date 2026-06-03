@@ -1,16 +1,16 @@
 <template>
   <div class="auth-container">
     <div class="auth-card">
-      <h2>{{ isLogin ? 'Login' : 'Register' }}</h2>
+      <h2>{{ isLogin ? $t('auth.login') : $t('auth.register') }}</h2>
       
       <form @submit.prevent="handleSubmit">
         <!-- Username -->
         <div class="form-group">
-          <label>Username</label>
+          <label>{{ $t('auth.username') }}</label>
           <input 
             v-model="form.username" 
             type="text" 
-            placeholder="Choose a username"
+            :placeholder="$t('auth.usernamePlaceholder')"
             required
             minlength="3"
           />
@@ -18,11 +18,11 @@
 
         <!-- Password -->
         <div class="form-group">
-          <label>Password</label>
+          <label>{{ $t('auth.password') }}</label>
           <input 
             v-model="form.password" 
             type="password" 
-            placeholder="Enter password"
+            :placeholder="$t('auth.passwordPlaceholder')"
             required
             :minlength="isLogin ? 1 : 6"
           />
@@ -30,21 +30,21 @@
 
         <!-- Name (Register only) -->
         <div v-if="!isLogin" class="form-group">
-          <label>Full Name</label>
+          <label>{{ $t('auth.fullName') }}</label>
           <input 
             v-model="form.name" 
             type="text" 
-            placeholder="Your name (optional)"
+            :placeholder="$t('auth.namePlaceholder')"
           />
         </div>
 
         <!-- Email (Register only) -->
         <div v-if="!isLogin" class="form-group">
-          <label>Email</label>
+          <label>{{ $t('auth.email') }}</label>
           <input 
             v-model="form.email" 
             type="email" 
-            placeholder="Your email (optional)"
+            :placeholder="$t('auth.emailPlaceholder')"
           />
         </div>
 
@@ -60,19 +60,19 @@
           :disabled="loading"
           class="btn-submit"
         >
-          {{ loading ? 'Loading...' : (isLogin ? 'Login' : 'Register') }}
+          {{ loading ? $t('common.loading') : (isLogin ? $t('auth.login') : $t('auth.register')) }}
         </button>
       </form>
 
       <!-- Toggle Login/Register -->
       <p class="toggle">
-        {{ isLogin ? "Don't have an account?" : 'Already have an account?' }}
+        {{ isLogin ? $t('auth.noAccount') : $t('auth.hasAccount') }}
         <button 
           type="button" 
           @click="toggleMode"
           class="toggle-btn"
         >
-          {{ isLogin ? 'Register' : 'Login' }}
+          {{ isLogin ? $t('auth.register') : $t('auth.login') }}
         </button>
       </p>
     </div>
@@ -128,7 +128,7 @@ export default {
         this.success = result.success
       } catch (err) {
         const apiError = err.response?.data?.error
-        this.error = apiError || err.message || 'An error occurred. Please try again.'
+        this.error = apiError || err.message || this.$t('auth.fallbackError')
       } finally {
         this.loading = false
       }

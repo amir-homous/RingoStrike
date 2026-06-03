@@ -1,6 +1,7 @@
 <script setup>
 import { ref, onMounted, computed } from "vue";
 import { useRoute } from "vue-router";
+import { useI18n } from "vue-i18n";
 import api from "@/lib/api";
 
 import AppContainer from "@/components/ui/AppContainer.vue";
@@ -9,6 +10,7 @@ import BaseCard from "@/components/ui/BaseCard.vue";
 import UiState from "@/components/ui/UiState.vue";
 
 const route = useRoute();
+const { t } = useI18n();
 
 const props = defineProps({
   id: { type: [String, Number], required: false },
@@ -36,10 +38,10 @@ const todayLimit = 8;
 
 const errorText = computed(() => {
   if (error.value === "missing_id") {
-    return "Invalid leaderboard link (missing enrollment id).";
+    return t("leaderboard.invalid");
   }
 
-  return "Try again. If it keeps happening, the API might be down.";
+  return t("leaderboard.failed");
 });
 
 const isEmpty = computed(() => {
@@ -108,24 +110,24 @@ onMounted(fetchLeaderboard);
 <template>
   <div v-if="embedded" class="leaderboardBlock embedded stack-16">
     <BaseCard>
-      <UiState :loading="loading" :error="!!error" :empty="isEmpty" loading-title="Loading leaderboard…"
-        loading-text="Getting the latest rankings." empty-title="No leaderboard data yet"
-        empty-text="Once people check in, rankings will show here." error-title="Couldn’t load leaderboard"
+      <UiState :loading="loading" :error="!!error" :empty="isEmpty" :loading-title="t('leaderboard.loadingTitle')"
+        :loading-text="t('leaderboard.loadingText')" :empty-title="t('leaderboard.emptyTitle')"
+        :empty-text="t('leaderboard.emptyText')" :error-title="t('leaderboard.errorTitle')"
         :error-text="errorText" @retry="fetchLeaderboard" />
 
       <div v-if="!loading && !error && overall.length" class="leaderboardPanel">
         <div class="panelHeader">
           <div>
-            <div class="eyebrow">Overall Ranking</div>
-            <h2 class="panelTitle">Challenge Standings</h2>
+            <div class="eyebrow">{{ t("leaderboard.overall") }}</div>
+            <h2 class="panelTitle">{{ t("leaderboard.standings") }}</h2>
             <div class="caption">
-              Top consistency signals for this challenge.
+              {{ t("leaderboard.embeddedCaption") }}
             </div>
           </div>
 
           <div class="panelMetric">
             <span class="metricValue">{{ overall.length }}</span>
-            <span class="metricLabel">Players</span>
+            <span class="metricLabel">{{ t("leaderboard.players") }}</span>
           </div>
         </div>
 
@@ -133,11 +135,11 @@ onMounted(fetchLeaderboard);
           <table class="table">
             <thead>
               <tr>
-                <th class="col-rank">Rank</th>
-                <th>User</th>
-                <th class="col-status">Today</th>
-                <th class="col-num">Total</th>
-                <th class="col-num">Streak</th>
+                <th class="col-rank">{{ t("leaderboard.rank") }}</th>
+                <th>{{ t("leaderboard.user") }}</th>
+                <th class="col-status">{{ t("leaderboard.today") }}</th>
+                <th class="col-num">{{ t("leaderboard.total") }}</th>
+                <th class="col-num">{{ t("leaderboard.streak") }}</th>
               </tr>
             </thead>
 
@@ -154,7 +156,7 @@ onMounted(fetchLeaderboard);
                       {{ (row.name || row.username || "?").slice(0, 1).toUpperCase() }}
                     </div>
                     <div>
-                      <div class="uname">{{ row.name || "Unknown" }}</div>
+                      <div class="uname">{{ row.name || t("leaderboard.unknown") }}</div>
                       <div class="caption" v-if="row.username">@{{ row.username }}</div>
                     </div>
                   </div>
@@ -162,7 +164,7 @@ onMounted(fetchLeaderboard);
 
                 <td class="status">
                   <span :class="['todayBadge', row.today_checked ? 'done' : 'pending']">
-                    {{ row.today_checked ? "Done" : "Pending" }}
+                    {{ row.today_checked ? t("common.done") : t("common.pending") }}
                   </span>
                 </td>
 
@@ -174,7 +176,7 @@ onMounted(fetchLeaderboard);
         </div>
 
         <button v-if="hasHiddenOverall" type="button" class="showMoreButton" @click="showAllOverall = !showAllOverall">
-          {{ showAllOverall ? "Show fewer" : `Show ${overall.length - overallLimit} more` }}
+          {{ showAllOverall ? t("common.showFewer") : t("common.showMore", { count: overall.length - overallLimit }) }}
         </button>
       </div>
     </BaseCard>
@@ -191,10 +193,10 @@ onMounted(fetchLeaderboard);
           <div class="titleWithIcon">
             <span class="icon" aria-hidden="true">🏆</span>
             <div>
-              <div class="eyebrow">Social Momentum</div>
-              <h1 class="h1">Leaderboard</h1>
+              <div class="eyebrow">{{ t("leaderboard.social") }}</div>
+              <h1 class="h1">{{ t("leaderboard.title") }}</h1>
               <div class="caption">
-                Ranked by total check-ins, streak strength, and consistency.
+                {{ t("leaderboard.subtitle") }}
               </div>
             </div>
           </div>
@@ -202,40 +204,40 @@ onMounted(fetchLeaderboard);
           <div class="heroStats">
             <div class="heroStat">
               <span class="heroStatValue">{{ overall.length }}</span>
-              <span class="heroStatLabel">Players</span>
+              <span class="heroStatLabel">{{ t("leaderboard.players") }}</span>
             </div>
 
             <div class="heroStat done">
               <span class="heroStatValue">{{ today.length }}</span>
-              <span class="heroStatLabel">Done Today</span>
+              <span class="heroStatLabel">{{ t("leaderboard.doneToday") }}</span>
             </div>
 
             <div class="heroStat streak">
               <span class="heroStatValue">{{ topStreak }}</span>
-              <span class="heroStatLabel">Top Streak</span>
+              <span class="heroStatLabel">{{ t("leaderboard.topStreak") }}</span>
             </div>
           </div>
         </div>
       </section>
 
       <BaseCard>
-        <UiState :loading="loading" :error="!!error" :empty="isEmpty" loading-title="Loading leaderboard…"
-          loading-text="Getting the latest rankings." empty-title="No leaderboard data yet"
-          empty-text="Once people check in, rankings will show here." error-title="Couldn’t load leaderboard"
+        <UiState :loading="loading" :error="!!error" :empty="isEmpty" :loading-title="t('leaderboard.loadingTitle')"
+          :loading-text="t('leaderboard.loadingText')" :empty-title="t('leaderboard.emptyTitle')"
+          :empty-text="t('leaderboard.emptyText')" :error-title="t('leaderboard.errorTitle')"
           :error-text="errorText" @retry="fetchLeaderboard" />
 
         <div v-if="!loading && !error && overall.length" class="leaderboardPanel">
           <div class="panelHeader">
             <div>
-              <div class="eyebrow">Overall Ranking</div>
-              <h2 class="panelTitle">Challenge Standings</h2>
+              <div class="eyebrow">{{ t("leaderboard.overall") }}</div>
+              <h2 class="panelTitle">{{ t("leaderboard.standings") }}</h2>
               <div class="caption">
-                Overall ranking rewards consistency over noisy competition.
+                {{ t("leaderboard.rankingCaption") }}
               </div>
             </div>
 
             <div class="rulesChip">
-              Total → Streak → Name
+              {{ t("leaderboard.rules") }}
             </div>
           </div>
 
@@ -246,11 +248,11 @@ onMounted(fetchLeaderboard);
               <div class="podiumAvatar">
                 {{ (row.name || row.username || "?").slice(0, 1).toUpperCase() }}
               </div>
-              <div class="podiumName">{{ row.name || "Unknown" }}</div>
+              <div class="podiumName">{{ row.name || t("leaderboard.unknown") }}</div>
               <div class="podiumMeta" v-if="row.username">@{{ row.username }}</div>
               <div class="podiumStats">
-                <span>{{ row.total_checkins ?? 0 }} checks</span>
-                <span>{{ row.current_streak ?? 0 }} streak</span>
+                <span>{{ t("leaderboard.checks", { count: row.total_checkins ?? 0 }) }}</span>
+                <span>{{ t("leaderboard.streakValue", { count: row.current_streak ?? 0 }) }}</span>
               </div>
             </div>
           </div>
@@ -259,11 +261,11 @@ onMounted(fetchLeaderboard);
             <table class="table">
               <thead>
                 <tr>
-                  <th class="col-rank">Rank</th>
-                  <th>User</th>
-                  <th class="col-status">Today</th>
-                  <th class="col-num">Total</th>
-                  <th class="col-num">Streak</th>
+                  <th class="col-rank">{{ t("leaderboard.rank") }}</th>
+                  <th>{{ t("leaderboard.user") }}</th>
+                  <th class="col-status">{{ t("leaderboard.today") }}</th>
+                  <th class="col-num">{{ t("leaderboard.total") }}</th>
+                  <th class="col-num">{{ t("leaderboard.streak") }}</th>
                 </tr>
               </thead>
 
@@ -280,7 +282,7 @@ onMounted(fetchLeaderboard);
                         {{ (row.name || row.username || "?").slice(0, 1).toUpperCase() }}
                       </div>
                       <div>
-                        <div class="uname">{{ row.name || "Unknown" }}</div>
+                        <div class="uname">{{ row.name || t("leaderboard.unknown") }}</div>
                         <div class="caption" v-if="row.username">@{{ row.username }}</div>
                       </div>
                     </div>
@@ -288,7 +290,7 @@ onMounted(fetchLeaderboard);
 
                   <td class="status">
                     <span :class="['todayBadge', row.today_checked ? 'done' : 'pending']">
-                      {{ row.today_checked ? "Done" : "Pending" }}
+                      {{ row.today_checked ? t("common.done") : t("common.pending") }}
                     </span>
                   </td>
 
@@ -301,13 +303,13 @@ onMounted(fetchLeaderboard);
 
           <button v-if="hasHiddenOverall" type="button" class="showMoreButton"
             @click="showAllOverall = !showAllOverall">
-            {{ showAllOverall ? "Show fewer standings" : `Show ${overall.length - pageLimit} more standings` }}
+            {{ showAllOverall ? t("leaderboard.showFewerStandings") : t("leaderboard.showMoreStandings", { count: overall.length - pageLimit }) }}
           </button>
 
           <div class="rankingNote">
             <span>ℹ️</span>
             <span>
-              Ranking currently prioritizes total check-ins, then streak strength, then name ordering.
+              {{ t("leaderboard.rankingNote") }}
             </span>
           </div>
         </div>
@@ -317,14 +319,14 @@ onMounted(fetchLeaderboard);
         <section class="todaySection">
           <div class="panelHeader">
             <div>
-              <div class="eyebrow">Daily Momentum</div>
-              <h2 class="panelTitle">Today’s Strike</h2>
-              <div class="caption">Users who have checked in today.</div>
+              <div class="eyebrow">{{ t("leaderboard.dailyMomentum") }}</div>
+              <h2 class="panelTitle">{{ t("leaderboard.todaysStrike") }}</h2>
+              <div class="caption">{{ t("leaderboard.todayCaption") }}</div>
             </div>
 
             <div class="panelMetric">
               <span class="metricValue">{{ today.length }}</span>
-              <span class="metricLabel">Done Today</span>
+              <span class="metricLabel">{{ t("leaderboard.doneToday") }}</span>
             </div>
           </div>
 
@@ -332,10 +334,10 @@ onMounted(fetchLeaderboard);
             <table class="table">
               <thead>
                 <tr>
-                  <th class="col-rank">Rank</th>
-                  <th>User</th>
-                  <th class="col-num">Total</th>
-                  <th class="col-num">Streak</th>
+                  <th class="col-rank">{{ t("leaderboard.rank") }}</th>
+                  <th>{{ t("leaderboard.user") }}</th>
+                  <th class="col-num">{{ t("leaderboard.total") }}</th>
+                  <th class="col-num">{{ t("leaderboard.streak") }}</th>
                 </tr>
               </thead>
 
@@ -351,7 +353,7 @@ onMounted(fetchLeaderboard);
                         {{ (row.name || row.username || "?").slice(0, 1).toUpperCase() }}
                       </div>
                       <div>
-                        <div class="uname">{{ row.name || "Unknown" }}</div>
+                        <div class="uname">{{ row.name || t("leaderboard.unknown") }}</div>
                         <div class="caption" v-if="row.username">@{{ row.username }}</div>
                       </div>
                     </div>
@@ -365,14 +367,14 @@ onMounted(fetchLeaderboard);
           </div>
 
           <button v-if="hasHiddenToday" type="button" class="showMoreButton" @click="showAllToday = !showAllToday">
-            {{ showAllToday ? "Show fewer today" : `Show ${today.length - todayLimit} more today` }}
+            {{ showAllToday ? t("leaderboard.showFewerToday") : t("leaderboard.showMoreToday", { count: today.length - todayLimit }) }}
           </button>
 
           <div v-else-if="!loading && !error && !today.length" class="todayEmpty">
             <div class="emptyIcon">🌙</div>
             <div>
-              <div class="emptyTitle">No strikes yet today</div>
-              <div class="caption">The daily board will activate after the first check-in.</div>
+              <div class="emptyTitle">{{ t("leaderboard.noToday") }}</div>
+              <div class="caption">{{ t("leaderboard.noTodayCaption") }}</div>
             </div>
           </div>
         </section>

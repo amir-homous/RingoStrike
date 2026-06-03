@@ -9,16 +9,18 @@
 
 <script setup>
 import { computed } from "vue";
+import { useI18n } from "vue-i18n";
 import BaseCard from "@/components/ui/BaseCard.vue";
 
 const props = defineProps({ stats: { type: Object, required: true } });
+const { t } = useI18n();
 
 const items = computed(() => [
-  { label: "Total XP", value: props.stats.total_points },
-  { label: "Total Check-ins", value: props.stats.total_checkins },
-  { label: "Current Streak", value: props.stats.current_streak },
-  { label: "Longest Streak", value: props.stats.longest_streak },
-  { label: "Current Level", value: props.stats.level },
+  { label: t("progress.totalXp"), value: props.stats.total_points },
+  { label: t("progress.totalCheckins"), value: props.stats.total_checkins },
+  { label: t("progress.currentStreak"), value: props.stats.current_streak },
+  { label: t("progress.longestStreak"), value: props.stats.longest_streak },
+  { label: t("progress.currentLevel"), value: props.stats.level },
 ]);
 </script>
 

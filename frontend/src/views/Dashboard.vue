@@ -7,27 +7,27 @@
         <div class="headCopy">
           <div class="eyebrow">
             <span class="pulseDot"></span>
-            <span>Progression Dashboard</span>
+            <span>{{ t("dashboard.eyebrow") }}</span>
           </div>
 
           <h1 class="pageTitle">
-            Welcome<span v-if="user">, {{ firstName }}</span>
+            {{ user ? t("dashboard.welcomeName", { name: firstName }) : t("dashboard.welcome") }}
           </h1>
 
           <p class="pageSubtitle">
-            Protect today’s momentum, check your active paths, and keep your progression identity moving.
+            {{ t("dashboard.subtitle") }}
           </p>
 
           <div class="headMeta">
             <span v-if="date" class="metaPill">{{ date }}</span>
-            <span v-if="stats" class="metaPill">Level {{ stats.level || 1 }}</span>
-            <span v-if="stats" class="metaPill">{{ stats.total_points || 0 }} XP</span>
+            <span v-if="stats" class="metaPill">{{ t("common.level", { level: stats.level || 1 }) }}</span>
+            <span v-if="stats" class="metaPill">{{ t("common.xp", { count: stats.total_points || 0 }) }}</span>
           </div>
         </div>
 
         <div class="headActions">
           <RouterLink class="primaryLink" to="/challenges">
-            <span>Browse Challenges</span>
+            <span>{{ t("dashboard.browse") }}</span>
             <span aria-hidden="true">→</span>
           </RouterLink>
 
@@ -36,7 +36,7 @@
             :loading="loggingOut"
             @click="doLogout"
           >
-            Logout
+            {{ t("dashboard.logout") }}
           </BaseButton>
         </div>
       </section>
@@ -45,17 +45,17 @@
         :loading="loading"
         :error="!!error"
         :empty="false"
-        loading-title="Loading dashboard…"
-        loading-text="Fetching your active challenges and progress."
-        error-title="Couldn’t load dashboard"
-        :error-text="error || 'Please try again.'"
+        :loading-title="t('dashboard.loadingTitle')"
+        :loading-text="t('dashboard.loadingText')"
+        :error-title="t('dashboard.errorTitle')"
+        :error-text="error || t('common.pleaseTryAgain')"
         @retry="loadDashboard"
       />
 
       <template v-if="!loading && !error">
         <section class="todayFocus">
           <div class="focusMain">
-            <p class="sectionKicker">Today’s focus</p>
+            <p class="sectionKicker">{{ t("dashboard.focusKicker") }}</p>
             <h2>{{ todayFocusTitle }}</h2>
             <p>{{ todayFocusText }}</p>
           </div>
@@ -63,17 +63,17 @@
           <div class="focusStats">
             <div class="focusStat ready">
               <strong>{{ readyTodayCount }}</strong>
-              <span>Ready</span>
+              <span>{{ t("dashboard.ready") }}</span>
             </div>
 
             <div class="focusStat done">
               <strong>{{ completedTodayCount }}</strong>
-              <span>Done</span>
+              <span>{{ t("dashboard.done") }}</span>
             </div>
 
             <div class="focusStat streak">
               <strong>{{ stats?.current_streak || 0 }}</strong>
-              <span>Streak</span>
+              <span>{{ t("dashboard.streak") }}</span>
             </div>
           </div>
         </section>
@@ -97,21 +97,21 @@
         <BaseCard class="challengePanel">
           <div class="panelHead">
             <div>
-              <p class="sectionKicker">Active paths</p>
-              <h2 class="panelTitle">Today’s challenges</h2>
+              <p class="sectionKicker">{{ t("dashboard.activePaths") }}</p>
+              <h2 class="panelTitle">{{ t("dashboard.todaysChallenges") }}</h2>
               <p class="panelText">
-                Start with ready paths first. Completed cards stay visible so you can feel today’s progress is secured.
+                {{ t("dashboard.panelText") }}
               </p>
             </div>
 
             <div class="panelActions">
               <div v-if="challenges.length" class="miniSummary">
                 <span>{{ completedTodayCount }}/{{ challenges.length }}</span>
-                <small>secured</small>
+                <small>{{ t("dashboard.secured") }}</small>
               </div>
 
               <RouterLink class="ghostLink" to="/challenges">
-                Add path
+                {{ t("dashboard.addPath") }}
               </RouterLink>
             </div>
           </div>
@@ -133,7 +133,7 @@
               @click="showAllChallenges = !showAllChallenges"
             >
               <span>
-                {{ showAllChallenges ? "Show fewer" : `Show ${orderedChallenges.length - challengeLimit} more` }}
+                {{ showAllChallenges ? t("common.showFewer") : t("common.showMore", { count: orderedChallenges.length - challengeLimit }) }}
               </span>
               <span aria-hidden="true">{{ showAllChallenges ? "↑" : "↓" }}</span>
             </button>
@@ -142,10 +142,10 @@
           <div v-else class="emptyState">
             <div class="emptyIcon">🧩</div>
             <div>
-              <h3>No active challenges yet</h3>
-              <p>Join one path to start earning XP, building streaks, and unlocking achievements.</p>
+              <h3>{{ t("dashboard.noChallengesTitle") }}</h3>
+              <p>{{ t("dashboard.noChallengesText") }}</p>
               <RouterLink class="ctaLink" to="/challenges">
-                <span>Browse challenges</span>
+                <span>{{ t("dashboard.browse") }}</span>
                 <span aria-hidden="true">→</span>
               </RouterLink>
             </div>
@@ -168,6 +168,7 @@
 <script setup>
 import { computed, ref, onMounted } from "vue";
 import { useRouter } from "vue-router";
+import { useI18n } from "vue-i18n";
 import api from "@/lib/api";
 import AppContainer from "@/components/ui/AppContainer.vue";
 import AppHeader from "@/components/ui/AppHeader.vue";
@@ -184,7 +185,6 @@ import ActivityTimeline from "@/components/activity/ActivityTimeline.vue";
 import AchievementPreview from "@/components/achievements/AchievementPreview.vue";
 import {
   DASHBOARD_CHALLENGE_LIMIT,
-  buildTodayFocus,
   getVisibleDashboardChallenges,
   loadDashboardData,
   orderDashboardChallenges,
@@ -195,6 +195,7 @@ import {
 } from "./challengeFlow";
 
 const router = useRouter();
+const { t } = useI18n();
 
 const loading = ref(true);
 const loggingOut = ref(false);
@@ -242,11 +243,16 @@ const hasHiddenChallenges = computed(() => {
 });
 
 const todayFocusTitle = computed(() => {
-  return buildTodayFocus(challenges.value).title;
+  if (!challenges.value.length) return t("dashboard.firstPathTitle");
+  if (readyTodayCount.value === 0) return t("dashboard.securedTitle");
+  if (readyTodayCount.value === 1) return t("dashboard.oneWaiting");
+  return t("dashboard.manyWaiting", { count: readyTodayCount.value });
 });
 
 const todayFocusText = computed(() => {
-  return buildTodayFocus(challenges.value).text;
+  if (!challenges.value.length) return t("dashboard.firstPathText");
+  if (readyTodayCount.value === 0) return t("dashboard.securedText");
+  return t("dashboard.waitingText");
 });
 
 function pushToast(text, type = "success") {
@@ -316,7 +322,7 @@ async function checkin(enrollmentId) {
     }
 
     pushToast(`+${XP_PER_CHECKIN} XP`, "success");
-    pushToast("🔥 Streak maintained", "success");
+    pushToast(`🔥 ${t("dashboard.streakMaintained")}`, "success");
 
     if (result.oldStats && stats.value.level > result.oldStats.level) {
       pushToast(`Level Up → Level ${stats.value.level}`, "level");

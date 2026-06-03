@@ -7,12 +7,12 @@
         :loading="loading"
         :error="!!error"
         :empty="!loading && !error && !enrollment"
-        loading-title="Loading enrollment…"
-        loading-text="Fetching challenge and your progress."
-        empty-title="Enrollment not found"
-        empty-text="This enrollment might be invalid or you don’t have access."
-        error-title="Couldn’t load enrollment"
-        :error-text="error || 'Please try again.'"
+        :loading-title="t('enrollment.loadingTitle')"
+        :loading-text="t('enrollment.loadingText')"
+        :empty-title="t('enrollment.emptyTitle')"
+        :empty-text="t('enrollment.emptyText')"
+        :error-title="t('enrollment.errorTitle')"
+        :error-text="error || t('common.pleaseTryAgain')"
         @retry="load"
       />
 
@@ -24,11 +24,11 @@
             <div class="heroMain">
               <div class="eyebrow">
                 <span class="pulseDot"></span>
-                Challenge Command Center
+                {{ t("enrollment.eyebrow") }}
               </div>
 
               <h1 class="heroTitle">
-                {{ challenge?.name || enrollment.name || "Challenge" }}
+                {{ challenge?.name || enrollment.name || t("common.challenge") }}
               </h1>
 
               <p v-if="challenge?.description" class="heroDesc">
@@ -38,19 +38,19 @@
               <div class="heroMeta">
                 <span class="metaPill">
                   <span class="dot" :class="{ active: enrollment.status === 'Active' }"></span>
-                  {{ enrollment.status || "Unknown" }}
+                  {{ displayStatus(enrollment.status) }}
                 </span>
 
                 <span v-if="durationDays" class="metaPill">
-                  {{ durationDays }} day challenge
+                  {{ t("common.dayChallenge", { count: durationDays }) }}
                 </span>
 
                 <span v-if="enrollment.start_date" class="metaPill">
-                  Started {{ formatDate(enrollment.start_date) }}
+                  {{ t("enrollment.started", { date: formatDate(enrollment.start_date) }) }}
                 </span>
 
                 <span v-if="enrollment.reset_timezone" class="metaPill">
-                  Reset: {{ enrollment.reset_timezone }}
+                  {{ t("enrollment.reset", { timezone: enrollment.reset_timezone }) }}
                 </span>
               </div>
             </div>
@@ -62,9 +62,9 @@
                 </div>
 
                 <div>
-                  <div class="statusLabel">Today’s Strike</div>
+                  <div class="statusLabel">{{ t("enrollment.todaysStrike") }}</div>
                   <div class="statusValue">
-                    {{ enrollment.today_checked ? "Completed" : "Ready to secure" }}
+                    {{ enrollment.today_checked ? t("enrollment.completed") : t("enrollment.readySecure") }}
                   </div>
                 </div>
               </div>
@@ -75,12 +75,12 @@
                 :disabled="enrollment.today_checked"
                 @click="checkin"
               >
-                <span v-if="enrollment.today_checked">Done for today</span>
-                <span v-else>Check in now</span>
+                <span v-if="enrollment.today_checked">{{ t("enrollment.doneToday") }}</span>
+                <span v-else>{{ t("enrollment.checkinNow") }}</span>
               </BaseButton>
 
               <div class="checkinHint">
-                {{ enrollment.today_checked ? "Your momentum is protected until the next reset." : resetHint }}
+                {{ enrollment.today_checked ? t("enrollment.protected") : resetHint }}
               </div>
             </div>
           </div>
@@ -88,22 +88,22 @@
 
         <section class="dailySummary">
           <div class="summaryItem">
-            <span class="summaryLabel">Today</span>
-            <strong>{{ enrollment.today_checked ? "Secured" : "Pending" }}</strong>
+            <span class="summaryLabel">{{ t("enrollment.today") }}</span>
+            <strong>{{ enrollment.today_checked ? t("enrollment.secured") : t("common.pending") }}</strong>
           </div>
 
           <div class="summaryItem">
-            <span class="summaryLabel">Streak</span>
+            <span class="summaryLabel">{{ t("enrollment.streak") }}</span>
             <strong>{{ currentStreak }}</strong>
           </div>
 
           <div class="summaryItem">
-            <span class="summaryLabel">Progress</span>
+            <span class="summaryLabel">{{ t("enrollment.progress") }}</span>
             <strong>{{ checkinPercent }}%</strong>
           </div>
 
           <div class="summaryItem">
-            <span class="summaryLabel">Reset window</span>
+            <span class="summaryLabel">{{ t("enrollment.resetWindow") }}</span>
             <strong>{{ resetBadgeText }}</strong>
           </div>
         </section>
@@ -111,40 +111,40 @@
         <section class="insightGrid">
           <BaseCard class="metricCard" :padded="true">
             <div class="metricIcon">⏳</div>
-            <div class="metricLabel">Remaining</div>
+            <div class="metricLabel">{{ t("enrollment.remaining") }}</div>
             <div class="metricValue">{{ remainingDaysText }}</div>
             <div class="metricHint">{{ timingHint }}</div>
           </BaseCard>
 
           <BaseCard class="metricCard resetMetric" :class="resetUrgencyClass" :padded="true">
             <div class="metricIcon">🌗</div>
-            <div class="metricLabel">Daily Reset</div>
+            <div class="metricLabel">{{ t("enrollment.dailyReset") }}</div>
             <div class="metricValue resetValue">{{ resetCountdownText }}</div>
             <div class="metricHint">{{ resetHint }}</div>
           </BaseCard>
 
           <BaseCard class="metricCard" :padded="true">
             <div class="metricIcon">✅</div>
-            <div class="metricLabel">Total Check-ins</div>
+            <div class="metricLabel">{{ t("enrollment.totalCheckins") }}</div>
             <div class="metricValue">{{ totalCheckins }}</div>
-            <div class="metricHint">Completed strikes in this challenge.</div>
+            <div class="metricHint">{{ t("enrollment.completedStrikes") }}</div>
           </BaseCard>
 
           <BaseCard class="metricCard" :padded="true">
             <div class="metricIcon">🔥</div>
-            <div class="metricLabel">Current Streak</div>
+            <div class="metricLabel">{{ t("enrollment.currentStreak") }}</div>
             <div class="metricValue">{{ currentStreak }}</div>
-            <div class="metricHint">Your active momentum chain.</div>
+            <div class="metricHint">{{ t("enrollment.momentumChain") }}</div>
           </BaseCard>
         </section>
 
         <BaseCard class="resetCard" :class="resetUrgencyClass" :padded="true">
           <div class="sectionHead">
             <div>
-              <div class="eyebrow">Daily Check-in Window</div>
-              <h2 class="h2">Reset Rhythm</h2>
+              <div class="eyebrow">{{ t("enrollment.resetWindowEyebrow") }}</div>
+              <h2 class="h2">{{ t("enrollment.resetRhythm") }}</h2>
               <div class="caption">
-                RingoStrike currently resets daily progress at midnight UTC.
+                {{ t("enrollment.resetCaption") }}
               </div>
             </div>
 
@@ -157,7 +157,7 @@
             <div class="resetInfoBox">
               <span class="resetIcon">⏱</span>
               <div>
-                <div class="caption">Time until reset</div>
+                <div class="caption">{{ t("enrollment.timeUntilReset") }}</div>
                 <strong>{{ resetCountdownText }}</strong>
               </div>
             </div>
@@ -165,7 +165,7 @@
             <div class="resetInfoBox">
               <span class="resetIcon">📍</span>
               <div>
-                <div class="caption">Next reset</div>
+                <div class="caption">{{ t("enrollment.nextReset") }}</div>
                 <strong>{{ formattedNextReset }}</strong>
               </div>
             </div>
@@ -173,7 +173,7 @@
             <div class="resetInfoBox">
               <span class="resetIcon">🌍</span>
               <div>
-                <div class="caption">Timezone</div>
+                <div class="caption">{{ t("enrollment.timezone") }}</div>
                 <strong>{{ enrollment.reset_timezone || "UTC" }}</strong>
               </div>
             </div>
@@ -182,8 +182,7 @@
           <div class="futureNote">
             <span class="futureIcon">🔔</span>
             <span>
-              Reminder-ready foundation: future versions can support custom reminder time,
-              preferred daily windows, late check-in states, and user timezones.
+              {{ t("enrollment.futureNote") }}
             </span>
           </div>
         </BaseCard>
@@ -191,8 +190,8 @@
         <BaseCard class="timelineCard" :padded="true">
           <div class="sectionHead">
             <div>
-              <div class="eyebrow">Challenge Timeline</div>
-              <h2 class="h2">Time & Momentum</h2>
+              <div class="eyebrow">{{ t("enrollment.timeline") }}</div>
+              <h2 class="h2">{{ t("enrollment.timeMomentum") }}</h2>
             </div>
 
             <div class="timelineBadge">
@@ -207,18 +206,18 @@
 
           <div class="timelineMeta">
             <div>
-              <div class="caption">Start</div>
+              <div class="caption">{{ t("enrollment.start") }}</div>
               <strong>{{ enrollment.start_date ? formatDate(enrollment.start_date) : "—" }}</strong>
             </div>
 
             <div>
-              <div class="caption">End</div>
+              <div class="caption">{{ t("enrollment.end") }}</div>
               <strong>{{ enrollment.end_date ? formatDate(enrollment.end_date) : "—" }}</strong>
             </div>
 
             <div>
-              <div class="caption">Checked</div>
-              <strong>{{ checkedDays }} / {{ totalDays }} days</strong>
+              <div class="caption">{{ t("enrollment.checked") }}</div>
+              <strong>{{ t("enrollment.checkedDays", { checked: checkedDays, total: totalDays }) }}</strong>
             </div>
           </div>
         </BaseCard>
@@ -226,8 +225,8 @@
         <BaseCard class="progressCard" :padded="true">
           <div class="sectionHead">
             <div>
-              <div class="eyebrow">Personal Progress</div>
-              <h2 class="h2">Consistency Score</h2>
+              <div class="eyebrow">{{ t("enrollment.personalProgress") }}</div>
+              <h2 class="h2">{{ t("enrollment.consistencyScore") }}</h2>
             </div>
 
             <div class="scoreBadge">
@@ -236,8 +235,8 @@
           </div>
 
           <div class="progressMeta">
-            <span>{{ checkedDays }} checked days</span>
-            <span class="caption">{{ totalDays }} total challenge days</span>
+            <span>{{ t("enrollment.checkedDaysLabel", { count: checkedDays }) }}</span>
+            <span class="caption">{{ t("enrollment.totalDaysLabel", { count: totalDays }) }}</span>
           </div>
 
           <div class="bar">
@@ -246,17 +245,17 @@
 
           <div class="miniStats">
             <div class="miniStat">
-              <span>Today</span>
-              <strong>{{ enrollment.today_checked ? "Done" : "Pending" }}</strong>
+              <span>{{ t("enrollment.today") }}</span>
+              <strong>{{ enrollment.today_checked ? t("common.done") : t("common.pending") }}</strong>
             </div>
 
             <div class="miniStat">
-              <span>Remaining</span>
+              <span>{{ t("enrollment.remaining") }}</span>
               <strong>{{ remainingDaysText }}</strong>
             </div>
 
             <div class="miniStat">
-              <span>Next Reset</span>
+              <span>{{ t("enrollment.nextResetShort") }}</span>
               <strong>{{ resetCountdownText }}</strong>
             </div>
           </div>
@@ -268,13 +267,13 @@
               <div class="titleWithIcon">
                 <span class="icon" aria-hidden="true">🏆</span>
                 <div>
-                  <h2 class="h2">Leaderboard</h2>
-                  <div class="caption">See how your consistency compares.</div>
+                  <h2 class="h2">{{ t("leaderboard.title") }}</h2>
+                  <div class="caption">{{ t("enrollment.leaderboardCaption") }}</div>
                 </div>
               </div>
 
               <router-link class="ctaLink" :to="`/enrollment/${enrollment.enrollment_id}/leaderboard`">
-                View Full
+                {{ t("enrollment.viewFull") }}
                 <span class="arrow">→</span>
               </router-link>
             </div>
@@ -287,8 +286,8 @@
               <div class="titleWithIcon">
                 <span class="icon" aria-hidden="true">🗓️</span>
                 <div>
-                  <h2 class="h2">Recent Logs</h2>
-                  <div class="caption">Your latest challenge activity.</div>
+                  <h2 class="h2">{{ t("enrollment.recentLogs") }}</h2>
+                  <div class="caption">{{ t("enrollment.recentLogsCaption") }}</div>
                 </div>
               </div>
             </div>
@@ -296,8 +295,8 @@
             <div v-if="recentLogs.length === 0" class="emptyLogs">
               <div class="emptyIcon">🌙</div>
               <div>
-                <strong>No logs yet</strong>
-                <div class="caption">Your check-ins will appear here.</div>
+                <strong>{{ t("enrollment.noLogs") }}</strong>
+                <div class="caption">{{ t("enrollment.logsHint") }}</div>
               </div>
             </div>
 
@@ -307,7 +306,7 @@
                   <span class="logDot" aria-hidden="true">✅</span>
                   <div>
                     <div class="logDate">{{ formatDate(log.date) }}</div>
-                    <div class="caption">Check-in completed</div>
+                    <div class="caption">{{ t("enrollment.checkinCompleted") }}</div>
                   </div>
                 </li>
               </ul>
@@ -318,7 +317,7 @@
                 class="showMoreLogs"
                 @click="showAllLogs = !showAllLogs"
               >
-                {{ showAllLogs ? "Show fewer logs" : `Show ${recentLogs.length - logLimit} more logs` }}
+                {{ showAllLogs ? t("enrollment.showFewerLogs") : t("enrollment.showMoreLogs", { count: recentLogs.length - logLimit }) }}
               </button>
             </template>
           </BaseCard>
@@ -333,6 +332,7 @@ import Leaderboard from "./Leaderboard.vue";
 
 import { onMounted, onUnmounted, ref, computed } from "vue";
 import { useRoute } from "vue-router";
+import { useI18n } from "vue-i18n";
 import api from "@/lib/api";
 
 import AppContainer from "@/components/ui/AppContainer.vue";
@@ -342,6 +342,7 @@ import BaseButton from "@/components/ui/BaseButton.vue";
 import UiState from "@/components/ui/UiState.vue";
 
 const route = useRoute();
+const { locale, t } = useI18n();
 
 const loading = ref(true);
 const checking = ref(false);
@@ -398,20 +399,20 @@ const checkinPercent = computed(() => {
 const remainingDaysText = computed(() => {
   const value = enrollment.value?.remaining_days;
   if (value == null) return "—";
-  if (value <= 0) return "Ended";
+  if (value <= 0) return t("enrollment.ended");
   return `${value}d`;
 });
 
 const timingHint = computed(() => {
-  if (!enrollment.value?.end_date) return "Timing data is not available yet.";
-  if ((enrollment.value?.remaining_days ?? 0) <= 0) return "This challenge timeline has ended.";
-  return `Ends ${formatDate(enrollment.value.end_date)}.`;
+  if (!enrollment.value?.end_date) return t("enrollment.timingMissing");
+  if ((enrollment.value?.remaining_days ?? 0) <= 0) return t("enrollment.timelineEnded");
+  return t("enrollment.ends", { date: formatDate(enrollment.value.end_date) });
 });
 
 const progressText = computed(() => {
-  if (!durationDays.value) return "Progress is based on check-ins.";
-  if (enrollment.value?.remaining_days == null) return `${durationDays.value} day challenge.`;
-  return `${remainingDaysText.value} remaining`;
+  if (!durationDays.value) return t("enrollment.checkinBased");
+  if (enrollment.value?.remaining_days == null) return t("common.dayChallenge", { count: durationDays.value });
+  return t("enrollment.remainingText", { value: remainingDaysText.value });
 });
 
 const nextResetDate = computed(() => {
@@ -440,7 +441,7 @@ const resetCountdownText = computed(() => {
   const hours = Math.floor(totalMinutes / 60);
   const minutes = totalMinutes % 60;
 
-  if (hours <= 0 && minutes <= 0) return "Resetting soon";
+  if (hours <= 0 && minutes <= 0) return t("enrollment.resettingSoon");
   if (hours <= 0) return `${minutes}m`;
   return `${hours}h ${minutes}m`;
 });
@@ -454,25 +455,25 @@ const resetUrgencyClass = computed(() => {
 });
 
 const resetBadgeText = computed(() => {
-  if (enrollment.value?.today_checked) return "Today secured";
-  if (resetHoursRemaining.value == null) return "Reset unknown";
-  if (resetHoursRemaining.value <= 2) return "Final window";
-  if (resetHoursRemaining.value <= 6) return "Reset approaching";
-  return "Open window";
+  if (enrollment.value?.today_checked) return t("enrollment.todaySecured");
+  if (resetHoursRemaining.value == null) return t("enrollment.resetUnknown");
+  if (resetHoursRemaining.value <= 2) return t("enrollment.finalWindow");
+  if (resetHoursRemaining.value <= 6) return t("enrollment.resetApproaching");
+  return t("enrollment.openWindow");
 });
 
 const resetHint = computed(() => {
-  if (!nextResetDate.value) return "Reset metadata is not available.";
-  if (enrollment.value?.today_checked) return "Your strike is already secured until the next reset.";
-  if (resetHoursRemaining.value <= 2) return "The daily window is almost closed.";
-  if (resetHoursRemaining.value <= 6) return "Good time to complete your daily strike.";
-  return "Daily reset is based on UTC midnight.";
+  if (!nextResetDate.value) return t("enrollment.resetMissing");
+  if (enrollment.value?.today_checked) return t("enrollment.strikeSecured");
+  if (resetHoursRemaining.value <= 2) return t("enrollment.windowClosing");
+  if (resetHoursRemaining.value <= 6) return t("enrollment.goodTime");
+  return t("enrollment.utcReset");
 });
 
 const formattedNextReset = computed(() => {
   if (!nextResetDate.value) return "—";
 
-  return new Intl.DateTimeFormat("en", {
+  return new Intl.DateTimeFormat(locale.value, {
     month: "short",
     day: "numeric",
     hour: "2-digit",
@@ -497,7 +498,7 @@ function formatDate(value) {
   if (!value) return "—";
 
   try {
-    return new Intl.DateTimeFormat("en", {
+    return new Intl.DateTimeFormat(locale.value, {
       month: "short",
       day: "numeric",
       year: "numeric",
@@ -505,6 +506,14 @@ function formatDate(value) {
   } catch {
     return value;
   }
+}
+
+function displayStatus(value) {
+  const raw = String(value || "").trim();
+  if (!raw) return t("common.unknown");
+
+  const key = raw.toLowerCase();
+  return t(`common.status.${key}`, raw);
 }
 
 async function load() {

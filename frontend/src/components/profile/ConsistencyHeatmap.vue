@@ -1,6 +1,7 @@
-<template><BaseCard><div class="head"><h2 class="h2">Consistency</h2><span class="caption">Last months</span></div><div class="grid"><button v-for="d in cells" :key="d.date" class="cell" :class="`i-${d.i}`" :title="`${d.date}: ${d.count} check-ins`"/></div></BaseCard></template>
+<template><BaseCard><div class="head"><h2 class="h2">{{ t("profileComponents.consistency") }}</h2><span class="caption">{{ t("profileComponents.lastMonths") }}</span></div><div class="grid"><button v-for="d in cells" :key="d.date" class="cell" :class="`i-${d.i}`" :title="t('profileComponents.cellTitle', { date: d.date, count: d.count })"/></div></BaseCard></template>
 <script setup>
 import { computed } from "vue";
+import { useI18n } from "vue-i18n";
 
 import BaseCard from "@/components/ui/BaseCard.vue";
 
@@ -10,6 +11,8 @@ const props = defineProps({
     default: () => [],
   },
 });
+
+const { t } = useI18n();
 
 const by = computed(() => {
   const map = {};

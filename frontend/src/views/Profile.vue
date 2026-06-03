@@ -7,16 +7,15 @@
         <div>
           <p class="eyebrow">
             <span class="pulseDot"></span>
-            Private Identity Hub
+            {{ t("profile.privateEyebrow") }}
           </p>
 
           <h1 class="pageTitle">
-            Your progression identity
+            {{ t("profile.title") }}
           </h1>
 
           <p class="pageSubtitle">
-            Review your public-facing identity, consistency signal, achievements,
-            and recent momentum from one focused profile hub.
+            {{ t("profile.subtitle") }}
           </p>
         </div>
 
@@ -26,7 +25,7 @@
             class="profileAction"
             @click="handleEditProfile"
           >
-            Edit profile
+            {{ t("profile.edit") }}
           </button>
 
           <RouterLink
@@ -34,7 +33,7 @@
             class="profileAction ghost"
             :to="`/u/${profile.username}`"
           >
-            View public profile
+            {{ t("profile.publicProfile") }}
           </RouterLink>
         </div>
       </section>
@@ -43,7 +42,7 @@
         :loading="loading"
         :error="!!error"
         :empty="false"
-        loading-title="Loading profile..."
+        :loading-title="t('profile.loadingTitle')"
         :error-text="error"
         @retry="load"
       />
@@ -51,21 +50,21 @@
       <template v-if="!loading && !error && profile">
         <section class="identitySummary">
           <div class="summaryCard">
-            <span class="summaryLabel">Visibility</span>
+            <span class="summaryLabel">{{ t("profile.visibility") }}</span>
             <strong>{{ visibilityLabel }}</strong>
             <small>{{ visibilityHint }}</small>
           </div>
 
           <div class="summaryCard">
-            <span class="summaryLabel">Consistency days</span>
+            <span class="summaryLabel">{{ t("profile.consistencyDays") }}</span>
             <strong>{{ consistency.length }}</strong>
-            <small>Recorded check-in days</small>
+            <small>{{ t("profile.recordedDays") }}</small>
           </div>
 
           <div class="summaryCard">
-            <span class="summaryLabel">Achievements</span>
+            <span class="summaryLabel">{{ t("profile.achievements") }}</span>
             <strong>{{ unlockedAchievementCount }}</strong>
-            <small>Unlocked milestones</small>
+            <small>{{ t("profile.unlockedMilestones") }}</small>
           </div>
         </section>
 
@@ -92,7 +91,7 @@
 
           <div class="sideColumn">
             <BaseCard class="identityCard">
-              <p class="eyebrow compact">Identity status</p>
+              <p class="eyebrow compact">{{ t("profile.identityStatus") }}</p>
 
               <h2 class="cardTitle">
                 {{ identityStatusTitle }}
@@ -104,20 +103,19 @@
 
               <div class="identitySignals">
                 <span>{{ profileTitleText }}</span>
-                <span>{{ profile?.tagline || "Consistency in motion" }}</span>
+                <span>{{ profile?.tagline || t("profile.consistencyMotion") }}</span>
               </div>
             </BaseCard>
 
             <BaseCard class="nextCard">
-              <p class="eyebrow compact">Coming next</p>
+              <p class="eyebrow compact">{{ t("profile.comingNext") }}</p>
 
               <h2 class="cardTitle">
-                Future profile extensions
+                {{ t("profile.futureTitle") }}
               </h2>
 
               <p class="cardText">
-                Public share cards, seasonal identity, AI progress insights,
-                and social momentum layers will build on this profile foundation.
+                {{ t("profile.futureText") }}
               </p>
             </BaseCard>
           </div>
@@ -136,6 +134,7 @@
 
 <script setup>
 import { computed, ref, onMounted } from "vue";
+import { useI18n } from "vue-i18n";
 import api from "@/lib/api";
 
 import AppContainer from "@/components/ui/AppContainer.vue";
@@ -153,9 +152,7 @@ import ActivityTimeline from "@/components/activity/ActivityTimeline.vue";
 import RewardFeedback from "@/components/feedback/RewardFeedback.vue";
 import {
   countUnlockedAchievements,
-  getProfileIdentityStatus,
   getProfileTitleText,
-  getProfileVisibilityHint,
   getProfileVisibilityLabel,
   loadPrivateProfileData,
 } from "./profileFlow";
@@ -171,13 +168,18 @@ const activityEvents = ref([]);
 
 const showEditProfile = ref(false);
 const rewardToasts = ref([]);
+const { t } = useI18n();
 
 const visibilityLabel = computed(() => {
-  return getProfileVisibilityLabel(profile.value);
+  return getProfileVisibilityLabel(profile.value) === "Private"
+    ? t("profile.privateLabel")
+    : t("profile.publicLabel");
 });
 
 const visibilityHint = computed(() => {
-  return getProfileVisibilityHint(profile.value);
+  return getProfileVisibilityLabel(profile.value) === "Private"
+    ? t("profile.privateHint")
+    : t("profile.publicHint");
 });
 
 const unlockedAchievementCount = computed(() => {
@@ -185,15 +187,20 @@ const unlockedAchievementCount = computed(() => {
 });
 
 const identityStatusTitle = computed(() => {
-  return getProfileIdentityStatus(profile.value).title;
+  return getProfileVisibilityLabel(profile.value) === "Private"
+    ? t("profile.privateMode")
+    : t("profile.publicMode");
 });
 
 const identityStatusText = computed(() => {
-  return getProfileIdentityStatus(profile.value).text;
+  return getProfileVisibilityLabel(profile.value) === "Private"
+    ? t("profile.privateText")
+    : t("profile.publicText");
 });
 
 const profileTitleText = computed(() => {
-  return getProfileTitleText(profile.value);
+  const value = getProfileTitleText(profile.value);
+  return value === "Progression Builder" ? t("profile.builder") : value;
 });
 
 function pushToast(text, type = "success") {
@@ -211,7 +218,7 @@ function pushToast(text, type = "success") {
 }
 
 function handleProfileSaved() {
-  pushToast("Profile updated successfully", "success");
+  pushToast(t("profile.updated"), "success");
   showEditProfile.value = false;
   load();
 }

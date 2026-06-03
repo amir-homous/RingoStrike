@@ -9,6 +9,23 @@ body{
   font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, "Apple Color Emoji","Segoe UI Emoji";
 }
 
+html[dir="rtl"] body{
+  direction: rtl;
+  text-align: right;
+}
+
+html[dir="rtl"] ul,
+html[dir="rtl"] ol{
+  padding-right: 18px;
+  padding-left: 0;
+}
+
+html[dir="rtl"] input,
+html[dir="rtl"] textarea,
+html[dir="rtl"] select{
+  direction: rtl;
+}
+
 a{ color: inherit; text-decoration: none; }
 a:hover{ text-decoration: underline; }
 

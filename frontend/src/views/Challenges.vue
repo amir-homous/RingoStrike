@@ -10,40 +10,39 @@
           <div class="heroMain">
             <div class="eyebrow">
               <span class="pulseDot"></span>
-              Challenge Discovery
+              {{ t("challenges.eyebrow") }}
             </div>
 
             <h1 class="heroTitle">
-              Choose your next progression path.
+              {{ t("challenges.title") }}
             </h1>
 
             <p class="heroText">
-              Start with a curated launch challenge, build daily momentum,
-              and turn consistency into visible progression identity.
+              {{ t("challenges.subtitle") }}
             </p>
 
             <div class="heroPills">
-              <span class="heroPill">Consistency</span>
-              <span class="heroPill">Momentum</span>
-              <span class="heroPill">XP Growth</span>
-              <span class="heroPill">Social Standings</span>
+              <span class="heroPill">{{ t("challenges.pills.consistency") }}</span>
+              <span class="heroPill">{{ t("challenges.pills.momentum") }}</span>
+              <span class="heroPill">{{ t("challenges.pills.xp") }}</span>
+              <span class="heroPill">{{ t("challenges.pills.social") }}</span>
             </div>
           </div>
 
           <div class="heroStats">
             <div class="heroStat">
               <span class="statValue">{{ items.length }}</span>
-              <span class="statLabel">Available</span>
+              <span class="statLabel">{{ t("challenges.availableStat") }}</span>
             </div>
 
             <div class="heroStat joined">
               <span class="statValue">{{ joinedCount }}</span>
-              <span class="statLabel">Joined</span>
+              <span class="statLabel">{{ t("challenges.joinedStat") }}</span>
             </div>
 
             <div class="heroStat invite">
               <span class="statValue">{{ inviteOnlyCount }}</span>
-              <span class="statLabel">Invite-only</span>
+              <span class="statLabel">{{ t("challenges.inviteStat") }}</span>
             </div>
           </div>
         </div>
@@ -52,11 +51,10 @@
       <section class="discoveryPanel">
         <div class="toolbar">
           <div>
-            <div class="eyebrow compact">Launch Defaults</div>
-            <h2 class="sectionTitle">Available Challenges</h2>
+            <div class="eyebrow compact">{{ t("challenges.launchDefaults") }}</div>
+            <h2 class="sectionTitle">{{ t("challenges.availableTitle") }}</h2>
             <p class="sectionText">
-              Pick one path first. RingoStrike works best when your daily loop is simple,
-              visible, and easy to repeat.
+              {{ t("challenges.helper") }}
             </p>
           </div>
 
@@ -66,7 +64,7 @@
               :loading="loading"
               @click="load"
             >
-              Refresh
+              {{ t("challenges.refresh") }}
             </BaseButton>
           </div>
         </div>
@@ -77,17 +75,17 @@
             <input
               v-model="search"
               type="search"
-              placeholder="Search challenges..."
+              :placeholder="t('challenges.search')"
             />
           </div>
 
-          <div class="segmentedControl" aria-label="Challenge filter">
+          <div class="segmentedControl" :aria-label="t('challenges.filterLabel')">
             <button
               type="button"
               :class="{ active: filter === 'all' }"
               @click="setFilter('all')"
             >
-              All
+              {{ t("challenges.filters.all") }}
             </button>
 
             <button
@@ -95,7 +93,7 @@
               :class="{ active: filter === 'available' }"
               @click="setFilter('available')"
             >
-              Available
+              {{ t("challenges.filters.available") }}
             </button>
 
             <button
@@ -103,7 +101,7 @@
               :class="{ active: filter === 'joined' }"
               @click="setFilter('joined')"
             >
-              Joined
+              {{ t("challenges.filters.joined") }}
             </button>
 
             <button
@@ -111,7 +109,7 @@
               :class="{ active: filter === 'invite' }"
               @click="setFilter('invite')"
             >
-              Invite-only
+              {{ t("challenges.filters.invite") }}
             </button>
           </div>
         </div>
@@ -121,12 +119,12 @@
             :loading="loading"
             :error="!!loadError"
             :empty="!loading && !loadError && filteredItems.length === 0"
-            loading-title="Loading challenges…"
-            loading-text="Fetching available progression paths."
-            empty-title="No matching challenges"
-            empty-text="Try another filter or refresh the challenge list."
-            error-title="Couldn’t load challenges"
-            :error-text="loadError || 'Please try again.'"
+            :loading-title="t('challenges.loadingTitle')"
+            :loading-text="t('challenges.loadingText')"
+            :empty-title="t('challenges.emptyTitle')"
+            :empty-text="t('challenges.emptyText')"
+            :error-title="t('challenges.errorTitle')"
+            :error-text="loadError || t('common.pleaseTryAgain')"
             @retry="load"
           />
 
@@ -156,11 +154,11 @@
                     class="capLabel"
                     :for="`code-${ch.challenge_id}`"
                   >
-                    Invite code required
+                    {{ t("challenges.inviteRequired") }}
                   </label>
 
                   <div class="caption">
-                    This path is private to a group. Enter your code to unlock access.
+                    {{ t("challenges.inviteHelp") }}
                   </div>
                 </div>
 
@@ -169,7 +167,7 @@
                     :id="`code-${ch.challenge_id}`"
                     v-model="codes[ch.challenge_id]"
                     class="input"
-                    placeholder="Enter code..."
+                    :placeholder="t('challenges.enterCode')"
                     @keyup.enter="join(ch)"
                   />
 
@@ -178,7 +176,7 @@
                     :loading="joiningId === ch.challenge_id"
                     @click="join(ch)"
                   >
-                    Unlock
+                    {{ t("challenges.unlock") }}
                   </BaseButton>
                 </div>
               </div>
@@ -198,7 +196,7 @@
               @click="showAll = !showAll"
             >
               <span>
-                {{ showAll ? "Show fewer" : `Show ${filteredItems.length - itemLimit} more` }}
+                {{ showAll ? t("common.showFewer") : t("common.showMore", { count: filteredItems.length - itemLimit }) }}
               </span>
 
               <span aria-hidden="true">
@@ -215,6 +213,7 @@
 <script setup>
 import { computed, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
+import { useI18n } from "vue-i18n";
 import api from "@/lib/api";
 
 import AppContainer from "@/components/ui/AppContainer.vue";
@@ -230,6 +229,7 @@ import {
 } from "./challengeFlow";
 
 const router = useRouter();
+const { t } = useI18n();
 
 const loading = ref(true);
 const loadError = ref("");
