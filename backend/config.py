@@ -160,3 +160,7 @@ class Config:
     TELEGRAM_TEST_CHAT_ID = os.getenv(
         "TELEGRAM_TEST_CHAT_ID"
     )
+
+    REMINDER_ADMIN_TOKEN = os.getenv(
+        "REMINDER_ADMIN_TOKEN"
+    )
