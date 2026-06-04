@@ -3,44 +3,6 @@
     <AppHeader />
 
     <div class="dashboardStack">
-      <section class="dashboardHead">
-        <div class="headCopy">
-          <div class="eyebrow">
-            <span class="pulseDot"></span>
-            <span>{{ t("dashboard.eyebrow") }}</span>
-          </div>
-
-          <h1 class="pageTitle">
-            {{ user ? t("dashboard.welcomeName", { name: firstName }) : t("dashboard.welcome") }}
-          </h1>
-
-          <p class="pageSubtitle">
-            {{ t("dashboard.subtitle") }}
-          </p>
-
-          <div class="headMeta">
-            <span v-if="date" class="metaPill">{{ date }}</span>
-            <span v-if="stats" class="metaPill">{{ t("common.level", { level: stats.level || 1 }) }}</span>
-            <span v-if="stats" class="metaPill">{{ t("common.xp", { count: stats.total_points || 0 }) }}</span>
-          </div>
-        </div>
-
-        <div class="headActions">
-          <RouterLink class="primaryLink" to="/challenges">
-            <span>{{ t("dashboard.browse") }}</span>
-            <span aria-hidden="true">→</span>
-          </RouterLink>
-
-          <BaseButton
-            variant="secondary"
-            :loading="loggingOut"
-            @click="doLogout"
-          >
-            {{ t("dashboard.logout") }}
-          </BaseButton>
-        </div>
-      </section>
-
       <UiState
         :loading="loading"
         :error="!!error"
@@ -53,28 +15,48 @@
       />
 
       <template v-if="!loading && !error">
-        <section class="todayFocus">
-          <div class="focusMain">
-            <p class="sectionKicker">{{ t("dashboard.focusKicker") }}</p>
-            <h2>{{ todayFocusTitle }}</h2>
-            <p>{{ todayFocusText }}</p>
+        <TodayMission
+          :challenges="challenges"
+          :stats="stats"
+          :loading="checkingId === missionEnrollmentId"
+          @checkin="checkin"
+        />
+
+        <section class="dashboardHead supportHead">
+          <div class="headCopy">
+            <div class="eyebrow">
+              <span class="pulseDot"></span>
+              <span>{{ t("dashboard.eyebrow") }}</span>
+            </div>
+
+            <h1 class="pageTitle">
+              {{ user ? t("dashboard.welcomeName", { name: firstName }) : t("dashboard.welcome") }}
+            </h1>
+
+            <p class="pageSubtitle">
+              {{ t("dashboard.subtitle") }}
+            </p>
+
+            <div class="headMeta">
+              <span v-if="date" class="metaPill">{{ date }}</span>
+              <span v-if="stats" class="metaPill">{{ t("common.level", { level: stats.level || 1 }) }}</span>
+              <span v-if="stats" class="metaPill">{{ t("common.xp", { count: stats.total_points || 0 }) }}</span>
+            </div>
           </div>
 
-          <div class="focusStats">
-            <div class="focusStat ready">
-              <strong>{{ readyTodayCount }}</strong>
-              <span>{{ t("dashboard.ready") }}</span>
-            </div>
+          <div class="headActions">
+            <RouterLink class="primaryLink" to="/challenges">
+              <span>{{ t("dashboard.browse") }}</span>
+              <span aria-hidden="true">→</span>
+            </RouterLink>
 
-            <div class="focusStat done">
-              <strong>{{ completedTodayCount }}</strong>
-              <span>{{ t("dashboard.done") }}</span>
-            </div>
-
-            <div class="focusStat streak">
-              <strong>{{ stats?.current_streak || 0 }}</strong>
-              <span>{{ t("dashboard.streak") }}</span>
-            </div>
+            <BaseButton
+              variant="secondary"
+              :loading="loggingOut"
+              @click="doLogout"
+            >
+              {{ t("dashboard.logout") }}
+            </BaseButton>
           </div>
         </section>
 
@@ -175,6 +157,7 @@ import AppHeader from "@/components/ui/AppHeader.vue";
 import BaseCard from "@/components/ui/BaseCard.vue";
 import BaseButton from "@/components/ui/BaseButton.vue";
 import UiState from "@/components/ui/UiState.vue";
+import TodayMission from "@/components/dashboard/TodayMission.vue";
 import HeroProgressCard from "@/components/progress/HeroProgressCard.vue";
 import StatsGrid from "@/components/progress/StatsGrid.vue";
 import NextGoalCard from "@/components/progress/NextGoalCard.vue";
@@ -222,10 +205,6 @@ const completedTodayCount = computed(() => {
   return challenges.value.filter((challenge) => Boolean(challenge.today_checked)).length;
 });
 
-const readyTodayCount = computed(() => {
-  return challenges.value.filter((challenge) => !challenge.today_checked).length;
-});
-
 const orderedChallenges = computed(() => {
   return orderDashboardChallenges(challenges.value);
 });
@@ -242,17 +221,14 @@ const hasHiddenChallenges = computed(() => {
   return orderedChallenges.value.length > challengeLimit;
 });
 
-const todayFocusTitle = computed(() => {
-  if (!challenges.value.length) return t("dashboard.firstPathTitle");
-  if (readyTodayCount.value === 0) return t("dashboard.securedTitle");
-  if (readyTodayCount.value === 1) return t("dashboard.oneWaiting");
-  return t("dashboard.manyWaiting", { count: readyTodayCount.value });
-});
+const missionEnrollmentId = computed(() => {
+  const activeChallenges = challenges.value.filter((challenge) => {
+    const status = String(challenge?.status || "active").toLowerCase();
+    return status === "active" && challenge?.enrollment_id;
+  });
+  const ready = activeChallenges.find((challenge) => !challenge.today_checked);
 
-const todayFocusText = computed(() => {
-  if (!challenges.value.length) return t("dashboard.firstPathText");
-  if (readyTodayCount.value === 0) return t("dashboard.securedText");
-  return t("dashboard.waitingText");
+  return (ready || activeChallenges[0])?.enrollment_id || null;
 });
 
 function pushToast(text, type = "success") {
@@ -378,6 +354,15 @@ onMounted(loadDashboard);
   pointer-events: none;
 }
 
+.supportHead {
+  padding: 18px 20px;
+  border-radius: 24px;
+  background:
+    radial-gradient(circle at 0% 0%, rgba(110, 229, 255, 0.07), transparent 34%),
+    rgba(255, 255, 255, 0.022);
+  box-shadow: none;
+}
+
 .headCopy,
 .headActions {
   position: relative;
@@ -411,6 +396,11 @@ onMounted(loadDashboard);
   font-size: clamp(2rem, 4vw, 4rem);
   line-height: 0.98;
   letter-spacing: -0.065em;
+}
+
+.supportHead .pageTitle {
+  font-size: clamp(1.55rem, 3vw, 2.65rem);
+  letter-spacing: -0.045em;
 }
 
 .pageSubtitle {
@@ -486,68 +476,18 @@ onMounted(loadDashboard);
   border-color: rgba(110, 229, 255, 0.25);
 }
 
-.todayFocus {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: var(--s-16);
-  align-items: center;
-  padding: 20px;
-  border-radius: 24px;
-  background:
-    radial-gradient(circle at 0% 50%, rgba(99, 102, 241, 0.10), transparent 35%),
-    rgba(255, 255, 255, 0.025);
-  border: 1px solid rgba(255, 255, 255, 0.085);
-}
-
-.focusMain h2,
 .panelTitle {
   margin: 0;
   color: rgba(255, 255, 255, 0.94);
   letter-spacing: -0.04em;
 }
 
-.focusMain h2 {
-  font-size: 1.35rem;
-}
-
-.focusMain p,
 .panelText,
 .emptyState p {
   margin: 8px 0 0;
   max-width: 720px;
   color: rgba(255, 255, 255, 0.62);
   line-height: 1.65;
-}
-
-.focusStats {
-  display: grid;
-  grid-template-columns: repeat(3, 86px);
-  gap: 10px;
-}
-
-.focusStat {
-  min-height: 78px;
-  display: grid;
-  place-items: center;
-  padding: 10px;
-  border-radius: 18px;
-  background: rgba(255, 255, 255, 0.035);
-  border: 1px solid rgba(255, 255, 255, 0.075);
-}
-
-.focusStat strong {
-  color: rgba(255, 255, 255, 0.95);
-  font-size: 1.35rem;
-  line-height: 1;
-}
-
-.focusStat span {
-  margin-top: 5px;
-  color: var(--muted2);
-  font-size: 0.72rem;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
 }
 
 .progressGrid {
@@ -658,7 +598,6 @@ onMounted(loadDashboard);
 
 @media (max-width: 980px) {
   .dashboardHead,
-  .todayFocus,
   .progressGrid {
     grid-template-columns: 1fr;
   }
@@ -668,14 +607,10 @@ onMounted(loadDashboard);
     justify-content: flex-start;
   }
 
-  .focusStats {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
 }
 
 @media (max-width: 620px) {
-  .dashboardHead,
-  .todayFocus {
+  .dashboardHead {
     padding: 18px;
     border-radius: 23px;
   }
@@ -692,10 +627,6 @@ onMounted(loadDashboard);
     width: 100%;
     white-space: normal;
     text-align: center;
-  }
-
-  .focusStats {
-    grid-template-columns: 1fr;
   }
 
   .emptyState {
