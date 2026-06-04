@@ -55,7 +55,7 @@ import BaseButton from "@/components/ui/BaseButton.vue";
 import BaseCard from "@/components/ui/BaseCard.vue";
 
 defineProps({
-  primaryTo: { type: String, default: "/challenges" },
+  primaryTo: { type: String, default: "/onboarding" },
   secondaryTo: { type: String, default: "/challenges" },
 });
 

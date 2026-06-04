@@ -4,6 +4,7 @@ import Challenges from "../views/Challenges.vue";
 import AuthCallback from "../views/AuthCallback.vue";
 import Enrollment from "../views/Enrollment.vue";
 import Leaderboard from "../views/Leaderboard.vue"
+import Onboarding from "../views/Onboarding.vue";
 import api from "../lib/api";
 import AuthForm from '../components/AuthForm.vue'
 import { createAuthGuard } from "./authGuard";
@@ -13,6 +14,7 @@ const router = createRouter({
   routes: [
     { path: "/login", component: AuthForm,meta: { requiresAuth: false } },
     { path: "/auth/callback", component: AuthCallback },
+    { path: "/onboarding", component: Onboarding, meta: { requiresAuth: true } },
     { path: "/dashboard", component: Dashboard ,meta: { requiresAuth: true }},
     { path: "/challenges", component: Challenges },
     { path: "/profile", component: () => import("../views/Profile.vue"), meta: { requiresAuth: true } },

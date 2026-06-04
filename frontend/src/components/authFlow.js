@@ -25,12 +25,14 @@ export function buildAuthPayload(form, isLogin) {
   };
 }
 
-export function resolveAuthRedirect(route) {
+export function resolveAuthRedirect(route, isLogin = true) {
   const next = route?.query?.next;
 
   return typeof next === "string" && next.startsWith("/") && !next.startsWith("//")
     ? next
-    : "/dashboard";
+    : isLogin
+      ? "/dashboard"
+      : "/onboarding";
 }
 
 export async function submitAuthFlow({
@@ -56,7 +58,7 @@ export async function submitAuthFlow({
     throw new Error(data.error || "Authentication failed");
   }
 
-  const nextPath = resolveAuthRedirect(route);
+  const nextPath = resolveAuthRedirect(route, isLogin);
 
   schedule(() => {
     router.push(nextPath);
