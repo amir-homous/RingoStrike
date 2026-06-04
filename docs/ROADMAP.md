@@ -188,6 +188,40 @@ These items should happen before expanding product scope:
 
 ---
 
+## Next Product Milestone: Guided Progression Experience
+
+Goal:
+
+Reduce first-time user confusion by shifting the primary experience from dashboard browsing to a guided daily mission loop.
+
+Core loop:
+
+```txt
+Today's Mission -> Check-in -> Reward -> Next Step
+```
+
+Why:
+
+Early tester feedback shows that the product is valuable but feels too complex. Before wider launch, the app should make the next action obvious and guide users into their first progression path.
+
+Planned work:
+
+- Today Mission Card on dashboard.
+- Guided empty state for users without enrollments.
+- Simplified early navigation/progressive disclosure.
+- Premium reward moment after check-in.
+- First-run onboarding with identity path selection.
+
+Non-goals:
+
+- No backend rewrite.
+- No duplicate progression logic.
+- No complex skill tree yet.
+- No native mobile app yet.
+- No heavy social systems yet.
+
+---
+
 ## Next Sprint: Quality And Reliability
 
 ### Backend Reliability

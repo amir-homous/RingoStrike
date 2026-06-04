@@ -29,6 +29,28 @@ Avoid:
 - overloaded social comparison
 - generic productivity-dashboard visuals
 
+## Guided Progression UX Principles
+
+RingoStrike should guide users through a clear daily progression path instead of presenting every feature at once.
+
+Primary UX rule:
+
+The next action should always be obvious.
+
+Preferred pattern:
+
+```txt
+Today's Mission -> Check-in -> Reward -> Next Step
+```
+
+Design principles:
+
+- Reduce first-time cognitive load.
+- Show one primary action per screen where possible.
+- Keep reward moments premium, calm, and emotionally meaningful.
+- Avoid noisy animations, casino-like effects, or pressure-based streak messaging.
+- Reveal advanced systems gradually: leaderboard, achievements, public profile, and Telegram reminders should support the core loop, not compete with it.
+
 ## Active CSS Tokens
 
 Defined in `tokens.css`:
