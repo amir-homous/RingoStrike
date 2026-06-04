@@ -1,9 +1,14 @@
 <template>
+  <StartPathEmptyState
+    v-if="missionState === 'empty'"
+    class="missionStart"
+  />
+
   <section
+    v-else
     class="mission"
     :class="{
       complete: missionState === 'complete',
-      empty: missionState === 'empty',
     }"
   >
     <div class="missionGlow" aria-hidden="true"></div>
@@ -45,14 +50,6 @@
           <span aria-hidden="true">→</span>
         </RouterLink>
 
-        <RouterLink
-          v-else
-          class="missionLink primary"
-          to="/challenges"
-        >
-          <span>{{ t("dashboard.mission.startFirstPath") }}</span>
-          <span aria-hidden="true">→</span>
-        </RouterLink>
       </div>
     </div>
 
@@ -98,6 +95,7 @@ import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 
 import BaseButton from "@/components/ui/BaseButton.vue";
+import StartPathEmptyState from "@/components/guided/StartPathEmptyState.vue";
 
 const props = defineProps({
   challenges: { type: Array, default: () => [] },
@@ -225,13 +223,6 @@ const nextStepText = computed(() => {
     radial-gradient(circle at 10% 0%, rgba(74, 222, 128, 0.15), transparent 35%),
     radial-gradient(circle at 90% 12%, rgba(110, 229, 255, 0.09), transparent 34%),
     linear-gradient(135deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.022));
-}
-
-.mission.empty {
-  background:
-    radial-gradient(circle at 8% 0%, rgba(99, 102, 241, 0.15), transparent 34%),
-    radial-gradient(circle at 92% 14%, rgba(110, 229, 255, 0.10), transparent 34%),
-    linear-gradient(135deg, rgba(255, 255, 255, 0.062), rgba(255, 255, 255, 0.02));
 }
 
 .missionGlow {

@@ -44,6 +44,13 @@ export default {
     profile: "Profile",
     leaderboard: "Leaderboard",
   },
+  guidedStart: {
+    eyebrow: "Start here",
+    title: "Start your first path",
+    body: "RingoStrike works best when you focus on one small daily mission. Start with a simple path and secure your first Strike today.",
+    primaryCta: "Start first path",
+    secondaryCta: "Browse all challenges",
+  },
   auth: {
     login: "Login",
     register: "Register",
