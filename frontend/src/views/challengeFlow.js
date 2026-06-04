@@ -223,6 +223,7 @@ export async function submitCheckinFlow({
       skipped: false,
       unlocked,
       oldStats: snapshot.oldStats,
+      rewards: checkinResp.data?.rewards || null,
     };
   } catch (error) {
     rollbackOptimisticCheckin(state, enrollmentId, snapshot);

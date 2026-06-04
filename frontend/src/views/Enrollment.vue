@@ -324,6 +324,12 @@
         </section>
       </div>
     </div>
+
+    <RewardMoment
+      :open="!!rewardMoment"
+      :reward="rewardMoment"
+      @close="rewardMoment = null"
+    />
   </AppContainer>
 </template>
 
@@ -340,6 +346,7 @@ import AppHeader from "@/components/ui/AppHeader.vue";
 import BaseCard from "@/components/ui/BaseCard.vue";
 import BaseButton from "@/components/ui/BaseButton.vue";
 import UiState from "@/components/ui/UiState.vue";
+import RewardMoment from "@/components/feedback/RewardMoment.vue";
 
 const route = useRoute();
 const { locale, t } = useI18n();
@@ -351,6 +358,7 @@ const error = ref("");
 const enrollment = ref(null);
 const challenge = ref(null);
 const recentLogs = ref([]);
+const rewardMoment = ref(null);
 
 const checkedDays = ref(0);
 const totalDays = ref(0);
@@ -516,6 +524,24 @@ function displayStatus(value) {
   return t(`common.status.${key}`, raw);
 }
 
+function buildRewardMomentPayload(rewards, oldStats) {
+  const xpTotal = Number(rewards?.xp_total);
+  const oldTotal = Number(oldStats?.total_points ?? oldStats?.xp);
+  const xpEarned = Number.isFinite(xpTotal) && Number.isFinite(oldTotal)
+    ? Math.max(0, xpTotal - oldTotal)
+    : 0;
+  const unlocked = Array.isArray(rewards?.achievements) ? rewards.achievements : [];
+
+  if (xpEarned <= 0 && unlocked.length === 0) return null;
+
+  return {
+    xpEarned,
+    xpTotal: Number.isFinite(xpTotal) ? xpTotal : null,
+    achievements: unlocked,
+    streak: enrollment.value?.current_streak ?? null,
+  };
+}
+
 async function load() {
   loading.value = true;
   error.value = "";
@@ -541,13 +567,19 @@ async function load() {
 }
 
 async function checkin() {
+  if (enrollment.value?.today_checked) return;
+
   try {
     checking.value = true;
     error.value = "";
     const id = route.params.id;
+    const statsResp = await api.get("/me/stats").catch(() => null);
+    const oldStats = statsResp?.data?.stats || null;
 
-    await api.post(`/me/challenges/${id}/checkin`);
+    const { data } = await api.post(`/me/challenges/${id}/checkin`);
     await load();
+
+    rewardMoment.value = buildRewardMomentPayload(data?.rewards, oldStats);
   } catch (e) {
     error.value = e?.response?.data?.error || e?.message || String(e);
   } finally {

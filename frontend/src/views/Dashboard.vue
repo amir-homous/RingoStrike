@@ -136,6 +136,12 @@
     </div>
 
     <RewardFeedback :items="rewardToasts" />
+
+    <RewardMoment
+      :open="!!rewardMoment"
+      :reward="rewardMoment"
+      @close="rewardMoment = null"
+    />
   </AppContainer>
 </template>
 
@@ -156,6 +162,7 @@ import NextGoalCard from "@/components/progress/NextGoalCard.vue";
 import RecentProgressFeed from "@/components/progress/RecentProgressFeed.vue";
 import ChallengeCard from "@/components/challenges/ChallengeCard.vue";
 import RewardFeedback from "@/components/feedback/RewardFeedback.vue";
+import RewardMoment from "@/components/feedback/RewardMoment.vue";
 import ActivityTimeline from "@/components/activity/ActivityTimeline.vue";
 import AchievementPreview from "@/components/achievements/AchievementPreview.vue";
 import {
@@ -181,6 +188,7 @@ const date = ref("");
 const challenges = ref([]);
 const stats = ref(null);
 const rewardToasts = ref([]);
+const rewardMoment = ref(null);
 const xpPulse = ref(false);
 const activityEvents = ref([]);
 const achievements = ref([]);
@@ -230,6 +238,24 @@ function pushToast(text, type = "success") {
   setTimeout(() => {
     rewardToasts.value = rewardToasts.value.filter((t) => t.id !== id);
   }, 1800);
+}
+
+function buildRewardMomentPayload(rewards, oldStats, challenge) {
+  const xpTotal = Number(rewards?.xp_total ?? stats.value?.total_points);
+  const oldTotal = Number(oldStats?.total_points ?? oldStats?.xp);
+  const xpEarned = Number.isFinite(xpTotal) && Number.isFinite(oldTotal)
+    ? Math.max(0, xpTotal - oldTotal)
+    : 0;
+  const unlocked = Array.isArray(rewards?.achievements) ? rewards.achievements : [];
+
+  if (xpEarned <= 0 && unlocked.length === 0) return null;
+
+  return {
+    xpEarned,
+    xpTotal: Number.isFinite(xpTotal) ? xpTotal : null,
+    achievements: unlocked,
+    streak: challenge?.current_streak ?? stats.value?.current_streak ?? null,
+  };
 }
 
 async function loadDashboard() {
@@ -284,6 +310,15 @@ async function checkin(enrollmentId) {
     });
 
     if (result.skipped || result.error) return;
+
+    const checkedChallenge = challenges.value.find(
+      (challenge) => challenge.enrollment_id === enrollmentId,
+    );
+    rewardMoment.value = buildRewardMomentPayload(
+      result.rewards,
+      result.oldStats,
+      checkedChallenge,
+    );
 
     for (const a of result.unlocked) {
       pushToast(`🏆 ${a.title}`, "achievement");
