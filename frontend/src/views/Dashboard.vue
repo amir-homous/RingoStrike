@@ -76,7 +76,10 @@
           </div>
         </div>
 
-        <BaseCard class="challengePanel">
+        <BaseCard
+          v-if="challenges.length"
+          class="challengePanel"
+        >
           <div class="panelHead">
             <div>
               <p class="sectionKicker">{{ t("dashboard.activePaths") }}</p>
@@ -98,7 +101,7 @@
             </div>
           </div>
 
-          <div v-if="challenges.length" class="list">
+          <div class="list">
             <ChallengeCard
               v-for="c in visibleChallenges"
               :key="c.enrollment_id"
@@ -121,17 +124,6 @@
             </button>
           </div>
 
-          <div v-else class="emptyState">
-            <div class="emptyIcon">🧩</div>
-            <div>
-              <h3>{{ t("dashboard.noChallengesTitle") }}</h3>
-              <p>{{ t("dashboard.noChallengesText") }}</p>
-              <RouterLink class="ctaLink" to="/challenges">
-                <span>{{ t("dashboard.browse") }}</span>
-                <span aria-hidden="true">→</span>
-              </RouterLink>
-            </div>
-          </div>
         </BaseCard>
 
         <ActivityTimeline
@@ -440,8 +432,7 @@ onMounted(loadDashboard);
 }
 
 .primaryLink,
-.ghostLink,
-.ctaLink {
+.ghostLink {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -462,16 +453,14 @@ onMounted(loadDashboard);
   border: 1px solid rgba(110, 229, 255, 0.22);
 }
 
-.ghostLink,
-.ctaLink {
+.ghostLink {
   color: rgba(255, 255, 255, 0.88);
   border: 1px solid rgba(255, 255, 255, 0.10);
   background: rgba(255, 255, 255, 0.035);
 }
 
 .primaryLink:hover,
-.ghostLink:hover,
-.ctaLink:hover {
+.ghostLink:hover {
   background: rgba(255, 255, 255, 0.065);
   border-color: rgba(110, 229, 255, 0.25);
 }
@@ -482,8 +471,7 @@ onMounted(loadDashboard);
   letter-spacing: -0.04em;
 }
 
-.panelText,
-.emptyState p {
+.panelText {
   margin: 8px 0 0;
   max-width: 720px;
   color: rgba(255, 255, 255, 0.62);
@@ -570,32 +558,6 @@ onMounted(loadDashboard);
   border-color: rgba(110, 229, 255, 0.25);
 }
 
-.emptyState {
-  display: flex;
-  gap: var(--s-16);
-  align-items: flex-start;
-  margin-top: var(--s-16);
-  padding: 18px;
-  border-radius: 22px;
-  background: rgba(255, 255, 255, 0.035);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-.emptyIcon {
-  width: 46px;
-  height: 46px;
-  display: grid;
-  place-items: center;
-  flex: 0 0 auto;
-  border-radius: 17px;
-  background: rgba(99, 102, 241, 0.14);
-}
-
-.emptyState h3 {
-  margin: 0;
-  color: rgba(255, 255, 255, 0.92);
-}
-
 @media (max-width: 980px) {
   .dashboardHead,
   .progressGrid {
@@ -629,8 +591,5 @@ onMounted(loadDashboard);
     text-align: center;
   }
 
-  .emptyState {
-    flex-direction: column;
-  }
 }
 </style>
