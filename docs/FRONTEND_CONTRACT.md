@@ -10,7 +10,36 @@ withCredentials = true
 timeout = 15000
 ```
 
-Production builds default to same-origin relative API requests. This supports Nginx deployments where the SPA and Flask routes are served from the same host, for example `http://82.115.24.10/auth/login`. Local development can still set `VITE_API_BASE=http://localhost:5005`. If a production build accidentally contains a loopback API base such as `http://localhost:5005` or `http://127.0.0.1:5005`, the client falls back to same-origin because browser loopback would point at the user's machine, not the VPS.
+Production builds default to same-origin relative API requests when `VITE_API_BASE` is unset. Local development can still set `VITE_API_BASE=http://localhost:5005`. If a production build accidentally contains a loopback API base such as `http://localhost:5005` or `http://127.0.0.1:5005`, the client falls back to same-origin because browser loopback would point at the user's machine, not the VPS.
+
+For the current VPS deployment at `http://82.115.24.10`, set:
+
+```env
+VITE_API_BASE=/api-proxy
+VITE_BASE=/
+```
+
+Nginx should proxy `/api-proxy/` to Flask and rewrite the prefix away:
+
+```nginx
+location /api-proxy/ {
+    rewrite ^/api-proxy/(.*)$ /$1 break;
+    proxy_pass http://127.0.0.1:5005;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+}
+```
+
+Vue routes should continue to use the SPA fallback:
+
+```nginx
+location / {
+    try_files $uri $uri/ /index.html;
+}
+```
+
+Only omit `VITE_API_BASE` when backend root routes do not conflict with frontend routes. This VPS requires `/api-proxy` because `/challenges` is both a frontend route and a backend API route; proxying `/challenges` directly returns backend JSON instead of the Vue page.
 
 The backend supports HttpOnly cookie auth and Bearer token fallback. The frontend mainly relies on cookies because `withCredentials` is enabled.
 

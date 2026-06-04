@@ -39,6 +39,7 @@ RingoStrike should feel like a premium consistency and progression system, not a
 - Vue 3 + Vite application in `frontend/`.
 - Vue Router routes for login, auth callback, dashboard, challenges, profile, enrollment, leaderboard, public profile, API docs, and redirects.
 - Axios API client in `frontend/src/lib/api.js` using `VITE_API_BASE` when provided, `http://localhost:5005` only in Vite dev mode, and same-origin relative API paths in production by default. Credentials are enabled and callback-token Bearer fallback support remains.
+- The current VPS same-origin deployment at `http://82.115.24.10` uses `VITE_API_BASE=/api-proxy` and Nginx rewrites `/api-proxy/*` to Flask on `http://127.0.0.1:5005`. Do not use `VITE_API_BASE=http://localhost:5005` in production browser builds.
 - Active local auth UI is `frontend/src/components/AuthForm.vue`; it uses the shared API client and honors the `next` redirect query.
 - Shared CSS tokens in `frontend/src/styles/tokens.css` and base styles in `frontend/src/styles/base.css`.
 - Frontend i18n is implemented with `vue-i18n` in `frontend/src/i18n/`, currently supporting English (`en`) and Persian (`fa`).
@@ -75,6 +76,7 @@ RingoStrike should feel like a premium consistency and progression system, not a
 - Progression surfaces should consistently filter counted check-ins with `status = 'Done' AND is_counted = 1`.
 - Public profile, consistency, and achievement username lookups normalize route usernames before lookup.
 - Private challenge detail/member endpoints and `/me/enrollments/:id/leaderboard` enforce privacy/ownership checks.
+- For VPS same-origin deployment, use `/api-proxy` to avoid frontend/backend route collisions. Do not proxy backend root paths like `/challenges` directly because `/challenges` is also a Vue route and should render the SPA page.
 - `backend/users.db`, Python caches, `backend/venv`, `backend/.venv`, and `frontend/node_modules` are present in the working tree and should not be treated as application source.
 
 ## Current Roadmap Position

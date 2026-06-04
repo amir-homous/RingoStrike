@@ -83,8 +83,8 @@ Required values:
 Production examples:
 
 ```env
-# Same-origin Nginx deployment:
-# omit VITE_API_BASE so the frontend calls /auth/login, /me, /challenges, etc.
+# Same-origin Nginx deployment with a dedicated API proxy prefix:
+VITE_API_BASE=/api-proxy
 VITE_BASE=/
 ```
 
@@ -94,6 +94,8 @@ or:
 VITE_API_BASE=https://api.ringostrike.com
 VITE_BASE=/
 ```
+
+Only omit `VITE_API_BASE` when backend API routes can safely live at the same root as frontend routes. The VPS deployment uses `/api-proxy` because `/challenges` is both a Vue route and a backend API route.
 
 ---
 
@@ -164,6 +166,82 @@ npm run build
 - [ ] Confirm static asset caching.
 - [ ] Confirm upload/body size limits if needed later.
 
+### VPS Same-Origin Nginx Pattern
+
+The current VPS test deployment is served at:
+
+```txt
+http://82.115.24.10
+```
+
+Nginx serves the frontend from:
+
+```txt
+/home/ringo/RingoStrike/frontend/dist
+```
+
+Flask runs locally on the VPS at:
+
+```txt
+http://127.0.0.1:5005
+```
+
+Use a dedicated API proxy prefix and rewrite it to Flask:
+
+```nginx
+location /api-proxy/ {
+    rewrite ^/api-proxy/(.*)$ /$1 break;
+    proxy_pass http://127.0.0.1:5005;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+}
+```
+
+Keep Vue routes on the SPA fallback:
+
+```nginx
+location / {
+    try_files $uri $uri/ /index.html;
+}
+```
+
+Do not proxy backend API routes directly through root paths such as `/challenges`, `/me`, or `/auth` on this deployment. `/challenges` is also a Vue frontend route; proxying it directly caused `http://82.115.24.10/challenges` to return backend JSON instead of the Vue page.
+
+Frontend VPS env:
+
+```env
+VITE_API_BASE=/api-proxy
+VITE_BASE=/
+```
+
+Do not use:
+
+```env
+VITE_API_BASE=http://localhost:5005
+```
+
+In the browser, `localhost` means the user's own device, not the VPS.
+
+Backend VPS env for the current HTTP/IP test deployment:
+
+```env
+FLASK_ENV=production
+SECRET_KEY=<real_secret>
+JWT_SECRET=<real_jwt_secret>
+JWT_COOKIE_NAME=ringo_token
+JWT_COOKIE_SECURE=0
+JWT_COOKIE_SAMESITE=Lax
+LOCAL_LOGIN_ENABLED=True
+DB_PATH=/home/ringo/RingoStrike/backend/users.db
+PUBLIC_BASE_URL=http://82.115.24.10
+FRONTEND_BASE_URL=http://82.115.24.10
+FRONTEND_ORIGIN=http://82.115.24.10
+CORS_ORIGINS=http://82.115.24.10
+```
+
+Switch `JWT_COOKIE_SECURE=1` when the deployment moves to HTTPS.
+
 ---
 
 ## Post-Deployment Smoke Test
@@ -190,6 +268,50 @@ Check these API flows:
 - [ ] Update profile.
 - [ ] Toggle profile visibility.
 - [ ] Public profile respects visibility.
+
+VPS proxy smoke checks:
+
+```bash
+curl http://127.0.0.1/api-proxy/health
+```
+
+Expected:
+
+```json
+{"ok": true}
+```
+
+Login through the Nginx proxy:
+
+```bash
+curl -i -c cookies.txt -X POST http://127.0.0.1/api-proxy/auth/login \
+  -H "Origin: http://82.115.24.10" \
+  -H "Content-Type: application/json" \
+  -d '{"username":"testuser2","password":"test123456"}'
+```
+
+Then verify the authenticated cookie:
+
+```bash
+curl -i -b cookies.txt http://127.0.0.1/api-proxy/me \
+  -H "Origin: http://82.115.24.10"
+```
+
+Expected: `200 OK` with authenticated user data.
+
+Manual browser checks that passed after the `/api-proxy` fix:
+
+- [ ] `/login` loads.
+- [ ] Register works.
+- [ ] Login works.
+- [ ] Dashboard loads authenticated data.
+- [ ] `/challenges` opens the Vue page, not backend JSON.
+- [ ] Challenge list loads.
+- [ ] Join challenge works.
+- [ ] Check-in works.
+- [ ] Logout works.
+- [ ] API docs no longer hit localhost.
+- [ ] Site works through the public IP when network access allows it.
 
 ---
 

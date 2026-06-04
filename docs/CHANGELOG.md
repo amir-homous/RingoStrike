@@ -16,6 +16,18 @@ The project has moved beyond raw MVP. Core progression identity is implemented. 
 
 ## Latest Launch-Hardening Updates
 
+### VPS API Proxy Deployment Fix
+
+Documented the successful VPS deployment pattern:
+
+- Frontend is served by Nginx from `/home/ringo/RingoStrike/frontend/dist`.
+- Flask runs locally on `http://127.0.0.1:5005`.
+- Public access is through `http://82.115.24.10`.
+- Frontend production env uses `VITE_API_BASE=/api-proxy` and `VITE_BASE=/`.
+- Nginx proxies `/api-proxy/` to Flask and keeps Vue routes on the `index.html` fallback.
+- Avoided root proxy conflicts where `/challenges` returned backend JSON instead of the Vue route.
+- Confirmed login/register, dashboard auth data, challenge list/join/check-in, logout, and API docs after the fix.
+
 ### Same-Origin Production API Routing
 
 Hardened frontend/backend deployment configuration for VPS/Nginx serving:

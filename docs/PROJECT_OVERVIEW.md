@@ -69,6 +69,8 @@ Default Vite URL: `http://localhost:5173`.
 
 Frontend API base uses `VITE_API_BASE` when set. Without it, Vite dev mode falls back to `http://localhost:5005`; production builds use same-origin relative API paths for Nginx deployments.
 
+The current VPS test deployment at `http://82.115.24.10` uses `VITE_API_BASE=/api-proxy` because backend routes such as `/challenges` conflict with Vue frontend routes when proxied at the root. Nginx rewrites `/api-proxy/*` to the local Flask backend on `http://127.0.0.1:5005`.
+
 Selected frontend language is stored in `localStorage.ringostrike_locale`.
 
 ## User Flow
