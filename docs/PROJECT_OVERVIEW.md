@@ -86,6 +86,23 @@ Register/Login
   -> Optional public profile sharing
 ```
 
+## Target Guided User Flow
+
+The next product direction is to make the daily loop more guided. The dashboard is not being removed; it should become a supporting surface around a clearer mission-based journey.
+
+```txt
+Register/Login
+  -> Onboarding / Identity Path
+  -> Suggested First Challenge
+  -> Today's Mission
+  -> Daily Check-in
+  -> Reward Moment
+  -> Next Step
+  -> Dashboard/Profile as supporting surfaces
+```
+
+The intended shift is from a dashboard-based MVP toward a guided mission-based progression experience where the next action is obvious.
+
 ## Current Architecture Strengths
 
 - Clear route/service split for most backend features.

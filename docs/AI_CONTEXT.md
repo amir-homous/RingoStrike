@@ -16,6 +16,26 @@ RingoStrike should feel like a premium consistency and progression system, not a
 - public identity is shareable but privacy-aware
 - social features should reinforce momentum, not toxic competition
 
+## Current Product UX Priority
+
+Early tester feedback indicates that RingoStrike is valuable but feels too complex for first-time users.
+
+The next product priority is to evolve the experience from a dashboard-heavy interface into a guided progression journey.
+
+Primary target loop:
+
+```txt
+Today's Mission -> Check-in -> Reward -> Next Step
+```
+
+Implementation guidance:
+
+- Prefer frontend-first UX simplification.
+- Reuse existing challenge, enrollment, check-in, stats, achievement, and activity systems.
+- Do not duplicate XP/streak/achievement logic.
+- Do not rewrite the dashboard; evolve it into a guided mission surface.
+- Delay complex social, mobile, widget, and advanced automation work until the guided loop is validated.
+
 ## Implemented Backend Systems
 
 - Flask app factory in `backend/app.py`.
