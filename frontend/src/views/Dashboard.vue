@@ -82,13 +82,19 @@
         </BaseCard>
 
         <!-- 6. Activity: unlocked after early progress -->
-        <ActivityTimeline v-if="guidedState.features.activity.unlocked" :events="activityEvents" :loading="loading" />
+        <div
+          v-if="guidedState.features.activity.unlocked"
+          id="activity-feed"
+          class="scrollAnchor"
+        >
+          <ActivityTimeline :events="activityEvents" :loading="loading" />
+        </div>
 
         <!-- 7. Achievements: after activity has enough meaning -->
         <AchievementPreview v-if="guidedState.features.achievements.unlocked" :achievements="achievements" />
 
         <!-- 8. Leaderboard: lower priority because it is enrollment-scoped for now -->
-        <BaseCard v-if="showLeaderboardPreview" class="guidedFeatureCard">
+        <BaseCard v-if="showLeaderboardPreview" id="leaderboard" class="guidedFeatureCard">
           <div>
             <p class="sectionKicker">{{ t("guidedFeatures.leaderboard.kicker") }}</p>
             <h2 class="panelTitle">{{ t("guidedFeatures.leaderboard.title") }}</h2>
@@ -422,6 +428,10 @@ onMounted(loadDashboard);
 .dashboardStack {
   display: grid;
   gap: var(--s-16);
+}
+
+.scrollAnchor {
+  scroll-margin-top: 110px;
 }
 
 .dashboardHead {
