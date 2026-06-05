@@ -49,6 +49,11 @@
       </section>
 
       <section class="discoveryPanel">
+        <ChallengeDiscoveryInvite
+          :title="t('challengeInvite.title')"
+          :show-action="false"
+        />
+
         <div class="toolbar">
           <div>
             <div class="eyebrow compact">{{ t("challenges.launchDefaults") }}</div>
@@ -164,6 +169,7 @@ import BaseButton from "@/components/ui/BaseButton.vue";
 import UiState from "@/components/ui/UiState.vue";
 import ChallengeCard from "@/components/challenges/ChallengeCard.vue";
 import JoinSuccessMoment from "@/components/feedback/JoinSuccessMoment.vue";
+import ChallengeDiscoveryInvite from "@/components/guided/ChallengeDiscoveryInvite.vue";
 import {
   humanizeJoinError,
   isInviteOnlyChallenge,

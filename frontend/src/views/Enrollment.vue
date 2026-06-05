@@ -103,6 +103,28 @@
           </div>
         </section>
 
+        <section
+          v-if="enrollment.today_checked"
+          class="enrollmentNextAction"
+        >
+          <div>
+            <p class="nextKicker">{{ t("postCheckin.eyebrow") }}</p>
+            <h2>{{ t("enrollment.nextActionTitle") }}</h2>
+            <p>{{ t("enrollment.nextActionText") }}</p>
+          </div>
+
+          <div class="nextActions">
+            <RouterLink class="nextPrimary" to="/dashboard">
+              <span>{{ t("enrollment.backToMission") }}</span>
+              <span aria-hidden="true">→</span>
+            </RouterLink>
+
+            <RouterLink class="nextSecondary" to="/challenges">
+              {{ t("enrollment.discoverAnotherPath") }}
+            </RouterLink>
+          </div>
+        </section>
+
         <section class="dailySummary">
           <div class="summaryItem">
             <span class="summaryLabel">{{ t("enrollment.today") }}</span>
@@ -917,6 +939,80 @@ onUnmounted(() => {
   gap: var(--s-12);
 }
 
+.enrollmentNextAction {
+  position: relative;
+  overflow: hidden;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--s-16);
+  align-items: center;
+  padding: 20px;
+  border-radius: 24px;
+  border: 1px solid rgba(74, 222, 128, 0.18);
+  background:
+    radial-gradient(circle at 0% 0%, rgba(74, 222, 128, 0.12), transparent 34%),
+    radial-gradient(circle at 100% 0%, rgba(253, 230, 138, 0.08), transparent 36%),
+    rgba(255, 255, 255, 0.026);
+}
+
+.nextKicker {
+  margin: 0 0 7px;
+  color: rgba(134, 239, 172, 0.88);
+  font-size: 0.72rem;
+  font-weight: 850;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.enrollmentNextAction h2 {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.95);
+  font-size: clamp(1.35rem, 3vw, 1.9rem);
+  line-height: 1.1;
+}
+
+.enrollmentNextAction p:not(.nextKicker) {
+  max-width: 720px;
+  margin: 9px 0 0;
+  color: rgba(255, 255, 255, 0.66);
+  line-height: 1.65;
+}
+
+.nextActions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--s-10);
+}
+
+.nextPrimary,
+.nextSecondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s-8);
+  min-height: 42px;
+  padding: 10px 15px;
+  border-radius: 15px;
+  text-decoration: none;
+  font-weight: 850;
+  white-space: nowrap;
+}
+
+.nextPrimary {
+  color: rgba(255, 255, 255, 0.94);
+  background:
+    linear-gradient(135deg, rgba(110, 229, 255, 0.16), rgba(74, 222, 128, 0.12)),
+    rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(110, 229, 255, 0.22);
+}
+
+.nextSecondary {
+  color: rgba(255, 255, 255, 0.86);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+}
+
 .summaryItem {
   padding: 14px;
   border-radius: 18px;
@@ -1373,8 +1469,13 @@ onUnmounted(() => {
 
 @media (max-width: 980px) {
   .heroContent,
-  .contentGrid {
+  .contentGrid,
+  .enrollmentNextAction {
     grid-template-columns: 1fr;
+  }
+
+  .nextActions {
+    justify-content: stretch;
   }
 
   .insightGrid,
@@ -1420,6 +1521,13 @@ onUnmounted(() => {
 
   .checkinPanel {
     padding: 16px;
+  }
+
+  .nextPrimary,
+  .nextSecondary {
+    width: 100%;
+    white-space: normal;
+    text-align: center;
   }
 }
 </style>

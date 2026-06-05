@@ -12,6 +12,12 @@
         <TodayMission :challenges="challenges" :stats="stats" :loading="checkingId === missionEnrollmentId"
           @checkin="checkin" />
 
+        <PostCheckinNextAction
+          v-if="showPostCheckinAction"
+          :enrollment-id="missionEnrollmentId"
+          :all-done="allActiveMissionsDone"
+        />
+
         <!-- 2. First progress layer: appears after the user has meaningful progress -->
         <HeroProgressCard v-if="stats && guidedState.hasProgress" :user-name="user?.name" :stats="stats"
           :animate-pulse="xpPulse" />
@@ -158,6 +164,7 @@ import BaseCard from "@/components/ui/BaseCard.vue";
 import BaseButton from "@/components/ui/BaseButton.vue";
 import UiState from "@/components/ui/UiState.vue";
 import TodayMission from "@/components/dashboard/TodayMission.vue";
+import PostCheckinNextAction from "@/components/guided/PostCheckinNextAction.vue";
 import HeroProgressCard from "@/components/progress/HeroProgressCard.vue";
 import StatsGrid from "@/components/progress/StatsGrid.vue";
 import NextGoalCard from "@/components/progress/NextGoalCard.vue";
@@ -211,6 +218,26 @@ const completedTodayCount = computed(() => {
   return challenges.value.filter((challenge) => Boolean(challenge.today_checked)).length;
 });
 
+const activeChallenges = computed(() => {
+  return challenges.value.filter((challenge) => {
+    const status = String(challenge?.status || "active").toLowerCase();
+    return status === "active" && challenge?.enrollment_id;
+  });
+});
+
+const activeCompletedTodayCount = computed(() => {
+  return activeChallenges.value.filter((challenge) => Boolean(challenge.today_checked)).length;
+});
+
+const allActiveMissionsDone = computed(() => {
+  return activeChallenges.value.length > 0 &&
+    activeCompletedTodayCount.value === activeChallenges.value.length;
+});
+
+const showPostCheckinAction = computed(() => {
+  return allActiveMissionsDone.value;
+});
+
 const orderedChallenges = computed(() => {
   return orderDashboardChallenges(challenges.value);
 });
@@ -228,13 +255,9 @@ const hasHiddenChallenges = computed(() => {
 });
 
 const missionEnrollmentId = computed(() => {
-  const activeChallenges = challenges.value.filter((challenge) => {
-    const status = String(challenge?.status || "active").toLowerCase();
-    return status === "active" && challenge?.enrollment_id;
-  });
-  const ready = activeChallenges.find((challenge) => !challenge.today_checked);
+  const ready = activeChallenges.value.find((challenge) => !challenge.today_checked);
 
-  return (ready || activeChallenges[0])?.enrollment_id || null;
+  return (ready || activeChallenges.value[0])?.enrollment_id || null;
 });
 
 const guidedState = computed(() => {
