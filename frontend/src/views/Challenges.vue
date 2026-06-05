@@ -142,6 +142,12 @@
         </BaseCard>
       </section>
     </div>
+
+    <JoinSuccessMoment
+      :open="!!joinSuccess"
+      :join="joinSuccess"
+      @close="joinSuccess = null"
+    />
   </AppContainer>
 </template>
 
@@ -157,6 +163,7 @@ import BaseCard from "@/components/ui/BaseCard.vue";
 import BaseButton from "@/components/ui/BaseButton.vue";
 import UiState from "@/components/ui/UiState.vue";
 import ChallengeCard from "@/components/challenges/ChallengeCard.vue";
+import JoinSuccessMoment from "@/components/feedback/JoinSuccessMoment.vue";
 import {
   humanizeJoinError,
   isInviteOnlyChallenge,
@@ -171,6 +178,7 @@ const loadError = ref("");
 
 const items = ref([]);
 const joiningId = ref(null);
+const joinSuccess = ref(null);
 
 const codes = ref({});
 const errors = ref({});
@@ -256,13 +264,17 @@ async function join(challenge) {
   joiningId.value = challenge.challenge_id;
 
   try {
-    await submitJoinFlow({
+    const result = await submitJoinFlow({
       apiClient: api,
       router,
       challenge,
       codes: codes.value,
-      reload: load,
     });
+    await load();
+    joinSuccess.value = {
+      ...result,
+      source: "challenges",
+    };
   } catch (e) {
     const msg = e?.response?.data?.error || e?.message || String(e);
     errors.value[challenge.challenge_id] = msg;

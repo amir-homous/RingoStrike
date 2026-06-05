@@ -87,6 +87,23 @@ export default {
       },
     },
   },
+  joinSuccess: {
+    eyebrow: "مسیر شروع شد",
+    title: "مسیرت شروع شد",
+    body: "تو به {challengeName} پیوستی. ماموریتت ساده‌ست: هر روز برگرد و یک Strike ثبت کن.",
+    existingBody: "تو از قبل در این مسیر هستی. از مأموریت امروز ادامه بده.",
+    nextLabel: "قدم بعدی",
+    nextMission: "اولین مأموریت امروز را کامل کن",
+    nextDescription: "داشبورد اقدام روزانه را ساده نگه می‌دارد و تو را به اولین چک این هدایت می‌کند.",
+    primary: {
+      onboarding: "شروع مأموریت امروز",
+      challenges: "رفتن به مأموریت امروز",
+    },
+    secondary: {
+      onboarding: "دیدن جزئیات مسیر",
+      challenges: "دیدن جزئیات چالش",
+    },
+  },
   onboarding: {
     loadingTitle: "در حال بارگذاری مسیرها...",
     loadingText: "در حال پیدا کردن یک چالش مناسب برای شروع.",

@@ -39,6 +39,7 @@ export async function submitJoinFlow({
   challenge,
   codes = {},
   reload = async () => {},
+  navigateOnJoin = false,
 }) {
   const payload = buildJoinPayload(challenge, codes);
   const { data } = await apiClient.post(
@@ -46,20 +47,30 @@ export async function submitJoinFlow({
     payload,
   );
 
+  const enrollmentId = data?.enrollment_id || challenge?.enrollment_id || null;
+  const result = {
+    challengeId: data?.challenge_id || challenge?.challenge_id || null,
+    challengeName: challenge?.name || challenge?.challenge_name || challenge?.enrollment_name || "",
+    enrollmentId,
+    mode: data?.mode || (challenge?.is_joined ? "existing" : "joined"),
+    navigated: false,
+  };
+
   if (data?.enrollment_id) {
-    router.push(`/enrollment/${data.enrollment_id}`);
-    return {
-      enrollmentId: data.enrollment_id,
-      navigated: true,
-    };
+    if (navigateOnJoin && router) {
+      router.push(`/enrollment/${data.enrollment_id}`);
+      return {
+        ...result,
+        navigated: true,
+      };
+    }
+
+    return result;
   }
 
   await reload();
 
-  return {
-    enrollmentId: null,
-    navigated: false,
-  };
+  return result;
 }
 
 export function buildOptimisticCheckinEvents(target, oldLevel, newLevel) {

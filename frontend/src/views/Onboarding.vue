@@ -50,6 +50,12 @@
         </template>
       </section>
     </main>
+
+    <JoinSuccessMoment
+      :open="!!joinSuccess"
+      :join="joinSuccess"
+      @close="joinSuccess = null"
+    />
   </AppContainer>
 </template>
 
@@ -62,6 +68,7 @@ import api from "@/lib/api";
 import AppContainer from "@/components/ui/AppContainer.vue";
 import AppHeader from "@/components/ui/AppHeader.vue";
 import UiState from "@/components/ui/UiState.vue";
+import JoinSuccessMoment from "@/components/feedback/JoinSuccessMoment.vue";
 import StepWelcome from "@/components/onboarding/StepWelcome.vue";
 import StepPath from "@/components/onboarding/StepPath.vue";
 import ChallengeSuggestion from "@/components/onboarding/ChallengeSuggestion.vue";
@@ -86,6 +93,7 @@ const loading = ref(false);
 const joining = ref(false);
 const loadError = ref("");
 const joinError = ref("");
+const joinSuccess = ref(null);
 
 const suggestedChallenge = computed(() => {
   return findSuggestedChallenge(challenges.value, selectedPath.value);
@@ -126,7 +134,13 @@ async function startSuggestedPath() {
 
   if (challenge.is_joined && challenge.enrollment_id) {
     markOnboardingDone(selectedPath.value);
-    router.push(`/enrollment/${challenge.enrollment_id}`);
+    joinSuccess.value = {
+      challengeId: challenge.challenge_id,
+      challengeName: challenge.name || challenge.challenge_name || challenge.enrollment_name || "",
+      enrollmentId: challenge.enrollment_id,
+      mode: "existing",
+      source: "onboarding",
+    };
     return;
   }
 
@@ -142,10 +156,10 @@ async function startSuggestedPath() {
     });
 
     markOnboardingDone(selectedPath.value);
-
-    if (!result.navigated) {
-      router.push("/dashboard");
-    }
+    joinSuccess.value = {
+      ...result,
+      source: "onboarding",
+    };
   } catch (error) {
     const message = error?.response?.data?.error || error?.message || String(error);
     joinError.value = humanizeJoinError(message);

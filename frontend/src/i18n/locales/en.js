@@ -87,6 +87,23 @@ export default {
       },
     },
   },
+  joinSuccess: {
+    eyebrow: "Path started",
+    title: "Your path has started",
+    body: "You joined {challengeName}. Your mission is simple: come back each day and secure one Strike.",
+    existingBody: "You are already on this path. Continue from today’s mission.",
+    nextLabel: "Next step",
+    nextMission: "Complete today’s first mission",
+    nextDescription: "The dashboard will keep the daily action simple and guide you into your first check-in.",
+    primary: {
+      onboarding: "Start Today’s Mission",
+      challenges: "Go to Today’s Mission",
+    },
+    secondary: {
+      onboarding: "View Path Details",
+      challenges: "View Challenge Details",
+    },
+  },
   onboarding: {
     loadingTitle: "Loading paths...",
     loadingText: "Finding a suitable first challenge.",
