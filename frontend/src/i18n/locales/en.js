@@ -68,6 +68,24 @@ export default {
       "One Strike closer to your identity.",
       "Consistency is becoming visible.",
     ],
+    unlocks: {
+      intro: "Newly available",
+      activity: {
+        title: "New Section Unlocked: Activity Timeline",
+        description: "Your recent check-ins and momentum events now have enough history to tell a useful story.",
+        cta: "View activity",
+      },
+      achievements: {
+        title: "New Section Unlocked: Achievements",
+        description: "Milestones can now reflect real progress instead of empty badges.",
+        cta: "View achievements",
+      },
+      publicProfile: {
+        title: "New Section Unlocked: Public Profile",
+        description: "Your progress signal is ready to shape into a shareable identity.",
+        cta: "Review profile",
+      },
+    },
   },
   onboarding: {
     loadingTitle: "Loading paths...",
@@ -122,6 +140,22 @@ export default {
       start: "Start suggested path",
       browse: "Choose manually",
       skip: "Skip for later",
+    },
+  },
+  guidedFeatures: {
+    unlockAfter: "Unlocks after {count} check-ins",
+    nextTitle: "{feature} is warming up",
+    labels: {
+      activity: "Activity",
+      achievements: "Achievements",
+      leaderboard: "Leaderboard",
+      publicProfile: "Public profile",
+    },
+    leaderboard: {
+      kicker: "Social momentum",
+      title: "Leaderboard is now meaningful.",
+      text: "You have enough progress for rankings to reflect consistency instead of noise.",
+      cta: "View leaderboard",
     },
   },
   auth: {

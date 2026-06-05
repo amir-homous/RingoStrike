@@ -347,6 +347,7 @@ import BaseCard from "@/components/ui/BaseCard.vue";
 import BaseButton from "@/components/ui/BaseButton.vue";
 import UiState from "@/components/ui/UiState.vue";
 import RewardMoment from "@/components/feedback/RewardMoment.vue";
+import { getNewlyUnlockedGuidedFeatures } from "@/lib/guidedExperience";
 
 const route = useRoute();
 const { locale, t } = useI18n();
@@ -524,7 +525,7 @@ function displayStatus(value) {
   return t(`common.status.${key}`, raw);
 }
 
-function buildRewardMomentPayload(rewards, oldStats) {
+function buildRewardMomentPayload(rewards, oldStats, newStats) {
   const xpTotal = Number(rewards?.xp_total);
   const oldTotal = Number(oldStats?.total_points ?? oldStats?.xp);
   const xpEarned = Number.isFinite(xpTotal) && Number.isFinite(oldTotal)
@@ -538,6 +539,13 @@ function buildRewardMomentPayload(rewards, oldStats) {
     xpEarned,
     xpTotal: Number.isFinite(xpTotal) ? xpTotal : null,
     achievements: unlocked,
+    unlockedFeatures: getNewlyUnlockedGuidedFeatures({
+      oldStats,
+      newStats,
+    }).map((featureKey) => ({
+      key: featureKey,
+      to: featureKey === "publicProfile" ? "/profile" : "/dashboard",
+    })),
     streak: enrollment.value?.current_streak ?? null,
   };
 }
@@ -577,9 +585,11 @@ async function checkin() {
     const oldStats = statsResp?.data?.stats || null;
 
     const { data } = await api.post(`/me/challenges/${id}/checkin`);
+    const newStatsResp = await api.get("/me/stats").catch(() => null);
+    const newStats = newStatsResp?.data?.stats || null;
     await load();
 
-    rewardMoment.value = buildRewardMomentPayload(data?.rewards, oldStats);
+    rewardMoment.value = buildRewardMomentPayload(data?.rewards, oldStats, newStats);
   } catch (e) {
     error.value = e?.response?.data?.error || e?.message || String(e);
   } finally {

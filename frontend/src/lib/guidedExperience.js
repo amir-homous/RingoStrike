@@ -18,6 +18,26 @@ export const IDENTITY_PATHS = [
   "consistency",
 ];
 
+export const GUIDED_FEATURE_THRESHOLDS = {
+  activity: 3,
+  achievements: 5,
+  leaderboard: 7,
+  publicProfile: 7,
+};
+
+export const GUIDED_FEATURE_KEYS = Object.freeze([
+  "activity",
+  "achievements",
+  "leaderboard",
+  "publicProfile",
+]);
+
+export const REWARD_MOMENT_UNLOCK_KEYS = Object.freeze([
+  "activity",
+  "achievements",
+  "publicProfile",
+]);
+
 function readStorage(key) {
   if (typeof window === "undefined") return null;
 
@@ -83,4 +103,73 @@ export function findSuggestedChallenge(challenges, path) {
       .trim()
       .toLowerCase() === suggestedName;
   }) || null;
+}
+
+export function getSuggestedPathChallenge(path, challenges) {
+  return findSuggestedChallenge(challenges, path);
+}
+
+function toCount(value) {
+  const number = Number(value);
+  return Number.isFinite(number) ? Math.max(0, Math.floor(number)) : 0;
+}
+
+export function getCheckinCount(stats, dashboardData = {}) {
+  const statsCount = toCount(stats?.total_checkins ?? stats?.totalCheckins);
+  if (statsCount > 0) return statsCount;
+
+  const challengeCounts = (dashboardData?.challenges || []).map((challenge) =>
+    toCount(challenge?.total_checkins ?? challenge?.totalCheckins),
+  );
+
+  return Math.max(0, ...challengeCounts);
+}
+
+export function isGuidedFeatureUnlocked(featureKey, context = {}) {
+  const threshold = GUIDED_FEATURE_THRESHOLDS[featureKey];
+  if (threshold == null) return true;
+
+  const checkinCount = context.checkinCount ?? getCheckinCount(
+    context.stats,
+    context.dashboardData,
+  );
+
+  return toCount(checkinCount) >= threshold;
+}
+
+export function getGuidedFeatureState({ stats, dashboardData = {} } = {}) {
+  const checkinCount = getCheckinCount(stats, dashboardData);
+  const features = GUIDED_FEATURE_KEYS.reduce((result, featureKey) => {
+    const threshold = GUIDED_FEATURE_THRESHOLDS[featureKey];
+    result[featureKey] = {
+      key: featureKey,
+      threshold,
+      unlocked: checkinCount >= threshold,
+      remaining: Math.max(0, threshold - checkinCount),
+    };
+    return result;
+  }, {});
+
+  const nextLocked = GUIDED_FEATURE_KEYS
+    .map((key) => features[key])
+    .find((feature) => !feature.unlocked) || null;
+
+  return {
+    checkinCount,
+    hasProgress: checkinCount > 0,
+    features,
+    nextLocked,
+  };
+}
+
+export function getNewlyUnlockedGuidedFeatures({ oldStats, newStats } = {}) {
+  const oldCount = getCheckinCount(oldStats);
+  const newCount = getCheckinCount(newStats);
+
+  if (newCount <= oldCount) return [];
+
+  return REWARD_MOMENT_UNLOCK_KEYS.filter((featureKey) => {
+    const threshold = GUIDED_FEATURE_THRESHOLDS[featureKey];
+    return oldCount < threshold && newCount >= threshold;
+  });
 }

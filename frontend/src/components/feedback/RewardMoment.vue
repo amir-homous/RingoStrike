@@ -59,6 +59,37 @@
             </ul>
           </div>
 
+          <!-- Progressive unlock hints: Activity, Achievements, and Public Profile unlock inside this modal. -->
+          <div v-if="unlockedFeatures.length" class="featureUnlocks">
+            <p class="unlockIntro">{{ t("rewardMoment.unlocks.intro") }}</p>
+
+            <article
+              v-for="feature in unlockedFeatures"
+              :key="feature.key"
+              class="unlockCard"
+            >
+              <div>
+                <h3>{{ t(`rewardMoment.unlocks.${feature.key}.title`) }}</h3>
+                <p>{{ t(`rewardMoment.unlocks.${feature.key}.description`) }}</p>
+              </div>
+
+              <RouterLink
+                v-if="feature.to"
+                v-slot="{ navigate }"
+                :to="feature.to"
+                custom
+              >
+                <BaseButton
+                  class="unlockCta"
+                  variant="secondary"
+                  @click="handleNavigate(navigate)"
+                >
+                  {{ t(`rewardMoment.unlocks.${feature.key}.cta`) }}
+                </BaseButton>
+              </RouterLink>
+            </article>
+          </div>
+
           <BaseButton
             class="continueButton"
             variant="primary"
@@ -89,6 +120,12 @@ const { t } = useI18n();
 
 const achievements = computed(() => {
   return Array.isArray(props.reward?.achievements) ? props.reward.achievements : [];
+});
+
+const unlockedFeatures = computed(() => {
+  return Array.isArray(props.reward?.unlockedFeatures)
+    ? props.reward.unlockedFeatures.filter((feature) => feature?.key)
+    : [];
 });
 
 const xpEarned = computed(() => {
@@ -124,6 +161,11 @@ const motivationLine = computed(() => {
 
 function close() {
   emit("close");
+}
+
+function handleNavigate(navigate) {
+  close();
+  navigate();
 }
 
 function onKeydown(event) {
@@ -180,6 +222,7 @@ h2,
 .message,
 .rewardStats,
 .achievements,
+.featureUnlocks,
 .continueButton {
   position: relative;
   z-index: 1;
@@ -310,6 +353,48 @@ h2 {
   color: rgba(255, 255, 255, 0.56);
 }
 
+.featureUnlocks {
+  display: grid;
+  gap: 10px;
+  margin-top: var(--s-20);
+  padding-top: var(--s-16);
+  border-top: 1px solid rgba(255, 255, 255, 0.10);
+}
+
+.unlockIntro {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.74);
+  font-weight: 760;
+}
+
+.unlockCard {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-12);
+  padding: 12px;
+  border-radius: 17px;
+  border: 1px solid rgba(110, 229, 255, 0.14);
+  background: rgba(110, 229, 255, 0.055);
+}
+
+.unlockCard h3 {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 0.96rem;
+  line-height: 1.35;
+}
+
+.unlockCard p {
+  margin: 5px 0 0;
+  color: rgba(255, 255, 255, 0.62);
+  line-height: 1.55;
+}
+
+.unlockCta {
+  flex: 0 0 auto;
+}
+
 .continueButton {
   width: 100%;
   margin-top: var(--s-20);
@@ -362,6 +447,11 @@ h2 {
 
   .rewardStats {
     grid-template-columns: 1fr;
+  }
+
+  .unlockCard {
+    align-items: stretch;
+    flex-direction: column;
   }
 }
 </style>

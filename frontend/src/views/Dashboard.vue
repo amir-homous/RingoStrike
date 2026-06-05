@@ -3,71 +3,21 @@
     <AppHeader />
 
     <div class="dashboardStack">
-      <UiState
-        :loading="loading"
-        :error="!!error"
-        :empty="false"
-        :loading-title="t('dashboard.loadingTitle')"
-        :loading-text="t('dashboard.loadingText')"
-        :error-title="t('dashboard.errorTitle')"
-        :error-text="error || t('common.pleaseTryAgain')"
-        @retry="loadDashboard"
-      />
+      <UiState :loading="loading" :error="!!error" :empty="false" :loading-title="t('dashboard.loadingTitle')"
+        :loading-text="t('dashboard.loadingText')" :error-title="t('dashboard.errorTitle')"
+        :error-text="error || t('common.pleaseTryAgain')" @retry="loadDashboard" />
 
       <template v-if="!loading && !error">
-        <TodayMission
-          :challenges="challenges"
-          :stats="stats"
-          :loading="checkingId === missionEnrollmentId"
-          @checkin="checkin"
-        />
+        <!-- 1. Primary guided action: always first -->
+        <TodayMission :challenges="challenges" :stats="stats" :loading="checkingId === missionEnrollmentId"
+          @checkin="checkin" />
 
-        <section class="dashboardHead supportHead">
-          <div class="headCopy">
-            <div class="eyebrow">
-              <span class="pulseDot"></span>
-              <span>{{ t("dashboard.eyebrow") }}</span>
-            </div>
+        <!-- 2. First progress layer: appears after the user has meaningful progress -->
+        <HeroProgressCard v-if="stats && guidedState.hasProgress" :user-name="user?.name" :stats="stats"
+          :animate-pulse="xpPulse" />
 
-            <h1 class="pageTitle">
-              {{ user ? t("dashboard.welcomeName", { name: firstName }) : t("dashboard.welcome") }}
-            </h1>
-
-            <p class="pageSubtitle">
-              {{ t("dashboard.subtitle") }}
-            </p>
-
-            <div class="headMeta">
-              <span v-if="date" class="metaPill">{{ date }}</span>
-              <span v-if="stats" class="metaPill">{{ t("common.level", { level: stats.level || 1 }) }}</span>
-              <span v-if="stats" class="metaPill">{{ t("common.xp", { count: stats.total_points || 0 }) }}</span>
-            </div>
-          </div>
-
-          <div class="headActions">
-            <RouterLink class="primaryLink" to="/challenges">
-              <span>{{ t("dashboard.browse") }}</span>
-              <span aria-hidden="true">→</span>
-            </RouterLink>
-
-            <BaseButton
-              variant="secondary"
-              :loading="loggingOut"
-              @click="doLogout"
-            >
-              {{ t("dashboard.logout") }}
-            </BaseButton>
-          </div>
-        </section>
-
-        <HeroProgressCard
-          v-if="stats"
-          :user-name="user?.name"
-          :stats="stats"
-          :animate-pulse="xpPulse"
-        />
-
-        <div class="progressGrid" v-if="stats">
+        <!-- 3. Progress details: XP, stats, next goal, recent progress -->
+        <div v-if="stats && guidedState.hasProgress" class="progressGrid">
           <StatsGrid :stats="stats" />
 
           <div class="sideCol">
@@ -76,10 +26,8 @@
           </div>
         </div>
 
-        <BaseCard
-          v-if="challenges.length"
-          class="challengePanel"
-        >
+        <!-- 4. Active paths: secondary daily management surface -->
+        <BaseCard v-if="challenges.length" class="challengePanel">
           <div class="panelHead">
             <div>
               <p class="sectionKicker">{{ t("dashboard.activePaths") }}</p>
@@ -102,46 +50,100 @@
           </div>
 
           <div class="list">
-            <ChallengeCard
-              v-for="c in visibleChallenges"
-              :key="c.enrollment_id"
-              :challenge="c"
-              :loading="checkingId === c.enrollment_id"
-              compact
-              @checkin="checkin"
-            />
+            <ChallengeCard v-for="c in visibleChallenges" :key="c.enrollment_id" :challenge="c"
+              :loading="checkingId === c.enrollment_id" compact @checkin="checkin" />
 
-            <button
-              v-if="hasHiddenChallenges"
-              type="button"
-              class="showMoreButton"
-              @click="showAllChallenges = !showAllChallenges"
-            >
+            <button v-if="hasHiddenChallenges" type="button" class="showMoreButton"
+              @click="showAllChallenges = !showAllChallenges">
               <span>
-                {{ showAllChallenges ? t("common.showFewer") : t("common.showMore", { count: orderedChallenges.length - challengeLimit }) }}
+                {{ showAllChallenges ? t("common.showFewer") : t("common.showMore", {
+                  count: orderedChallenges.length -
+                challengeLimit }) }}
               </span>
               <span aria-hidden="true">{{ showAllChallenges ? "↑" : "↓" }}</span>
             </button>
           </div>
-
         </BaseCard>
 
-        <ActivityTimeline
-          :events="activityEvents"
-          :loading="loading"
-        />
+        <!-- 5. Next unlock hint: helps the user understand what comes next -->
+        <BaseCard v-if="guidedState.hasProgress && nextLockedFeature" class="guidedLockCard">
+          <span class="lockDot" aria-hidden="true"></span>
 
-        <AchievementPreview :achievements="achievements" />
+          <div>
+            <strong>{{ t("guidedFeatures.nextTitle", { feature: lockedFeatureLabel }) }}</strong>
+            <p>{{ t("guidedFeatures.unlockAfter", { count: nextLockedFeature.threshold }) }}</p>
+          </div>
+        </BaseCard>
+
+        <!-- 6. Activity: unlocked after early progress -->
+        <ActivityTimeline v-if="guidedState.features.activity.unlocked" :events="activityEvents" :loading="loading" />
+
+        <!-- 7. Achievements: after activity has enough meaning -->
+        <AchievementPreview v-if="guidedState.features.achievements.unlocked" :achievements="achievements" />
+
+        <!-- 8. Leaderboard: lower priority because it is enrollment-scoped for now -->
+        <BaseCard v-if="showLeaderboardPreview" class="guidedFeatureCard">
+          <div>
+            <p class="sectionKicker">{{ t("guidedFeatures.leaderboard.kicker") }}</p>
+            <h2 class="panelTitle">{{ t("guidedFeatures.leaderboard.title") }}</h2>
+            <p class="panelText">
+              {{ t("guidedFeatures.leaderboard.text") }}
+            </p>
+          </div>
+
+          <RouterLink class="ghostLink" :to="leaderboardTarget">
+            {{ t("guidedFeatures.leaderboard.cta") }}
+          </RouterLink>
+        </BaseCard>
+
+        <!-- 9. Support / account context: useful, but not the main daily action -->
+        <section class="dashboardHead supportHead">
+          <div class="headCopy">
+            <div class="eyebrow">
+              <span class="pulseDot"></span>
+              <span>{{ t("dashboard.eyebrow") }}</span>
+            </div>
+
+            <h1 class="pageTitle">
+              {{ user ? t("dashboard.welcomeName", { name: firstName }) : t("dashboard.welcome") }}
+            </h1>
+
+            <p class="pageSubtitle">
+              {{ t("dashboard.subtitle") }}
+            </p>
+
+            <div class="headMeta">
+              <span v-if="date" class="metaPill">
+                {{ date }}
+              </span>
+
+              <span v-if="stats" class="metaPill">
+                {{ t("common.level", { level: stats.level || 1 }) }}
+              </span>
+
+              <span v-if="stats" class="metaPill">
+                {{ t("common.xp", { count: stats.total_points || 0 }) }}
+              </span>
+            </div>
+          </div>
+
+          <div class="headActions">
+            <RouterLink class="primaryLink" to="/challenges">
+              <span>{{ t("dashboard.browse") }}</span>
+              <span aria-hidden="true">→</span>
+            </RouterLink>
+
+            <BaseButton variant="secondary" :loading="loggingOut" @click="doLogout">
+              {{ t("dashboard.logout") }}
+            </BaseButton>
+          </div>
+        </section>
       </template>
     </div>
 
     <RewardFeedback :items="rewardToasts" />
 
-    <RewardMoment
-      :open="!!rewardMoment"
-      :reward="rewardMoment"
-      @close="rewardMoment = null"
-    />
+    <RewardMoment :open="!!rewardMoment" :reward="rewardMoment" @close="rewardMoment = null" />
   </AppContainer>
 </template>
 
@@ -175,6 +177,10 @@ import {
   CHECKIN_XP,
   submitCheckinFlow,
 } from "./challengeFlow";
+import {
+  getGuidedFeatureState,
+  getNewlyUnlockedGuidedFeatures,
+} from "@/lib/guidedExperience";
 
 const router = useRouter();
 const { t } = useI18n();
@@ -231,6 +237,34 @@ const missionEnrollmentId = computed(() => {
   return (ready || activeChallenges[0])?.enrollment_id || null;
 });
 
+const guidedState = computed(() => {
+  return getGuidedFeatureState({
+    stats: stats.value,
+    dashboardData: { challenges: challenges.value },
+  });
+});
+
+const leaderboardTarget = computed(() => {
+  const enrollmentId = missionEnrollmentId.value;
+  return enrollmentId ? `/enrollment/${enrollmentId}/leaderboard` : "";
+});
+
+const showLeaderboardPreview = computed(() => {
+  return Boolean(
+    leaderboardTarget.value &&
+    guidedState.value.features.leaderboard.unlocked,
+  );
+});
+
+const nextLockedFeature = computed(() => {
+  return guidedState.value.nextLocked;
+});
+
+const lockedFeatureLabel = computed(() => {
+  const key = nextLockedFeature.value?.key;
+  return key ? t(`guidedFeatures.labels.${key}`) : "";
+});
+
 function pushToast(text, type = "success") {
   const id = `${Date.now()}-${Math.random()}`;
   rewardToasts.value.push({ id, text, type });
@@ -254,6 +288,17 @@ function buildRewardMomentPayload(rewards, oldStats, challenge) {
     xpEarned,
     xpTotal: Number.isFinite(xpTotal) ? xpTotal : null,
     achievements: unlocked,
+    unlockedFeatures: getNewlyUnlockedGuidedFeatures({
+      oldStats,
+      newStats: stats.value,
+    }).map((featureKey) => ({
+      key: featureKey,
+      to: featureKey === "publicProfile" && user.value?.username
+        ? `/u/${user.value.username}`
+        : featureKey === "publicProfile"
+          ? "/profile"
+          : "/dashboard",
+    })),
     streak: challenge?.current_streak ?? stats.value?.current_streak ?? null,
   };
 }
@@ -531,6 +576,48 @@ onMounted(loadDashboard);
     rgba(255, 255, 255, 0.025);
 }
 
+.guidedFeatureCard,
+.guidedLockCard {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--s-16);
+  align-items: center;
+}
+
+.guidedFeatureCard {
+  background:
+    radial-gradient(circle at 0% 0%, rgba(110, 229, 255, 0.075), transparent 34%),
+    rgba(255, 255, 255, 0.026);
+}
+
+.guidedLockCard {
+  justify-content: flex-start;
+  padding: 16px;
+  border-radius: 22px;
+  color: rgba(255, 255, 255, 0.70);
+  background: rgba(255, 255, 255, 0.026);
+  border: 1px solid rgba(255, 255, 255, 0.075);
+}
+
+.guidedLockCard strong {
+  display: block;
+  color: rgba(255, 255, 255, 0.84);
+}
+
+.guidedLockCard p {
+  margin: 4px 0 0;
+  color: rgba(255, 255, 255, 0.56);
+}
+
+.lockDot {
+  width: 12px;
+  height: 12px;
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: rgba(110, 229, 255, 0.70);
+  box-shadow: 0 0 20px rgba(110, 229, 255, 0.30);
+}
+
 .panelHead {
   display: flex;
   justify-content: space-between;
@@ -594,6 +681,7 @@ onMounted(loadDashboard);
 }
 
 @media (max-width: 980px) {
+
   .dashboardHead,
   .progressGrid {
     grid-template-columns: 1fr;
@@ -604,6 +692,11 @@ onMounted(loadDashboard);
     justify-content: flex-start;
   }
 
+  .guidedFeatureCard,
+  .guidedLockCard {
+    align-items: flex-start;
+    flex-direction: column;
+  }
 }
 
 @media (max-width: 620px) {
