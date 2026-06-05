@@ -10,6 +10,14 @@ export const PATH_TO_CHALLENGE_NAME = {
   consistency: "Daily Strike",
 };
 
+const CHALLENGE_NAME_TO_PATH = Object.entries(PATH_TO_CHALLENGE_NAME).reduce(
+  (result, [path, name]) => {
+    result[name.toLowerCase()] = path;
+    return result;
+  },
+  {},
+);
+
 export const IDENTITY_PATHS = [
   "focus",
   "body",
@@ -107,6 +115,14 @@ export function findSuggestedChallenge(challenges, path) {
 
 export function getSuggestedPathChallenge(path, challenges) {
   return findSuggestedChallenge(challenges, path);
+}
+
+export function getChallengePathKey(challenge) {
+  const name = String(challenge?.name || challenge?.challenge_name || challenge?.enrollment_name || "")
+    .trim()
+    .toLowerCase();
+
+  return CHALLENGE_NAME_TO_PATH[name] || "";
 }
 
 function toCount(value) {

@@ -27,6 +27,14 @@
               <span class="heroPill">{{ t("challenges.pills.xp") }}</span>
               <span class="heroPill">{{ t("challenges.pills.social") }}</span>
             </div>
+
+            <div class="journeySteps" :aria-label="t('challenges.journeyLabel')">
+              <span>{{ t("challenges.journey.choose") }}</span>
+              <span aria-hidden="true">→</span>
+              <span>{{ t("challenges.journey.mission") }}</span>
+              <span aria-hidden="true">→</span>
+              <span>{{ t("challenges.journey.reward") }}</span>
+            </div>
           </div>
 
           <div class="heroStats">
@@ -45,6 +53,65 @@
               <span class="statLabel">{{ t("challenges.inviteStat") }}</span>
             </div>
           </div>
+        </div>
+      </section>
+
+      <section class="pathGuide" aria-labelledby="path-guide-title">
+        <div>
+          <p class="eyebrow compact">{{ t("challenges.pathGuide.eyebrow") }}</p>
+          <h2 id="path-guide-title" class="sectionTitle">{{ t("challenges.pathGuide.title") }}</h2>
+          <p class="sectionText">{{ t("challenges.pathGuide.text") }}</p>
+        </div>
+
+        <div class="pathGrid">
+          <button
+            v-for="path in pathOptions"
+            :key="path"
+            type="button"
+            class="pathOption"
+            :class="{ active: selectedPath === path }"
+            @click="selectPath(path)"
+          >
+            <span class="pathDot" aria-hidden="true"></span>
+            <span>{{ t(`challengeCard.paths.${path}`) }}</span>
+          </button>
+        </div>
+      </section>
+
+      <section
+        v-if="selectedPath"
+        class="selectedPathPanel"
+        :class="{ missing: !selectedPathChallenge }"
+      >
+        <div class="selectedPathCopy">
+          <p class="selectedLabel">{{ t(`challengeCard.paths.${selectedPath}`) }}</p>
+          <h2>{{ t(`challenges.selectedPath.${selectedPath}.title`) }}</h2>
+          <p class="selectedText">{{ t(`challenges.selectedPath.${selectedPath}.description`) }}</p>
+
+          <div class="missionPreview">
+            <span>{{ t("challenges.selectedPath.missionLabel") }}</span>
+            <strong>{{ t(`challenges.selectedPath.${selectedPath}.mission`) }}</strong>
+          </div>
+        </div>
+
+        <div class="selectedPathAction">
+          <span class="recommendedLabel">
+            {{ t("challenges.selectedPath.recommended", { challenge: selectedChallengeName }) }}
+          </span>
+
+          <BaseButton
+            class="pathStartButton"
+            variant="primary"
+            :loading="selectedPathChallenge && joiningId === selectedPathChallenge.challenge_id"
+            :disabled="!selectedPathChallenge"
+            @click="startSelectedPath"
+          >
+            {{ selectedPathCta }}
+          </BaseButton>
+
+          <p class="selectedHint">
+            {{ selectedPathChallenge ? t("challenges.selectedPath.helper") : t("challenges.selectedPath.missing") }}
+          </p>
         </div>
       </section>
 
@@ -170,6 +237,7 @@ import UiState from "@/components/ui/UiState.vue";
 import ChallengeCard from "@/components/challenges/ChallengeCard.vue";
 import JoinSuccessMoment from "@/components/feedback/JoinSuccessMoment.vue";
 import ChallengeDiscoveryInvite from "@/components/guided/ChallengeDiscoveryInvite.vue";
+import { getSuggestedChallengeName } from "@/lib/guidedExperience";
 import {
   humanizeJoinError,
   isInviteOnlyChallenge,
@@ -192,8 +260,10 @@ const errors = ref({});
 const search = ref("");
 const filter = ref("available");
 const showAll = ref(false);
+const selectedPath = ref("");
 
 const itemLimit = 6;
+const pathOptions = ["focus", "body", "learning", "mind", "consistency"];
 
 const joinedCount = computed(() => {
   return items.value.filter((item) => item.is_joined).length;
@@ -201,6 +271,30 @@ const joinedCount = computed(() => {
 
 const inviteOnlyCount = computed(() => {
   return items.value.filter((item) => isInviteOnly(item) || item.needs_code).length;
+});
+
+const selectedPathChallenge = computed(() => {
+  if (!selectedPath.value) return null;
+  const suggestedName = getSuggestedChallengeName(selectedPath.value).toLowerCase();
+
+  return items.value.find((item) => {
+    const name = String(item.name || item.challenge_name || item.enrollment_name || "").trim().toLowerCase();
+    return name === suggestedName;
+  }) || null;
+});
+
+const selectedChallengeName = computed(() => {
+  return selectedPathChallenge.value?.name ||
+    selectedPathChallenge.value?.challenge_name ||
+    getSuggestedChallengeName(selectedPath.value);
+});
+
+const selectedPathCta = computed(() => {
+  if (!selectedPathChallenge.value) return t("challenges.selectedPath.unavailableCta");
+  if (isInviteOnly(selectedPathChallenge.value) || selectedPathChallenge.value.needs_code) {
+    return t("challenges.selectedPath.unlockCta");
+  }
+  return t(`challenges.selectedPath.${selectedPath.value}.cta`);
 });
 
 function isInviteOnly(challenge) {
@@ -242,7 +336,23 @@ const hasHiddenItems = computed(() => {
 
 function setFilter(value) {
   filter.value = value;
+  if (selectedPath.value) {
+    search.value = "";
+  }
+  selectedPath.value = "";
   showAll.value = false;
+}
+
+function selectPath(path) {
+  selectedPath.value = path;
+  filter.value = "available";
+  search.value = getSuggestedChallengeName(path);
+  showAll.value = true;
+}
+
+function startSelectedPath() {
+  if (!selectedPathChallenge.value) return;
+  join(selectedPathChallenge.value);
 }
 
 function humanizeError(msg) {
@@ -386,6 +496,21 @@ onMounted(load);
   font-weight: 750;
 }
 
+.journeySteps {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 9px;
+  margin-top: var(--s-16);
+  padding: 10px 12px;
+  border-radius: 999px;
+  color: rgba(255, 255, 255, 0.78);
+  background: rgba(255, 255, 255, 0.055);
+  border: 1px solid rgba(253, 230, 138, 0.16);
+  font-size: 0.82rem;
+  font-weight: 850;
+}
+
 .heroStats {
   display: grid;
   gap: var(--s-10);
@@ -432,6 +557,179 @@ onMounted(load);
 .discoveryPanel {
   display: grid;
   gap: var(--s-12);
+}
+
+.pathGuide {
+  display: grid;
+  grid-template-columns: minmax(0, 0.82fr) minmax(0, 1.18fr);
+  gap: var(--s-16);
+  align-items: center;
+  padding: 20px;
+  border-radius: 26px;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  background:
+    radial-gradient(circle at 0% 0%, rgba(253, 230, 138, 0.09), transparent 35%),
+    radial-gradient(circle at 100% 0%, rgba(110, 229, 255, 0.07), transparent 35%),
+    rgba(255, 255, 255, 0.026);
+}
+
+.pathGrid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: var(--s-10);
+}
+
+.pathOption {
+  display: grid;
+  gap: 8px;
+  min-height: 76px;
+  align-content: center;
+  padding: 12px;
+  border-radius: 18px;
+  text-align: start;
+  color: rgba(255, 255, 255, 0.84);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.085);
+  font-size: 0.84rem;
+  font-weight: 850;
+  cursor: pointer;
+  transition:
+    transform 150ms ease,
+    border-color 150ms ease,
+    background 150ms ease;
+}
+
+.pathOption:hover,
+.pathOption.active {
+  transform: translateY(-1px);
+  border-color: rgba(253, 230, 138, 0.24);
+  background:
+    radial-gradient(circle at 0% 0%, rgba(253, 230, 138, 0.11), transparent 36%),
+    rgba(255, 255, 255, 0.055);
+}
+
+.pathOption:focus-visible {
+  outline: none;
+  box-shadow: var(--focus);
+}
+
+.pathDot {
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  background: #fde68a;
+  box-shadow: 0 0 18px rgba(253, 230, 138, 0.40);
+}
+
+.selectedPathPanel {
+  position: relative;
+  overflow: hidden;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 0.42fr);
+  gap: var(--s-20);
+  align-items: center;
+  padding: 24px;
+  border-radius: 28px;
+  border: 1px solid rgba(253, 230, 138, 0.18);
+  background:
+    radial-gradient(circle at 0% 0%, rgba(253, 230, 138, 0.13), transparent 35%),
+    radial-gradient(circle at 100% 8%, rgba(110, 229, 255, 0.10), transparent 36%),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.066), rgba(255, 255, 255, 0.024));
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.24);
+}
+
+.selectedPathPanel.missing {
+  border-color: rgba(255, 255, 255, 0.11);
+  background:
+    radial-gradient(circle at 0% 0%, rgba(110, 229, 255, 0.08), transparent 35%),
+    rgba(255, 255, 255, 0.025);
+}
+
+.selectedPathCopy,
+.selectedPathAction {
+  position: relative;
+  z-index: 1;
+}
+
+.selectedLabel {
+  margin: 0 0 9px;
+  color: rgba(253, 230, 138, 0.92);
+  font-size: 0.76rem;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.selectedPathCopy h2 {
+  max-width: 760px;
+  margin: 0;
+  color: rgba(255, 255, 255, 0.97);
+  font-size: clamp(1.65rem, 4vw, 3rem);
+  line-height: 1.05;
+}
+
+.selectedText {
+  max-width: 760px;
+  margin: 12px 0 0;
+  color: rgba(255, 255, 255, 0.70);
+  line-height: 1.7;
+}
+
+.missionPreview {
+  display: grid;
+  gap: 6px;
+  max-width: 720px;
+  margin-top: var(--s-16);
+  padding: 14px;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.missionPreview span,
+.recommendedLabel {
+  color: rgba(255, 255, 255, 0.54);
+  font-size: 0.75rem;
+  font-weight: 850;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.missionPreview strong {
+  color: rgba(255, 255, 255, 0.92);
+  line-height: 1.55;
+}
+
+.selectedPathAction {
+  display: grid;
+  gap: var(--s-12);
+  padding: 16px;
+  border-radius: 22px;
+  background: rgba(0, 0, 0, 0.20);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+}
+
+:deep(.pathStartButton) {
+  min-height: 58px;
+  border-color: rgba(253, 230, 138, 0.44);
+  background:
+    linear-gradient(135deg, rgba(253, 230, 138, 0.25), rgba(99, 102, 241, 0.24)),
+    rgba(99, 102, 241, 0.22);
+  box-shadow: 0 16px 46px rgba(99, 102, 241, 0.22);
+  font-size: 1rem;
+  font-weight: 900;
+}
+
+:deep(.pathStartButton:hover) {
+  background:
+    linear-gradient(135deg, rgba(253, 230, 138, 0.31), rgba(99, 102, 241, 0.30)),
+    rgba(99, 102, 241, 0.28);
+}
+
+.selectedHint {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.60);
+  line-height: 1.55;
 }
 
 .toolbar {
@@ -626,8 +924,14 @@ onMounted(load);
 @media (max-width: 900px) {
 
   .heroContent,
-  .controls {
+  .controls,
+  .pathGuide,
+  .selectedPathPanel {
     grid-template-columns: 1fr;
+  }
+
+  .pathGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .heroStats {
@@ -655,6 +959,24 @@ onMounted(load);
 
   .heroTitle {
     font-size: 2.2rem;
+  }
+
+  .journeySteps {
+    width: 100%;
+    border-radius: 18px;
+  }
+
+  .pathGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .selectedPathPanel {
+    padding: 20px;
+    border-radius: 24px;
+  }
+
+  :deep(.pathStartButton) {
+    width: 100%;
   }
 
   .segmentedControl {
