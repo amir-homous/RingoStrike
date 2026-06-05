@@ -12,7 +12,12 @@ The current product is both private-progression focused and public-identity capa
 - JWT cookie auth with Bearer fallback.
 - Challenge discovery and joining.
 - Invite-only challenge join codes.
+- Lightweight first-run onboarding with identity path selection and suggested first challenge.
+- Guided join success moment after successful challenge joins, before users move into enrollment details.
 - Daily check-ins per enrollment.
+- Guided Today Mission dashboard surface and first-path empty state.
+- Premium check-in reward moment with existing XP, streak, achievement, and frontend-only unlock hints.
+- Frontend-only progressive disclosure for early dashboard sections based on existing check-in stats.
 - Enrollment history and challenge leaderboard.
 - XP, level, current streak, longest streak, and progress calculations.
 - Achievement definitions, unlock evaluation, and reward feedback.
@@ -94,6 +99,7 @@ The next product direction is to make the daily loop more guided. The dashboard 
 Register/Login
   -> Onboarding / Identity Path
   -> Suggested First Challenge
+  -> Path Started Moment
   -> Today's Mission
   -> Daily Check-in
   -> Reward Moment

@@ -112,6 +112,11 @@ The product has moved beyond raw MVP. The core progression identity system is im
 - Aligned auth callback token storage with the shared API client Bearer fallback, constrained callback redirects to internal paths, and cleared stored callback tokens on logout.
 - Added frontend-only Persian/English i18n with `vue-i18n`, persisted locale selection, automatic `lang`/`dir` updates, and a header language switcher.
 - Added Persian-only Vazirmatn typography through the active global CSS layer while preserving the existing English system font stack.
+- Added guided Today Mission dashboard focus and a reusable first-path empty state for users without active enrollments.
+- Added lightweight frontend-only onboarding with identity path selection and suggested first challenge mapping.
+- Added JoinSuccessMoment after successful challenge joins so onboarding and discovery lead users toward Today's Mission before dense enrollment details.
+- Added premium check-in RewardMoment and frontend-only unlock hints for Activity, Achievements, and Public Profile using existing check-in/stat data.
+- Added frontend-only progressive disclosure on the dashboard using existing check-in counts instead of new backend fields.
 
 
 ### Backend Test Coverage Added
@@ -206,11 +211,11 @@ Early tester feedback shows that the product is valuable but feels too complex. 
 
 Planned work:
 
-- Today Mission Card on dashboard.
-- Guided empty state for users without enrollments.
-- Simplified early navigation/progressive disclosure.
-- Premium reward moment after check-in.
-- First-run onboarding with identity path selection.
+- Continue validating the Today Mission Card and guided empty state with first-time users.
+- Refine simplified early navigation/progressive disclosure without blocking direct routes.
+- Expand the reward moment and join success moment only when existing backend responses provide enough data.
+- Improve first-run onboarding after the identity path flow is validated.
+- Consider reminder connection prompts after the first reward/check-in moment, not before.
 
 Non-goals:
 

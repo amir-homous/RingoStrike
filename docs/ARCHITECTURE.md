@@ -153,6 +153,7 @@ It also installs `vue-i18n` from `frontend/src/i18n/index.js`. The i18n layer:
 Router paths:
 
 - `/login`
+- `/onboarding`
 - `/auth/callback`
 - `/dashboard`
 - `/challenges`
@@ -163,6 +164,12 @@ Router paths:
 - `/docs`
 - `/` redirects to `/dashboard`
 - unknown paths redirect to `/dashboard`
+
+Guided progression additions are frontend-only:
+
+- `/onboarding` stores temporary completion/path state in `localStorage` and uses existing challenge list/join APIs.
+- `frontend/src/views/challengeFlow.js` centralizes join payload handling and returns join success data so callers can decide whether to show JoinSuccessMoment or navigate.
+- RewardMoment and JoinSuccessMoment are display-only feedback components. They do not calculate XP, streaks, achievements, or enrollment state.
 
 Router guard behavior:
 

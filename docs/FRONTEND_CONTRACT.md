@@ -248,6 +248,8 @@ Success:
 
 `mode` can be `created`, `reactivated`, or `existing`.
 
+Frontend join UX currently consumes this same response to show JoinSuccessMoment before routing users to the dashboard or enrollment detail. Do not add a separate onboarding/recommendation endpoint for the v1 guided start flow; onboarding and challenge discovery both reuse this join contract.
+
 ## Enrollment, Check-ins, History, Leaderboard
 
 ### `GET /me/challenges`

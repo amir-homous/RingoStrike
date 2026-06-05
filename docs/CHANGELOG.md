@@ -16,6 +16,17 @@ The project has moved beyond raw MVP. Core progression identity is implemented. 
 
 ## Latest Launch-Hardening Updates
 
+### Guided Progression Frontend Flow
+
+Added the first frontend-only guided progression surfaces:
+
+- Added a Today Mission dashboard focus and guided first-path empty state for users without active enrollments.
+- Added lightweight onboarding with identity path selection and suggested challenge mapping.
+- Added JoinSuccessMoment after successful challenge joins from onboarding or challenge discovery.
+- Added a premium RewardMoment after successful check-ins using existing backend reward data.
+- Added frontend-only progressive disclosure and unlock hints for Activity, Achievements, and Public Profile based on existing check-in stats.
+- Kept backend APIs, database schema, XP, streak, and achievement logic unchanged.
+
 ### VPS API Proxy Deployment Fix
 
 Documented the successful VPS deployment pattern:

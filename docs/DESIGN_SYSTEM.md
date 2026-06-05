@@ -104,7 +104,9 @@ Feature components:
 - achievements: cards, grids, previews, toasts
 - activity: timeline, timeline items, day grouping, empty state
 - challenges: challenge card
-- feedback: reward feedback
+- feedback: RewardMoment for check-ins and JoinSuccessMoment for softer challenge-start transitions
+- guided: reusable first-path empty state
+- onboarding: welcome, identity path selection, and suggested challenge steps
 - profile: hero card, stats grid, settings card/modal, avatar, consistency heatmap
 - progress: hero progress, next goal, recent feed, stats grid, XP bar
 
@@ -118,6 +120,7 @@ Current views:
 - `Leaderboard.vue`
 - `Profile.vue`
 - `PublicProfile.vue`
+- `Onboarding.vue`
 - `Login.vue`
 - `AuthCallback.vue`
 - `ApiDocsView.vue`
@@ -127,6 +130,8 @@ Current views:
 - Reuse UI primitives before creating new one-off controls.
 - Keep profile and dashboard hierarchy progression-first.
 - Prefer meaningful reward feedback after check-ins and achievement unlocks.
+- Use JoinSuccessMoment after starting a challenge when a softer transition prevents new users from being dropped directly into dense enrollment details.
+- Keep progressive disclosure subtle: reveal deeper sections after existing check-in stats make them meaningful, without blocking direct routes.
 - Make public profile views shareable but privacy-safe.
 - Avoid adding separate visual languages for each feature.
 - Keep empty states hopeful and action-oriented.
