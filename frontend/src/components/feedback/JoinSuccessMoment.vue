@@ -26,6 +26,14 @@
             {{ message }}
           </p>
 
+          <div
+            v-if="challengeDescription"
+            class="pathContext"
+          >
+            <span>{{ t("joinSuccess.pathLabel") }}</span>
+            <p>{{ challengeDescription }}</p>
+          </div>
+
           <div class="missionCard">
             <span>{{ t("joinSuccess.nextLabel") }}</span>
             <strong>{{ t("joinSuccess.nextMission") }}</strong>
@@ -76,6 +84,10 @@ const source = computed(() => props.join?.source || "challenges");
 
 const challengeName = computed(() => {
   return props.join?.challengeName || t("common.challenge");
+});
+
+const challengeDescription = computed(() => {
+  return String(props.join?.challengeDescription || "").trim();
 });
 
 const isExisting = computed(() => props.join?.mode === "existing");
@@ -178,6 +190,7 @@ onUnmounted(() => {
 .eyebrow,
 h2,
 .message,
+.pathContext,
 .missionCard,
 .actions {
   position: relative;
@@ -224,6 +237,28 @@ h2 {
   margin: 12px 0 0;
   color: rgba(255, 255, 255, 0.7);
   line-height: 1.75;
+}
+
+.pathContext {
+  display: grid;
+  gap: 6px;
+  margin-top: var(--s-16);
+  padding: 13px;
+  border-radius: 17px;
+  border: 1px solid rgba(110, 229, 255, 0.15);
+  background: rgba(110, 229, 255, 0.055);
+}
+
+.pathContext span {
+  color: rgba(110, 229, 255, 0.86);
+  font-size: 0.75rem;
+  font-weight: 850;
+}
+
+.pathContext p {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.66);
+  line-height: 1.6;
 }
 
 .missionCard {

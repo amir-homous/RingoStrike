@@ -51,6 +51,7 @@ export async function submitJoinFlow({
   const result = {
     challengeId: data?.challenge_id || challenge?.challenge_id || null,
     challengeName: challenge?.name || challenge?.challenge_name || challenge?.enrollment_name || "",
+    challengeDescription: challenge?.description || challenge?.challenge_description || "",
     enrollmentId,
     mode: data?.mode || (challenge?.is_joined ? "existing" : "joined"),
     navigated: false,

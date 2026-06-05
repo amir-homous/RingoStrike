@@ -137,6 +137,7 @@ async function startSuggestedPath() {
     joinSuccess.value = {
       challengeId: challenge.challenge_id,
       challengeName: challenge.name || challenge.challenge_name || challenge.enrollment_name || "",
+      challengeDescription: challenge.description || challenge.challenge_description || "",
       enrollmentId: challenge.enrollment_id,
       mode: "existing",
       source: "onboarding",

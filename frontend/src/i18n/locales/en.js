@@ -108,6 +108,7 @@ export default {
     title: "Your path has started",
     body: "You joined {challengeName}. Today, your only mission is to complete one small action and mark it done.",
     existingBody: "You are already on this path. Continue from today’s mission.",
+    pathLabel: "What this path is about",
     nextLabel: "Next step",
     nextMission: "Complete one small mission today",
     nextDescription: "The dashboard will keep the first action simple: do the mission, mark it done, and receive your reward.",
