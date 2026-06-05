@@ -24,7 +24,7 @@
             <div class="heroMain">
               <div class="eyebrow">
                 <span class="pulseDot"></span>
-                {{ t("enrollment.eyebrow") }}
+                {{ t("enrollment.guidedEyebrow") }}
               </div>
 
               <h1 class="heroTitle">
@@ -34,6 +34,22 @@
               <p v-if="challenge?.description" class="heroDesc">
                 {{ challenge.description }}
               </p>
+
+              <p class="missionInstruction">
+                {{ enrollment.today_checked ? t("enrollment.missionCompleteInstruction") : t("enrollment.missionReadyInstruction") }}
+              </p>
+
+              <div class="missionStepper" :aria-label="t('enrollment.stepperLabel')">
+                <div
+                  v-for="stepItem in missionSteps"
+                  :key="stepItem.key"
+                  class="stepItem"
+                  :class="stepItem.state"
+                >
+                  <span class="stepMarker" aria-hidden="true"></span>
+                  <span>{{ stepItem.label }}</span>
+                </div>
+              </div>
 
               <div class="heroMeta">
                 <span class="metaPill">
@@ -70,6 +86,7 @@
               </div>
 
               <BaseButton
+                class="missionCheckin"
                 variant="primary"
                 :loading="checking"
                 :disabled="enrollment.today_checked"
@@ -108,219 +125,230 @@
           </div>
         </section>
 
-        <section class="insightGrid">
-          <BaseCard class="metricCard" :padded="true">
-            <div class="metricIcon">⏳</div>
-            <div class="metricLabel">{{ t("enrollment.remaining") }}</div>
-            <div class="metricValue">{{ remainingDaysText }}</div>
-            <div class="metricHint">{{ timingHint }}</div>
-          </BaseCard>
-
-          <BaseCard class="metricCard resetMetric" :class="resetUrgencyClass" :padded="true">
-            <div class="metricIcon">🌗</div>
-            <div class="metricLabel">{{ t("enrollment.dailyReset") }}</div>
-            <div class="metricValue resetValue">{{ resetCountdownText }}</div>
-            <div class="metricHint">{{ resetHint }}</div>
-          </BaseCard>
-
-          <BaseCard class="metricCard" :padded="true">
-            <div class="metricIcon">✅</div>
-            <div class="metricLabel">{{ t("enrollment.totalCheckins") }}</div>
-            <div class="metricValue">{{ totalCheckins }}</div>
-            <div class="metricHint">{{ t("enrollment.completedStrikes") }}</div>
-          </BaseCard>
-
-          <BaseCard class="metricCard" :padded="true">
-            <div class="metricIcon">🔥</div>
-            <div class="metricLabel">{{ t("enrollment.currentStreak") }}</div>
-            <div class="metricValue">{{ currentStreak }}</div>
-            <div class="metricHint">{{ t("enrollment.momentumChain") }}</div>
-          </BaseCard>
-        </section>
-
-        <BaseCard class="resetCard" :class="resetUrgencyClass" :padded="true">
-          <div class="sectionHead">
+        <section class="advancedDetails" :class="{ guided: isEarlyEnrollment }">
+          <div class="advancedIntro">
             <div>
-              <div class="eyebrow">{{ t("enrollment.resetWindowEyebrow") }}</div>
-              <h2 class="h2">{{ t("enrollment.resetRhythm") }}</h2>
-              <div class="caption">
-                {{ t("enrollment.resetCaption") }}
+              <div class="eyebrow compact">{{ t("enrollment.advancedEyebrow") }}</div>
+              <h2 class="h2">{{ t("enrollment.advancedTitle") }}</h2>
+            </div>
+
+            <p>{{ t("enrollment.advancedText") }}</p>
+          </div>
+
+          <section class="insightGrid">
+            <BaseCard class="metricCard" :padded="true">
+              <div class="metricIcon">⏳</div>
+              <div class="metricLabel">{{ t("enrollment.remaining") }}</div>
+              <div class="metricValue">{{ remainingDaysText }}</div>
+              <div class="metricHint">{{ timingHint }}</div>
+            </BaseCard>
+
+            <BaseCard class="metricCard resetMetric" :class="resetUrgencyClass" :padded="true">
+              <div class="metricIcon">🌗</div>
+              <div class="metricLabel">{{ t("enrollment.dailyReset") }}</div>
+              <div class="metricValue resetValue">{{ resetCountdownText }}</div>
+              <div class="metricHint">{{ resetHint }}</div>
+            </BaseCard>
+
+            <BaseCard class="metricCard" :padded="true">
+              <div class="metricIcon">✅</div>
+              <div class="metricLabel">{{ t("enrollment.totalCheckins") }}</div>
+              <div class="metricValue">{{ totalCheckins }}</div>
+              <div class="metricHint">{{ t("enrollment.completedStrikes") }}</div>
+            </BaseCard>
+
+            <BaseCard class="metricCard" :padded="true">
+              <div class="metricIcon">🔥</div>
+              <div class="metricLabel">{{ t("enrollment.currentStreak") }}</div>
+              <div class="metricValue">{{ currentStreak }}</div>
+              <div class="metricHint">{{ t("enrollment.momentumChain") }}</div>
+            </BaseCard>
+          </section>
+
+          <BaseCard class="resetCard" :class="resetUrgencyClass" :padded="true">
+            <div class="sectionHead">
+              <div>
+                <div class="eyebrow">{{ t("enrollment.resetWindowEyebrow") }}</div>
+                <h2 class="h2">{{ t("enrollment.resetRhythm") }}</h2>
+                <div class="caption">
+                  {{ t("enrollment.resetCaption") }}
+                </div>
+              </div>
+
+              <div class="resetBadge">
+                {{ resetBadgeText }}
               </div>
             </div>
 
-            <div class="resetBadge">
-              {{ resetBadgeText }}
-            </div>
-          </div>
+            <div class="resetGrid">
+              <div class="resetInfoBox">
+                <span class="resetIcon">⏱</span>
+                <div>
+                  <div class="caption">{{ t("enrollment.timeUntilReset") }}</div>
+                  <strong>{{ resetCountdownText }}</strong>
+                </div>
+              </div>
 
-          <div class="resetGrid">
-            <div class="resetInfoBox">
-              <span class="resetIcon">⏱</span>
+              <div class="resetInfoBox">
+                <span class="resetIcon">📍</span>
+                <div>
+                  <div class="caption">{{ t("enrollment.nextReset") }}</div>
+                  <strong>{{ formattedNextReset }}</strong>
+                </div>
+              </div>
+
+              <div class="resetInfoBox">
+                <span class="resetIcon">🌍</span>
+                <div>
+                  <div class="caption">{{ t("enrollment.timezone") }}</div>
+                  <strong>{{ enrollment.reset_timezone || "UTC" }}</strong>
+                </div>
+              </div>
+            </div>
+
+            <div class="futureNote">
+              <span class="futureIcon">🔔</span>
+              <span>
+                {{ t("enrollment.futureNote") }}
+              </span>
+            </div>
+          </BaseCard>
+
+          <BaseCard class="timelineCard" :padded="true">
+            <div class="sectionHead">
               <div>
-                <div class="caption">{{ t("enrollment.timeUntilReset") }}</div>
+                <div class="eyebrow">{{ t("enrollment.timeline") }}</div>
+                <h2 class="h2">{{ t("enrollment.timeMomentum") }}</h2>
+              </div>
+
+              <div class="timelineBadge">
+                {{ progressText }}
+              </div>
+            </div>
+
+            <div class="timelineBar">
+              <div class="timelineFill" :style="{ width: timelinePercent + '%' }"></div>
+              <div class="timelinePulse" :style="{ left: timelinePercent + '%' }"></div>
+            </div>
+
+            <div class="timelineMeta">
+              <div>
+                <div class="caption">{{ t("enrollment.start") }}</div>
+                <strong>{{ enrollment.start_date ? formatDate(enrollment.start_date) : "—" }}</strong>
+              </div>
+
+              <div>
+                <div class="caption">{{ t("enrollment.end") }}</div>
+                <strong>{{ enrollment.end_date ? formatDate(enrollment.end_date) : "—" }}</strong>
+              </div>
+
+              <div>
+                <div class="caption">{{ t("enrollment.checked") }}</div>
+                <strong>{{ t("enrollment.checkedDays", { checked: checkedDays, total: totalDays }) }}</strong>
+              </div>
+            </div>
+          </BaseCard>
+
+          <BaseCard class="progressCard" :padded="true">
+            <div class="sectionHead">
+              <div>
+                <div class="eyebrow">{{ t("enrollment.personalProgress") }}</div>
+                <h2 class="h2">{{ t("enrollment.consistencyScore") }}</h2>
+              </div>
+
+              <div class="scoreBadge">
+                {{ checkinPercent }}%
+              </div>
+            </div>
+
+            <div class="progressMeta">
+              <span>{{ t("enrollment.checkedDaysLabel", { count: checkedDays }) }}</span>
+              <span class="caption">{{ t("enrollment.totalDaysLabel", { count: totalDays }) }}</span>
+            </div>
+
+            <div class="bar">
+              <div class="barFill" :style="{ width: checkinPercent + '%', background: barColor }"></div>
+            </div>
+
+            <div class="miniStats">
+              <div class="miniStat">
+                <span>{{ t("enrollment.today") }}</span>
+                <strong>{{ enrollment.today_checked ? t("common.done") : t("common.pending") }}</strong>
+              </div>
+
+              <div class="miniStat">
+                <span>{{ t("enrollment.remaining") }}</span>
+                <strong>{{ remainingDaysText }}</strong>
+              </div>
+
+              <div class="miniStat">
+                <span>{{ t("enrollment.nextResetShort") }}</span>
                 <strong>{{ resetCountdownText }}</strong>
               </div>
             </div>
-
-            <div class="resetInfoBox">
-              <span class="resetIcon">📍</span>
-              <div>
-                <div class="caption">{{ t("enrollment.nextReset") }}</div>
-                <strong>{{ formattedNextReset }}</strong>
-              </div>
-            </div>
-
-            <div class="resetInfoBox">
-              <span class="resetIcon">🌍</span>
-              <div>
-                <div class="caption">{{ t("enrollment.timezone") }}</div>
-                <strong>{{ enrollment.reset_timezone || "UTC" }}</strong>
-              </div>
-            </div>
-          </div>
-
-          <div class="futureNote">
-            <span class="futureIcon">🔔</span>
-            <span>
-              {{ t("enrollment.futureNote") }}
-            </span>
-          </div>
-        </BaseCard>
-
-        <BaseCard class="timelineCard" :padded="true">
-          <div class="sectionHead">
-            <div>
-              <div class="eyebrow">{{ t("enrollment.timeline") }}</div>
-              <h2 class="h2">{{ t("enrollment.timeMomentum") }}</h2>
-            </div>
-
-            <div class="timelineBadge">
-              {{ progressText }}
-            </div>
-          </div>
-
-          <div class="timelineBar">
-            <div class="timelineFill" :style="{ width: timelinePercent + '%' }"></div>
-            <div class="timelinePulse" :style="{ left: timelinePercent + '%' }"></div>
-          </div>
-
-          <div class="timelineMeta">
-            <div>
-              <div class="caption">{{ t("enrollment.start") }}</div>
-              <strong>{{ enrollment.start_date ? formatDate(enrollment.start_date) : "—" }}</strong>
-            </div>
-
-            <div>
-              <div class="caption">{{ t("enrollment.end") }}</div>
-              <strong>{{ enrollment.end_date ? formatDate(enrollment.end_date) : "—" }}</strong>
-            </div>
-
-            <div>
-              <div class="caption">{{ t("enrollment.checked") }}</div>
-              <strong>{{ t("enrollment.checkedDays", { checked: checkedDays, total: totalDays }) }}</strong>
-            </div>
-          </div>
-        </BaseCard>
-
-        <BaseCard class="progressCard" :padded="true">
-          <div class="sectionHead">
-            <div>
-              <div class="eyebrow">{{ t("enrollment.personalProgress") }}</div>
-              <h2 class="h2">{{ t("enrollment.consistencyScore") }}</h2>
-            </div>
-
-            <div class="scoreBadge">
-              {{ checkinPercent }}%
-            </div>
-          </div>
-
-          <div class="progressMeta">
-            <span>{{ t("enrollment.checkedDaysLabel", { count: checkedDays }) }}</span>
-            <span class="caption">{{ t("enrollment.totalDaysLabel", { count: totalDays }) }}</span>
-          </div>
-
-          <div class="bar">
-            <div class="barFill" :style="{ width: checkinPercent + '%', background: barColor }"></div>
-          </div>
-
-          <div class="miniStats">
-            <div class="miniStat">
-              <span>{{ t("enrollment.today") }}</span>
-              <strong>{{ enrollment.today_checked ? t("common.done") : t("common.pending") }}</strong>
-            </div>
-
-            <div class="miniStat">
-              <span>{{ t("enrollment.remaining") }}</span>
-              <strong>{{ remainingDaysText }}</strong>
-            </div>
-
-            <div class="miniStat">
-              <span>{{ t("enrollment.nextResetShort") }}</span>
-              <strong>{{ resetCountdownText }}</strong>
-            </div>
-          </div>
-        </BaseCard>
-
-        <section class="contentGrid">
-          <div class="stack-12">
-            <div class="sectionHead">
-              <div class="titleWithIcon">
-                <span class="icon" aria-hidden="true">🏆</span>
-                <div>
-                  <h2 class="h2">{{ t("leaderboard.title") }}</h2>
-                  <div class="caption">{{ t("enrollment.leaderboardCaption") }}</div>
-                </div>
-              </div>
-
-              <router-link class="ctaLink" :to="`/enrollment/${enrollment.enrollment_id}/leaderboard`">
-                {{ t("enrollment.viewFull") }}
-                <span class="arrow">→</span>
-              </router-link>
-            </div>
-
-            <Leaderboard :enrollment-id="enrollment.enrollment_id" embedded />
-          </div>
-
-          <BaseCard class="logsCard" :padded="true">
-            <div class="sectionHead">
-              <div class="titleWithIcon">
-                <span class="icon" aria-hidden="true">🗓️</span>
-                <div>
-                  <h2 class="h2">{{ t("enrollment.recentLogs") }}</h2>
-                  <div class="caption">{{ t("enrollment.recentLogsCaption") }}</div>
-                </div>
-              </div>
-            </div>
-
-            <div v-if="recentLogs.length === 0" class="emptyLogs">
-              <div class="emptyIcon">🌙</div>
-              <div>
-                <strong>{{ t("enrollment.noLogs") }}</strong>
-                <div class="caption">{{ t("enrollment.logsHint") }}</div>
-              </div>
-            </div>
-
-            <template v-else>
-              <ul class="logList">
-                <li v-for="log in visibleLogs" :key="log.daily_log_id" class="logRow">
-                  <span class="logDot" aria-hidden="true">✅</span>
-                  <div>
-                    <div class="logDate">{{ formatDate(log.date) }}</div>
-                    <div class="caption">{{ t("enrollment.checkinCompleted") }}</div>
-                  </div>
-                </li>
-              </ul>
-
-              <button
-                v-if="recentLogs.length > logLimit"
-                type="button"
-                class="showMoreLogs"
-                @click="showAllLogs = !showAllLogs"
-              >
-                {{ showAllLogs ? t("enrollment.showFewerLogs") : t("enrollment.showMoreLogs", { count: recentLogs.length - logLimit }) }}
-              </button>
-            </template>
           </BaseCard>
+
+          <section class="contentGrid">
+            <div class="stack-12">
+              <div class="sectionHead">
+                <div class="titleWithIcon">
+                  <span class="icon" aria-hidden="true">🏆</span>
+                  <div>
+                    <h2 class="h2">{{ t("leaderboard.title") }}</h2>
+                    <div class="caption">{{ t("enrollment.leaderboardCaption") }}</div>
+                  </div>
+                </div>
+
+                <router-link class="ctaLink" :to="`/enrollment/${enrollment.enrollment_id}/leaderboard`">
+                  {{ t("enrollment.viewFull") }}
+                  <span class="arrow">→</span>
+                </router-link>
+              </div>
+
+              <Leaderboard :enrollment-id="enrollment.enrollment_id" embedded />
+            </div>
+
+            <BaseCard class="logsCard" :padded="true">
+              <div class="sectionHead">
+                <div class="titleWithIcon">
+                  <span class="icon" aria-hidden="true">🗓️</span>
+                  <div>
+                    <h2 class="h2">{{ t("enrollment.recentLogs") }}</h2>
+                    <div class="caption">{{ t("enrollment.recentLogsCaption") }}</div>
+                  </div>
+                </div>
+              </div>
+
+              <div v-if="recentLogs.length === 0" class="emptyLogs">
+                <div class="emptyIcon">🌙</div>
+                <div>
+                  <strong>{{ t("enrollment.noLogs") }}</strong>
+                  <div class="caption">{{ t("enrollment.logsHint") }}</div>
+                </div>
+              </div>
+
+              <template v-else>
+                <ul class="logList">
+                  <li v-for="log in visibleLogs" :key="log.daily_log_id" class="logRow">
+                    <span class="logDot" aria-hidden="true">✅</span>
+                    <div>
+                      <div class="logDate">{{ formatDate(log.date) }}</div>
+                      <div class="caption">{{ t("enrollment.checkinCompleted") }}</div>
+                    </div>
+                  </li>
+                </ul>
+
+                <button
+                  v-if="recentLogs.length > logLimit"
+                  type="button"
+                  class="showMoreLogs"
+                  @click="showAllLogs = !showAllLogs"
+                >
+                  {{ showAllLogs ? t("enrollment.showFewerLogs") : t("enrollment.showMoreLogs", { count: recentLogs.length - logLimit }) }}
+                </button>
+              </template>
+            </BaseCard>
+          </section>
         </section>
       </div>
     </div>
@@ -385,10 +413,42 @@ const totalCheckins = computed(() => {
   return checkedDays.value;
 });
 
+const totalCheckinNumber = computed(() => {
+  const number = Number(totalCheckins.value);
+  return Number.isFinite(number) ? Math.max(0, Math.floor(number)) : 0;
+});
+
+const isEarlyEnrollment = computed(() => {
+  return totalCheckinNumber.value < 3;
+});
+
 const currentStreak = computed(() => {
   const value = enrollment.value?.current_streak ?? enrollment.value?.currentStreak ?? null;
   if (value != null) return value;
   return "—";
+});
+
+const missionSteps = computed(() => {
+  const todayState = enrollment.value?.today_checked ? "complete" : "active";
+  const rewardState = enrollment.value?.today_checked ? "complete" : "upcoming";
+
+  return [
+    {
+      key: "path",
+      label: t("enrollment.steps.path"),
+      state: "complete",
+    },
+    {
+      key: "today",
+      label: t("enrollment.steps.today"),
+      state: todayState,
+    },
+    {
+      key: "reward",
+      label: t("enrollment.steps.reward"),
+      state: rewardState,
+    },
+  ];
 });
 
 const timelinePercent = computed(() => {
@@ -653,7 +713,7 @@ onUnmounted(() => {
   color: white;
   font-size: clamp(2rem, 4vw, 4rem);
   line-height: 0.95;
-  letter-spacing: -0.06em;
+  letter-spacing: 0;
 }
 
 .heroDesc {
@@ -661,6 +721,67 @@ onUnmounted(() => {
   margin: var(--s-16) 0 0;
   color: rgba(255, 255, 255, 0.72);
   line-height: 1.7;
+}
+
+.missionInstruction {
+  max-width: 720px;
+  margin: var(--s-16) 0 0;
+  padding: 14px;
+  border-radius: 18px;
+  border: 1px solid rgba(253, 230, 138, 0.18);
+  background: rgba(253, 230, 138, 0.065);
+  color: rgba(255, 255, 255, 0.76);
+  line-height: 1.65;
+}
+
+.missionStepper {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: var(--s-20);
+}
+
+.stepItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 34px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  background: rgba(255, 255, 255, 0.045);
+  color: rgba(255, 255, 255, 0.58);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.stepMarker {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.28);
+}
+
+.stepItem.complete {
+  border-color: rgba(74, 222, 128, 0.22);
+  background: rgba(74, 222, 128, 0.075);
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.stepItem.complete .stepMarker {
+  background: #86efac;
+  box-shadow: 0 0 16px rgba(134, 239, 172, 0.42);
+}
+
+.stepItem.active {
+  border-color: rgba(253, 230, 138, 0.26);
+  background: rgba(253, 230, 138, 0.085);
+  color: rgba(255, 255, 255, 0.88);
+}
+
+.stepItem.active .stepMarker {
+  background: #fde68a;
+  box-shadow: 0 0 18px rgba(253, 230, 138, 0.46);
 }
 
 .eyebrow {
@@ -772,6 +893,24 @@ onUnmounted(() => {
   line-height: 1.45;
 }
 
+:deep(.missionCheckin) {
+  width: 100%;
+  min-height: 56px;
+  border-color: rgba(253, 230, 138, 0.44);
+  background:
+    linear-gradient(135deg, rgba(253, 230, 138, 0.24), rgba(99, 102, 241, 0.24)),
+    rgba(99, 102, 241, 0.22);
+  box-shadow: 0 16px 42px rgba(99, 102, 241, 0.20);
+  font-size: 1rem;
+  font-weight: 850;
+}
+
+:deep(.missionCheckin:hover) {
+  background:
+    linear-gradient(135deg, rgba(253, 230, 138, 0.30), rgba(99, 102, 241, 0.30)),
+    rgba(99, 102, 241, 0.28);
+}
+
 .dailySummary {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -801,6 +940,40 @@ onUnmounted(() => {
   margin-top: 7px;
   color: rgba(255, 255, 255, 0.94);
   font-size: 1rem;
+}
+
+.advancedDetails {
+  display: grid;
+  gap: var(--s-16);
+  margin-top: var(--s-8);
+}
+
+.advancedDetails.guided {
+  padding-top: var(--s-8);
+  opacity: 0.82;
+}
+
+.advancedIntro {
+  display: flex;
+  justify-content: space-between;
+  align-items: end;
+  gap: var(--s-16);
+  padding: 16px 2px 0;
+}
+
+.advancedIntro p {
+  max-width: 560px;
+  margin: 0;
+  color: rgba(255, 255, 255, 0.58);
+  line-height: 1.6;
+}
+
+.advancedDetails.guided .insightGrid,
+.advancedDetails.guided .resetCard,
+.advancedDetails.guided .timelineCard,
+.advancedDetails.guided .progressCard,
+.advancedDetails.guided .contentGrid {
+  filter: saturate(0.9);
 }
 
 .insightGrid {
@@ -1111,7 +1284,7 @@ onUnmounted(() => {
   border-radius: 13px;
   background: rgba(255, 255, 255, 0.055);
   border: 1px solid rgba(255, 255, 255, 0.10);
-  margin-right: 10px;
+  margin-inline-end: 10px;
 }
 
 .ctaLink {
@@ -1155,7 +1328,7 @@ onUnmounted(() => {
   border-radius: 13px;
   background: rgba(74, 222, 128, 0.12);
   border: 1px solid rgba(74, 222, 128, 0.22);
-  margin-right: 10px;
+  margin-inline-end: 10px;
 }
 
 .logDate {
@@ -1209,6 +1382,11 @@ onUnmounted(() => {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .advancedIntro {
+    align-items: start;
+    flex-direction: column;
+  }
+
   .resetGrid {
     grid-template-columns: 1fr;
   }
@@ -1233,6 +1411,15 @@ onUnmounted(() => {
 
   .heroTitle {
     font-size: 2.1rem;
+  }
+
+  .missionStepper,
+  .stepItem {
+    width: 100%;
+  }
+
+  .checkinPanel {
+    padding: 16px;
   }
 }
 </style>
