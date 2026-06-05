@@ -59,11 +59,7 @@
           </div>
 
           <div class="actions">
-            <BaseButton
-              variant="secondary"
-              :loading="loading"
-              @click="load"
-            >
+            <BaseButton variant="secondary" :loading="loading" @click="load">
               {{ t("challenges.refresh") }}
             </BaseButton>
           </div>
@@ -72,88 +68,43 @@
         <div class="controls">
           <div class="searchBox">
             <span aria-hidden="true">⌕</span>
-            <input
-              v-model="search"
-              type="search"
-              :placeholder="t('challenges.search')"
-            />
+            <input v-model="search" type="search" :placeholder="t('challenges.search')" />
           </div>
 
           <div class="segmentedControl" :aria-label="t('challenges.filterLabel')">
-            <button
-              type="button"
-              :class="{ active: filter === 'all' }"
-              @click="setFilter('all')"
-            >
+            <button type="button" :class="{ active: filter === 'all' }" @click="setFilter('all')">
               {{ t("challenges.filters.all") }}
             </button>
 
-            <button
-              type="button"
-              :class="{ active: filter === 'available' }"
-              @click="setFilter('available')"
-            >
+            <button type="button" :class="{ active: filter === 'available' }" @click="setFilter('available')">
               {{ t("challenges.filters.available") }}
             </button>
 
-            <button
-              type="button"
-              :class="{ active: filter === 'joined' }"
-              @click="setFilter('joined')"
-            >
+            <button type="button" :class="{ active: filter === 'joined' }" @click="setFilter('joined')">
               {{ t("challenges.filters.joined") }}
             </button>
 
-            <button
-              type="button"
-              :class="{ active: filter === 'invite' }"
-              @click="setFilter('invite')"
-            >
+            <button type="button" :class="{ active: filter === 'invite' }" @click="setFilter('invite')">
               {{ t("challenges.filters.invite") }}
             </button>
           </div>
         </div>
 
         <BaseCard class="listCard">
-          <UiState
-            :loading="loading"
-            :error="!!loadError"
-            :empty="!loading && !loadError && filteredItems.length === 0"
-            :loading-title="t('challenges.loadingTitle')"
-            :loading-text="t('challenges.loadingText')"
-            :empty-title="t('challenges.emptyTitle')"
-            :empty-text="t('challenges.emptyText')"
-            :error-title="t('challenges.errorTitle')"
-            :error-text="loadError || t('common.pleaseTryAgain')"
-            @retry="load"
-          />
+          <UiState :loading="loading" :error="!!loadError" :empty="!loading && !loadError && filteredItems.length === 0"
+            :loading-title="t('challenges.loadingTitle')" :loading-text="t('challenges.loadingText')"
+            :empty-title="t('challenges.emptyTitle')" :empty-text="t('challenges.emptyText')"
+            :error-title="t('challenges.errorTitle')" :error-text="loadError || t('common.pleaseTryAgain')"
+            @retry="load" />
 
-          <div
-            v-if="!loading && !loadError && filteredItems.length"
-            class="list"
-          >
-            <div
-              v-for="ch in visibleItems"
-              :key="ch.challenge_id"
-              class="challengeShell"
-            >
-              <ChallengeCard
-                :challenge="ch"
-                :loading="joiningId === ch.challenge_id"
-                :show-join="!ch.is_joined"
-                :show-checkin="false"
-                @join="join(ch)"
-              />
+          <div v-if="!loading && !loadError && filteredItems.length" class="list">
+            <div v-for="ch in visibleItems" :key="ch.challenge_id" class="challengeShell">
+              <ChallengeCard :challenge="ch" :loading="joiningId === ch.challenge_id" :show-join="!ch.is_joined"
+                :show-checkin="false" @join="join(ch)" />
 
-              <div
-                v-if="(isInviteOnly(ch) || ch.needs_code) && !ch.is_joined"
-                class="inviteBox"
-              >
+              <div v-if="(isInviteOnly(ch) || ch.needs_code) && !ch.is_joined" class="inviteBox">
                 <div class="inviteCopy">
-                  <label
-                    class="capLabel"
-                    :for="`code-${ch.challenge_id}`"
-                  >
+                  <label class="capLabel" :for="`code-${ch.challenge_id}`">
                     {{ t("challenges.inviteRequired") }}
                   </label>
 
@@ -163,40 +114,24 @@
                 </div>
 
                 <div class="inviteControls">
-                  <input
-                    :id="`code-${ch.challenge_id}`"
-                    v-model="codes[ch.challenge_id]"
-                    class="input"
-                    :placeholder="t('challenges.enterCode')"
-                    @keyup.enter="join(ch)"
-                  />
+                  <input :id="`code-${ch.challenge_id}`" v-model="codes[ch.challenge_id]" class="input"
+                    :placeholder="t('challenges.enterCode')" @keyup.enter="join(ch)" />
 
-                  <BaseButton
-                    variant="secondary"
-                    :loading="joiningId === ch.challenge_id"
-                    @click="join(ch)"
-                  >
+                  <BaseButton variant="secondary" :loading="joiningId === ch.challenge_id" @click="join(ch)">
                     {{ t("challenges.unlock") }}
                   </BaseButton>
                 </div>
               </div>
 
-              <div
-                v-if="errors[ch.challenge_id]"
-                class="err"
-              >
+              <div v-if="errors[ch.challenge_id]" class="err">
                 {{ humanizeError(errors[ch.challenge_id]) }}
               </div>
             </div>
 
-            <button
-              v-if="hasHiddenItems"
-              type="button"
-              class="showMoreButton"
-              @click="showAll = !showAll"
-            >
+            <button v-if="hasHiddenItems" type="button" class="showMoreButton" @click="showAll = !showAll">
               <span>
-                {{ showAll ? t("common.showFewer") : t("common.showMore", { count: filteredItems.length - itemLimit }) }}
+                {{ showAll ? t("common.showFewer") : t("common.showMore", { count: filteredItems.length - itemLimit })
+                }}
               </span>
 
               <span aria-hidden="true">
@@ -241,7 +176,7 @@ const codes = ref({});
 const errors = ref({});
 
 const search = ref("");
-const filter = ref("all");
+const filter = ref("available");
 const showAll = ref(false);
 
 const itemLimit = 6;
@@ -671,6 +606,7 @@ onMounted(load);
 }
 
 @media (max-width: 900px) {
+
   .heroContent,
   .controls {
     grid-template-columns: 1fr;
