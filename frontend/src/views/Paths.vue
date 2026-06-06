@@ -144,7 +144,7 @@
                 <BaseButton
                   v-if="pathProgress.action === 'selectOther'"
                   variant="primary"
-                  @click="selectPath(suggestedOtherPath)"
+                  @click="selectPath(nextUsefulPath)"
                 >
                   {{ pathProgress.primaryCta }}
                 </BaseButton>
@@ -497,6 +497,26 @@ const suggestedOtherPath = computed(() => {
   }) || null;
 });
 
+const nextUsefulPath = computed(() => {
+  if (suggestedOtherPath.value) return suggestedOtherPath.value;
+
+  const otherPaths = paths.value.filter((path) => path.path_id !== selectedPath.value?.path_id);
+
+  return otherPaths.find((path) => {
+    if (path.user_status !== "Active") return false;
+
+    const summary = pathSummaries.value[path.path_id] || emptySummary();
+    const total = Number(summary.today_missions_total || 0);
+    const done = Number(summary.today_missions_done || 0);
+
+    return total > 0 && done < total;
+  })
+    || otherPaths.find((path) => Boolean(pathChallengeCounts.value[path.path_id]?.next))
+    || otherPaths.find((path) => path.user_status !== "Active")
+    || otherPaths[0]
+    || null;
+});
+
 const lockedMissionsCount = computed(() => {
   return challenges.value.reduce((count, challenge) => {
     return count + (challenge.missions || []).filter((mission) => mission.today_status === "locked").length;
@@ -562,21 +582,21 @@ const pathCoach = computed(() => {
     };
   }
 
-  if (todayComplete.value && suggestedOtherPath.value) {
+  if (todayComplete.value && nextUsefulPath.value) {
     return {
       sprite_key: "celebration",
       message: t("pathsPage.coach.todayDoneSuggestOther", {
-        path: suggestedOtherPath.value.title,
+        path: nextUsefulPath.value.title,
       }),
       primary_action: {
-        label: t("pathsPage.startAnotherPath", { path: suggestedOtherPath.value.title }),
+        label: t("pathsPage.startAnotherPath", { path: nextUsefulPath.value.title }),
         type: "select_path",
-        path_id: suggestedOtherPath.value.path_id,
+        path_id: nextUsefulPath.value.path_id,
       },
       secondary_action: {
-        label: t("pathsPage.openDashboard"),
+        label: t("pathsPage.browseLibrary"),
         type: "route",
-        to: "/dashboard",
+        to: "/challenges",
       },
     };
   }
@@ -605,15 +625,11 @@ const pathCoach = computed(() => {
         ? t("pathsPage.coach.todayDoneLocked")
         : t("pathsPage.coach.todayDoneAll"),
       primary_action: {
-        label: t("pathsPage.openDashboard"),
+        label: t("pathsPage.browseLibrary"),
         type: "route",
-        to: "/dashboard",
+        to: "/challenges",
       },
-      secondary_action: {
-        label: t("pathsPage.openDashboard"),
-        type: "route",
-        to: "/dashboard",
-      },
+      secondary_action: null,
     };
   }
 
@@ -675,12 +691,12 @@ const pathProgress = computed(() => {
   }
 
   if (todayComplete.value) {
-    if (suggestedOtherPath.value) {
+    if (nextUsefulPath.value) {
       return {
         todayComplete: true,
         title: t("pathsPage.todayCompleteTitle", { path: selectedPath.value.title }),
-        body: t("pathsPage.todayCompleteBodyWithOther", { path: suggestedOtherPath.value.title }),
-        primaryCta: t("pathsPage.startAnotherPath", { path: suggestedOtherPath.value.title }),
+        body: t("pathsPage.todayCompleteBodyWithOther", { path: nextUsefulPath.value.title }),
+        primaryCta: t("pathsPage.startAnotherPath", { path: nextUsefulPath.value.title }),
         action: "selectOther",
       };
     }
