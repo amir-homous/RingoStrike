@@ -3,6 +3,16 @@
     <AppHeader />
 
     <div class="challengesPage">
+      <RingoCoach
+        v-if="challengeCoach"
+        class="challengeCoach"
+        :message="challengeCoach.message"
+        :sprite="challengeCoach.sprite_key"
+        :primary-action="challengeCoach.primary_action"
+        :secondary-action="challengeCoach.secondary_action"
+        @action="handleCoachAction"
+      />
+
       <section class="heroCard">
         <div class="heroGlow"></div>
 
@@ -66,14 +76,19 @@
         <div class="pathGrid">
           <button
             v-for="path in pathOptions"
-            :key="path"
+            :key="path.key"
             type="button"
             class="pathOption"
-            :class="{ active: selectedPath === path }"
+            :class="{ active: selectedPath === path.key }"
             @click="selectPath(path)"
           >
-            <span class="pathDot" aria-hidden="true"></span>
-            <span>{{ t(`challengeCard.paths.${path}`) }}</span>
+            <span
+              class="pathDot"
+              :style="{ '--path-color': path.color || '#fde68a' }"
+              aria-hidden="true"
+            ></span>
+            <span>{{ path.title }}</span>
+            <small>{{ path.description }}</small>
           </button>
         </div>
       </section>
@@ -84,13 +99,13 @@
         :class="{ missing: !selectedPathChallenge }"
       >
         <div class="selectedPathCopy">
-          <p class="selectedLabel">{{ t(`challengeCard.paths.${selectedPath}`) }}</p>
-          <h2>{{ t(`challenges.selectedPath.${selectedPath}.title`) }}</h2>
-          <p class="selectedText">{{ t(`challenges.selectedPath.${selectedPath}.description`) }}</p>
+          <p class="selectedLabel">{{ selectedPathTitle }}</p>
+          <h2>{{ selectedPathHeading }}</h2>
+          <p class="selectedText">{{ selectedPathDescription }}</p>
 
           <div class="missionPreview">
             <span>{{ t("challenges.selectedPath.missionLabel") }}</span>
-            <strong>{{ t(`challenges.selectedPath.${selectedPath}.mission`) }}</strong>
+            <strong>{{ selectedMissionTitle }}</strong>
           </div>
         </div>
 
@@ -237,6 +252,7 @@ import UiState from "@/components/ui/UiState.vue";
 import ChallengeCard from "@/components/challenges/ChallengeCard.vue";
 import JoinSuccessMoment from "@/components/feedback/JoinSuccessMoment.vue";
 import ChallengeDiscoveryInvite from "@/components/guided/ChallengeDiscoveryInvite.vue";
+import RingoCoach from "@/components/ringo/RingoCoach.vue";
 import { getSuggestedChallengeName } from "@/lib/guidedExperience";
 import {
   humanizeJoinError,
@@ -261,9 +277,33 @@ const search = ref("");
 const filter = ref("available");
 const showAll = ref(false);
 const selectedPath = ref("");
+const pathItems = ref([]);
+const pathChallenges = ref([]);
+const pathLoadError = ref("");
 
 const itemLimit = 6;
-const pathOptions = ["focus", "body", "learning", "mind", "consistency"];
+const fallbackPathOptions = ["focus", "body", "learning", "mind", "consistency"];
+
+const pathOptions = computed(() => {
+  if (pathItems.value.length) {
+    return pathItems.value.map((path) => ({
+      key: path.key || String(path.path_id),
+      path_id: path.path_id,
+      title: path.title,
+      description: path.description,
+      color: path.color,
+      user_status: path.user_status,
+    }));
+  }
+
+  return fallbackPathOptions.map((key) => ({
+    key,
+    title: t(`challengeCard.paths.${key}`),
+    description: t(`challenges.selectedPath.${key}.description`),
+    color: "",
+    user_status: null,
+  }));
+});
 
 const joinedCount = computed(() => {
   return items.value.filter((item) => item.is_joined).length;
@@ -275,12 +315,52 @@ const inviteOnlyCount = computed(() => {
 
 const selectedPathChallenge = computed(() => {
   if (!selectedPath.value) return null;
-  const suggestedName = getSuggestedChallengeName(selectedPath.value).toLowerCase();
 
+  const pathChallenge = pathChallenges.value.find((item) => !item.is_joined)
+    || pathChallenges.value.find((item) => item.is_joined && !item.today_checked)
+    || pathChallenges.value[0]
+    || null;
+
+  if (pathChallenge) return pathChallenge;
+
+  const suggestedName = getSuggestedChallengeName(selectedPath.value).toLowerCase();
   return items.value.find((item) => {
     const name = String(item.name || item.challenge_name || item.enrollment_name || "").trim().toLowerCase();
     return name === suggestedName;
   }) || null;
+});
+
+const selectedPathItem = computed(() => {
+  return pathOptions.value.find((path) => path.key === selectedPath.value) || null;
+});
+
+const selectedPathTitle = computed(() => {
+  return selectedPathItem.value?.title || t(`challengeCard.paths.${selectedPath.value}`);
+});
+
+const selectedPathHeading = computed(() => {
+  if (selectedPathItem.value?.path_id) {
+    return t("challenges.selectedPath.backendTitle", { path: selectedPathTitle.value });
+  }
+
+  return selectedPath.value ? t(`challenges.selectedPath.${selectedPath.value}.title`) : "";
+});
+
+const selectedPathDescription = computed(() => {
+  return selectedPathItem.value?.description ||
+    (selectedPath.value ? t(`challenges.selectedPath.${selectedPath.value}.description`) : "");
+});
+
+const selectedMissionTitle = computed(() => {
+  const mission = selectedPathChallenge.value?.missions?.find((item) => item.available_today)
+    || selectedPathChallenge.value?.missions?.[0]
+    || null;
+
+  if (mission?.title) return mission.title;
+  if (selectedPath.value && !selectedPathItem.value?.path_id) {
+    return t(`challenges.selectedPath.${selectedPath.value}.mission`);
+  }
+  return t("challenges.selectedPath.backendMissionFallback");
 });
 
 const selectedChallengeName = computed(() => {
@@ -289,13 +369,90 @@ const selectedChallengeName = computed(() => {
     getSuggestedChallengeName(selectedPath.value);
 });
 
+const challengeCoach = computed(() => {
+  if (selectedPath.value && selectedPathChallenge.value) {
+    const joined = selectedPathChallenge.value.is_joined;
+    const checkedToday = Boolean(selectedPathChallenge.value.today_checked);
+
+    return {
+      sprite_key: joined ? checkedToday ? "proud" : "thinking" : "focus",
+      message: joined
+        ? checkedToday
+          ? t("challenges.coach.pathDone", { challenge: selectedChallengeName.value })
+          : t("challenges.coach.pathJoined", { challenge: selectedChallengeName.value })
+        : t("challenges.coach.pathReady", {
+          path: selectedPathTitle.value,
+          challenge: selectedChallengeName.value,
+        }),
+      primary_action: {
+        label: selectedPathCta.value,
+        type: "start_selected_path",
+      },
+      secondary_action: {
+        label: t("challenges.coach.clearPath"),
+        type: "clear_path",
+      },
+    };
+  }
+
+  if (selectedPath.value && !selectedPathChallenge.value) {
+    return {
+      sprite_key: "explaining",
+      message: t("challenges.coach.pathMissing", { path: selectedPathTitle.value }),
+      primary_action: {
+        label: t("challenges.filters.available"),
+        type: "clear_path",
+      },
+      secondary_action: {
+        label: t("challenges.refresh"),
+        type: "refresh",
+      },
+    };
+  }
+
+  if (joinedCount.value > 0) {
+    return {
+      sprite_key: "encouraging",
+      message: t("challenges.coach.hasJoined", { count: joinedCount.value }),
+      primary_action: {
+        label: t("challenges.coach.pickPath"),
+        type: "focus_paths",
+      },
+      secondary_action: {
+        label: t("paths.openTodayMission"),
+        type: "route",
+        to: "/dashboard",
+      },
+    };
+  }
+
+  return {
+    sprite_key: "welcome",
+    message: t("challenges.coach.firstPath"),
+    primary_action: {
+      label: t("challenges.coach.pickPath"),
+      type: "focus_paths",
+    },
+    secondary_action: {
+      label: t("challenges.filters.available"),
+      type: "clear_path",
+    },
+  };
+});
+
 const selectedPathCta = computed(() => {
   if (!selectedPathChallenge.value) return t("challenges.selectedPath.unavailableCta");
   if (selectedPathChallenge.value.is_joined && selectedPathChallenge.value.enrollment_id) {
+    if (selectedPathChallenge.value.today_checked) {
+      return t("challenges.selectedPath.doneCta");
+    }
     return t("challenges.selectedPath.continueCta");
   }
   if (isInviteOnly(selectedPathChallenge.value) || selectedPathChallenge.value.needs_code) {
     return t("challenges.selectedPath.unlockCta");
+  }
+  if (selectedPathItem.value?.path_id) {
+    return t("challenges.selectedPath.backendCta", { path: selectedPathTitle.value });
   }
   return t(`challenges.selectedPath.${selectedPath.value}.cta`);
 });
@@ -306,8 +463,12 @@ function isInviteOnly(challenge) {
 
 const filteredItems = computed(() => {
   const query = search.value.trim().toLowerCase();
+  const selectedPathChallengeIds = new Set(pathChallenges.value.map((item) => item.challenge_id));
+  const sourceItems = selectedPath.value && selectedPathChallengeIds.size
+    ? items.value.filter((item) => selectedPathChallengeIds.has(item.challenge_id))
+    : items.value;
 
-  return items.value.filter((item) => {
+  return sourceItems.filter((item) => {
     const title = String(item.name || item.enrollment_name || item.challenge_name || "").toLowerCase();
     const description = String(item.description || "").toLowerCase();
     const visibility = String(item.visibility || "").toLowerCase();
@@ -339,32 +500,32 @@ const hasHiddenItems = computed(() => {
 
 function setFilter(value) {
   filter.value = value;
-  if (selectedPath.value) {
-    search.value = "";
-  }
   selectedPath.value = "";
+  pathChallenges.value = [];
+  search.value = "";
   showAll.value = false;
 }
 
-function selectPath(path) {
-  selectedPath.value = path;
+async function selectPath(path) {
+  selectedPath.value = path.key || path;
   filter.value = "available";
-  search.value = getSuggestedChallengeName(path);
+  search.value = "";
   showAll.value = true;
+
+  if (path.path_id) {
+    await loadPathChallenges(path.path_id);
+    return;
+  }
+
+  pathChallenges.value = [];
+  search.value = getSuggestedChallengeName(selectedPath.value);
 }
 
 function startSelectedPath() {
   if (!selectedPathChallenge.value) return;
 
   if (selectedPathChallenge.value.is_joined && selectedPathChallenge.value.enrollment_id) {
-    joinSuccess.value = {
-      challengeId: selectedPathChallenge.value.challenge_id,
-      challengeName: selectedPathChallenge.value.name || selectedPathChallenge.value.challenge_name || "",
-      challengeDescription: selectedPathChallenge.value.description || selectedPathChallenge.value.challenge_description || "",
-      enrollmentId: selectedPathChallenge.value.enrollment_id,
-      mode: "existing",
-      source: "challenges",
-    };
+    router.push("/dashboard");
     return;
   }
 
@@ -383,11 +544,61 @@ async function load() {
   try {
     const { data } = await api.get("/challenges");
     items.value = data.items || [];
+    await loadPaths();
   } catch (e) {
     loadError.value = e?.response?.data?.error || e?.message || String(e);
     items.value = [];
   } finally {
     loading.value = false;
+  }
+}
+
+async function loadPaths() {
+  pathLoadError.value = "";
+
+  try {
+    const { data } = await api.get("/paths");
+    pathItems.value = data?.items || [];
+  } catch (e) {
+    pathLoadError.value = e?.response?.data?.error || e?.message || String(e);
+    pathItems.value = [];
+  }
+}
+
+async function loadPathChallenges(pathId) {
+  pathLoadError.value = "";
+
+  try {
+    const { data } = await api.get(`/paths/${pathId}/challenges`);
+    pathChallenges.value = data?.items || [];
+  } catch (e) {
+    pathLoadError.value = e?.response?.data?.error || e?.message || String(e);
+    pathChallenges.value = [];
+  }
+}
+
+async function handleCoachAction(action) {
+  if (!action) return;
+
+  if (action.type === "start_selected_path") {
+    startSelectedPath();
+    return;
+  }
+
+  if (action.type === "clear_path") {
+    setFilter("available");
+    return;
+  }
+
+  if (action.type === "refresh") {
+    await load();
+    return;
+  }
+
+  if (action.type === "focus_paths") {
+    document
+      .getElementById("path-guide-title")
+      ?.scrollIntoView({ behavior: "smooth", block: "center" });
   }
 }
 
@@ -422,6 +633,10 @@ onMounted(load);
 .challengesPage {
   display: grid;
   gap: var(--s-16);
+}
+
+.challengeCoach {
+  border: 1px solid rgba(110, 229, 255, 0.14);
 }
 
 .heroCard {
@@ -529,7 +744,7 @@ onMounted(load);
 
 .heroStats {
   display: grid;
-  gap: var(--s-10);
+  gap: var(--s-12);
 }
 
 .heroStat {
@@ -592,13 +807,13 @@ onMounted(load);
 .pathGrid {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: var(--s-10);
+  gap: var(--s-12);
 }
 
 .pathOption {
   display: grid;
   gap: 8px;
-  min-height: 76px;
+  min-height: 112px;
   align-content: center;
   padding: 12px;
   border-radius: 18px;
@@ -613,6 +828,17 @@ onMounted(load);
     transform 150ms ease,
     border-color 150ms ease,
     background 150ms ease;
+}
+
+.pathOption small {
+  display: -webkit-box;
+  overflow: hidden;
+  color: rgba(255, 255, 255, 0.52);
+  font-size: 0.74rem;
+  font-weight: 650;
+  line-height: 1.35;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 .pathOption:hover,
@@ -633,8 +859,8 @@ onMounted(load);
   width: 9px;
   height: 9px;
   border-radius: 999px;
-  background: #fde68a;
-  box-shadow: 0 0 18px rgba(253, 230, 138, 0.40);
+  background: var(--path-color);
+  box-shadow: 0 0 18px color-mix(in srgb, var(--path-color) 42%, transparent);
 }
 
 .selectedPathPanel {
