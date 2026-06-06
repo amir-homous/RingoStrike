@@ -1,10 +1,7 @@
 <template>
-  <section class="coach" :class="`sprite-${resolved.key}`">
+  <section class="coach">
     <div class="spriteFrame" aria-hidden="true">
       <img v-if="resolved.src" :src="resolved.src" :alt="resolved.key" />
-      <div v-else class="spriteFallback">
-        <span>{{ spriteInitial }}</span>
-      </div>
     </div>
 
     <div class="coachCopy">
@@ -50,124 +47,95 @@ const { t } = useI18n();
 const resolved = computed(() => resolveRingoSprite(props.sprite));
 const spriteInitial = computed(() => resolved.value.key.slice(0, 1).toUpperCase());
 </script>
-
 <style scoped>
 .coach {
-  position: relative;
-  overflow: hidden;
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  gap: var(--s-16);
+  grid-template-columns: auto 1fr;
+  gap: 24px;
   align-items: center;
-  padding: 16px;
-  border: 1px solid rgba(255, 255, 255, 0.11);
-  border-radius: 24px;
-  background:
-    radial-gradient(circle at 0% 0%, rgba(110, 229, 255, 0.13), transparent 36%),
-    radial-gradient(circle at 100% 12%, rgba(247, 215, 116, 0.10), transparent 32%),
-    rgba(255, 255, 255, 0.045);
-  box-shadow: 0 22px 60px rgba(0, 0, 0, 0.24);
+  padding: 16px 20px;
+  border-radius: 28px;
+  background: rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(12px);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.25);
+  color: #ffffff;
+  font-family: 'Poppins', sans-serif;
 }
 
 .spriteFrame {
-  display: grid;
-  place-items: center;
-  width: 74px;
-  height: 74px;
-  border-radius: 24px;
-  border: 1px solid rgba(110, 229, 255, 0.22);
-  background:
-    linear-gradient(135deg, rgba(110, 229, 255, 0.16), rgba(195, 90, 214, 0.12)),
-    rgba(255, 255, 255, 0.06);
+  width: 120px;
+  height: 120px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
 
 .spriteFrame img {
-  display: block;
-  width: 64px;
-  height: 64px;
+  width: 100%;
+  height: 100%;
   object-fit: contain;
 }
 
-.spriteFallback {
-  display: grid;
-  place-items: center;
-  width: 48px;
-  height: 48px;
-  border-radius: 18px;
-  color: rgba(255, 255, 255, 0.96);
-  background:
-    radial-gradient(circle at 34% 28%, rgba(255, 255, 255, 0.42), transparent 18%),
-    linear-gradient(135deg, rgba(110, 229, 255, 0.34), rgba(247, 215, 116, 0.24));
-  font-weight: 950;
-}
-
 .coachCopy {
-  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
 .eyebrow {
-  margin: 0 0 6px;
-  color: rgba(110, 229, 255, 0.86);
   font-size: 0.72rem;
-  font-weight: 850;
-  letter-spacing: 0.13em;
+  font-weight: 700;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
+  color: #6EE5FF;
 }
 
 .message {
-  margin: 0;
-  color: rgba(255, 255, 255, 0.88);
-  line-height: 1.65;
+  font-size: 0.95rem;
+  line-height: 1.6;
+  color: #ffffff;
 }
 
 .coachActions {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--s-8);
-  margin-top: var(--s-12);
+  gap: 10px;
+  margin-top: 12px;
 }
 
 .coachButton {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 38px;
-  padding: 8px 12px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 14px;
-  color: rgba(255, 255, 255, 0.86);
-  background: rgba(255, 255, 255, 0.055);
+  padding: 10px 16px;
+  border-radius: 16px;
+  border: none;
+  font-weight: 600;
   cursor: pointer;
-  font-weight: 850;
   text-decoration: none;
+  background: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
+  transition: all 0.2s ease;
 }
 
 .coachButton.primary {
-  color: rgba(255, 255, 255, 0.95);
-  border-color: rgba(110, 229, 255, 0.28);
-  background:
-    linear-gradient(135deg, rgba(110, 229, 255, 0.18), rgba(195, 90, 214, 0.13)),
-    rgba(255, 255, 255, 0.06);
+  background: linear-gradient(135deg, #6EE5FF, #C35AD6);
+  color: #fff;
 }
 
 .coachButton:hover {
-  text-decoration: none;
-  background: rgba(255, 255, 255, 0.085);
-}
-
-.coachButton:focus-visible {
-  outline: none;
-  box-shadow: var(--focus);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3);
 }
 
 @media (max-width: 620px) {
   .coach {
     grid-template-columns: 1fr;
+    text-align: center;
   }
 
   .spriteFrame {
-    width: 64px;
-    height: 64px;
+    margin: 0 auto;
   }
 
   .coachButton {

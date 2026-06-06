@@ -7,14 +7,9 @@
       </RouterLink>
 
       <nav v-if="showNavigation" class="desktopNav" :aria-label="t('nav.primary')">
-        <RouterLink
-          v-for="item in navItems"
-          :key="item.key"
-          class="navLink"
-          :class="{ active: isItemActive(item), hinted: hasHint(item.key) }"
-          :to="item.to"
-          :aria-current="isItemActive(item) ? 'page' : undefined"
-        >
+        <RouterLink v-for="item in navItems" :key="item.key" class="navLink"
+          :class="{ active: isItemActive(item), hinted: hasHint(item.key) }" :to="item.to"
+          :aria-current="isItemActive(item) ? 'page' : undefined">
           <span class="navIcon" :data-icon="item.key" aria-hidden="true"></span>
           <span>{{ t(item.labelKey) }}</span>
           <span v-if="badgeFor(item.key)" class="navBadge">{{ badgeFor(item.key) }}</span>
@@ -24,15 +19,9 @@
       <div class="headerActions">
         <LanguageSwitcher />
 
-        <button
-          v-if="showNavigation"
-          type="button"
-          class="menuButton"
-          :aria-label="menuOpen ? t('nav.closeMenu') : t('nav.openMenu')"
-          :aria-expanded="menuOpen"
-          aria-controls="mobile-navigation"
-          @click="menuOpen = !menuOpen"
-        >
+        <button v-if="showNavigation" type="button" class="menuButton"
+          :aria-label="menuOpen ? t('nav.closeMenu') : t('nav.openMenu')" :aria-expanded="menuOpen"
+          aria-controls="mobile-navigation" @click="menuOpen = !menuOpen">
           <span aria-hidden="true"></span>
           <span aria-hidden="true"></span>
         </button>
@@ -40,21 +29,10 @@
     </div>
 
     <Transition name="navSheet">
-      <nav
-        v-if="showNavigation && menuOpen"
-        id="mobile-navigation"
-        class="mobileSheet"
-        :aria-label="t('nav.mobile')"
-      >
-        <RouterLink
-          v-for="item in navItems"
-          :key="item.key"
-          class="sheetLink"
-          :class="{ active: isItemActive(item), hinted: hasHint(item.key) }"
-          :to="item.to"
-          :aria-current="isItemActive(item) ? 'page' : undefined"
-          @click="closeMenu"
-        >
+      <nav v-if="showNavigation && menuOpen" id="mobile-navigation" class="mobileSheet" :aria-label="t('nav.mobile')">
+        <RouterLink v-for="item in navItems" :key="item.key" class="sheetLink"
+          :class="{ active: isItemActive(item), hinted: hasHint(item.key) }" :to="item.to"
+          :aria-current="isItemActive(item) ? 'page' : undefined" @click="closeMenu">
           <span class="navIcon" :data-icon="item.key" aria-hidden="true"></span>
           <span>
             <strong>{{ t(item.labelKey) }}</strong>
@@ -66,14 +44,9 @@
     </Transition>
 
     <nav v-if="showNavigation" class="mobileBottomNav" :aria-label="t('nav.mobilePrimary')">
-      <RouterLink
-        v-for="item in mobileItems"
-        :key="item.key"
-        class="bottomLink"
-        :class="{ active: isItemActive(item), hinted: hasHint(item.key) }"
-        :to="item.to"
-        :aria-current="isItemActive(item) ? 'page' : undefined"
-      >
+      <RouterLink v-for="item in mobileItems" :key="item.key" class="bottomLink"
+        :class="{ active: isItemActive(item), hinted: hasHint(item.key) }" :to="item.to"
+        :aria-current="isItemActive(item) ? 'page' : undefined">
         <span class="navIcon" :data-icon="item.key" aria-hidden="true"></span>
         <span>{{ t(item.labelKey) }}</span>
         <span v-if="badgeFor(item.key)" class="bottomBadge">{{ badgeFor(item.key) }}</span>
@@ -143,12 +116,12 @@ const navItems = computed(() => [
     hintKey: "nav.hints.profile",
     to: "/profile",
   },
-  {
-    key: "settings",
-    labelKey: "nav.settings",
-    hintKey: "nav.hints.settings",
-    to: { path: "/profile", hash: "#settings" },
-  },
+  // {
+  //   key: "settings",
+  //   labelKey: "nav.settings",
+  //   hintKey: "nav.hints.settings",
+  //   to: { path: "/profile", hash: "#settings" },
+  // },
 ]);
 
 const mobileItems = computed(() => navItems.value.filter((item) => {
@@ -524,7 +497,7 @@ watch(
     border-radius: 16px;
   }
 
-  .sheetLink > span:nth-child(2) {
+  .sheetLink>span:nth-child(2) {
     display: grid;
     gap: 1px;
     min-width: 0;

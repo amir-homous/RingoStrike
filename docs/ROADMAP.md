@@ -61,6 +61,21 @@ The product has moved beyond raw MVP. The core progression identity system is im
 - Enrollment UI with challenge remaining time.
 - Enrollment UI with daily reset rhythm and urgency states.
 
+### Guided Paths And Missions
+
+- Backend-backed growth paths with `paths` and `user_paths`.
+- Path-linked challenge metadata: `path_id`, `difficulty`, `stage`, `estimated_days`, and `ringo_intro`.
+- Mission definitions through `missions`.
+- Per-user daily mission state through `mission_logs`.
+- Path APIs for listing paths, loading path challenges, and starting/reactivating a path.
+- Mission APIs for today's missions, mark done, remind later, and skip.
+- Mission completion delegates to the existing check-in pipeline for XP, streak, achievement, activity, and stats consistency.
+- Ringo decision service for coach state, sprite key, message, and primary/secondary action selection.
+- Dashboard MissionCenter as the first daily action surface.
+- `/paths` planning view with path picker, stage panels, mission previews, and today progress summary.
+- Ringo helper sprites and RingoCoach component.
+- Premium navigation with Paths in desktop/mobile navigation and Settings removed from visible navigation.
+
 ### Stabilization Progress Completed
 
 - Removed duplicate `GET /me/stats` route ownership.
@@ -117,6 +132,7 @@ The product has moved beyond raw MVP. The core progression identity system is im
 - Added JoinSuccessMoment after successful challenge joins so onboarding and discovery lead users toward Today's Mission before dense enrollment details.
 - Added premium check-in RewardMoment and frontend-only unlock hints for Activity, Achievements, and Public Profile using existing check-in/stat data.
 - Added frontend-only progressive disclosure on the dashboard using existing check-in counts instead of new backend fields.
+- Added backend-backed path/mission system, MissionCenter, `/paths`, and RingoCoach on top of the existing challenge/check-in progression model.
 
 
 ### Backend Test Coverage Added
@@ -160,6 +176,8 @@ The product has moved beyond raw MVP. The core progression identity system is im
 - Achievement XP persistence smoke test.
 - Uncounted check-in progression/history smoke tests.
 - Public profile username normalization smoke test.
+- Path and mission backend behavior tests.
+- Ringo decision service tests.
 - Service-level leaderboard ordering coverage for overall and today tie-breaker rules.
 - Frontend router guard smoke test.
 - Frontend login flow smoke test.
@@ -178,6 +196,8 @@ The product has moved beyond raw MVP. The core progression identity system is im
 These items should happen before expanding product scope:
 
 - Keep invalid challenge join payload coverage as route behavior evolves.
+- Restore or remove missing Ringo sprite imports for `talking.png` and `victory.png`.
+- Add frontend smoke coverage for `/paths`, MissionCenter, mission done/remind/skip, and duplicate mission/check-in behavior.
 - Add tests for `/auth/logout` edge cases if token blacklist/session invalidation is introduced later.
 - Resolve or document remaining GitHub Actions frontend build instability if it reappears.
 - Run deployment smoke script after every production/pre-launch deployment.

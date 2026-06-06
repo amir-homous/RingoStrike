@@ -56,6 +56,9 @@ Registered route sources:
 - `routes/stats_routes.py`
 - `routes/public_profile_routes.py`
 - `routes/profile_settings_routes.py`
+- `routes/telegram_routes.py`
+- `routes/path_routes.py`
+- `routes/mission_routes.py`
 - `routes/health_routes.py`
 
 ## Backend Layering
@@ -74,6 +77,10 @@ Routes are mostly thin and defer to services. The main exception is `backend/aut
 
 - `challenge_service.py`: challenge discovery, detail, members, join, and enrollment detail.
 - `enrollment_service.py`: daily check-in writes, stats sync, achievement evaluation.
+- `path_seed_service.py`: seeded MVP growth paths, path-linked challenge definitions, mission definitions, and archiving of legacy unlinked active challenges.
+- `path_service.py`: path listing, path challenge/missions projection, user path start/reactivation.
+- `mission_service.py`: today's mission list, mission logs, remind-later/skip state, and mission completion through the existing check-in pipeline.
+- `ringo_decision_service.py`: RingoCoach state, sprite key, message, and action decision from active path/enrollment/mission/stats context.
 - `stats_service.py`: XP, level, streak, progress calculations, `user_stats` synchronization.
 - `achievement_service.py`: achievement definition seeding, unlock evaluation, achievement list.
 - `activity_service.py`: derived activity feed from check-ins, streaks, levels, achievements.
@@ -95,7 +102,7 @@ Routes are mostly thin and defer to services. The main exception is `backend/aut
 
 ```txt
 Vue views
-  Dashboard/Profile/Challenges/Enrollment/PublicProfile
+  Dashboard/Paths/Challenges/Enrollment/Profile/PublicProfile
       |
       v
 frontend/src/lib/api.js
@@ -105,13 +112,15 @@ Flask app.py + route modules
       |
       v
 Service layer
+  paths -> missions -> ringo decision
   stats -> achievements -> activity -> profile
   challenge -> enrollment -> history -> leaderboard
       |
       v
 SQLite tables
   users, user_stats, challenges, enrollments,
-  checkins, achievements, user_achievements
+  checkins, paths, user_paths, missions, mission_logs,
+  achievements, user_achievements
 ```
 
 ## Authentication Flow
@@ -156,6 +165,7 @@ Router paths:
 - `/onboarding`
 - `/auth/callback`
 - `/dashboard`
+- `/paths`
 - `/challenges`
 - `/profile`
 - `/enrollment/:id`
@@ -165,11 +175,33 @@ Router paths:
 - `/` redirects to `/dashboard`
 - unknown paths redirect to `/dashboard`
 
-Guided progression additions are frontend-only:
+Guided progression is now split between backend path/mission data and frontend presentation:
 
 - `/onboarding` stores temporary completion/path state in `localStorage` and uses existing challenge list/join APIs.
 - `frontend/src/views/challengeFlow.js` centralizes join payload handling and returns join success data so callers can decide whether to show JoinSuccessMoment or navigate.
-- RewardMoment and JoinSuccessMoment are display-only feedback components. They do not calculate XP, streaks, achievements, or enrollment state.
+- `/paths` uses `GET /paths`, `POST /paths/:id/start`, and `GET /paths/:id/challenges` to show active growth paths, challenge stages, mission previews, and path progress.
+- Dashboard loads `MissionCenter` before legacy dashboard sections. `MissionCenter` calls `GET /me/today-missions`, renders `RingoCoach`, and writes mission state through `/me/missions/:id/...`.
+- `POST /me/missions/:id/done` records the mission log and delegates to the existing enrollment check-in service, so XP, streaks, achievements, activity, and stats remain owned by the existing progression pipeline.
+- RewardMoment and JoinSuccessMoment are display feedback components. RewardMoment consumes existing check-in reward data plus frontend-only feature unlock hints; JoinSuccessMoment consumes challenge/path start results.
+
+## Ringo Helper Architecture
+
+`backend/services/ringo_decision_service.py` returns a compact UI decision:
+
+```json
+{
+  "state": "today_not_started",
+  "sprite": "focus",
+  "sprite_key": "focus",
+  "message": "Today's mission is ready...",
+  "primary_action": { "label": "Start: Mission", "type": "mission", "mission_id": 1 },
+  "secondary_action": { "label": "View path details", "type": "route", "to": "/enrollment/1" }
+}
+```
+
+`frontend/src/components/ringo/RingoCoach.vue` resolves `sprite_key` through `frontend/src/constants/ringoSprites.js` and emits action payloads for mission/reminder/dismiss behavior. Route actions render as `RouterLink`.
+
+Current sprite asset set is under `frontend/src/assets/ringo/`. The frontend sprite map currently references `talking.png` and `victory.png`; those files are not present in the current working tree and should be restored or removed from the sprite map.
 
 Router guard behavior:
 
@@ -199,5 +231,6 @@ The actual UI is implemented with Vue component CSS plus shared base primitives 
 - Auth remains stateless JWT; there is no token revocation or session blacklist.
 - SQLite is suitable for local/MVP use but will need migrations and likely PostgreSQL before serious multi-user scale.
 - Some read endpoints perform derived calculations or stats sync work, which can become expensive as data grows.
+- Mission completion delegates to check-in, so duplicate mission/check-in submissions should continue to be tested around idempotency and reward display.
 - API prefixes are mixed (`/me/...`, `/api/me/...`, `/api/profile...`) and should be normalized over time.
 - Profile update responsibilities overlap across profile settings/update/visibility endpoints.
