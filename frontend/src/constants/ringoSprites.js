@@ -40,6 +40,10 @@ export const RINGO_SPRITES = Object.freeze(
 
 export const RINGO_MOOD_CONTEXTS = Object.freeze({
   welcome: "welcome",
+  onboardingPath: "thinking",
+  onboardingPathSelected: "focus",
+  onboardingSuggestion: "encouraging",
+  onboardingFallback: "explaining",
   joinCreated: "happy",
   joinExisting: "thinking",
   rewardDefault: "proud",

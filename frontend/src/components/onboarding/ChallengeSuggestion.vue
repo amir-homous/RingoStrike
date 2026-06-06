@@ -1,11 +1,21 @@
 <template>
   <section class="suggestionStep">
-    <div class="stepHeader">
-      <p class="eyebrow">{{ t("onboarding.suggestion.eyebrow") }}</p>
-      <h1>{{ t("onboarding.suggestion.title") }}</h1>
-      <p>
-        {{ t("onboarding.suggestion.body", { path: pathLabel }) }}
-      </p>
+    <div class="suggestionHero">
+      <div class="stepHeader">
+        <p class="eyebrow">{{ t("onboarding.suggestion.eyebrow") }}</p>
+        <h1>{{ t("onboarding.suggestion.title") }}</h1>
+        <p>
+          {{ t("onboarding.suggestion.body", { path: pathLabel }) }}
+        </p>
+      </div>
+
+      <RingoMoodFigure
+        class="suggestionRingo"
+        :mood="suggestionMood"
+        :alt="t('onboarding.suggestion.title')"
+        size="md"
+        floating
+      />
     </div>
 
     <BaseCard class="suggestionCard">
@@ -79,6 +89,8 @@ import { useI18n } from "vue-i18n";
 
 import BaseButton from "@/components/ui/BaseButton.vue";
 import BaseCard from "@/components/ui/BaseCard.vue";
+import RingoMoodFigure from "@/components/ringo/RingoMoodFigure.vue";
+import { resolveRingoMood } from "@/constants/ringoSprites";
 
 const props = defineProps({
   path: { type: String, default: "" },
@@ -94,6 +106,12 @@ const { t } = useI18n();
 const pathLabel = computed(() => {
   return props.path ? t(`onboarding.paths.${props.path}.label`) : t("onboarding.path.defaultPath");
 });
+
+const suggestionMood = computed(() => {
+  return props.challenge
+    ? resolveRingoMood("onboardingSuggestion")
+    : resolveRingoMood("onboardingFallback");
+});
 </script>
 
 <style scoped>
@@ -102,8 +120,20 @@ const pathLabel = computed(() => {
   gap: var(--s-20);
 }
 
+.suggestionHero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--s-20);
+  align-items: center;
+}
+
 .stepHeader {
   max-width: 760px;
+  min-width: 0;
+}
+
+.suggestionRingo {
+  justify-self: end;
 }
 
 .eyebrow {
@@ -216,6 +246,15 @@ h2 {
 }
 
 @media (max-width: 620px) {
+  .suggestionHero {
+    grid-template-columns: 1fr;
+  }
+
+  .suggestionRingo {
+    order: -1;
+    justify-self: center;
+  }
+
   h1 {
     font-size: 1.9rem;
   }
