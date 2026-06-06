@@ -1,18 +1,8 @@
 <template>
   <Teleport to="body">
     <Transition name="reward">
-      <div
-        v-if="open"
-        class="rewardOverlay"
-        role="presentation"
-        @click.self="close"
-      >
-        <section
-          class="rewardPanel"
-          role="dialog"
-          aria-modal="true"
-          :aria-label="t('rewardMoment.title')"
-        >
+      <div v-if="open" class="rewardOverlay" role="presentation" @click.self="close">
+        <section class="rewardPanel" role="dialog" aria-modal="true" :aria-label="t('rewardMoment.title')">
           <div class="rewardAura" aria-hidden="true"></div>
 
           <div class="rewardMark" aria-hidden="true">
@@ -44,10 +34,7 @@
             <p>{{ t("rewardMoment.achievements") }}</p>
 
             <ul>
-              <li
-                v-for="achievement in achievements"
-                :key="achievement.key || achievement.title"
-              >
+              <li v-for="achievement in achievements" :key="achievement.key || achievement.title">
                 <span class="achievementDot" aria-hidden="true"></span>
                 <div>
                   <strong>{{ achievement.title }}</strong>
@@ -63,38 +50,21 @@
           <div v-if="unlockedFeatures.length" class="featureUnlocks">
             <p class="unlockIntro">{{ t("rewardMoment.unlocks.intro") }}</p>
 
-            <article
-              v-for="feature in unlockedFeatures"
-              :key="feature.key"
-              class="unlockCard"
-            >
+            <article v-for="feature in unlockedFeatures" :key="feature.key" class="unlockCard">
               <div>
                 <h3>{{ t(`rewardMoment.unlocks.${feature.key}.title`) }}</h3>
                 <p>{{ t(`rewardMoment.unlocks.${feature.key}.description`) }}</p>
               </div>
 
-              <RouterLink
-                v-if="feature.to"
-                v-slot="{ navigate }"
-                :to="feature.to"
-                custom
-              >
-                <BaseButton
-                  class="unlockCta"
-                  variant="secondary"
-                  @click="handleNavigate(navigate)"
-                >
+              <RouterLink v-if="feature.to" v-slot="{ navigate }" :to="feature.to" custom>
+                <BaseButton class="unlockCta" variant="secondary" @click="handleNavigate(navigate)">
                   {{ t(`rewardMoment.unlocks.${feature.key}.cta`) }}
                 </BaseButton>
               </RouterLink>
             </article>
           </div>
 
-          <BaseButton
-            class="continueButton"
-            variant="primary"
-            @click="close"
-          >
+          <BaseButton class="continueButton" variant="primary" @click="close">
             {{ t("rewardMoment.continue") }}
           </BaseButton>
         </section>
@@ -422,6 +392,7 @@ h2 {
 }
 
 @media (prefers-reduced-motion: reduce) {
+
   .reward-enter-active,
   .reward-leave-active,
   .reward-enter-active .rewardPanel,
