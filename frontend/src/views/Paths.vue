@@ -142,6 +142,15 @@
                 </BaseButton>
 
                 <BaseButton
+                  v-if="pathProgress.action === 'startNext'"
+                  variant="primary"
+                  :loading="startingChallengeId === nextChallenge?.challenge_id"
+                  @click="startChallenge(nextChallenge)"
+                >
+                  {{ pathProgress.primaryCta }}
+                </BaseButton>
+
+                <BaseButton
                   v-if="pathProgress.action === 'selectOther'"
                   variant="primary"
                   @click="selectPath(nextUsefulPath)"
@@ -512,8 +521,6 @@ const nextUsefulPath = computed(() => {
     return total > 0 && done < total;
   })
     || otherPaths.find((path) => Boolean(pathChallengeCounts.value[path.path_id]?.next))
-    || otherPaths.find((path) => path.user_status !== "Active")
-    || otherPaths[0]
     || null;
 });
 
@@ -582,6 +589,23 @@ const pathCoach = computed(() => {
     };
   }
 
+  if (todayComplete.value && nextChallenge.value) {
+    return {
+      sprite_key: "celebration",
+      message: t("pathsPage.coach.todayDoneWithNext", { challenge: nextChallenge.value.name }),
+      primary_action: {
+        label: t("pathsPage.startChallenge"),
+        type: "start_challenge",
+        challenge_id: nextChallenge.value.challenge_id,
+      },
+      secondary_action: {
+        label: t("pathsPage.previewNextChallenge"),
+        type: "preview_challenge",
+        challenge_id: nextChallenge.value.challenge_id,
+      },
+    };
+  }
+
   if (todayComplete.value && nextUsefulPath.value) {
     return {
       sprite_key: "celebration",
@@ -597,23 +621,6 @@ const pathCoach = computed(() => {
         label: t("pathsPage.browseLibrary"),
         type: "route",
         to: "/challenges",
-      },
-    };
-  }
-
-  if (todayComplete.value && nextChallenge.value) {
-    return {
-      sprite_key: "celebration",
-      message: t("pathsPage.coach.todayDoneWithNext", { challenge: nextChallenge.value.name }),
-      primary_action: {
-        label: t("pathsPage.previewNextChallenge"),
-        type: "preview_challenge",
-        challenge_id: nextChallenge.value.challenge_id,
-      },
-      secondary_action: {
-        label: t("pathsPage.openDashboard"),
-        type: "route",
-        to: "/dashboard",
       },
     };
   }
@@ -691,6 +698,16 @@ const pathProgress = computed(() => {
   }
 
   if (todayComplete.value) {
+    if (nextChallenge.value) {
+      return {
+        todayComplete: true,
+        title: t("pathsPage.todayCompleteTitle", { path: selectedPath.value.title }),
+        body: t("pathsPage.todayCompleteBodyWithNext", { challenge: nextChallenge.value.name }),
+        primaryCta: t("pathsPage.startChallenge"),
+        action: "startNext",
+      };
+    }
+
     if (nextUsefulPath.value) {
       return {
         todayComplete: true,

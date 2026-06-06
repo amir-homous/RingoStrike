@@ -150,8 +150,12 @@ def _find_user_mission_context(conn, user_id, mission_id):
         SELECT
             m.id AS mission_id,
             m.title,
+            m.description,
             m.xp_reward,
             m.challenge_id,
+            c.name AS challenge_name,
+            c.path_id,
+            p.title AS path_title,
             e.id AS enrollment_id
         FROM missions m
         JOIN enrollments e
@@ -159,6 +163,7 @@ def _find_user_mission_context(conn, user_id, mission_id):
          AND e.user_id = ?
          AND e.status = 'Active'
         JOIN challenges c ON c.id = m.challenge_id
+        LEFT JOIN paths p ON p.id = c.path_id
         WHERE m.id = ?
           AND m.status = 'Active'
           AND c.status = 'Active'
@@ -178,6 +183,21 @@ def _upsert_mission_log(user_id, mission_id, status, *, reminder_at=None, notes=
             return {"ok": False, "error": "mission_not_found"}, 404
 
         xp_earned = int(mission["xp_reward"] or 0) if status == "done" else 0
+        secured_at = datetime.now(timezone.utc).isoformat() if status == "done" else None
+        done_before_you = 0
+
+        if status == "done":
+            done_before_you = int(conn.execute(
+                """
+                SELECT COUNT(*) AS n
+                FROM mission_logs
+                WHERE mission_id = ?
+                  AND date = ?
+                  AND status = 'done'
+                  AND user_id != ?
+                """,
+                (mission_id, today, user_id),
+            ).fetchone()["n"] or 0)
 
         conn.execute(
             """
@@ -220,12 +240,19 @@ def _upsert_mission_log(user_id, mission_id, status, *, reminder_at=None, notes=
             "mission": {
                 "mission_id": mission_id,
                 "title": mission["title"],
+                "description": mission["description"] or "",
                 "status": status,
                 "date": today,
+                "secured_at": secured_at,
                 "xp_earned": xp_earned,
                 "enrollment_id": mission["enrollment_id"],
                 "challenge_id": mission["challenge_id"],
+                "challenge_name": mission["challenge_name"],
+                "path_id": mission["path_id"],
+                "path_title": mission["path_title"],
                 "reminder_at": reminder_at,
+                "today_done_before_you": done_before_you,
+                "today_done_count": done_before_you + 1 if status == "done" else None,
             },
         }, 200
     finally:

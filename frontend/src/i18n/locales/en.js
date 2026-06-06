@@ -257,6 +257,13 @@ export default {
     achievements: "Unlocked achievements",
     bonusXp: "+{count} bonus XP",
     continue: "Continue",
+    mission: {
+      label: "Mission secured",
+      securedAt: "Secured at",
+      challenge: "Challenge",
+      firstToday: "You are the first person to secure this mission today.",
+      othersBefore: "{count} people secured this mission before you today. {total} total secured it so far.",
+    },
     lines: [
       "Small progress. Real momentum.",
       "You protected today’s rhythm.",

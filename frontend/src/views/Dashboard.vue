@@ -323,13 +323,18 @@ function pushToast(text, type = "success") {
   }, 1800);
 }
 
-function buildRewardMomentPayload(rewards, oldStats, challenge) {
+function buildRewardMomentPayload(rewards, oldStats, challenge, context = {}) {
   const xpTotal = Number(rewards?.xp_total ?? stats.value?.total_points);
   const oldTotal = Number(oldStats?.total_points ?? oldStats?.xp);
   const xpEarned = Number.isFinite(xpTotal) && Number.isFinite(oldTotal)
     ? Math.max(0, xpTotal - oldTotal)
     : 0;
   const unlocked = Array.isArray(rewards?.achievements) ? rewards.achievements : [];
+  const mission = context?.mission || null;
+  const securedAt = mission?.secured_at || context?.securedAt || new Date().toISOString();
+  const missionTitle = mission?.title || challenge?.mission_title || challenge?.name || "";
+  const challengeName = mission?.challenge_name || challenge?.name || "";
+  const missionSummary = mission?.description || challenge?.description || "";
 
   if (xpEarned <= 0 && unlocked.length === 0) return null;
 
@@ -349,6 +354,21 @@ function buildRewardMomentPayload(rewards, oldStats, challenge) {
           : "/dashboard",
     })),
     streak: challenge?.current_streak ?? stats.value?.current_streak ?? null,
+    mission: missionTitle
+      ? {
+          title: missionTitle,
+          challengeName,
+          summary: missionSummary,
+          securedAt,
+          securedDate: mission?.date || date.value || "",
+          todayDoneBeforeYou: Number.isFinite(Number(mission?.today_done_before_you))
+            ? Number(mission.today_done_before_you)
+            : null,
+          todayDoneCount: Number.isFinite(Number(mission?.today_done_count))
+            ? Number(mission.today_done_count)
+            : null,
+        }
+      : null,
   };
 }
 
@@ -413,6 +433,7 @@ async function checkin(enrollmentId) {
       result.rewards,
       result.oldStats,
       checkedChallenge,
+      { securedAt: new Date().toISOString() },
     );
 
     for (const a of result.unlocked) {
@@ -455,6 +476,10 @@ async function handleMissionCheckin(payload) {
     payload?.checkin?.rewards,
     oldStats,
     checkedChallenge,
+    {
+      mission: payload?.mission,
+      securedAt: payload?.mission?.secured_at || new Date().toISOString(),
+    },
   );
   rewardMoment.value = rewardPayload;
 

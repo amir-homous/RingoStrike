@@ -296,7 +296,13 @@ async function runMissionAction(mission, action, request) {
         : "muted";
 
     if (data?.checkin?.ok) {
-      emit("checked-in", data);
+      emit("checked-in", {
+        ...data,
+        mission: {
+          ...mission,
+          ...(data?.mission || {}),
+        },
+      });
     }
 
     await loadMissions();
