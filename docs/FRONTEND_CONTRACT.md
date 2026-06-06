@@ -250,6 +250,248 @@ Success:
 
 Frontend join UX currently consumes this same response to show JoinSuccessMoment before routing users to the dashboard or enrollment detail. Do not add a separate onboarding/recommendation endpoint for the v1 guided start flow; onboarding and challenge discovery both reuse this join contract.
 
+## Paths And Missions
+
+Path and mission APIs are the current backend-backed guided progression contract. They sit above the existing challenge/enrollment/check-in system and should not duplicate XP, streak, achievement, or activity calculations.
+
+### `GET /paths`
+
+Auth: optional.
+
+Returns active growth paths. When a user is authenticated, each item includes that user's path state.
+
+```json
+{
+  "ok": true,
+  "items": [
+    {
+      "path_id": 1,
+      "key": "body",
+      "title": "Body Momentum",
+      "description": "Build energy...",
+      "icon": "B",
+      "color": "#6ee5ff",
+      "sort_order": 1,
+      "status": "Active",
+      "user_status": "Active",
+      "current_stage": 1
+    }
+  ]
+}
+```
+
+### `POST /paths/:path_id/start`
+
+Auth: required.
+
+Request body can be an empty JSON object.
+
+Success:
+
+```json
+{
+  "ok": true,
+  "mode": "created",
+  "user_path_id": 1,
+  "path": {
+    "path_id": 1,
+    "key": "body",
+    "title": "Body Momentum",
+    "user_status": "Active",
+    "current_stage": 1
+  }
+}
+```
+
+`mode` can be `created`, `existing`, or `reactivated`.
+
+Active frontend behavior in `PathSelection.vue`: after starting a path, the frontend loads the path challenges and joins the first challenge when available through `POST /challenges/:challenge_id/join`. The path API itself does not enroll the user in a challenge.
+
+### `GET /paths/:path_id/challenges`
+
+Auth: optional.
+
+Returns a path summary, path-linked active challenges, mission previews, joined state, and today's mission progress for authenticated users.
+
+```json
+{
+  "ok": true,
+  "date": "2026-06-06",
+  "path": {
+    "path_id": 1,
+    "key": "body",
+    "title": "Body Momentum",
+    "user_status": "Active"
+  },
+  "summary": {
+    "joined_challenges": 1,
+    "today_checked_challenges": 0,
+    "today_missions_done": 0,
+    "today_missions_total": 1
+  },
+  "items": [
+    {
+      "challenge_id": 1,
+      "name": "Move Your Body",
+      "description": "...",
+      "visibility": "Public",
+      "status": "Active",
+      "duration_days": 7,
+      "goal_type": "Daily",
+      "tags": ["body"],
+      "difficulty": "beginner",
+      "stage": 1,
+      "estimated_days": 7,
+      "ringo_intro": "Start small...",
+      "is_joined": true,
+      "enrollment_id": 10,
+      "enrollment_status": "Active",
+      "today_checked": false,
+      "total_checkins": 2,
+      "today_missions_done": 0,
+      "today_missions_total": 1,
+      "missions": [
+        {
+          "mission_id": 1,
+          "key": "move_10",
+          "title": "Move for 10 minutes",
+          "description": "...",
+          "mission_type": "daily",
+          "difficulty": "easy",
+          "is_core": true,
+          "xp_reward": 10,
+          "order_index": 1,
+          "suggested_time": "morning",
+          "unlock_after_days": 0,
+          "unlocks_in_days": 0,
+          "available_today": true,
+          "ringo_message": "...",
+          "today_status": "pending",
+          "reminder_at": null,
+          "xp_earned": 0
+        }
+      ]
+    }
+  ]
+}
+```
+
+`today_status` is `locked` when a mission is not available yet because the user is not joined or the mission's `unlock_after_days` has not elapsed.
+
+### `GET /me/today-missions`
+
+Auth: required.
+
+Returns daily missions available for active enrollments and a RingoCoach decision object.
+
+```json
+{
+  "ok": true,
+  "date": "2026-06-06",
+  "ringo": {
+    "state": "today_not_started",
+    "sprite": "focus",
+    "sprite_key": "focus",
+    "message": "Today's mission is ready...",
+    "primary_action": {
+      "label": "Start: Move for 10 minutes",
+      "type": "mission",
+      "mission_id": 1
+    },
+    "secondary_action": {
+      "label": "View path details",
+      "type": "route",
+      "to": "/enrollment/10"
+    }
+  },
+  "missions": [
+    {
+      "mission_id": 1,
+      "key": "move_10",
+      "title": "Move for 10 minutes",
+      "description": "...",
+      "mission_type": "daily",
+      "difficulty": "easy",
+      "is_core": true,
+      "xp_reward": 10,
+      "order_index": 1,
+      "suggested_time": "morning",
+      "unlock_after_days": 0,
+      "ringo_message": "...",
+      "status": "pending",
+      "reminder_at": null,
+      "xp_earned": 0,
+      "challenge_id": 1,
+      "challenge_name": "Move Your Body",
+      "enrollment_id": 10,
+      "path_id": 1,
+      "path_title": "Body Momentum"
+    }
+  ]
+}
+```
+
+Current `ringo.state` values include `new_user_no_path`, `path_selected_no_challenge`, `no_mission_today`, `today_completed`, `today_reminded`, `today_skipped`, `today_in_progress`, `returning_after_break`, `streak_at_risk`, and `today_not_started`.
+
+Current action types include `route`, `mission`, `mission_reminder`, and `dismiss`.
+
+### `POST /me/missions/:mission_id/done`
+
+Auth: required.
+
+Marks a mission done for today, writes/updates `mission_logs`, and calls the existing enrollment check-in service. This endpoint can therefore return an existing-check-in result if the enrollment was already checked in today.
+
+Success:
+
+```json
+{
+  "ok": true,
+  "mission": {
+    "mission_id": 1,
+    "title": "Move for 10 minutes",
+    "status": "done",
+    "date": "2026-06-06",
+    "xp_earned": 10,
+    "enrollment_id": 10,
+    "challenge_id": 1,
+    "reminder_at": null
+  },
+  "checkin": {
+    "ok": true,
+    "enrollment_id": 10,
+    "rewards": {}
+  },
+  "checkin_status_code": 200
+}
+```
+
+Frontend `MissionCenter.vue` emits the returned payload to `Dashboard.vue`, which reloads dashboard data and shows RewardMoment from the returned check-in reward data.
+
+### `POST /me/missions/:mission_id/remind-later`
+
+Auth: required.
+
+Request:
+
+```json
+{ "reminder_at": "2026-06-06T18:00:00Z" }
+```
+
+Validation:
+
+- request body must be a JSON object
+- `reminder_at` is required
+- value must be ISO-parseable after replacing `Z` with `+00:00`
+- value must be at most 80 characters
+
+Success returns the same `mission` shape as mission done with `status: "remind_later"` and no check-in payload.
+
+### `POST /me/missions/:mission_id/skip`
+
+Auth: required.
+
+Marks the mission skipped for today and returns the same `mission` shape with `status: "skipped"`. It does not call check-in.
+
 ## Enrollment, Check-ins, History, Leaderboard
 
 ### `GET /me/challenges`

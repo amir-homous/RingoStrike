@@ -16,6 +16,53 @@ The project has moved beyond raw MVP. Core progression identity is implemented. 
 
 ## Latest Launch-Hardening Updates
 
+### Backend-Backed Path And Mission System
+
+Added the first backend-backed guided progression layer:
+
+- Added `paths`, `user_paths`, `missions`, and `mission_logs` tables.
+- Added seed data for MVP growth paths, path-linked challenges, mission definitions, challenge stage metadata, and Ringo intro copy.
+- Added path APIs for listing paths, starting/reactivating a user path, and loading path challenges with mission previews and today progress.
+- Added mission APIs for today's missions, mark done, remind later, and skip.
+- Mission completion now records mission state and delegates to the existing check-in pipeline, preserving current XP, streak, achievement, activity, and stats ownership.
+- Added Ringo decision service for state, sprite key, coaching message, and primary/secondary action selection.
+- Added backend tests for path/mission behavior and Ringo decision states.
+
+### Mission-Centered Frontend UX
+
+Updated the frontend daily loop around paths and missions:
+
+- Added `/paths` as a full path planning page with path picker, stage-based challenge panels, mission previews, daily summary, and current/secured challenge states.
+- Added `MissionCenter.vue` as the first dashboard surface.
+- Added `PathSelection.vue` for selecting a path directly from guided mission states.
+- Kept the legacy Today Mission card as a fallback when MissionCenter errors or has no actionable mission.
+- Mission actions support done, remind later, and skip states.
+- RewardMoment now receives mission/check-in results through the dashboard reload path and shows XP, streak, achievements, and guided feature unlock hints.
+- Updated navigation to include Paths, desktop/mobile guided nav hints, and a mobile bottom nav focused on Dashboard, Paths, Challenges, and Profile.
+- Removed Settings from the visible navigation while profile/settings surfaces remain reachable from Profile.
+
+### Ringo Helper Image Update
+
+Updated Ringo helper presentation:
+
+- Added/updated Ringo helper sprite assets under `frontend/src/assets/ringo/`.
+- Added `RingoCoach.vue` as the guided coach component for sprite, message, and action rendering.
+- Centralized sprite resolution in `frontend/src/constants/ringoSprites.js`.
+- Simplified RewardMoment so it is a focused reward dialog rather than a Ringo image surface.
+
+Known follow-up: `ringoSprites.js` currently references `talking.png` and `victory.png`, but those files are not present in the current asset folder. Restore the assets or remove those imports before production build verification.
+
+### Documentation Refresh
+
+Updated documentation for the latest committed state:
+
+- Project overview now describes paths, missions, MissionCenter, RingoCoach, and the updated guided loop.
+- Architecture docs now include `path_routes.py`, `mission_routes.py`, path/mission services, Ringo decisions, and the new data flow.
+- Frontend/API contract now documents path and mission endpoints with response shapes.
+- API endpoint ownership now records canonical owners for path and mission routes.
+- Database schema docs now include path/mission tables, challenge metadata additions, and seed behavior.
+- Design system and AI context now describe current navigation, path planning, Ringo helper assets, and mission-first dashboard behavior.
+
 ### Guided Progression Frontend Flow
 
 Added the first frontend-only guided progression surfaces:
