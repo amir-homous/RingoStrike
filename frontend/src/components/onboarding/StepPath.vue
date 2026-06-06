@@ -22,8 +22,8 @@
         :key="path"
         type="button"
         class="pathCard"
-        :class="{ selected: modelValue === path }"
-        @click="$emit('update:modelValue', path)"
+        :class="{ selected: selectedPaths.includes(path) }"
+        @click="togglePath(path)"
       >
         <span class="pathIcon" aria-hidden="true"></span>
         <span class="pathLabel">{{ t(`onboarding.paths.${path}.label`) }}</span>
@@ -36,10 +36,10 @@
     <div class="actions">
       <BaseButton
         variant="primary"
-        :disabled="!modelValue"
+        :disabled="selectedPaths.length === 0"
         @click="$emit('continue')"
       >
-        {{ t("onboarding.path.continue") }}
+        {{ t("onboarding.path.continueWithCount", { count: selectedPaths.length }) }}
       </BaseButton>
     </div>
   </section>
@@ -55,19 +55,29 @@ import { resolveRingoMood } from "@/constants/ringoSprites";
 import { IDENTITY_PATHS } from "@/lib/guidedExperience";
 
 const props = defineProps({
-  modelValue: { type: String, default: "" },
+  modelValue: { type: Array, default: () => [] },
 });
 
-defineEmits(["update:modelValue", "continue"]);
+const emit = defineEmits(["update:modelValue", "continue"]);
 
 const { t } = useI18n();
 const paths = IDENTITY_PATHS;
+const selectedPaths = computed(() => Array.isArray(props.modelValue) ? props.modelValue : []);
 
 const pathMood = computed(() => {
-  return props.modelValue
+  return selectedPaths.value.length
     ? resolveRingoMood("onboardingPathSelected")
     : resolveRingoMood("onboardingPath");
 });
+
+function togglePath(path) {
+  if (selectedPaths.value.includes(path)) {
+    emit("update:modelValue", selectedPaths.value.filter((item) => item !== path));
+    return;
+  }
+
+  emit("update:modelValue", [...selectedPaths.value, path]);
+}
 </script>
 
 <style scoped>

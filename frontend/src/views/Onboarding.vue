@@ -33,14 +33,16 @@
 
           <StepPath
             v-else-if="step === 2"
-            v-model="selectedPath"
+            v-model="selectedPaths"
             @continue="continueToSuggestion"
           />
 
           <ChallengeSuggestion
             v-else
             :path="selectedPath"
+            :paths="selectedPaths"
             :challenge="suggestedChallenge"
+            :challenges="suggestedChallenges"
             :joining="joining"
             :error="joinError"
             @start="startSuggestedPath"
@@ -73,13 +75,13 @@ import StepWelcome from "@/components/onboarding/StepWelcome.vue";
 import StepPath from "@/components/onboarding/StepPath.vue";
 import ChallengeSuggestion from "@/components/onboarding/ChallengeSuggestion.vue";
 import {
-  findSuggestedChallenge,
   markOnboardingDone,
   markOnboardingSkipped,
   setIdentityPath,
 } from "@/lib/guidedExperience";
 import {
   humanizeJoinError,
+  isInviteOnlyChallenge,
   submitJoinFlow,
 } from "./challengeFlow";
 
@@ -87,16 +89,50 @@ const router = useRouter();
 const { t } = useI18n();
 
 const step = ref(1);
-const selectedPath = ref("");
+const selectedPaths = ref([]);
 const challenges = ref([]);
+const paths = ref([]);
+const pathChallenges = ref([]);
+const pathChallengeGroups = ref([]);
 const loading = ref(false);
 const joining = ref(false);
 const loadError = ref("");
 const joinError = ref("");
 const joinSuccess = ref(null);
 
+const IDENTITY_TO_BACKEND_PATH = {
+  focus: "career",
+  body: "fitness",
+  learning: "learning",
+  mind: "sleep",
+  consistency: "fitness",
+};
+
+const selectedPath = computed(() => selectedPaths.value[0] || "");
+
+const selectedBackendPaths = computed(() => {
+  const keys = selectedPaths.value.map((path) => IDENTITY_TO_BACKEND_PATH[path] || path);
+  return paths.value.filter((path) => keys.includes(path.key));
+});
+
+const suggestedChallenges = computed(() => {
+  if (pathChallengeGroups.value.length) {
+    return pathChallengeGroups.value.flatMap((group) => {
+      return group.items
+        .filter((challenge) => !isInviteOnlyChallenge(challenge) && !challenge.needs_code)
+        .slice(0, 3);
+    });
+  }
+
+  return (pathChallenges.value.length ? pathChallenges.value : challenges.value)
+    .filter((challenge) => !isInviteOnlyChallenge(challenge) && !challenge.needs_code)
+    .slice(0, 3);
+});
+
 const suggestedChallenge = computed(() => {
-  return findSuggestedChallenge(challenges.value, selectedPath.value);
+  return suggestedChallenges.value.find((challenge) => !challenge.is_joined)
+    || suggestedChallenges.value[0]
+    || null;
 });
 
 async function loadChallenges() {
@@ -104,8 +140,12 @@ async function loadChallenges() {
   loadError.value = "";
 
   try {
-    const { data } = await api.get("/challenges");
-    challenges.value = data.items || [];
+    const [{ data: challengeData }, { data: pathData }] = await Promise.all([
+      api.get("/challenges"),
+      api.get("/paths"),
+    ]);
+    challenges.value = challengeData.items || [];
+    paths.value = pathData.items || [];
   } catch (error) {
     loadError.value = error?.response?.data?.error || error?.message || String(error);
     challenges.value = [];
@@ -114,8 +154,38 @@ async function loadChallenges() {
   }
 }
 
+async function loadSelectedPathChallenges() {
+  pathChallenges.value = [];
+  pathChallengeGroups.value = [];
+
+  if (!selectedBackendPaths.value.length) return;
+
+  const responses = await Promise.all(
+    selectedBackendPaths.value.map((path) => api.get(`/paths/${path.path_id}/challenges`)),
+  );
+
+  const byId = new Map();
+  const groups = [];
+
+  responses.forEach((response, index) => {
+    const items = response.data?.items || [];
+    groups.push({
+      path_id: selectedBackendPaths.value[index]?.path_id || null,
+      key: selectedBackendPaths.value[index]?.key || "",
+      items,
+    });
+
+    for (const challenge of items) {
+      byId.set(challenge.challenge_id, challenge);
+    }
+  });
+
+  pathChallengeGroups.value = groups;
+  pathChallenges.value = [...byId.values()];
+}
+
 async function continueToSuggestion() {
-  if (!selectedPath.value) return;
+  if (!selectedPaths.value.length) return;
 
   setIdentityPath(selectedPath.value);
   step.value = 3;
@@ -123,25 +193,25 @@ async function continueToSuggestion() {
   if (!challenges.value.length) {
     await loadChallenges();
   }
+
+  await loadSelectedPathChallenges();
 }
 
-async function startSuggestedPath() {
-  const challenge = suggestedChallenge.value;
-  if (!challenge) {
+async function startSuggestedPath(selectedIds = []) {
+  const selected = suggestedChallenges.value.filter((challenge) =>
+    selectedIds.includes(challenge.challenge_id),
+  );
+
+  if (!selected.length) {
     browseChallenges();
     return;
   }
 
-  if (challenge.is_joined && challenge.enrollment_id) {
+  const notJoined = selected.filter((challenge) => !challenge.is_joined);
+
+  if (!notJoined.length) {
     markOnboardingDone(selectedPath.value);
-    joinSuccess.value = {
-      challengeId: challenge.challenge_id,
-      challengeName: challenge.name || challenge.challenge_name || challenge.enrollment_name || "",
-      challengeDescription: challenge.description || challenge.challenge_description || "",
-      enrollmentId: challenge.enrollment_id,
-      mode: "existing",
-      source: "onboarding",
-    };
+    router.push("/dashboard");
     return;
   }
 
@@ -149,18 +219,32 @@ async function startSuggestedPath() {
   joining.value = true;
 
   try {
-    const result = await submitJoinFlow({
-      apiClient: api,
-      router,
-      challenge,
-      reload: loadChallenges,
-    });
+    const results = [];
+
+    for (const challenge of notJoined) {
+      const result = await submitJoinFlow({
+        apiClient: api,
+        router,
+        challenge,
+        reload: loadChallenges,
+      });
+      results.push(result);
+    }
+
+    await loadChallenges();
+    await loadSelectedPathChallenges();
 
     markOnboardingDone(selectedPath.value);
-    joinSuccess.value = {
-      ...result,
-      source: "onboarding",
-    };
+
+    if (results.length === 1) {
+      joinSuccess.value = {
+        ...results[0],
+        source: "onboarding",
+      };
+      return;
+    }
+
+    router.push("/dashboard");
   } catch (error) {
     const message = error?.response?.data?.error || error?.message || String(error);
     joinError.value = humanizeJoinError(message);
