@@ -17,30 +17,49 @@ export const RINGO_SPRITE_KEYS = Object.freeze([
   "victory",
 ]);
 
-export const RINGO_SPRITES = Object.freeze({
-  idle: new URL("@/assets/ringo/idle.png", import.meta.url).href,
-  welcome: new URL("@/assets/ringo/welcome.png", import.meta.url).href,
-  talking: new URL("@/assets/ringo/talking.png", import.meta.url).href,
-  explaining: new URL("@/assets/ringo/explaining.png", import.meta.url).href,
-  thinking: new URL("@/assets/ringo/thinking.png", import.meta.url).href,
-  encouraging: new URL("@/assets/ringo/encouraging.png", import.meta.url).href,
-  warning: new URL("@/assets/ringo/warning.png", import.meta.url).href,
-  concerned: new URL("@/assets/ringo/concerned.png", import.meta.url).href,
-  happy: new URL("@/assets/ringo/happy.png", import.meta.url).href,
-  celebration: new URL("@/assets/ringo/celebration.png", import.meta.url).href,
-  achievement: new URL("@/assets/ringo/achievement.png", import.meta.url).href,
-  proud: new URL("@/assets/ringo/proud.png", import.meta.url).href,
-  sad: new URL("@/assets/ringo/sad.png", import.meta.url).href,
-  sleeping: new URL("@/assets/ringo/sleeping.png", import.meta.url).href,
-  focus: new URL("@/assets/ringo/focus.png", import.meta.url).href,
-  victory: new URL("@/assets/ringo/victory.png", import.meta.url).href,
+const FALLBACK_SPRITES = Object.freeze({
+  talking: "explaining",
+  concerned: "warning",
+});
+
+const spriteModules = import.meta.glob("../assets/ringo/*.png", {
+  eager: true,
+  import: "default",
+  query: "?url",
+});
+
+export const RINGO_SPRITES = Object.freeze(
+  Object.entries(spriteModules).reduce((sprites, [path, src]) => {
+    const filename = path.split("/").pop() || "";
+    const key = filename.replace(".png", "");
+
+    sprites[key] = src;
+    return sprites;
+  }, {}),
+);
+
+export const RINGO_MOOD_CONTEXTS = Object.freeze({
+  welcome: "welcome",
+  joinCreated: "happy",
+  joinExisting: "thinking",
+  rewardDefault: "proud",
+  rewardAchievement: "achievement",
+  rewardUnlock: "celebration",
+  rewardStreak: "victory",
+  rewardXp: "encouraging",
 });
 
 export function resolveRingoSprite(spriteKey) {
-  const key = RINGO_SPRITE_KEYS.includes(spriteKey) ? spriteKey : "idle";
+  const requestedKey = RINGO_SPRITE_KEYS.includes(spriteKey) ? spriteKey : "idle";
+  const fallbackKey = FALLBACK_SPRITES[requestedKey] || "idle";
+  const key = RINGO_SPRITES[requestedKey] ? requestedKey : fallbackKey;
 
   return {
     key,
     src: RINGO_SPRITES[key] || RINGO_SPRITES.idle || "",
   };
+}
+
+export function resolveRingoMood(contextKey, fallback = "idle") {
+  return RINGO_MOOD_CONTEXTS[contextKey] || fallback;
 }

@@ -1,60 +1,64 @@
 <template>
   <section class="welcomeStep">
-    <div class="marker" aria-hidden="true">
-      <span></span>
+    <div class="welcomeCopy">
+      <p class="eyebrow">{{ t("onboarding.welcome.eyebrow") }}</p>
+
+      <h1>{{ t("onboarding.welcome.title") }}</h1>
+
+      <p class="body">
+        {{ t("onboarding.welcome.body") }}
+      </p>
+
+      <BaseButton
+        class="startButton"
+        variant="primary"
+        @click="$emit('start')"
+      >
+        {{ t("onboarding.welcome.cta") }}
+      </BaseButton>
     </div>
 
-    <p class="eyebrow">{{ t("onboarding.welcome.eyebrow") }}</p>
-
-    <h1>{{ t("onboarding.welcome.title") }}</h1>
-
-    <p class="body">
-      {{ t("onboarding.welcome.body") }}
-    </p>
-
-    <BaseButton
-      class="startButton"
-      variant="primary"
-      @click="$emit('start')"
-    >
-      {{ t("onboarding.welcome.cta") }}
-    </BaseButton>
+    <RingoMoodFigure
+      class="welcomeRingo"
+      :mood="welcomeMood"
+      :alt="t('onboarding.welcome.title')"
+      size="lg"
+      floating
+    />
   </section>
 </template>
 
 <script setup>
+import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 
 import BaseButton from "@/components/ui/BaseButton.vue";
+import RingoMoodFigure from "@/components/ringo/RingoMoodFigure.vue";
+import { resolveRingoMood } from "@/constants/ringoSprites";
 
 defineEmits(["start"]);
 
 const { t } = useI18n();
+const welcomeMood = computed(() => resolveRingoMood("welcome"));
 </script>
 
 <style scoped>
 .welcomeStep {
   display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--s-24);
+  align-items: center;
+}
+
+.welcomeCopy {
+  display: grid;
   justify-items: start;
   gap: var(--s-16);
+  min-width: 0;
 }
 
-.marker {
-  width: 62px;
-  height: 62px;
-  display: grid;
-  place-items: center;
-  border-radius: 22px;
-  background: rgba(110, 229, 255, 0.12);
-  border: 1px solid rgba(110, 229, 255, 0.24);
-}
-
-.marker span {
-  width: 16px;
-  height: 16px;
-  border-radius: 999px;
-  background: #67e8f9;
-  box-shadow: 0 0 26px rgba(103, 232, 249, 0.62);
+.welcomeRingo {
+  justify-self: end;
 }
 
 .eyebrow {
@@ -87,6 +91,15 @@ h1 {
 }
 
 @media (max-width: 620px) {
+  .welcomeStep {
+    grid-template-columns: 1fr;
+  }
+
+  .welcomeRingo {
+    order: -1;
+    justify-self: center;
+  }
+
   h1 {
     font-size: 2.1rem;
     line-height: 1.08;

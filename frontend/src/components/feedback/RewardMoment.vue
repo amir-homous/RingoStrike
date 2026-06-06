@@ -15,13 +15,21 @@
         >
           <div class="rewardAura" aria-hidden="true"></div>
 
-          <div class="rewardMark" aria-hidden="true">
-            <span></span>
-          </div>
+          <div class="rewardHero">
+            <div>
+              <p class="eyebrow">{{ t("rewardMoment.eyebrow") }}</p>
+              <h2>{{ t("rewardMoment.title") }}</h2>
+              <p class="message">{{ motivationLine }}</p>
+            </div>
 
-          <p class="eyebrow">{{ t("rewardMoment.eyebrow") }}</p>
-          <h2>{{ t("rewardMoment.title") }}</h2>
-          <p class="message">{{ motivationLine }}</p>
+            <RingoMoodFigure
+              class="rewardRingo"
+              :mood="rewardMood"
+              :alt="t('rewardMoment.title')"
+              size="md"
+              floating
+            />
+          </div>
 
           <div class="rewardStats">
             <div class="statItem primary">
@@ -108,6 +116,8 @@ import { computed, onMounted, onUnmounted } from "vue";
 import { useI18n } from "vue-i18n";
 
 import BaseButton from "@/components/ui/BaseButton.vue";
+import RingoMoodFigure from "@/components/ringo/RingoMoodFigure.vue";
+import { resolveRingoMood } from "@/constants/ringoSprites";
 
 const props = defineProps({
   open: { type: Boolean, default: false },
@@ -151,6 +161,14 @@ const streakValue = computed(() => {
 const streakLabel = computed(() => {
   if (!streakValue.value) return "";
   return t("rewardMoment.streakValue", { count: streakValue.value });
+});
+
+const rewardMood = computed(() => {
+  if (achievements.value.length) return resolveRingoMood("rewardAchievement");
+  if (unlockedFeatures.value.length) return resolveRingoMood("rewardUnlock");
+  if (streakValue.value && streakValue.value >= 3) return resolveRingoMood("rewardStreak");
+  if (xpEarned.value > 0) return resolveRingoMood("rewardXp");
+  return resolveRingoMood("rewardDefault");
 });
 
 const motivationLine = computed(() => {
@@ -216,7 +234,7 @@ onUnmounted(() => {
   pointer-events: none;
 }
 
-.rewardMark,
+.rewardHero,
 .eyebrow,
 h2,
 .message,
@@ -228,23 +246,19 @@ h2,
   z-index: 1;
 }
 
-.rewardMark {
-  width: 58px;
-  height: 58px;
+.rewardHero {
   display: grid;
-  place-items: center;
-  margin-bottom: var(--s-16);
-  border-radius: 21px;
-  background: rgba(74, 222, 128, 0.13);
-  border: 1px solid rgba(74, 222, 128, 0.28);
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--s-16);
+  align-items: center;
 }
 
-.rewardMark span {
-  width: 18px;
-  height: 18px;
-  border-radius: 999px;
-  background: #86efac;
-  box-shadow: 0 0 28px rgba(134, 239, 172, 0.68);
+.rewardHero > div:first-child {
+  min-width: 0;
+}
+
+.rewardRingo {
+  align-self: start;
 }
 
 .eyebrow {
@@ -439,6 +453,15 @@ h2 {
   .rewardPanel {
     padding: 22px;
     border-radius: 24px;
+  }
+
+  .rewardHero {
+    grid-template-columns: 1fr;
+  }
+
+  .rewardRingo {
+    order: -1;
+    justify-self: center;
   }
 
   h2 {
