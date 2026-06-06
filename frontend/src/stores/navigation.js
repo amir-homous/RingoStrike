@@ -2,6 +2,7 @@ import { defineStore } from "pinia";
 
 const NAV_KEYS = Object.freeze([
   "dashboard",
+  "paths",
   "challenges",
   "leaderboard",
   "activity",

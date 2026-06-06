@@ -2,6 +2,10 @@ import sqlite3
 import os
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime, timezone,timedelta
+from services.path_seed_service import (
+    archive_legacy_unlinked_challenges,
+    ensure_mvp_paths_and_missions,
+)
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_NAME = os.getenv("DB_PATH") or os.path.join(BASE_DIR, "users.db")
@@ -12,6 +16,17 @@ def get_db_connection():
     conn.execute("PRAGMA foreign_keys = ON")
     conn.row_factory = sqlite3.Row
     return conn
+
+
+def _table_columns(cursor, table_name):
+    return [row[1] for row in cursor.execute(f"PRAGMA table_info({table_name})").fetchall()]
+
+
+def _add_column_if_missing(cursor, table_name, column_name, ddl):
+    columns = _table_columns(cursor, table_name)
+
+    if column_name not in columns:
+        cursor.execute(f"ALTER TABLE {table_name} ADD COLUMN {ddl}")
 
 
 def init_db():
@@ -73,6 +88,99 @@ def init_db():
                 tags TEXT -- ذخیره به صورت رشته کاما‌دار (Tag1,Tag2)
             )
             """)
+
+    _add_column_if_missing(c, "challenges", "path_id", "path_id INTEGER")
+    _add_column_if_missing(
+        c,
+        "challenges",
+        "difficulty",
+        "difficulty TEXT DEFAULT 'beginner'",
+    )
+    _add_column_if_missing(c, "challenges", "stage", "stage INTEGER DEFAULT 1")
+    _add_column_if_missing(c, "challenges", "estimated_days", "estimated_days INTEGER")
+    _add_column_if_missing(c, "challenges", "ringo_intro", "ringo_intro TEXT")
+
+    c.execute("CREATE INDEX IF NOT EXISTS idx_challenges_path_status ON challenges(path_id, status)")
+
+    c.execute("""
+    CREATE TABLE IF NOT EXISTS paths (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        key TEXT NOT NULL UNIQUE,
+        title TEXT NOT NULL,
+        description TEXT,
+        icon TEXT,
+        color TEXT,
+        sort_order INTEGER NOT NULL DEFAULT 0,
+        status TEXT CHECK(status IN ('Active', 'Archived')) DEFAULT 'Active',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+    """)
+
+    c.execute("""
+    CREATE TABLE IF NOT EXISTS missions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        challenge_id INTEGER NOT NULL,
+        key TEXT NOT NULL,
+        title TEXT NOT NULL,
+        description TEXT,
+        mission_type TEXT CHECK(mission_type IN ('daily', 'weekly', 'one_time', 'bonus')) DEFAULT 'daily',
+        difficulty TEXT CHECK(difficulty IN ('easy', 'medium', 'hard')) DEFAULT 'easy',
+        is_core INTEGER NOT NULL DEFAULT 1,
+        xp_reward INTEGER NOT NULL DEFAULT 0,
+        order_index INTEGER NOT NULL DEFAULT 0,
+        suggested_time TEXT,
+        unlock_after_days INTEGER NOT NULL DEFAULT 0,
+        ringo_message TEXT,
+        status TEXT CHECK(status IN ('Active', 'Archived')) DEFAULT 'Active',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(challenge_id, key),
+        FOREIGN KEY(challenge_id) REFERENCES challenges(id) ON DELETE CASCADE
+    )
+    """)
+
+    c.execute("""
+    CREATE TABLE IF NOT EXISTS mission_logs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        enrollment_id INTEGER NOT NULL,
+        challenge_id INTEGER NOT NULL,
+        mission_id INTEGER NOT NULL,
+        date TEXT NOT NULL,
+        status TEXT CHECK(status IN ('pending', 'done', 'skipped', 'remind_later')) DEFAULT 'pending',
+        reminder_at TEXT,
+        notes TEXT,
+        xp_earned INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        updated_at TEXT,
+        UNIQUE(user_id, mission_id, date),
+        FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY(enrollment_id) REFERENCES enrollments(id) ON DELETE CASCADE,
+        FOREIGN KEY(challenge_id) REFERENCES challenges(id) ON DELETE CASCADE,
+        FOREIGN KEY(mission_id) REFERENCES missions(id) ON DELETE CASCADE
+    )
+    """)
+
+    c.execute("""
+    CREATE TABLE IF NOT EXISTS user_paths (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        path_id INTEGER NOT NULL,
+        status TEXT CHECK(status IN ('Active', 'Paused', 'Completed', 'Left')) DEFAULT 'Active',
+        current_stage INTEGER NOT NULL DEFAULT 1,
+        started_at TEXT NOT NULL DEFAULT (datetime('now')),
+        completed_at TEXT,
+        updated_at TEXT,
+        UNIQUE(user_id, path_id),
+        FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY(path_id) REFERENCES paths(id) ON DELETE CASCADE
+    )
+    """)
+
+    c.execute("CREATE INDEX IF NOT EXISTS idx_paths_status_sort ON paths(status, sort_order)")
+    c.execute("CREATE INDEX IF NOT EXISTS idx_missions_challenge_status ON missions(challenge_id, status, order_index)")
+    c.execute("CREATE INDEX IF NOT EXISTS idx_mission_logs_user_date ON mission_logs(user_id, date)")
+    c.execute("CREATE INDEX IF NOT EXISTS idx_mission_logs_enrollment_date ON mission_logs(enrollment_id, date)")
+    c.execute("CREATE INDEX IF NOT EXISTS idx_user_paths_user_status ON user_paths(user_id, status)")
 
 
     # در تابع init_db جدول enrollments رو به این صورت اصلاح کن:
@@ -180,79 +288,10 @@ def init_db():
     c.execute("CREATE INDEX IF NOT EXISTS idx_telegram_connections_code ON telegram_connections(code)")
     c.execute("CREATE INDEX IF NOT EXISTS idx_telegram_connections_status ON telegram_connections(status)")
 
-    default_challenges = [
-    {
-        "name": "Daily Strike",
-        "description": "Build the core habit of showing up every day. One simple check-in, one visible strike.",
-        "duration_days": 30,
-        "goal_type": "Daily",
-        "tags": "consistency,starter,momentum",
-    },
-    {
-        "name": "Deep Work Sprint",
-        "description": "Protect focused time and complete one meaningful deep-work session per day.",
-        "duration_days": 14,
-        "goal_type": "Daily",
-        "tags": "focus,work,discipline",
-    },
-    {
-        "name": "Move Your Body",
-        "description": "Create physical momentum with a daily walk, workout, stretch, or movement session.",
-        "duration_days": 21,
-        "goal_type": "Daily",
-        "tags": "health,energy,movement",
-    },
-    {
-        "name": "Learn One Thing",
-        "description": "Learn, read, watch, practice, or document one useful thing every day.",
-        "duration_days": 30,
-        "goal_type": "Daily",
-        "tags": "learning,growth,knowledge",
-    },
-    {
-        "name": "Mind Reset",
-        "description": "Take a short daily reset for reflection, breathing, journaling, or mental clarity.",
-        "duration_days": 7,
-        "goal_type": "Daily",
-        "tags": "mindfulness,reset,clarity",
-    },
-]
-
-    for challenge in default_challenges:
-        exists = c.execute(
-            "SELECT 1 FROM challenges WHERE name = ? LIMIT 1",
-            (challenge["name"],),
-        ).fetchone()
-
-        if exists:
-            continue
-
-        c.execute(
-            """
-            INSERT INTO challenges (
-                name,
-                description,
-                visibility,
-                status,
-                duration_days,
-                join_code,
-                max_members,
-                requires_proof,
-                checkin_method,
-                goal_type,
-                tags
-            )
-            VALUES (?, ?, 'Public', 'Active', ?, NULL, 0, 0, 'Manual', ?, ?)
-            """,
-            (
-                challenge["name"],
-                challenge["description"],
-                challenge["duration_days"],
-                challenge["goal_type"],
-                challenge["tags"],
-            ),
-        )
-
+    # Paths/Missions are now the canonical MVP seed. Keeping challenge-only
+    # seed rows here creates stale unlinked challenges in fresh databases.
+    ensure_mvp_paths_and_missions(conn)
+    archive_legacy_unlinked_challenges(conn)
 
     conn.commit()
     conn.close()

@@ -291,6 +291,9 @@ const selectedChallengeName = computed(() => {
 
 const selectedPathCta = computed(() => {
   if (!selectedPathChallenge.value) return t("challenges.selectedPath.unavailableCta");
+  if (selectedPathChallenge.value.is_joined && selectedPathChallenge.value.enrollment_id) {
+    return t("challenges.selectedPath.continueCta");
+  }
   if (isInviteOnly(selectedPathChallenge.value) || selectedPathChallenge.value.needs_code) {
     return t("challenges.selectedPath.unlockCta");
   }
@@ -352,6 +355,19 @@ function selectPath(path) {
 
 function startSelectedPath() {
   if (!selectedPathChallenge.value) return;
+
+  if (selectedPathChallenge.value.is_joined && selectedPathChallenge.value.enrollment_id) {
+    joinSuccess.value = {
+      challengeId: selectedPathChallenge.value.challenge_id,
+      challengeName: selectedPathChallenge.value.name || selectedPathChallenge.value.challenge_name || "",
+      challengeDescription: selectedPathChallenge.value.description || selectedPathChallenge.value.challenge_description || "",
+      enrollmentId: selectedPathChallenge.value.enrollment_id,
+      mode: "existing",
+      source: "challenges",
+    };
+    return;
+  }
+
   join(selectedPathChallenge.value);
 }
 

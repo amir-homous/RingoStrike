@@ -8,9 +8,17 @@
         :error-text="error || t('common.pleaseTryAgain')" @retry="loadDashboard" />
 
       <template v-if="!loading && !error">
-        <!-- 1. Primary guided action: always first -->
-        <TodayMission :challenges="challenges" :stats="stats" :loading="checkingId === missionEnrollmentId"
-          @checkin="checkin" />
+        <MissionCenter
+          :key="missionCenterKey"
+          @checked-in="handleMissionCheckin"
+          @loaded="handleMissionCenterLoaded"
+        />
+
+        <!-- Legacy Today Mission is now a fallback when Mission Center has no actionable mission. -->
+        <div v-if="showLegacyTodayMission" id="today-mission" class="scrollAnchor">
+          <TodayMission :challenges="challenges" :stats="stats" :loading="checkingId === missionEnrollmentId"
+            @checkin="checkin" />
+        </div>
 
         <PostCheckinNextAction
           v-if="showPostCheckinAction"
@@ -169,6 +177,7 @@ import AppHeader from "@/components/ui/AppHeader.vue";
 import BaseCard from "@/components/ui/BaseCard.vue";
 import BaseButton from "@/components/ui/BaseButton.vue";
 import UiState from "@/components/ui/UiState.vue";
+import MissionCenter from "@/components/missions/MissionCenter.vue";
 import TodayMission from "@/components/dashboard/TodayMission.vue";
 import PostCheckinNextAction from "@/components/guided/PostCheckinNextAction.vue";
 import HeroProgressCard from "@/components/progress/HeroProgressCard.vue";
@@ -187,7 +196,6 @@ import {
   orderDashboardChallenges,
 } from "./dashboardFlow";
 import {
-  CHECKIN_XP,
   submitCheckinFlow,
 } from "./challengeFlow";
 import {
@@ -212,8 +220,14 @@ const xpPulse = ref(false);
 const activityEvents = ref([]);
 const achievements = ref([]);
 const showAllChallenges = ref(false);
+const missionCenterStatus = ref({
+  loaded: false,
+  state: "",
+  missions: [],
+  error: "",
+});
+const missionCenterKey = ref(0);
 
-const XP_PER_CHECKIN = CHECKIN_XP;
 const challengeLimit = DASHBOARD_CHALLENGE_LIMIT;
 
 const firstName = computed(() => {
@@ -241,7 +255,13 @@ const allActiveMissionsDone = computed(() => {
 });
 
 const showPostCheckinAction = computed(() => {
-  return allActiveMissionsDone.value;
+  return allActiveMissionsDone.value && showLegacyTodayMission.value;
+});
+
+const showLegacyTodayMission = computed(() => {
+  if (!missionCenterStatus.value.loaded) return false;
+
+  return ["error", "no_mission_today"].includes(missionCenterStatus.value.state);
 });
 
 const orderedChallenges = computed(() => {
@@ -384,6 +404,7 @@ async function checkin(enrollmentId) {
     });
 
     if (result.skipped || result.error) return;
+    missionCenterKey.value += 1;
 
     const checkedChallenge = challenges.value.find(
       (challenge) => challenge.enrollment_id === enrollmentId,
@@ -398,8 +419,16 @@ async function checkin(enrollmentId) {
       pushToast(`🏆 ${a.title}`, "achievement");
     }
 
-    pushToast(`+${XP_PER_CHECKIN} XP`, "success");
-    pushToast(`🔥 ${t("dashboard.streakMaintained")}`, "success");
+    const oldPoints = Number(result.oldStats?.total_points ?? result.oldStats?.xp);
+    const newPoints = Number(stats.value?.total_points ?? stats.value?.xp);
+    const xpEarned = Number.isFinite(oldPoints) && Number.isFinite(newPoints)
+      ? Math.max(0, newPoints - oldPoints)
+      : 0;
+
+    if (xpEarned > 0) {
+      pushToast(`+${xpEarned} XP`, "success");
+      pushToast(`🔥 ${t("dashboard.streakMaintained")}`, "success");
+    }
 
     if (result.oldStats && stats.value.level > result.oldStats.level) {
       pushToast(`Level Up → Level ${stats.value.level}`, "level");
@@ -409,6 +438,45 @@ async function checkin(enrollmentId) {
   } finally {
     checkingId.value = null;
   }
+}
+
+async function handleMissionCheckin(payload) {
+  const enrollmentId = payload?.mission?.enrollment_id;
+  const oldStats = stats.value ? { ...stats.value } : null;
+
+  await loadDashboard();
+  missionCenterKey.value += 1;
+
+  const checkedChallenge = challenges.value.find(
+    (challenge) => challenge.enrollment_id === enrollmentId,
+  );
+
+  const rewardPayload = buildRewardMomentPayload(
+    payload?.checkin?.rewards,
+    oldStats,
+    checkedChallenge,
+  );
+  rewardMoment.value = rewardPayload;
+
+  const oldPoints = Number(oldStats?.total_points ?? oldStats?.xp);
+  const newPoints = Number(stats.value?.total_points ?? stats.value?.xp);
+  const xpEarned = Number.isFinite(oldPoints) && Number.isFinite(newPoints)
+    ? Math.max(0, newPoints - oldPoints)
+    : 0;
+
+  if (xpEarned > 0) {
+    pushToast(`+${xpEarned} XP`, "success");
+    pushToast(`🔥 ${t("dashboard.streakMaintained")}`, "success");
+  }
+}
+
+function handleMissionCenterLoaded(payload) {
+  missionCenterStatus.value = {
+    loaded: true,
+    state: payload?.state || "",
+    missions: payload?.missions || [],
+    error: payload?.error || "",
+  };
 }
 
 async function doLogout() {

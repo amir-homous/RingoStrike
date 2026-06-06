@@ -204,7 +204,7 @@ def join_challenge(user_id: int, challenge_id: int, provided_code: str):
     conn = get_db_connection()
     try:
         ch = conn.execute(
-            "SELECT id,name,visibility,join_code,status FROM challenges WHERE id=?", (challenge_id,)
+            "SELECT id,name,visibility,join_code,status,path_id FROM challenges WHERE id=?", (challenge_id,)
         ).fetchone()
         if not ch:
             return {"ok": False, "error": "challenge_not_found"}, 404
@@ -226,17 +226,57 @@ def join_challenge(user_id: int, challenge_id: int, provided_code: str):
             if provided_code != required:
                 return {"ok": False, "error": "invalid_join_code"}, 403
 
+        path_id = ch["path_id"]
+
+        def activate_challenge_path():
+            if not path_id:
+                return None
+
+            existing_path = conn.execute(
+                """
+                SELECT id
+                FROM user_paths
+                WHERE user_id = ? AND path_id = ?
+                """,
+                (user_id, path_id),
+            ).fetchone()
+
+            if existing_path:
+                conn.execute(
+                    """
+                    UPDATE user_paths
+                    SET status = 'Active',
+                        completed_at = NULL,
+                        updated_at = datetime('now')
+                    WHERE id = ?
+                    """,
+                    (existing_path["id"],),
+                )
+                return existing_path["id"]
+
+            cur_path = conn.execute(
+                """
+                INSERT INTO user_paths (user_id, path_id, status, current_stage)
+                VALUES (?, ?, 'Active', 1)
+                """,
+                (user_id, path_id),
+            )
+            return cur_path.lastrowid
+
         try:
             cur = conn.execute(
                 "INSERT INTO enrollments (user_id, challenge_id, status) VALUES (?, ?, 'Active')",
                 (user_id, challenge_id),
             )
+            user_path_id = activate_challenge_path()
             conn.commit()
             return {
                 "ok": True,
                 "mode": "created",
                 "enrollment_id": cur.lastrowid,
                 "challenge_id": challenge_id,
+                "path_id": path_id,
+                "user_path_id": user_path_id,
             }, 200
         except sqlite3.IntegrityError:
             row = conn.execute(
@@ -245,18 +285,25 @@ def join_challenge(user_id: int, challenge_id: int, provided_code: str):
             ).fetchone()
             if row and row["status"] == "Left":
                 conn.execute("UPDATE enrollments SET status='Active' WHERE id=?", (row["id"],))
+                user_path_id = activate_challenge_path()
                 conn.commit()
                 return {
                     "ok": True,
                     "mode": "reactivated",
                     "enrollment_id": row["id"],
                     "challenge_id": challenge_id,
+                    "path_id": path_id,
+                    "user_path_id": user_path_id,
                 }, 200
+            user_path_id = activate_challenge_path()
+            conn.commit()
             return {
                 "ok": True,
                 "mode": "existing",
                 "enrollment_id": row["id"] if row else None,
                 "challenge_id": challenge_id,
+                "path_id": path_id,
+                "user_path_id": user_path_id,
             }, 200
     finally:
         conn.close()
@@ -365,6 +412,72 @@ def get_enrollment_detail(user_id: int, enrollment_id: int):
             days_elapsed = max(0, (today_date - joined_date).days)
             remaining_days = max(0, duration_days - days_elapsed)
             progress_percent = min(100, int((days_elapsed / duration_days) * 100))
+        else:
+            days_elapsed = 0
+
+        mission_rows = conn.execute(
+            """
+            SELECT
+                m.id,
+                m.key,
+                m.title,
+                m.description,
+                m.mission_type,
+                m.difficulty,
+                m.is_core,
+                m.xp_reward,
+                m.order_index,
+                m.suggested_time,
+                m.unlock_after_days,
+                m.ringo_message,
+                ml.status AS log_status,
+                ml.reminder_at,
+                ml.xp_earned
+            FROM missions m
+            LEFT JOIN mission_logs ml
+              ON ml.mission_id = m.id
+             AND ml.user_id = ?
+             AND ml.enrollment_id = ?
+             AND ml.date = ?
+            WHERE m.challenge_id = ?
+              AND m.status = 'Active'
+            ORDER BY m.order_index ASC, m.id ASC
+            """,
+            (user_id, enrollment_id, today, row["challenge_id"]),
+        ).fetchall()
+
+        missions = []
+
+        for mission in mission_rows:
+            unlock_after_days = int(mission["unlock_after_days"] or 0)
+            available_today = unlock_after_days <= days_elapsed
+            missions.append({
+                "mission_id": mission["id"],
+                "key": mission["key"],
+                "title": mission["title"],
+                "description": mission["description"] or "",
+                "mission_type": mission["mission_type"] or "daily",
+                "difficulty": mission["difficulty"] or "easy",
+                "is_core": bool(mission["is_core"]),
+                "xp_reward": int(mission["xp_reward"] or 0),
+                "order_index": int(mission["order_index"] or 0),
+                "suggested_time": mission["suggested_time"] or "",
+                "unlock_after_days": unlock_after_days,
+                "unlocks_in_days": max(0, unlock_after_days - days_elapsed),
+                "available_today": available_today,
+                "today_status": (mission["log_status"] or "pending") if available_today else "locked",
+                "reminder_at": mission["reminder_at"],
+                "xp_earned": int(mission["xp_earned"] or 0),
+                "ringo_message": mission["ringo_message"] or "",
+            })
+
+        available_missions = [mission for mission in missions if mission["available_today"]]
+        mission_summary = {
+            "days_elapsed": int(days_elapsed),
+            "today_missions_done": sum(1 for mission in available_missions if mission["today_status"] == "done"),
+            "today_missions_total": len(available_missions),
+            "future_missions_total": sum(1 for mission in missions if not mission["available_today"]),
+        }
 
         return {
             "ok": True,
@@ -392,6 +505,8 @@ def get_enrollment_detail(user_id: int, enrollment_id: int):
                 "description": row["challenge_description"],
                 "duration_days": duration_days,
             },
+            "mission_summary": mission_summary,
+            "missions": missions,
             "recent_logs": [{"daily_log_id": r["daily_log_id"], "date": r["date"]} for r in logs],
         }, 200
     finally:

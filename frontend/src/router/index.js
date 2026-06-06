@@ -29,6 +29,7 @@ const router = createRouter({
     { path: "/auth/callback", component: AuthCallback },
     { path: "/onboarding", component: Onboarding, meta: { requiresAuth: true } },
     { path: "/dashboard", component: Dashboard ,meta: { requiresAuth: true }},
+    { path: "/paths", component: () => import("../views/Paths.vue"), meta: { requiresAuth: true } },
     { path: "/challenges", component: Challenges },
     { path: "/profile", component: () => import("../views/Profile.vue"), meta: { requiresAuth: true } },
     { path: "/enrollment/:id", component: Enrollment, props: true },

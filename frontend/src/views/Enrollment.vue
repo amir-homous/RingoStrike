@@ -103,6 +103,47 @@
           </div>
         </section>
 
+        <BaseCard v-if="missions.length" class="missionPlanCard" :padded="true">
+          <div class="sectionHead">
+            <div>
+              <div class="eyebrow compact">{{ t("enrollment.missionPlanEyebrow") }}</div>
+              <h2 class="h2">{{ t("enrollment.missionPlanTitle") }}</h2>
+              <p class="caption">
+                {{ missionPlanText }}
+              </p>
+            </div>
+
+            <div class="missionPlanBadge">
+              {{ t("enrollment.availableMissionCount", {
+                done: missionSummary.today_missions_done || 0,
+                total: missionSummary.today_missions_total || 0,
+              }) }}
+            </div>
+          </div>
+
+          <div class="missionPlanList">
+            <article
+              v-for="mission in missions"
+              :key="mission.mission_id"
+              class="missionPlanItem"
+              :class="mission.today_status"
+            >
+              <div>
+                <span class="missionStatusLabel">
+                  {{ missionStatusLabel(mission) }}
+                </span>
+                <h3>{{ mission.title }}</h3>
+                <p>{{ mission.description }}</p>
+                <small v-if="mission.today_status === 'locked'">
+                  {{ missionUnlockLabel(mission) }}
+                </small>
+              </div>
+
+              <span class="missionXp">{{ mission.xp_reward }} XP</span>
+            </article>
+          </div>
+        </BaseCard>
+
         <section
           v-if="enrollment.today_checked"
           class="enrollmentNextAction"
@@ -409,6 +450,13 @@ const error = ref("");
 const enrollment = ref(null);
 const challenge = ref(null);
 const recentLogs = ref([]);
+const missions = ref([]);
+const missionSummary = ref({
+  days_elapsed: 0,
+  today_missions_done: 0,
+  today_missions_total: 0,
+  future_missions_total: 0,
+});
 const rewardMoment = ref(null);
 
 const checkedDays = ref(0);
@@ -471,6 +519,15 @@ const missionSteps = computed(() => {
       state: rewardState,
     },
   ];
+});
+
+const missionPlanText = computed(() => {
+  const total = Number(missionSummary.value.today_missions_total || 0);
+  const future = Number(missionSummary.value.future_missions_total || 0);
+
+  if (total <= 0 && future > 0) return t("enrollment.missionPlanFutureOnly");
+  if (future > 0) return t("enrollment.missionPlanWithFuture", { count: future });
+  return t("enrollment.missionPlanAllAvailable");
 });
 
 const timelinePercent = computed(() => {
@@ -607,6 +664,17 @@ function displayStatus(value) {
   return t(`common.status.${key}`, raw);
 }
 
+function missionStatusLabel(mission) {
+  return t(`missions.status.${mission.today_status || "pending"}`);
+}
+
+function missionUnlockLabel(mission) {
+  const days = Number(mission.unlocks_in_days || 0);
+
+  if (days <= 1) return t("enrollment.unlocksTomorrow");
+  return t("enrollment.unlocksInDays", { count: days });
+}
+
 function buildRewardMomentPayload(rewards, oldStats, newStats) {
   const xpTotal = Number(rewards?.xp_total);
   const oldTotal = Number(oldStats?.total_points ?? oldStats?.xp);
@@ -643,6 +711,13 @@ async function load() {
     enrollment.value = data.enrollment;
     challenge.value = data.challenge;
     recentLogs.value = data.recent_logs || [];
+    missions.value = data.missions || [];
+    missionSummary.value = data.mission_summary || {
+      days_elapsed: 0,
+      today_missions_done: 0,
+      today_missions_total: 0,
+      future_missions_total: 0,
+    };
 
     const days = challenge.value?.duration_days || enrollment.value?.duration_days || 30;
     const hist = await api.get(`/me/challenges/${id}/history?days=${days}`);
@@ -937,6 +1012,93 @@ onUnmounted(() => {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: var(--s-12);
+}
+
+.missionPlanCard {
+  display: grid;
+  gap: var(--s-16);
+  background:
+    radial-gradient(circle at 0% 0%, rgba(110, 229, 255, 0.075), transparent 34%),
+    rgba(255, 255, 255, 0.026);
+}
+
+.missionPlanBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 36px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  color: rgba(253, 230, 138, 0.94);
+  background: rgba(247, 215, 116, 0.08);
+  border: 1px solid rgba(247, 215, 116, 0.18);
+  font-weight: 850;
+  white-space: nowrap;
+}
+
+.missionPlanList {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--s-12);
+}
+
+.missionPlanItem {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--s-12);
+  padding: 14px;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.missionPlanItem.done {
+  border-color: rgba(74, 222, 128, 0.22);
+  background: rgba(74, 222, 128, 0.055);
+}
+
+.missionPlanItem.remind_later {
+  border-color: rgba(247, 215, 116, 0.22);
+  background: rgba(247, 215, 116, 0.055);
+}
+
+.missionPlanItem.locked {
+  opacity: 0.70;
+}
+
+.missionPlanItem h3,
+.missionPlanItem p {
+  margin: 0;
+}
+
+.missionPlanItem h3 {
+  margin-top: 5px;
+  color: rgba(255, 255, 255, 0.94);
+}
+
+.missionPlanItem p {
+  margin-top: 6px;
+  color: rgba(255, 255, 255, 0.64);
+  line-height: 1.55;
+}
+
+.missionPlanItem small {
+  display: block;
+  margin-top: 8px;
+  color: rgba(247, 215, 116, 0.86);
+  font-weight: 780;
+}
+
+.missionStatusLabel {
+  color: rgba(110, 229, 255, 0.82);
+  font-size: var(--cap);
+  font-weight: 900;
+}
+
+.missionXp {
+  color: rgba(255, 255, 255, 0.70);
+  font-size: var(--cap);
+  font-weight: 850;
 }
 
 .enrollmentNextAction {

@@ -114,6 +114,12 @@ const navItems = computed(() => [
     to: "/dashboard",
   },
   {
+    key: "paths",
+    labelKey: "nav.paths",
+    hintKey: "nav.hints.paths",
+    to: "/paths",
+  },
+  {
     key: "challenges",
     labelKey: "nav.challenges",
     hintKey: "nav.hints.challenges",
@@ -146,7 +152,7 @@ const navItems = computed(() => [
 ]);
 
 const mobileItems = computed(() => navItems.value.filter((item) => {
-  return ["dashboard", "challenges", "activity", "profile"].includes(item.key);
+  return ["dashboard", "paths", "challenges", "profile"].includes(item.key);
 }));
 
 const showNavigation = computed(() => route.meta.requiresAuth !== false);
@@ -187,6 +193,10 @@ function isItemActive(item) {
 
   if (item.key === "challenges") {
     return route.path === "/challenges";
+  }
+
+  if (item.key === "paths") {
+    return route.path === "/paths";
   }
 
   return false;

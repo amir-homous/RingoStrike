@@ -7,7 +7,7 @@ export const PATH_TO_CHALLENGE_NAME = {
   body: "Move Your Body",
   learning: "Learn One Thing",
   mind: "Mind Reset",
-  consistency: "Daily Strike",
+  consistency: "Move Your Body",
 };
 
 const CHALLENGE_NAME_TO_PATH = Object.entries(PATH_TO_CHALLENGE_NAME).reduce(
