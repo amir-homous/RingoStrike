@@ -182,3 +182,27 @@ def test_ringo_brain_returns_no_mission_today_when_none_available(client):
     assert payload["ringo"]["user_state"] == "no_mission_today"
     assert payload["mission"] is None
     assert payload["reward_sequence"]["available"] is False
+
+
+def test_ringo_today_guidance_endpoint_requires_auth(client):
+    res = client.get("/me/ringo/today")
+
+    assert res.status_code == 401
+    assert res.get_json() == {"ok": False, "error": "unauthorized"}
+
+
+def test_ringo_today_guidance_endpoint_returns_contract_shape(client):
+    user = register_user(client, username="BrainEndpoint")
+    headers = auth_headers(user["access_token"])
+
+    res = client.get("/me/ringo/today", headers=headers)
+
+    assert res.status_code == 200
+    data = res.get_json()
+    assert data["ok"] is True
+    assert "ringo" in data
+    assert "actions" in data
+    assert "progress" in data
+    assert "reward_sequence" in data
+    assert "fallback" in data
+    assert data["ringo"]["tone"] == "warm_no_shame"

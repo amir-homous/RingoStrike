@@ -36,6 +36,10 @@ def test_canonical_route_owners_remain_registered(client):
         ): "public_profile_bp.public_profile",
         (
             "GET",
+            "/me/ringo/today",
+        ): "mission_bp.today_ringo_guidance_route",
+        (
+            "GET",
             "/debug/sqlite/schema/<table>",
         ): "debug_bp.debug_sqlite_schema",
     }
