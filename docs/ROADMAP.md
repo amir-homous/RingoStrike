@@ -4,9 +4,15 @@
 
 RingoStrike is currently in:
 
-> Post-MVP Stabilization / Pre-Launch Hardening
+> Post-MVP Stabilization / Emotional MVP Relaunch Planning
 
-The product has moved beyond raw MVP. The core progression identity system is implemented, and the current priority is reliability, security, documentation, testing, and launch readiness before larger product expansion.
+The product has moved beyond raw MVP. The core progression identity system is implemented, and the current priority is to preserve that foundation while reshaping the experience around Ringo as the caring daily companion.
+
+The detailed product direction lives in:
+
+- [Product Direction Master Notes](product/PRODUCT_DIRECTION_MASTER_NOTES.md)
+- [MVP Relaunch Phases](product/MVP_RELAUNCH_PHASES.md)
+- [GitHub Issue Pack](product/GITHUB_ISSUE_PACK.md)
 
 ---
 
@@ -217,21 +223,24 @@ These items should happen before expanding product scope:
 
 Goal:
 
-Reduce first-time user confusion by shifting the primary experience from dashboard browsing to a guided daily mission loop.
+Reduce first-time user confusion by shifting the primary experience from dashboard browsing to a Ringo-first daily companion loop.
 
 Core loop:
 
 ```txt
-Today's Mission -> Check-in -> Reward -> Next Step
+Ringo understands state -> Main/Tiny/Bonus mission -> Small action -> Ringo Moment -> Next gentle step
 ```
 
 Why:
 
-Early tester feedback shows that the product is valuable but feels too complex. Before wider launch, the app should make the next action obvious and guide users into their first progression path.
+Early tester feedback shows that the product is valuable but feels too complex. Before wider launch, the app should make the next action obvious, emotionally safe, and guided by Ringo rather than by a dense system surface.
 
 Planned work:
 
 - Continue validating the Today Mission Card and guided empty state with first-time users.
+- Reframe the dashboard as Ringo's home and make Ringo the first visual/emotional focus.
+- Introduce the daily Main Mission, Tiny Mission, and optional Bonus Mission structure.
+- Keep existing path, challenge, mission, check-in, stats, achievement, and activity systems as the supporting infrastructure.
 - Refine simplified early navigation/progressive disclosure without blocking direct routes.
 - Expand the reward moment and join success moment only when existing backend responses provide enough data.
 - Improve first-run onboarding after the identity path flow is validated.
@@ -244,6 +253,32 @@ Non-goals:
 - No complex skill tree yet.
 - No native mobile app yet.
 - No heavy social systems yet.
+
+---
+
+## Emotional MVP Relaunch Direction
+
+Goal:
+
+Make RingoStrike feel like a caring daily self-improvement companion, not only a habit/challenge tracker.
+
+Near-term product sequence:
+
+1. Ringo-first dashboard: simplify the first screen around Ringo's mood, message, and one clear next action.
+2. Ringo Brain v1: add a deterministic decision layer for user state, Ringo mood, suggested mission, mission intensity, tone, actions, and reward sequence type.
+3. Main/Tiny/Bonus missions: show a focused daily set so the user always knows what is enough today.
+4. Ringo Moment reward sequence: turn mission completion into a step-by-step emotional reward ritual instead of one static result card.
+5. Ringo Pulse feed: add a warm lightweight activity/community pulse, with privacy-aware defaults.
+6. AI-assisted language layer: later, after the rule-based Ringo Brain exists, use AI for safe wording variation and personalized language only.
+
+Implementation principles:
+
+- First Ringo, then system.
+- Preserve existing functionality and avoid rewrites.
+- Extend or wrap existing services before replacing them.
+- Keep AI out of product decisions until deterministic Ringo Brain behavior is stable.
+
+Reference: [MVP Relaunch Phases](product/MVP_RELAUNCH_PHASES.md).
 
 ---
 
