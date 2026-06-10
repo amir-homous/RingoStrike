@@ -2,10 +2,10 @@
   <section class="missionCenter">
     <RingoCoach
       v-if="showCoach"
-      :message="ringo?.message"
-      :sprite="ringo?.sprite_key || ringo?.sprite"
-      :primary-action="ringo?.primary_action"
-      :secondary-action="ringo?.secondary_action"
+      :message="localizedRingo?.message"
+      :sprite="localizedRingo?.sprite_key || localizedRingo?.sprite"
+      :primary-action="localizedRingo?.primary_action"
+      :secondary-action="localizedRingo?.secondary_action"
       @action="handleCoachAction"
     />
 
@@ -84,7 +84,7 @@
       </div>
     </BaseCard>
 
-    <BaseCard v-if="!loading && !error && missions.length" class="missionList">
+    <BaseCard v-if="!loading && !error && localizedMissions.length" class="missionList">
       <div class="missionListHead">
         <div>
           <p class="eyebrow compact">{{ t("missions.eyebrow") }}</p>
@@ -95,7 +95,7 @@
 
       <div class="missionItems">
         <article
-          v-for="mission in missions"
+          v-for="mission in localizedMissions"
           :key="mission.mission_id"
           :id="`mission-${mission.mission_id}`"
           class="missionItem"
@@ -153,8 +153,12 @@ import BaseCard from "@/components/ui/BaseCard.vue";
 import UiState from "@/components/ui/UiState.vue";
 import RingoCoach from "@/components/ringo/RingoCoach.vue";
 import PathSelection from "@/components/missions/PathSelection.vue";
+import {
+  localizeMissionList,
+  localizeRingoState,
+} from "@/lib/ringoContentLocalization";
 
-const { t } = useI18n();
+const { locale, t } = useI18n();
 const emit = defineEmits(["checked-in", "loaded"]);
 
 const loading = ref(true);
@@ -176,30 +180,38 @@ const showCoach = computed(() => {
   return ringo.value?.state && ringo.value.state !== dismissedCoachState.value;
 });
 
+const localizedMissions = computed(() => {
+  return localizeMissionList(missions.value, locale.value);
+});
+
+const localizedRingo = computed(() => {
+  return localizeRingoState(ringo.value, localizedMissions.value, locale.value);
+});
+
 const pendingMissions = computed(() => {
-  return missions.value.filter((mission) => mission.status === "pending");
+  return localizedMissions.value.filter((mission) => mission.status === "pending");
 });
 
 const deferredMissions = computed(() => {
-  return missions.value.filter((mission) => mission.status === "remind_later");
+  return localizedMissions.value.filter((mission) => mission.status === "remind_later");
 });
 
 const skippedMissions = computed(() => {
-  return missions.value.filter((mission) => mission.status === "skipped");
+  return localizedMissions.value.filter((mission) => mission.status === "skipped");
 });
 
 const focusMission = computed(() => {
   return pendingMissions.value[0]
     || skippedMissions.value[0]
     || deferredMissions.value[0]
-    || missions.value[0]
+    || localizedMissions.value[0]
     || null;
 });
 
 const missionGuide = computed(() => {
-  if (!missions.value.length || !focusMission.value) return null;
+  if (!localizedMissions.value.length || !focusMission.value) return null;
 
-  const complete = missions.value.every((mission) => mission.status === "done");
+  const complete = localizedMissions.value.every((mission) => mission.status === "done");
   const hasSkipped = skippedMissions.value.length > 0;
   const hasDeferred = deferredMissions.value.length > 0;
   const hasPending = pendingMissions.value.length > 0;
@@ -258,8 +270,8 @@ async function loadMissions() {
     missions.value = data?.missions || [];
     emit("loaded", {
       error: "",
-      ringo: ringo.value,
-      missions: missions.value,
+      ringo: localizedRingo.value,
+      missions: localizedMissions.value,
       state: ringo.value?.state || "",
     });
   } catch (e) {
@@ -301,6 +313,10 @@ async function runMissionAction(mission, action, request) {
         mission: {
           ...mission,
           ...(data?.mission || {}),
+          title: mission.title,
+          description: mission.description,
+          challenge_name: mission.challenge_name,
+          path_title: mission.path_title,
         },
       });
     }
@@ -357,7 +373,7 @@ function handleCoachAction(action) {
 
   if (!action?.mission_id) return;
 
-  const mission = missions.value.find((item) => item.mission_id === action.mission_id);
+  const mission = localizedMissions.value.find((item) => item.mission_id === action.mission_id);
 
   if (!mission) return;
 

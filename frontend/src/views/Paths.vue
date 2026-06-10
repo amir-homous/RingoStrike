@@ -31,7 +31,7 @@
           <div>
             <p class="eyebrow">{{ t("pathsPage.eyebrow") }}</p>
             <h1>{{ t("pathsPage.title") }}</h1>
-            <p>{{ t("pathsPage.subtitle", { path: selectedPath?.title || t('pathsPage.fallbackPath') }) }}</p>
+            <p>{{ t("pathsPage.subtitle", { path: selectedPathDisplay?.title || t('pathsPage.fallbackPath') }) }}</p>
           </div>
 
           <div class="pathMetrics" :aria-label="t('pathsPage.metricsLabel')">
@@ -52,12 +52,12 @@
 
         <section class="pathPicker" :aria-label="t('pathsPage.pickPath')">
           <button
-            v-for="path in paths"
+            v-for="path in localizedPaths"
             :key="path.path_id"
             type="button"
             class="pathButton"
             :class="pathButtonClass(path)"
-            @click="selectPath(path)"
+            @click="selectPathById(path.path_id)"
           >
             <span
               class="pathIcon"
@@ -88,12 +88,12 @@
           </button>
         </section>
 
-        <section v-if="selectedPath" class="pathDetail">
+        <section v-if="selectedPathDisplay" class="pathDetail">
           <BaseCard class="selectedPathCard">
             <div class="detailIntro">
               <p class="eyebrow compact">{{ t("pathsPage.selectedEyebrow") }}</p>
-              <h2>{{ selectedPath.title }}</h2>
-              <p>{{ selectedPath.description }}</p>
+              <h2>{{ selectedPathDisplay.title }}</h2>
+              <p>{{ selectedPathDisplay.description }}</p>
 
               <div class="pathStatusRow">
                 <span>{{ pathButtonLabel(selectedPath) }}</span>
@@ -190,9 +190,9 @@
             @retry="loadPathChallenges(selectedPath)"
           />
 
-          <div v-if="!challengesLoading && !challengesError && challenges.length" class="challengeStack">
+          <div v-if="!challengesLoading && !challengesError && localizedChallenges.length" class="challengeStack">
             <BaseCard
-              v-for="challenge in challenges"
+              v-for="challenge in localizedChallenges"
               :key="challenge.challenge_id"
               :id="`path-challenge-${challenge.challenge_id}`"
               class="challengePanel"
@@ -321,8 +321,12 @@ import BaseButton from "@/components/ui/BaseButton.vue";
 import BaseCard from "@/components/ui/BaseCard.vue";
 import UiState from "@/components/ui/UiState.vue";
 import RingoCoach from "@/components/ringo/RingoCoach.vue";
+import {
+  localizeChallenge,
+  localizePath,
+} from "@/lib/ringoContentLocalization";
 
-const { t } = useI18n();
+const { locale, t } = useI18n();
 const router = useRouter();
 
 const paths = ref([]);
@@ -342,6 +346,27 @@ const challengesLoading = ref(false);
 const challengesError = ref("");
 const starting = ref(false);
 const startingChallengeId = ref(null);
+
+const localizedPaths = computed(() => {
+  return paths.value.map((path) => localizePath(path, locale.value));
+});
+
+const selectedPathDisplay = computed(() => {
+  return localizePath(selectedPath.value, locale.value);
+});
+
+const localizedChallenges = computed(() => {
+  return challenges.value.map((challenge) => localizeChallenge(challenge, locale.value));
+});
+
+function pathTitle(path) {
+  return localizePath(path, locale.value)?.title || "";
+}
+
+function challengeName(value) {
+  if (!value) return "";
+  return localizeChallenge({ name: value }, locale.value).name || value;
+}
 
 function emptySummary() {
   return {
@@ -379,6 +404,11 @@ async function selectPath(path) {
   }
 
   await loadPathChallenges(path);
+}
+
+async function selectPathById(pathId) {
+  const path = paths.value.find((item) => item.path_id === pathId);
+  if (path) await selectPath(path);
 }
 
 async function preloadPathSummaries(pathItems) {
@@ -454,7 +484,7 @@ async function loadPathChallenges(path) {
 }
 
 const joinedChallenges = computed(() => {
-  return challenges.value.filter((challenge) => challenge.is_joined);
+  return localizedChallenges.value.filter((challenge) => challenge.is_joined);
 });
 
 const currentChallenge = computed(() => {
@@ -464,7 +494,7 @@ const currentChallenge = computed(() => {
 });
 
 const nextChallenge = computed(() => {
-  return challenges.value.find((challenge) => !challenge.is_joined) || null;
+  return localizedChallenges.value.find((challenge) => !challenge.is_joined) || null;
 });
 
 const todayTotal = computed(() => Number(pathSummary.value.today_missions_total || 0));
@@ -536,9 +566,9 @@ const pathCoach = computed(() => {
   if (!activePath.value) {
     return {
       sprite_key: "welcome",
-      message: t("pathsPage.coach.noActivePath", { path: selectedPath.value.title }),
+      message: t("pathsPage.coach.noActivePath", { path: pathTitle(selectedPath.value) }),
       primary_action: {
-        label: t("paths.startFirstMission", { path: selectedPath.value.title }),
+        label: t("paths.startFirstMission", { path: pathTitle(selectedPath.value) }),
         type: "start_path",
       },
       secondary_action: {
@@ -551,7 +581,7 @@ const pathCoach = computed(() => {
   if (selectedPath.value.user_status !== "Active") {
     return {
       sprite_key: "explaining",
-      message: t("pathsPage.coach.inactiveSelected", { path: selectedPath.value.title }),
+      message: t("pathsPage.coach.inactiveSelected", { path: pathTitle(selectedPath.value) }),
       primary_action: nextChallenge.value
         ? {
           label: t("pathsPage.startChallenge"),
@@ -564,7 +594,7 @@ const pathCoach = computed(() => {
           to: "/challenges",
         },
       secondary_action: {
-        label: t("pathsPage.coach.backToActive", { path: activePath.value.title }),
+        label: t("pathsPage.coach.backToActive", { path: pathTitle(activePath.value) }),
         type: "select_path",
         path_id: activePath.value.path_id,
       },
@@ -578,7 +608,7 @@ const pathCoach = computed(() => {
         ? t("pathsPage.coach.readyToStart", { challenge: nextChallenge.value.name })
         : t("pathsPage.coach.noChallengeYet"),
       primary_action: {
-        label: t("paths.startFirstMission", { path: selectedPath.value.title }),
+        label: t("paths.startFirstMission", { path: pathTitle(selectedPath.value) }),
         type: "start_path",
       },
       secondary_action: {
@@ -610,10 +640,10 @@ const pathCoach = computed(() => {
     return {
       sprite_key: "celebration",
       message: t("pathsPage.coach.todayDoneSuggestOther", {
-        path: nextUsefulPath.value.title,
+        path: pathTitle(nextUsefulPath.value),
       }),
       primary_action: {
-        label: t("pathsPage.startAnotherPath", { path: nextUsefulPath.value.title }),
+        label: t("pathsPage.startAnotherPath", { path: pathTitle(nextUsefulPath.value) }),
         type: "select_path",
         path_id: nextUsefulPath.value.path_id,
       },
@@ -688,11 +718,11 @@ const pathProgress = computed(() => {
   if (!joinedChallenges.value.length) {
     return {
       todayComplete: false,
-      title: t("pathsPage.notStartedTitle", { path: selectedPath.value.title }),
+      title: t("pathsPage.notStartedTitle", { path: pathTitle(selectedPath.value) }),
       body: nextChallenge.value
         ? t("pathsPage.notStartedBody", { challenge: nextChallenge.value.name })
         : t("pathsPage.noNextChallenge"),
-      primaryCta: t("paths.startFirstMission", { path: selectedPath.value.title }),
+      primaryCta: t("paths.startFirstMission", { path: pathTitle(selectedPath.value) }),
       action: "start",
     };
   }
@@ -701,7 +731,7 @@ const pathProgress = computed(() => {
     if (nextChallenge.value) {
       return {
         todayComplete: true,
-        title: t("pathsPage.todayCompleteTitle", { path: selectedPath.value.title }),
+        title: t("pathsPage.todayCompleteTitle", { path: pathTitle(selectedPath.value) }),
         body: t("pathsPage.todayCompleteBodyWithNext", { challenge: nextChallenge.value.name }),
         primaryCta: t("pathsPage.startChallenge"),
         action: "startNext",
@@ -711,16 +741,16 @@ const pathProgress = computed(() => {
     if (nextUsefulPath.value) {
       return {
         todayComplete: true,
-        title: t("pathsPage.todayCompleteTitle", { path: selectedPath.value.title }),
-        body: t("pathsPage.todayCompleteBodyWithOther", { path: nextUsefulPath.value.title }),
-        primaryCta: t("pathsPage.startAnotherPath", { path: nextUsefulPath.value.title }),
+        title: t("pathsPage.todayCompleteTitle", { path: pathTitle(selectedPath.value) }),
+        body: t("pathsPage.todayCompleteBodyWithOther", { path: pathTitle(nextUsefulPath.value) }),
+        primaryCta: t("pathsPage.startAnotherPath", { path: pathTitle(nextUsefulPath.value) }),
         action: "selectOther",
       };
     }
 
     return {
       todayComplete: true,
-      title: t("pathsPage.todayCompleteTitle", { path: selectedPath.value.title }),
+      title: t("pathsPage.todayCompleteTitle", { path: pathTitle(selectedPath.value) }),
       body: nextChallenge.value
         ? t("pathsPage.todayCompleteBodyWithNext", { challenge: nextChallenge.value.name })
         : t("pathsPage.todayCompleteBody"),
@@ -735,7 +765,7 @@ const pathProgress = computed(() => {
     todayComplete: false,
     title: currentChallenge.value
       ? t("pathsPage.currentChallengeTitle", { challenge: currentChallenge.value.name })
-      : t("pathsPage.pathActiveTitle", { path: selectedPath.value.title }),
+      : t("pathsPage.pathActiveTitle", { path: pathTitle(selectedPath.value) }),
     body: todayTotal.value > 0
       ? t("pathsPage.currentChallengeBody", {
         done: todayDone.value,
@@ -779,7 +809,7 @@ function pathCardSummary(path) {
 
   if (path.user_status === "Active" && todayMissionTotal > 0 && todayMissionDone >= todayMissionTotal) {
     hint = counts.next
-      ? t("pathsPage.pathCard.doneNextHint", { challenge: counts.next })
+      ? t("pathsPage.pathCard.doneNextHint", { challenge: challengeName(counts.next) })
       : t("pathsPage.pathCard.doneHint");
   } else if (path.user_status === "Active" && todayMissionTotal > 0) {
     hint = t("pathsPage.pathCard.continueHint", {
@@ -789,7 +819,7 @@ function pathCardSummary(path) {
   } else if (joined > 0) {
     hint = t("pathsPage.pathCard.waitingHint");
   } else if (counts.next) {
-    hint = t("pathsPage.pathCard.startHint", { challenge: counts.next });
+    hint = t("pathsPage.pathCard.startHint", { challenge: challengeName(counts.next) });
   }
 
   return {

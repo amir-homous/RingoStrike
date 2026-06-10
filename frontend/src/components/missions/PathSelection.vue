@@ -15,7 +15,7 @@
     <UiState
       :loading="loading"
       :error="!!error"
-      :empty="!loading && !error && paths.length === 0"
+      :empty="!loading && !error && localizedPaths.length === 0"
       :loading-title="t('paths.loadingTitle')"
       :loading-text="t('paths.loadingText')"
       :error-title="t('paths.errorTitle')"
@@ -25,9 +25,9 @@
       @retry="loadPaths"
     />
 
-    <div v-if="!loading && !error && paths.length" class="pathGrid">
+    <div v-if="!loading && !error && localizedPaths.length" class="pathGrid">
       <button
-        v-for="path in paths"
+        v-for="path in localizedPaths"
         :key="path.path_id"
         type="button"
         class="pathCard"
@@ -35,7 +35,7 @@
           active: path.user_status === 'Active',
           selected: selectedPath?.path_id === path.path_id,
         }"
-        @click="selectPath(path)"
+        @click="selectPathById(path.path_id)"
       >
         <span class="pathIcon" :style="{ '--path-color': path.color || '#6ee5ff' }">
           {{ path.icon?.slice(0, 1)?.toUpperCase() || "P" }}
@@ -52,11 +52,11 @@
       </button>
     </div>
 
-    <div v-if="selectedPath" class="pathChallenges">
+    <div v-if="selectedPathDisplay" class="pathChallenges">
       <div class="challengeHead">
         <div>
           <p class="eyebrow compact">{{ t("paths.relatedEyebrow") }}</p>
-          <h3>{{ t("paths.relatedTitle", { path: selectedPath.title }) }}</h3>
+          <h3>{{ t("paths.relatedTitle", { path: selectedPathDisplay.title }) }}</h3>
         </div>
 
         <div class="challengeActions">
@@ -66,7 +66,7 @@
             :loading="startingId === selectedPath.path_id"
             @click="startPath(selectedPath)"
           >
-            {{ t("paths.startFirstMission", { path: selectedPath.title }) }}
+            {{ t("paths.startFirstMission", { path: selectedPathDisplay.title }) }}
           </BaseButton>
 
           <RouterLink class="challengeRoute" to="/challenges">
@@ -78,7 +78,7 @@
       <UiState
         :loading="challengesLoading"
         :error="!!challengesError"
-        :empty="!challengesLoading && !challengesError && pathChallenges.length === 0"
+        :empty="!challengesLoading && !challengesError && localizedPathChallenges.length === 0"
         :loading-title="t('paths.challengesLoadingTitle')"
         :loading-text="t('paths.challengesLoadingText')"
         :error-title="t('paths.challengesErrorTitle')"
@@ -88,9 +88,9 @@
         @retry="loadPathChallenges(selectedPath)"
       />
 
-      <div v-if="!challengesLoading && !challengesError && pathChallenges.length" class="challengePreviewGrid">
+      <div v-if="!challengesLoading && !challengesError && localizedPathChallenges.length" class="challengePreviewGrid">
         <article
-          v-for="challenge in pathChallenges.slice(0, 3)"
+          v-for="challenge in localizedPathChallenges.slice(0, 3)"
           :key="challenge.challenge_id"
           class="challengePreview"
         >
@@ -105,19 +105,23 @@
 </template>
 
 <script setup>
-import { onMounted, ref } from "vue";
+import { computed, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import api from "@/lib/api";
 import BaseButton from "@/components/ui/BaseButton.vue";
 import BaseCard from "@/components/ui/BaseCard.vue";
 import UiState from "@/components/ui/UiState.vue";
+import {
+  localizeChallenge,
+  localizePath,
+} from "@/lib/ringoContentLocalization";
 
 defineProps({
   allowActiveStart: { type: Boolean, default: false },
 });
 
 const emit = defineEmits(["started"]);
-const { t } = useI18n();
+const { locale, t } = useI18n();
 
 const paths = ref([]);
 const loading = ref(true);
@@ -127,6 +131,18 @@ const selectedPath = ref(null);
 const pathChallenges = ref([]);
 const challengesLoading = ref(false);
 const challengesError = ref("");
+
+const localizedPaths = computed(() => {
+  return paths.value.map((path) => localizePath(path, locale.value));
+});
+
+const selectedPathDisplay = computed(() => {
+  return localizePath(selectedPath.value, locale.value);
+});
+
+const localizedPathChallenges = computed(() => {
+  return pathChallenges.value.map((challenge) => localizeChallenge(challenge, locale.value));
+});
 
 async function loadPaths() {
   loading.value = true;
@@ -150,6 +166,11 @@ async function loadPaths() {
 async function selectPath(path) {
   selectedPath.value = path;
   await loadPathChallenges(path);
+}
+
+async function selectPathById(pathId) {
+  const path = paths.value.find((item) => item.path_id === pathId);
+  if (path) await selectPath(path);
 }
 
 async function loadPathChallenges(path) {
