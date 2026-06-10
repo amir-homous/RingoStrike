@@ -1,30 +1,61 @@
 <template>
   <section class="suggestionStep">
-    <div class="stepHeader">
-      <p class="eyebrow">{{ t("onboarding.suggestion.eyebrow") }}</p>
-      <h1>{{ t("onboarding.suggestion.title") }}</h1>
-      <p>
-        {{ t("onboarding.suggestion.body", { path: pathLabel }) }}
-      </p>
+    <div class="suggestionHero">
+      <div class="stepHeader">
+        <p class="eyebrow">{{ t("onboarding.suggestion.eyebrow") }}</p>
+        <h1>{{ t("onboarding.suggestion.title") }}</h1>
+        <p>
+          {{ t("onboarding.suggestion.body", { path: pathLabel }) }}
+        </p>
+        <p class="laterNotice">
+          {{ t("onboarding.suggestion.laterNotice") }}
+        </p>
+      </div>
+
+      <RingoMoodFigure
+        class="suggestionRingo"
+        :mood="suggestionMood"
+        :alt="t('onboarding.suggestion.title')"
+        size="md"
+        floating
+      />
     </div>
 
     <BaseCard class="suggestionCard">
-      <div v-if="challenge" class="challengeCopy">
+      <div v-if="challenges.length" class="challengeCopy">
         <span class="statusPill">
           {{ t("onboarding.suggestion.recommended") }}
         </span>
 
-        <h2>{{ challenge.name || challenge.challenge_name }}</h2>
+        <h2>{{ t("onboarding.suggestion.chooseTitle") }}</h2>
 
         <p>
-          {{ challenge.description || t("onboarding.suggestion.noDescription") }}
+          {{ t("onboarding.suggestion.chooseText") }}
         </p>
 
-        <div class="meta">
-          <span v-if="challenge.duration_days">
-            {{ t("common.dayChallenge", { count: challenge.duration_days }) }}
-          </span>
-          <span>{{ t("onboarding.suggestion.dailyMission") }}</span>
+        <div class="challengeOptions">
+          <button
+            v-for="challenge in challenges"
+            :key="challenge.challenge_id"
+            type="button"
+            class="challengeOption"
+            :class="{ selected: selectedIds.includes(challenge.challenge_id), joined: challenge.is_joined }"
+            @click="toggleChallenge(challenge)"
+          >
+            <span class="checkMark" aria-hidden="true">
+              {{ selectedIds.includes(challenge.challenge_id) ? "✓" : "" }}
+            </span>
+
+            <span class="optionCopy">
+              <strong>{{ challenge.name || challenge.challenge_name }}</strong>
+              <small>{{ challenge.ringo_intro || challenge.description || t("onboarding.suggestion.noDescription") }}</small>
+            </span>
+
+            <span class="optionMeta">
+              <small v-if="challenge.is_joined">{{ t("onboarding.suggestion.alreadyJoined") }}</small>
+              <small v-else>{{ t("common.dayChallenge", { count: challenge.estimated_days || challenge.duration_days || 0 }) }}</small>
+            </span>
+          </button>
         </div>
       </div>
 
@@ -46,12 +77,13 @@
 
       <div class="actions">
         <BaseButton
-          v-if="challenge"
+          v-if="challenges.length"
           variant="primary"
           :loading="joining"
-          @click="$emit('start')"
+          :disabled="selectedIds.length === 0"
+          @click="$emit('start', selectedIds)"
         >
-          {{ t("onboarding.suggestion.start") }}
+          {{ t("onboarding.suggestion.startSelected", { count: selectedIds.length }) }}
         </BaseButton>
 
         <BaseButton
@@ -74,15 +106,19 @@
 </template>
 
 <script setup>
-import { computed } from "vue";
+import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 
 import BaseButton from "@/components/ui/BaseButton.vue";
 import BaseCard from "@/components/ui/BaseCard.vue";
+import RingoMoodFigure from "@/components/ringo/RingoMoodFigure.vue";
+import { resolveRingoMood } from "@/constants/ringoSprites";
 
 const props = defineProps({
   path: { type: String, default: "" },
+  paths: { type: Array, default: () => [] },
   challenge: { type: Object, default: null },
+  challenges: { type: Array, default: () => [] },
   joining: { type: Boolean, default: false },
   error: { type: String, default: "" },
 });
@@ -90,10 +126,49 @@ const props = defineProps({
 defineEmits(["start", "browse", "skip"]);
 
 const { t } = useI18n();
+const selectedIds = ref([]);
+
+function initialIds(challenges) {
+  return challenges
+    .filter((challenge) => !challenge.is_joined)
+    .slice(0, 1)
+    .map((challenge) => challenge.challenge_id);
+}
+
+watch(
+  () => props.challenges,
+  (value) => {
+    selectedIds.value = initialIds(value || []);
+  },
+  { immediate: true },
+);
 
 const pathLabel = computed(() => {
+  if (props.paths.length) {
+    return props.paths
+      .map((path) => t(`onboarding.paths.${path}.label`))
+      .join(", ");
+  }
+
   return props.path ? t(`onboarding.paths.${props.path}.label`) : t("onboarding.path.defaultPath");
 });
+
+const suggestionMood = computed(() => {
+  return props.challenges.length
+    ? resolveRingoMood("onboardingSuggestion")
+    : resolveRingoMood("onboardingFallback");
+});
+
+function toggleChallenge(challenge) {
+  if (challenge.is_joined) return;
+
+  if (selectedIds.value.includes(challenge.challenge_id)) {
+    selectedIds.value = selectedIds.value.filter((id) => id !== challenge.challenge_id);
+    return;
+  }
+
+  selectedIds.value = [...selectedIds.value, challenge.challenge_id];
+}
 </script>
 
 <style scoped>
@@ -102,8 +177,20 @@ const pathLabel = computed(() => {
   gap: var(--s-20);
 }
 
+.suggestionHero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--s-20);
+  align-items: center;
+}
+
 .stepHeader {
   max-width: 760px;
+  min-width: 0;
+}
+
+.suggestionRingo {
+  justify-self: end;
 }
 
 .eyebrow {
@@ -128,6 +215,13 @@ h1 {
   margin: 12px 0 0;
   color: rgba(255, 255, 255, 0.66);
   line-height: 1.7;
+}
+
+.laterNotice {
+  max-width: 720px;
+  margin: 8px 0 0;
+  color: rgba(253, 230, 138, 0.82);
+  line-height: 1.6;
 }
 
 .suggestionCard {
@@ -186,6 +280,65 @@ h2 {
   font-size: 0.82rem;
 }
 
+.challengeOptions {
+  display: grid;
+  gap: var(--s-12);
+  margin-top: var(--s-16);
+}
+
+.challengeOption {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: var(--s-12);
+  align-items: center;
+  padding: 13px;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  color: rgba(255, 255, 255, 0.88);
+  text-align: start;
+  background: rgba(255, 255, 255, 0.04);
+  cursor: pointer;
+}
+
+.challengeOption.selected {
+  border-color: rgba(110, 229, 255, 0.30);
+  background: rgba(110, 229, 255, 0.08);
+}
+
+.challengeOption.joined {
+  cursor: default;
+  opacity: 0.72;
+}
+
+.checkMark {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 10px;
+  color: rgba(255, 255, 255, 0.95);
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  font-weight: 900;
+}
+
+.optionCopy {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.optionCopy small,
+.optionMeta small {
+  color: rgba(255, 255, 255, 0.58);
+  line-height: 1.45;
+}
+
+.optionMeta {
+  justify-self: end;
+  text-align: end;
+}
+
 .errorBox {
   padding: 12px 14px;
   border-radius: 16px;
@@ -216,12 +369,31 @@ h2 {
 }
 
 @media (max-width: 620px) {
+  .suggestionHero {
+    grid-template-columns: 1fr;
+  }
+
+  .suggestionRingo {
+    order: -1;
+    justify-self: center;
+  }
+
   h1 {
     font-size: 1.9rem;
   }
 
   .actions {
     display: grid;
+  }
+
+  .challengeOption {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .optionMeta {
+    grid-column: 2;
+    justify-self: start;
+    text-align: start;
   }
 
   .skipButton {

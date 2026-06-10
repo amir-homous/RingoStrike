@@ -1,27 +1,52 @@
 <template>
   <Teleport to="body">
     <Transition name="reward">
-      <div
-        v-if="open"
-        class="rewardOverlay"
-        role="presentation"
-        @click.self="close"
-      >
-        <section
-          class="rewardPanel"
-          role="dialog"
-          aria-modal="true"
-          :aria-label="t('rewardMoment.title')"
-        >
+      <div v-if="open" class="rewardOverlay" role="presentation" @click.self="close">
+        <section class="rewardPanel" role="dialog" aria-modal="true" :aria-label="t('rewardMoment.title')">
           <div class="rewardAura" aria-hidden="true"></div>
 
-          <div class="rewardMark" aria-hidden="true">
-            <span></span>
+          <div class="rewardHero">
+            <div>
+              <p class="eyebrow">{{ t("rewardMoment.eyebrow") }}</p>
+              <h2>{{ t("rewardMoment.title") }}</h2>
+              <p class="message">{{ motivationLine }}</p>
+            </div>
+
+            <RingoMoodFigure
+              class="rewardRingo"
+              :mood="rewardMood"
+              :alt="t('rewardMoment.title')"
+              size="md"
+              floating
+            />
           </div>
 
-          <p class="eyebrow">{{ t("rewardMoment.eyebrow") }}</p>
-          <h2>{{ t("rewardMoment.title") }}</h2>
-          <p class="message">{{ motivationLine }}</p>
+          <div v-if="missionContext" class="missionReceipt">
+            <div class="receiptHead">
+              <span>{{ t("rewardMoment.mission.label") }}</span>
+              <strong>{{ missionContext.title }}</strong>
+            </div>
+
+            <dl class="receiptDetails">
+              <div v-if="securedTime">
+                <dt>{{ t("rewardMoment.mission.securedAt") }}</dt>
+                <dd>{{ securedTime }}</dd>
+              </div>
+
+              <div v-if="missionContext.challengeName">
+                <dt>{{ t("rewardMoment.mission.challenge") }}</dt>
+                <dd>{{ missionContext.challengeName }}</dd>
+              </div>
+            </dl>
+
+            <p v-if="missionContext.summary" class="missionSummary">
+              {{ missionContext.summary }}
+            </p>
+
+            <p v-if="socialProofLine" class="socialProof">
+              {{ socialProofLine }}
+            </p>
+          </div>
 
           <div class="rewardStats">
             <div class="statItem primary">
@@ -44,10 +69,7 @@
             <p>{{ t("rewardMoment.achievements") }}</p>
 
             <ul>
-              <li
-                v-for="achievement in achievements"
-                :key="achievement.key || achievement.title"
-              >
+              <li v-for="achievement in achievements" :key="achievement.key || achievement.title">
                 <span class="achievementDot" aria-hidden="true"></span>
                 <div>
                   <strong>{{ achievement.title }}</strong>
@@ -63,38 +85,21 @@
           <div v-if="unlockedFeatures.length" class="featureUnlocks">
             <p class="unlockIntro">{{ t("rewardMoment.unlocks.intro") }}</p>
 
-            <article
-              v-for="feature in unlockedFeatures"
-              :key="feature.key"
-              class="unlockCard"
-            >
+            <article v-for="feature in unlockedFeatures" :key="feature.key" class="unlockCard">
               <div>
                 <h3>{{ t(`rewardMoment.unlocks.${feature.key}.title`) }}</h3>
                 <p>{{ t(`rewardMoment.unlocks.${feature.key}.description`) }}</p>
               </div>
 
-              <RouterLink
-                v-if="feature.to"
-                v-slot="{ navigate }"
-                :to="feature.to"
-                custom
-              >
-                <BaseButton
-                  class="unlockCta"
-                  variant="secondary"
-                  @click="handleNavigate(navigate)"
-                >
+              <RouterLink v-if="feature.to" v-slot="{ navigate }" :to="feature.to" custom>
+                <BaseButton class="unlockCta" variant="secondary" @click="handleNavigate(navigate)">
                   {{ t(`rewardMoment.unlocks.${feature.key}.cta`) }}
                 </BaseButton>
               </RouterLink>
             </article>
           </div>
 
-          <BaseButton
-            class="continueButton"
-            variant="primary"
-            @click="close"
-          >
+          <BaseButton class="continueButton" variant="primary" @click="close">
             {{ t("rewardMoment.continue") }}
           </BaseButton>
         </section>
@@ -108,6 +113,8 @@ import { computed, onMounted, onUnmounted } from "vue";
 import { useI18n } from "vue-i18n";
 
 import BaseButton from "@/components/ui/BaseButton.vue";
+import RingoMoodFigure from "@/components/ringo/RingoMoodFigure.vue";
+import { resolveRingoMood } from "@/constants/ringoSprites";
 
 const props = defineProps({
   open: { type: Boolean, default: false },
@@ -142,6 +149,36 @@ const totalXp = computed(() => {
   return Number.isFinite(numeric) ? Math.max(0, numeric) : null;
 });
 
+const missionContext = computed(() => {
+  const mission = props.reward?.mission;
+  if (!mission?.title) return null;
+
+  return {
+    title: String(mission.title),
+    challengeName: String(mission.challengeName || ""),
+    summary: String(mission.summary || ""),
+    securedAt: mission.securedAt || "",
+    todayDoneBeforeYou: Number.isFinite(Number(mission.todayDoneBeforeYou))
+      ? Number(mission.todayDoneBeforeYou)
+      : null,
+    todayDoneCount: Number.isFinite(Number(mission.todayDoneCount))
+      ? Number(mission.todayDoneCount)
+      : null,
+  };
+});
+
+const securedTime = computed(() => {
+  if (!missionContext.value?.securedAt) return "";
+
+  const date = new Date(missionContext.value.securedAt);
+  if (Number.isNaN(date.getTime())) return "";
+
+  return new Intl.DateTimeFormat(undefined, {
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date);
+});
+
 const streakValue = computed(() => {
   const value = Number(props.reward?.streak ?? 0);
   if (!Number.isFinite(value) || value <= 0) return null;
@@ -153,10 +190,31 @@ const streakLabel = computed(() => {
   return t("rewardMoment.streakValue", { count: streakValue.value });
 });
 
+const rewardMood = computed(() => {
+  if (achievements.value.length) return resolveRingoMood("rewardAchievement");
+  if (unlockedFeatures.value.length) return resolveRingoMood("rewardUnlock");
+  if (streakValue.value && streakValue.value >= 3) return resolveRingoMood("rewardStreak");
+  if (xpEarned.value > 0) return resolveRingoMood("rewardXp");
+  return resolveRingoMood("rewardDefault");
+});
+
 const motivationLine = computed(() => {
   const seed = xpEarned.value + achievements.value.length + (streakValue.value || 0);
   const index = seed % 4;
   return t(`rewardMoment.lines.${index}`);
+});
+
+const socialProofLine = computed(() => {
+  const beforeYou = missionContext.value?.todayDoneBeforeYou;
+  const total = missionContext.value?.todayDoneCount;
+
+  if (!Number.isFinite(beforeYou)) return "";
+  if (beforeYou <= 0) return t("rewardMoment.mission.firstToday");
+
+  return t("rewardMoment.mission.othersBefore", {
+    count: beforeYou,
+    total: Number.isFinite(total) ? total : beforeYou + 1,
+  });
 });
 
 function close() {
@@ -199,6 +257,7 @@ onUnmounted(() => {
   position: relative;
   overflow: hidden;
   width: min(520px, 100%);
+  max-height: calc(100vh - 40px);
   padding: 28px;
   border-radius: 28px;
   border: 1px solid rgba(255, 255, 255, 0.13);
@@ -207,6 +266,7 @@ onUnmounted(() => {
     radial-gradient(circle at 92% 8%, rgba(110, 229, 255, 0.12), transparent 34%),
     linear-gradient(145deg, rgba(18, 24, 38, 0.96), rgba(10, 14, 25, 0.96));
   box-shadow: 0 34px 110px rgba(0, 0, 0, 0.46);
+  overflow-y: auto;
 }
 
 .rewardAura {
@@ -216,11 +276,12 @@ onUnmounted(() => {
   pointer-events: none;
 }
 
-.rewardMark,
+.rewardHero,
 .eyebrow,
 h2,
 .message,
 .rewardStats,
+.missionReceipt,
 .achievements,
 .featureUnlocks,
 .continueButton {
@@ -228,23 +289,19 @@ h2,
   z-index: 1;
 }
 
-.rewardMark {
-  width: 58px;
-  height: 58px;
+.rewardHero {
   display: grid;
-  place-items: center;
-  margin-bottom: var(--s-16);
-  border-radius: 21px;
-  background: rgba(74, 222, 128, 0.13);
-  border: 1px solid rgba(74, 222, 128, 0.28);
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--s-16);
+  align-items: center;
 }
 
-.rewardMark span {
-  width: 18px;
-  height: 18px;
-  border-radius: 999px;
-  background: #86efac;
-  box-shadow: 0 0 28px rgba(134, 239, 172, 0.68);
+.rewardHero > div:first-child {
+  min-width: 0;
+}
+
+.rewardRingo {
+  align-self: start;
 }
 
 .eyebrow {
@@ -268,6 +325,68 @@ h2 {
   margin: 12px 0 0;
   color: rgba(255, 255, 255, 0.68);
   line-height: 1.7;
+}
+
+.missionReceipt {
+  display: grid;
+  gap: var(--s-12);
+  margin-top: var(--s-20);
+  padding: 15px;
+  border: 1px solid rgba(134, 239, 172, 0.16);
+  border-radius: 20px;
+  background:
+    linear-gradient(135deg, rgba(74, 222, 128, 0.09), rgba(110, 229, 255, 0.045)),
+    rgba(255, 255, 255, 0.036);
+}
+
+.receiptHead span,
+.receiptDetails dt {
+  display: block;
+  color: rgba(187, 247, 208, 0.80);
+  font-size: 0.72rem;
+  font-weight: 850;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.receiptHead strong {
+  display: block;
+  margin-top: 5px;
+  color: rgba(255, 255, 255, 0.96);
+  font-size: 1.08rem;
+  line-height: 1.35;
+}
+
+.receiptDetails {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--s-10);
+  margin: 0;
+}
+
+.receiptDetails div {
+  min-width: 0;
+}
+
+.receiptDetails dd {
+  margin: 4px 0 0;
+  color: rgba(255, 255, 255, 0.84);
+  font-weight: 760;
+  line-height: 1.35;
+}
+
+.missionSummary,
+.socialProof {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.66);
+  line-height: 1.6;
+}
+
+.socialProof {
+  padding-top: var(--s-10);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  color: rgba(253, 230, 138, 0.88);
+  font-weight: 760;
 }
 
 .rewardStats {
@@ -422,6 +541,7 @@ h2 {
 }
 
 @media (prefers-reduced-motion: reduce) {
+
   .reward-enter-active,
   .reward-leave-active,
   .reward-enter-active .rewardPanel,
@@ -441,11 +561,24 @@ h2 {
     border-radius: 24px;
   }
 
+  .rewardHero {
+    grid-template-columns: 1fr;
+  }
+
+  .rewardRingo {
+    order: -1;
+    justify-self: center;
+  }
+
   h2 {
     font-size: 1.9rem;
   }
 
   .rewardStats {
+    grid-template-columns: 1fr;
+  }
+
+  .receiptDetails {
     grid-template-columns: 1fr;
   }
 

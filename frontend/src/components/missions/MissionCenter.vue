@@ -1,0 +1,653 @@
+<template>
+  <section class="missionCenter">
+    <RingoCoach
+      v-if="showCoach"
+      :message="ringo?.message"
+      :sprite="ringo?.sprite_key || ringo?.sprite"
+      :primary-action="ringo?.primary_action"
+      :secondary-action="ringo?.secondary_action"
+      @action="handleCoachAction"
+    />
+
+    <UiState
+      :loading="loading"
+      :error="!!error"
+      :empty="false"
+      :loading-title="t('missions.loadingTitle')"
+      :loading-text="t('missions.loadingText')"
+      :error-title="t('missions.errorTitle')"
+      :error-text="error || t('common.pleaseTryAgain')"
+      @retry="loadMissions"
+    />
+
+    <p v-if="notice" class="missionNotice" :class="noticeType">
+      {{ notice }}
+    </p>
+
+    <PathSelection
+      v-if="!loading && !error && showPathSelection"
+      :allow-active-start="ringo?.state === 'path_selected_no_challenge'"
+      @started="loadMissions"
+    />
+
+    <BaseCard
+      v-if="missionGuide"
+      class="missionGuide"
+      :class="[missionGuide.state, { complete: missionGuide.complete }]"
+    >
+      <div class="missionGuideCopy">
+        <p class="eyebrow compact">{{ t("missions.guideEyebrow") }}</p>
+        <h2>{{ missionGuide.title }}</h2>
+        <p>{{ missionGuide.body }}</p>
+      </div>
+
+      <div class="missionStepper" :aria-label="t('missions.stepperLabel')">
+        <span class="step complete">{{ t("missions.steps.path") }}</span>
+        <span class="step" :class="{ complete: missionGuide.complete, active: !missionGuide.complete }">
+          {{ t("missions.steps.mission") }}
+        </span>
+        <span class="step" :class="{ complete: missionGuide.complete }">
+          {{ t("missions.steps.reward") }}
+        </span>
+      </div>
+
+      <div v-if="focusMission" class="focusMission">
+        <span>{{ t("missions.nextMission") }}</span>
+        <strong>{{ focusMission.title }}</strong>
+        <p>{{ focusMission.description }}</p>
+      </div>
+
+      <div class="missionGuideActions">
+        <BaseButton
+          v-if="!missionGuide.complete && focusMission"
+          variant="primary"
+          @click="focusMissionCard(focusMission)"
+        >
+          {{ t("missions.focusCta") }}
+        </BaseButton>
+
+        <RouterLink
+          v-if="focusMission?.enrollment_id"
+          class="missionGuideLink"
+          :to="`/enrollment/${focusMission.enrollment_id}`"
+        >
+          {{ t("missions.detailsCta") }}
+        </RouterLink>
+
+        <RouterLink
+          v-if="missionGuide.complete"
+          class="missionGuideLink"
+          to="/paths"
+        >
+          {{ t("missions.nextPathCta") }}
+        </RouterLink>
+      </div>
+    </BaseCard>
+
+    <BaseCard v-if="!loading && !error && missions.length" class="missionList">
+      <div class="missionListHead">
+        <div>
+          <p class="eyebrow compact">{{ t("missions.eyebrow") }}</p>
+          <h2>{{ t("missions.title") }}</h2>
+        </div>
+        <span>{{ date }}</span>
+      </div>
+
+      <div class="missionItems">
+        <article
+          v-for="mission in missions"
+          :key="mission.mission_id"
+          :id="`mission-${mission.mission_id}`"
+          class="missionItem"
+          :class="[mission.status, { focus: focusMission?.mission_id === mission.mission_id }]"
+        >
+          <div>
+            <p class="missionMeta">
+              {{ mission.challenge_name }} · {{ t(`missions.status.${mission.status}`) }}
+            </p>
+            <h3>{{ mission.title }}</h3>
+            <p>{{ mission.description }}</p>
+            <small v-if="mission.ringo_message">{{ mission.ringo_message }}</small>
+          </div>
+
+          <div class="missionActions">
+            <BaseButton
+              variant="primary"
+              :loading="busyId === mission.mission_id && busyAction === 'done'"
+              :disabled="mission.status === 'done'"
+              @click="markDone(mission)"
+            >
+              {{ t("missions.doneCta") }}
+            </BaseButton>
+
+            <BaseButton
+              variant="secondary"
+              :loading="busyId === mission.mission_id && busyAction === 'remind'"
+              :disabled="mission.status === 'done' || mission.status === 'remind_later'"
+              @click="remindLater(mission)"
+            >
+              {{ mission.status === "remind_later" ? t("missions.reminderSet") : t("missions.remindLater") }}
+            </BaseButton>
+
+            <BaseButton
+              variant="secondary"
+              :loading="busyId === mission.mission_id && busyAction === 'skip'"
+              :disabled="mission.status === 'done' || mission.status === 'skipped'"
+              @click="skipMission(mission)"
+            >
+              {{ mission.status === "skipped" ? t("missions.skipped") : t("missions.skip") }}
+            </BaseButton>
+          </div>
+        </article>
+      </div>
+    </BaseCard>
+  </section>
+</template>
+
+<script setup>
+import { computed, nextTick, onMounted, ref } from "vue";
+import { useI18n } from "vue-i18n";
+import api from "@/lib/api";
+import BaseButton from "@/components/ui/BaseButton.vue";
+import BaseCard from "@/components/ui/BaseCard.vue";
+import UiState from "@/components/ui/UiState.vue";
+import RingoCoach from "@/components/ringo/RingoCoach.vue";
+import PathSelection from "@/components/missions/PathSelection.vue";
+
+const { t } = useI18n();
+const emit = defineEmits(["checked-in", "loaded"]);
+
+const loading = ref(true);
+const error = ref("");
+const date = ref("");
+const ringo = ref(null);
+const missions = ref([]);
+const busyId = ref(null);
+const busyAction = ref("");
+const notice = ref("");
+const noticeType = ref("success");
+const dismissedCoachState = ref("");
+
+const showPathSelection = computed(() => {
+  return ["new_user_no_path", "path_selected_no_challenge"].includes(ringo.value?.state);
+});
+
+const showCoach = computed(() => {
+  return ringo.value?.state && ringo.value.state !== dismissedCoachState.value;
+});
+
+const pendingMissions = computed(() => {
+  return missions.value.filter((mission) => mission.status === "pending");
+});
+
+const deferredMissions = computed(() => {
+  return missions.value.filter((mission) => mission.status === "remind_later");
+});
+
+const skippedMissions = computed(() => {
+  return missions.value.filter((mission) => mission.status === "skipped");
+});
+
+const focusMission = computed(() => {
+  return pendingMissions.value[0]
+    || skippedMissions.value[0]
+    || deferredMissions.value[0]
+    || missions.value[0]
+    || null;
+});
+
+const missionGuide = computed(() => {
+  if (!missions.value.length || !focusMission.value) return null;
+
+  const complete = missions.value.every((mission) => mission.status === "done");
+  const hasSkipped = skippedMissions.value.length > 0;
+  const hasDeferred = deferredMissions.value.length > 0;
+  const hasPending = pendingMissions.value.length > 0;
+  const context = {
+    path: focusMission.value.path_title || t("missions.fallbackPath"),
+    challenge: focusMission.value.challenge_name || t("missions.fallbackChallenge"),
+    mission: focusMission.value.title,
+  };
+
+  if (complete) {
+    return {
+      complete: true,
+      state: "complete",
+      title: t("missions.guideCompleteTitle", context),
+      body: t("missions.guideCompleteBody", context),
+    };
+  }
+
+  if (!hasPending && hasSkipped) {
+    return {
+      complete: false,
+      state: "skipped",
+      title: t("missions.guideSkippedTitle", context),
+      body: t("missions.guideSkippedBody", context),
+    };
+  }
+
+  if (!hasPending && hasDeferred) {
+    return {
+      complete: false,
+      state: "reminder",
+      title: t("missions.guideReminderTitle", context),
+      body: t("missions.guideReminderBody", context),
+    };
+  }
+
+  return {
+    complete: false,
+    state: "active",
+    title: t("missions.guideTitle", context),
+    body: t("missions.guideBody", context),
+  };
+});
+
+async function loadMissions() {
+  loading.value = true;
+  error.value = "";
+
+  try {
+    const { data } = await api.get("/me/today-missions");
+    date.value = data?.date || "";
+    ringo.value = data?.ringo || null;
+    if (ringo.value?.state !== dismissedCoachState.value) {
+      dismissedCoachState.value = "";
+    }
+    missions.value = data?.missions || [];
+    emit("loaded", {
+      error: "",
+      ringo: ringo.value,
+      missions: missions.value,
+      state: ringo.value?.state || "",
+    });
+  } catch (e) {
+    error.value = e?.response?.data?.error || e?.message || String(e);
+    emit("loaded", {
+      error: error.value,
+      ringo: null,
+      missions: [],
+      state: "error",
+    });
+  } finally {
+    loading.value = false;
+  }
+}
+
+async function runMissionAction(mission, action, request) {
+  busyId.value = mission.mission_id;
+  busyAction.value = action;
+  error.value = "";
+
+  try {
+    const { data } = await request();
+    notice.value = action === "done"
+      ? data?.checkin?.already_checked
+        ? t("missions.alreadySecuredNotice")
+        : t("missions.securedNotice")
+      : action === "remind"
+        ? t("missions.reminderNotice")
+        : t("missions.skipNotice");
+    noticeType.value = action === "done"
+      ? "success"
+      : action === "remind"
+        ? "reminder"
+        : "muted";
+
+    if (data?.checkin?.ok) {
+      emit("checked-in", {
+        ...data,
+        mission: {
+          ...mission,
+          ...(data?.mission || {}),
+        },
+      });
+    }
+
+    await loadMissions();
+  } catch (e) {
+    error.value = e?.response?.data?.error || e?.message || String(e);
+  } finally {
+    busyId.value = null;
+    busyAction.value = "";
+  }
+}
+
+function markDone(mission) {
+  return runMissionAction(
+    mission,
+    "done",
+    () => api.post(`/me/missions/${mission.mission_id}/done`, {}),
+  );
+}
+
+function remindLater(mission) {
+  const reminderAt = new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString();
+
+  return runMissionAction(
+    mission,
+    "remind",
+    () => api.post(`/me/missions/${mission.mission_id}/remind-later`, {
+      reminder_at: reminderAt,
+    }),
+  );
+}
+
+function skipMission(mission) {
+  return runMissionAction(
+    mission,
+    "skip",
+    () => api.post(`/me/missions/${mission.mission_id}/skip`, {}),
+  );
+}
+
+async function focusMissionCard(mission) {
+  await nextTick();
+  document
+    .getElementById(`mission-${mission.mission_id}`)
+    ?.scrollIntoView({ behavior: "smooth", block: "center" });
+}
+
+function handleCoachAction(action) {
+  if (action?.type === "dismiss") {
+    dismissedCoachState.value = ringo.value?.state || "";
+    return;
+  }
+
+  if (!action?.mission_id) return;
+
+  const mission = missions.value.find((item) => item.mission_id === action.mission_id);
+
+  if (!mission) return;
+
+  if (action.type === "mission_reminder") {
+    remindLater(mission);
+    return;
+  }
+
+  markDone(mission);
+}
+
+onMounted(loadMissions);
+</script>
+
+<style scoped>
+.missionCenter {
+  display: grid;
+  gap: var(--s-16);
+}
+
+.missionList {
+  display: grid;
+  gap: var(--s-16);
+}
+
+.missionGuide {
+  display: grid;
+  gap: var(--s-16);
+  background:
+    radial-gradient(circle at 0% 0%, rgba(110, 229, 255, 0.12), transparent 36%),
+    radial-gradient(circle at 100% 0%, rgba(247, 215, 116, 0.10), transparent 30%),
+    rgba(255, 255, 255, 0.04);
+}
+
+.missionGuide.complete {
+  background:
+    radial-gradient(circle at 0% 0%, rgba(74, 222, 128, 0.12), transparent 34%),
+    rgba(255, 255, 255, 0.035);
+}
+
+.missionGuide.skipped {
+  border-color: rgba(255, 255, 255, 0.14);
+  background:
+    radial-gradient(circle at 0% 0%, rgba(255, 255, 255, 0.08), transparent 34%),
+    rgba(255, 255, 255, 0.032);
+}
+
+.missionGuide.reminder {
+  border-color: rgba(247, 215, 116, 0.20);
+  background:
+    radial-gradient(circle at 0% 0%, rgba(247, 215, 116, 0.10), transparent 34%),
+    rgba(255, 255, 255, 0.032);
+}
+
+.missionGuideCopy h2,
+.missionGuideCopy p,
+.focusMission p {
+  margin: 0;
+}
+
+.missionGuideCopy h2 {
+  color: rgba(255, 255, 255, 0.96);
+  letter-spacing: -0.04em;
+}
+
+.missionGuideCopy p {
+  margin-top: 8px;
+  max-width: 760px;
+  color: rgba(255, 255, 255, 0.68);
+  line-height: 1.65;
+}
+
+.missionStepper {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--s-8);
+}
+
+.step {
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  border-radius: 16px;
+  color: rgba(255, 255, 255, 0.62);
+  background: rgba(255, 255, 255, 0.035);
+  font-size: var(--cap);
+  font-weight: 850;
+  text-align: center;
+}
+
+.step.complete {
+  border-color: rgba(74, 222, 128, 0.24);
+  color: rgba(187, 247, 208, 0.95);
+  background: rgba(74, 222, 128, 0.07);
+}
+
+.step.active {
+  border-color: rgba(247, 215, 116, 0.30);
+  color: rgba(253, 230, 138, 0.96);
+  background: rgba(247, 215, 116, 0.08);
+  box-shadow: 0 0 28px rgba(247, 215, 116, 0.08);
+}
+
+.focusMission {
+  display: grid;
+  gap: 6px;
+  padding: 14px;
+  border: 1px solid rgba(110, 229, 255, 0.18);
+  border-radius: 18px;
+  background: rgba(5, 10, 18, 0.26);
+}
+
+.focusMission span {
+  color: rgba(110, 229, 255, 0.82);
+  font-size: var(--cap);
+  font-weight: 900;
+}
+
+.focusMission strong {
+  color: rgba(255, 255, 255, 0.94);
+}
+
+.focusMission p {
+  color: rgba(255, 255, 255, 0.66);
+  line-height: 1.55;
+}
+
+.missionGuideActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-10);
+  align-items: center;
+}
+
+.missionGuideLink {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
+  padding: 9px 13px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 15px;
+  color: rgba(255, 255, 255, 0.86);
+  background: rgba(255, 255, 255, 0.055);
+  font-weight: 850;
+  text-decoration: none;
+}
+
+.missionGuideLink:hover {
+  border-color: rgba(110, 229, 255, 0.24);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.missionNotice {
+  margin: 0;
+  padding: 11px 13px;
+  border: 1px solid rgba(74, 222, 128, 0.24);
+  border-radius: 16px;
+  color: rgba(187, 247, 208, 0.96);
+  background: rgba(74, 222, 128, 0.075);
+  font-weight: 780;
+}
+
+.missionNotice.reminder {
+  border-color: rgba(247, 215, 116, 0.24);
+  color: rgba(253, 230, 138, 0.96);
+  background: rgba(247, 215, 116, 0.075);
+}
+
+.missionNotice.muted {
+  border-color: rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.72);
+  background: rgba(255, 255, 255, 0.045);
+}
+
+.missionListHead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--s-16);
+}
+
+.missionListHead h2,
+.missionListHead p {
+  margin: 0;
+}
+
+.missionListHead > span {
+  color: var(--muted2);
+  font-size: var(--cap);
+}
+
+.eyebrow {
+  margin: 0 0 8px;
+  color: rgba(110, 229, 255, 0.86);
+  font-size: 0.72rem;
+  font-weight: 850;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+
+.missionItems {
+  display: grid;
+  gap: var(--s-12);
+}
+
+.missionItem {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--s-16);
+  align-items: center;
+  padding: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.missionItem.done {
+  border-color: rgba(74, 222, 128, 0.24);
+  background: rgba(74, 222, 128, 0.06);
+}
+
+.missionItem.focus {
+  border-color: rgba(247, 215, 116, 0.28);
+  box-shadow: 0 0 0 1px rgba(247, 215, 116, 0.05), 0 18px 45px rgba(0, 0, 0, 0.16);
+}
+
+.missionItem.remind_later {
+  border-color: rgba(247, 215, 116, 0.24);
+  background: rgba(247, 215, 116, 0.055);
+}
+
+.missionItem.skipped {
+  opacity: 0.68;
+}
+
+.missionItem h3,
+.missionItem p {
+  margin: 0;
+}
+
+.missionItem h3 {
+  margin-top: 4px;
+}
+
+.missionItem p:not(.missionMeta) {
+  margin-top: 6px;
+  color: rgba(255, 255, 255, 0.66);
+  line-height: 1.55;
+}
+
+.missionItem small {
+  display: block;
+  margin-top: 8px;
+  color: rgba(247, 215, 116, 0.82);
+}
+
+.missionMeta {
+  color: rgba(110, 229, 255, 0.78);
+  font-size: var(--cap);
+  font-weight: 850;
+}
+
+.missionActions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--s-8);
+}
+
+@media (max-width: 760px) {
+  .missionStepper {
+    grid-template-columns: 1fr;
+  }
+
+  .missionGuideActions :deep(.btn),
+  .missionGuideLink {
+    width: 100%;
+  }
+
+  .missionItem {
+    grid-template-columns: 1fr;
+  }
+
+  .missionActions {
+    justify-content: stretch;
+  }
+
+  .missionActions :deep(.btn) {
+    flex: 1 1 100%;
+  }
+}
+</style>

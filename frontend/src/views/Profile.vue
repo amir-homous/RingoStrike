@@ -75,6 +75,7 @@
 
         <ProfileSettingsCard
           v-if="showEditProfile"
+          id="settings"
           class="settingsPanel"
           @close="showEditProfile = false"
           @saved="handleProfileSaved"
@@ -133,8 +134,9 @@
 </template>
 
 <script setup>
-import { computed, ref, onMounted } from "vue";
+import { computed, ref, onMounted, watch } from "vue";
 import { useI18n } from "vue-i18n";
+import { useRoute } from "vue-router";
 import api from "@/lib/api";
 
 import AppContainer from "@/components/ui/AppContainer.vue";
@@ -169,6 +171,7 @@ const activityEvents = ref([]);
 const showEditProfile = ref(false);
 const rewardToasts = ref([]);
 const { t } = useI18n();
+const route = useRoute();
 
 const visibilityLabel = computed(() => {
   return getProfileVisibilityLabel(profile.value) === "Private"
@@ -227,6 +230,12 @@ function handleEditProfile() {
   showEditProfile.value = true;
 }
 
+function syncSettingsHash() {
+  if (route.hash === "#settings") {
+    showEditProfile.value = true;
+  }
+}
+
 async function load() {
   loading.value = true;
   error.value = "";
@@ -245,13 +254,25 @@ async function load() {
   }
 }
 
-onMounted(load);
+watch(
+  () => route.hash,
+  () => syncSettingsHash(),
+);
+
+onMounted(() => {
+  syncSettingsHash();
+  load();
+});
 </script>
 
 <style scoped>
 .profileShell {
   display: grid;
   gap: var(--s-16);
+}
+
+.settingsPanel {
+  scroll-margin-top: 110px;
 }
 
 .profileHead {

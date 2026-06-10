@@ -15,16 +15,32 @@
         >
           <div class="momentAura" aria-hidden="true"></div>
 
-          <div class="momentMark" aria-hidden="true">
-            <span></span>
+          <div class="momentHero">
+            <div>
+              <p class="eyebrow">{{ t("joinSuccess.eyebrow") }}</p>
+              <h2>{{ t("joinSuccess.title") }}</h2>
+
+              <p class="message">
+                {{ message }}
+              </p>
+            </div>
+
+            <RingoMoodFigure
+              class="momentRingo"
+              :mood="joinMood"
+              :alt="t('joinSuccess.title')"
+              size="md"
+              floating
+            />
           </div>
 
-          <p class="eyebrow">{{ t("joinSuccess.eyebrow") }}</p>
-          <h2>{{ t("joinSuccess.title") }}</h2>
-
-          <p class="message">
-            {{ message }}
-          </p>
+          <div
+            v-if="challengeDescription"
+            class="pathContext"
+          >
+            <span>{{ t("joinSuccess.pathLabel") }}</span>
+            <p>{{ challengeDescription }}</p>
+          </div>
 
           <div class="missionCard">
             <span>{{ t("joinSuccess.nextLabel") }}</span>
@@ -61,6 +77,8 @@ import { useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 
 import BaseButton from "@/components/ui/BaseButton.vue";
+import RingoMoodFigure from "@/components/ringo/RingoMoodFigure.vue";
+import { resolveRingoMood } from "@/constants/ringoSprites";
 
 const props = defineProps({
   open: { type: Boolean, default: false },
@@ -78,7 +96,17 @@ const challengeName = computed(() => {
   return props.join?.challengeName || t("common.challenge");
 });
 
+const challengeDescription = computed(() => {
+  return String(props.join?.challengeDescription || "").trim();
+});
+
 const isExisting = computed(() => props.join?.mode === "existing");
+
+const joinMood = computed(() => {
+  return isExisting.value
+    ? resolveRingoMood("joinExisting")
+    : resolveRingoMood("joinCreated");
+});
 
 const detailsTo = computed(() => {
   const enrollmentId = props.join?.enrollmentId;
@@ -174,33 +202,30 @@ onUnmounted(() => {
   pointer-events: none;
 }
 
-.momentMark,
+.momentHero,
 .eyebrow,
 h2,
 .message,
+.pathContext,
 .missionCard,
 .actions {
   position: relative;
   z-index: 1;
 }
 
-.momentMark {
-  width: 58px;
-  height: 58px;
+.momentHero {
   display: grid;
-  place-items: center;
-  margin-bottom: var(--s-16);
-  border-radius: 21px;
-  background: rgba(110, 229, 255, 0.12);
-  border: 1px solid rgba(110, 229, 255, 0.28);
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--s-16);
+  align-items: center;
 }
 
-.momentMark span {
-  width: 18px;
-  height: 18px;
-  border-radius: 999px;
-  background: #6ee5ff;
-  box-shadow: 0 0 28px rgba(110, 229, 255, 0.62);
+.momentHero > div:first-child {
+  min-width: 0;
+}
+
+.momentRingo {
+  align-self: start;
 }
 
 .eyebrow {
@@ -224,6 +249,28 @@ h2 {
   margin: 12px 0 0;
   color: rgba(255, 255, 255, 0.7);
   line-height: 1.75;
+}
+
+.pathContext {
+  display: grid;
+  gap: 6px;
+  margin-top: var(--s-16);
+  padding: 13px;
+  border-radius: 17px;
+  border: 1px solid rgba(110, 229, 255, 0.15);
+  background: rgba(110, 229, 255, 0.055);
+}
+
+.pathContext span {
+  color: rgba(110, 229, 255, 0.86);
+  font-size: 0.75rem;
+  font-weight: 850;
+}
+
+.pathContext p {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.66);
+  line-height: 1.6;
 }
 
 .missionCard {
@@ -302,6 +349,15 @@ h2 {
   .momentPanel {
     padding: 22px;
     border-radius: 24px;
+  }
+
+  .momentHero {
+    grid-template-columns: 1fr;
+  }
+
+  .momentRingo {
+    order: -1;
+    justify-self: center;
   }
 
   h2 {

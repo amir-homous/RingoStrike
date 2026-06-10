@@ -1,9 +1,19 @@
 <template>
   <section class="pathStep">
-    <div class="stepHeader">
-      <p class="eyebrow">{{ t("onboarding.path.eyebrow") }}</p>
-      <h1>{{ t("onboarding.path.title") }}</h1>
-      <p>{{ t("onboarding.path.body") }}</p>
+    <div class="pathHero">
+      <div class="stepHeader">
+        <p class="eyebrow">{{ t("onboarding.path.eyebrow") }}</p>
+        <h1>{{ t("onboarding.path.title") }}</h1>
+        <p>{{ t("onboarding.path.body") }}</p>
+      </div>
+
+      <RingoMoodFigure
+        class="pathRingo"
+        :mood="pathMood"
+        :alt="t('onboarding.path.title')"
+        size="md"
+        floating
+      />
     </div>
 
     <div class="pathGrid">
@@ -12,8 +22,8 @@
         :key="path"
         type="button"
         class="pathCard"
-        :class="{ selected: modelValue === path }"
-        @click="$emit('update:modelValue', path)"
+        :class="{ selected: selectedPaths.includes(path) }"
+        @click="togglePath(path)"
       >
         <span class="pathIcon" aria-hidden="true"></span>
         <span class="pathLabel">{{ t(`onboarding.paths.${path}.label`) }}</span>
@@ -26,29 +36,48 @@
     <div class="actions">
       <BaseButton
         variant="primary"
-        :disabled="!modelValue"
+        :disabled="selectedPaths.length === 0"
         @click="$emit('continue')"
       >
-        {{ t("onboarding.path.continue") }}
+        {{ t("onboarding.path.continueWithCount", { count: selectedPaths.length }) }}
       </BaseButton>
     </div>
   </section>
 </template>
 
 <script setup>
+import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 
 import BaseButton from "@/components/ui/BaseButton.vue";
+import RingoMoodFigure from "@/components/ringo/RingoMoodFigure.vue";
+import { resolveRingoMood } from "@/constants/ringoSprites";
 import { IDENTITY_PATHS } from "@/lib/guidedExperience";
 
-defineProps({
-  modelValue: { type: String, default: "" },
+const props = defineProps({
+  modelValue: { type: Array, default: () => [] },
 });
 
-defineEmits(["update:modelValue", "continue"]);
+const emit = defineEmits(["update:modelValue", "continue"]);
 
 const { t } = useI18n();
 const paths = IDENTITY_PATHS;
+const selectedPaths = computed(() => Array.isArray(props.modelValue) ? props.modelValue : []);
+
+const pathMood = computed(() => {
+  return selectedPaths.value.length
+    ? resolveRingoMood("onboardingPathSelected")
+    : resolveRingoMood("onboardingPath");
+});
+
+function togglePath(path) {
+  if (selectedPaths.value.includes(path)) {
+    emit("update:modelValue", selectedPaths.value.filter((item) => item !== path));
+    return;
+  }
+
+  emit("update:modelValue", [...selectedPaths.value, path]);
+}
 </script>
 
 <style scoped>
@@ -57,8 +86,20 @@ const paths = IDENTITY_PATHS;
   gap: var(--s-20);
 }
 
+.pathHero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--s-20);
+  align-items: center;
+}
+
 .stepHeader {
   max-width: 760px;
+  min-width: 0;
+}
+
+.pathRingo {
+  justify-self: end;
 }
 
 .eyebrow {
@@ -142,6 +183,15 @@ h1 {
 }
 
 @media (max-width: 620px) {
+  .pathHero {
+    grid-template-columns: 1fr;
+  }
+
+  .pathRingo {
+    order: -1;
+    justify-self: center;
+  }
+
   h1 {
     font-size: 1.9rem;
   }

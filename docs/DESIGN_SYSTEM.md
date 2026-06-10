@@ -40,7 +40,7 @@ The next action should always be obvious.
 Preferred pattern:
 
 ```txt
-Today's Mission -> Check-in -> Reward -> Next Step
+Path -> Today's Mission -> Check-in -> Reward -> Next Step
 ```
 
 Design principles:
@@ -50,6 +50,7 @@ Design principles:
 - Keep reward moments premium, calm, and emotionally meaningful.
 - Avoid noisy animations, casino-like effects, or pressure-based streak messaging.
 - Reveal advanced systems gradually: leaderboard, achievements, public profile, and Telegram reminders should support the core loop, not compete with it.
+- Use RingoCoach as the primary guidance surface when the backend returns a Ringo decision. It should feel like contextual coaching, not a separate notification feed.
 
 ## Active CSS Tokens
 
@@ -104,6 +105,7 @@ Feature components:
 - achievements: cards, grids, previews, toasts
 - activity: timeline, timeline items, day grouping, empty state
 - challenges: challenge card
+- missions: MissionCenter and PathSelection
 - feedback: RewardMoment for check-ins and JoinSuccessMoment for softer challenge-start transitions
 - guided: reusable first-path empty state
 - onboarding: welcome, identity path selection, and suggested challenge steps
@@ -115,6 +117,7 @@ Feature components:
 Current views:
 
 - `Dashboard.vue`
+- `Paths.vue`
 - `Challenges.vue`
 - `Enrollment.vue`
 - `Leaderboard.vue`
@@ -125,12 +128,29 @@ Current views:
 - `AuthCallback.vue`
 - `ApiDocsView.vue`
 
+## Ringo Helper Assets
+
+Ringo helper sprites live in `frontend/src/assets/ringo/` and are resolved through `frontend/src/constants/ringoSprites.js`.
+
+Intended sprite keys:
+
+```txt
+idle, welcome, talking, explaining, thinking, encouraging, warning, concerned,
+happy, celebration, achievement, proud, sad, sleeping, focus, victory
+```
+
+`RingoCoach.vue` displays a sprite, message, and one or two actions from backend Ringo decisions. `RewardMoment.vue` no longer carries its own Ringo image; it is a focused reward dialog with XP, streak, achievements, and feature unlock hints.
+
+Current asset consistency note: `talking.png` and `victory.png` are referenced by the sprite map but are not present in the current asset folder. Restore those files or remove the keys/imports before relying on clean production builds.
+
 ## Design Rules For Future Work
 
 - Reuse UI primitives before creating new one-off controls.
 - Keep profile and dashboard hierarchy progression-first.
 - Prefer meaningful reward feedback after check-ins and achievement unlocks.
 - Use JoinSuccessMoment after starting a challenge when a softer transition prevents new users from being dropped directly into dense enrollment details.
+- Use MissionCenter as the first dashboard surface. Keep legacy TodayMission available as a fallback only when the mission API errors or returns no actionable mission.
+- Keep `/paths` as the richer path planning surface: path picker, active path status, challenge stage panels, mission previews, and daily path summary.
 - Keep progressive disclosure subtle: reveal deeper sections after existing check-in stats make them meaningful, without blocking direct routes.
 - Make public profile views shareable but privacy-safe.
 - Avoid adding separate visual languages for each feature.
@@ -142,3 +162,4 @@ Current views:
 - Tailwind is listed in dependencies and `assets/main.css` contains Tailwind directives, but that file is not imported by `main.js`.
 - `frontend/src/style.css` is Vite starter styling and appears unused.
 - API docs view may visually and contractually lag behind the actual backend.
+- Ringo sprite map currently references missing `talking.png` and `victory.png`.

@@ -14,8 +14,12 @@ The current product is both private-progression focused and public-identity capa
 - Invite-only challenge join codes.
 - Lightweight first-run onboarding with identity path selection and suggested first challenge.
 - Guided join success moment after successful challenge joins, before users move into enrollment details.
+- Backend-backed growth paths and daily missions.
+- `/paths` and `/me/today-missions` APIs for path discovery, path start, mission status, reminders, skips, and mission completion.
+- RingoCoach guidance states that choose message, sprite, and next action from the user's current path/enrollment/mission context.
 - Daily check-ins per enrollment.
-- Guided Today Mission dashboard surface and first-path empty state.
+- Dashboard Mission Center that leads the daily loop and falls back to the legacy Today Mission card only when no mission is available.
+- Full `/paths` page for path selection, challenge stage previews, mission previews, and per-path progress summary.
 - Premium check-in reward moment with existing XP, streak, achievement, and frontend-only unlock hints.
 - Frontend-only progressive disclosure for early dashboard sections based on existing check-in stats.
 - Enrollment history and challenge leaderboard.
@@ -82,32 +86,31 @@ Selected frontend language is stored in `localStorage.ringostrike_locale`.
 
 ```txt
 Register/Login
-  -> Dashboard
-  -> Join challenge
-  -> Daily check-in
-  -> Stats sync
-  -> Achievement evaluation
-  -> Activity feed/profile update
-  -> Optional public profile sharing
+  -> Dashboard Mission Center
+  -> Choose/start growth path
+  -> Auto-join first path challenge when available
+  -> Today's mission
+  -> Mark mission done
+  -> Existing check-in/stats/achievement pipeline
+  -> Reward Moment
+  -> Next path/challenge/profile surface
 ```
 
-## Target Guided User Flow
-
-The next product direction is to make the daily loop more guided. The dashboard is not being removed; it should become a supporting surface around a clearer mission-based journey.
+## Guided User Flow
 
 ```txt
 Register/Login
   -> Onboarding / Identity Path
-  -> Suggested First Challenge
-  -> Path Started Moment
+  -> Suggested First Challenge or Growth Path
+  -> Path Started Moment / JoinSuccessMoment
   -> Today's Mission
-  -> Daily Check-in
+  -> Mission Done / Check-in
   -> Reward Moment
   -> Next Step
-  -> Dashboard/Profile as supporting surfaces
+  -> Paths/Dashboard/Profile as supporting surfaces
 ```
 
-The intended shift is from a dashboard-based MVP toward a guided mission-based progression experience where the next action is obvious.
+The product has shifted from a dashboard-based MVP toward a guided mission-based progression experience where the next action is obvious. The dashboard remains important, but MissionCenter now leads the screen and older dashboard sections appear progressively after the user has meaningful check-in history.
 
 ## Current Architecture Strengths
 
@@ -125,6 +128,7 @@ Based on git history, the project has progressed through:
 2. Backend modularization and stats/streak fixes.
 3. XP, dashboard progression UX, activity timeline, achievements, and profile identity hub.
 4. Public identity foundations: public profiles, visibility, username normalization, avatar/profile settings, and shareable UX.
+5. Guided path/mission foundation: seeded MVP paths, path-specific challenges, daily missions, mission logs, RingoCoach state decisions, premium navigation, and Ringo helper sprites.
 
 ## Known Stabilization Needs
 
@@ -134,6 +138,7 @@ Based on git history, the project has progressed through:
 - Review public challenge/member endpoint visibility before public launch.
 - Continue expanding shared API response helper usage.
 - Add frontend smoke tests for router guard, login, dashboard, challenge check-in, profile, and public profile rendering.
+- Fix or remove missing Ringo sprite imports for `talking.png` and `victory.png`; the current frontend sprite map references these files, but they are absent from `frontend/src/assets/ringo/`.
 
 ## Recently Stabilized
 
@@ -147,3 +152,4 @@ Based on git history, the project has progressed through:
 - Progression surfaces consistently ignore uncounted check-ins.
 - Achievement XP rewards are included in persisted stats.
 - Backend smoke coverage currently reports `41 passed` in the local `backend/venv` environment.
+- MVP paths and missions are seeded by `path_seed_service.py`, with legacy unlinked challenges archived when they have no active mission linkage.

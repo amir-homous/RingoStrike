@@ -19,7 +19,7 @@ def get_dashboard(user_id:int):
     try:
         user_info=conn.execute("SELECT u.name, u.username, CAST(IFNULL(s.total_points,0) AS INTEGER) as total_points, CAST(IFNULL(s.current_streak,0) AS INTEGER) as current_streak, CAST(IFNULL(s.longest_streak,0) AS INTEGER) as longest_streak FROM users u LEFT JOIN user_stats s ON u.id=s.user_id WHERE u.id=?",(user_id,)).fetchone()
         if not user_info: return {"ok":False,"error":"user_not_found"},404
-        rows=conn.execute("SELECT e.id AS enrollment_id,c.name AS enrollment_name,e.status AS status,c.id AS challenge_id FROM enrollments e JOIN challenges c ON e.challenge_id=c.id WHERE e.user_id=? AND e.status='Active'",(user_id,)).fetchall()
+        rows=conn.execute("SELECT e.id AS enrollment_id,c.name AS enrollment_name,e.status AS status,c.id AS challenge_id FROM enrollments e JOIN challenges c ON e.challenge_id=c.id WHERE e.user_id=? AND e.status='Active' AND c.status='Active'",(user_id,)).fetchall()
         items=[]
         for r in rows:
             checkin=conn.execute("SELECT 1 FROM checkins WHERE enrollment_id=? AND date=? AND status='Done' AND is_counted = 1 LIMIT 1",(r['enrollment_id'],today)).fetchone()

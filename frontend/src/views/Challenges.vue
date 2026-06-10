@@ -3,6 +3,16 @@
     <AppHeader />
 
     <div class="challengesPage">
+      <RingoCoach
+        v-if="challengeCoach"
+        class="challengeCoach"
+        :message="challengeCoach.message"
+        :sprite="challengeCoach.sprite_key"
+        :primary-action="challengeCoach.primary_action"
+        :secondary-action="challengeCoach.secondary_action"
+        @action="handleCoachAction"
+      />
+
       <section class="heroCard">
         <div class="heroGlow"></div>
 
@@ -27,6 +37,14 @@
               <span class="heroPill">{{ t("challenges.pills.xp") }}</span>
               <span class="heroPill">{{ t("challenges.pills.social") }}</span>
             </div>
+
+            <div class="journeySteps" :aria-label="t('challenges.journeyLabel')">
+              <span>{{ t("challenges.journey.choose") }}</span>
+              <span aria-hidden="true">→</span>
+              <span>{{ t("challenges.journey.mission") }}</span>
+              <span aria-hidden="true">→</span>
+              <span>{{ t("challenges.journey.reward") }}</span>
+            </div>
           </div>
 
           <div class="heroStats">
@@ -48,7 +66,76 @@
         </div>
       </section>
 
+      <section class="pathGuide" aria-labelledby="path-guide-title">
+        <div>
+          <p class="eyebrow compact">{{ t("challenges.pathGuide.eyebrow") }}</p>
+          <h2 id="path-guide-title" class="sectionTitle">{{ t("challenges.pathGuide.title") }}</h2>
+          <p class="sectionText">{{ t("challenges.pathGuide.text") }}</p>
+        </div>
+
+        <div class="pathGrid">
+          <button
+            v-for="path in pathOptions"
+            :key="path.key"
+            type="button"
+            class="pathOption"
+            :class="{ active: selectedPath === path.key }"
+            @click="selectPath(path)"
+          >
+            <span
+              class="pathDot"
+              :style="{ '--path-color': path.color || '#fde68a' }"
+              aria-hidden="true"
+            ></span>
+            <span>{{ path.title }}</span>
+            <small>{{ path.description }}</small>
+          </button>
+        </div>
+      </section>
+
+      <section
+        v-if="selectedPath"
+        class="selectedPathPanel"
+        :class="{ missing: !selectedPathChallenge }"
+      >
+        <div class="selectedPathCopy">
+          <p class="selectedLabel">{{ selectedPathTitle }}</p>
+          <h2>{{ selectedPathHeading }}</h2>
+          <p class="selectedText">{{ selectedPathDescription }}</p>
+
+          <div class="missionPreview">
+            <span>{{ t("challenges.selectedPath.missionLabel") }}</span>
+            <strong>{{ selectedMissionTitle }}</strong>
+          </div>
+        </div>
+
+        <div class="selectedPathAction">
+          <span class="recommendedLabel">
+            {{ t("challenges.selectedPath.recommended", { challenge: selectedChallengeName }) }}
+          </span>
+
+          <BaseButton
+            class="pathStartButton"
+            variant="primary"
+            :loading="selectedPathChallenge && joiningId === selectedPathChallenge.challenge_id"
+            :disabled="!selectedPathChallenge"
+            @click="startSelectedPath"
+          >
+            {{ selectedPathCta }}
+          </BaseButton>
+
+          <p class="selectedHint">
+            {{ selectedPathChallenge ? t("challenges.selectedPath.helper") : t("challenges.selectedPath.missing") }}
+          </p>
+        </div>
+      </section>
+
       <section class="discoveryPanel">
+        <ChallengeDiscoveryInvite
+          :title="t('challengeInvite.title')"
+          :show-action="false"
+        />
+
         <div class="toolbar">
           <div>
             <div class="eyebrow compact">{{ t("challenges.launchDefaults") }}</div>
@@ -164,6 +251,9 @@ import BaseButton from "@/components/ui/BaseButton.vue";
 import UiState from "@/components/ui/UiState.vue";
 import ChallengeCard from "@/components/challenges/ChallengeCard.vue";
 import JoinSuccessMoment from "@/components/feedback/JoinSuccessMoment.vue";
+import ChallengeDiscoveryInvite from "@/components/guided/ChallengeDiscoveryInvite.vue";
+import RingoCoach from "@/components/ringo/RingoCoach.vue";
+import { getSuggestedChallengeName } from "@/lib/guidedExperience";
 import {
   humanizeJoinError,
   isInviteOnlyChallenge,
@@ -186,8 +276,34 @@ const errors = ref({});
 const search = ref("");
 const filter = ref("available");
 const showAll = ref(false);
+const selectedPath = ref("");
+const pathItems = ref([]);
+const pathChallenges = ref([]);
+const pathLoadError = ref("");
 
 const itemLimit = 6;
+const fallbackPathOptions = ["focus", "body", "learning", "mind", "consistency"];
+
+const pathOptions = computed(() => {
+  if (pathItems.value.length) {
+    return pathItems.value.map((path) => ({
+      key: path.key || String(path.path_id),
+      path_id: path.path_id,
+      title: path.title,
+      description: path.description,
+      color: path.color,
+      user_status: path.user_status,
+    }));
+  }
+
+  return fallbackPathOptions.map((key) => ({
+    key,
+    title: t(`challengeCard.paths.${key}`),
+    description: t(`challenges.selectedPath.${key}.description`),
+    color: "",
+    user_status: null,
+  }));
+});
 
 const joinedCount = computed(() => {
   return items.value.filter((item) => item.is_joined).length;
@@ -197,14 +313,162 @@ const inviteOnlyCount = computed(() => {
   return items.value.filter((item) => isInviteOnly(item) || item.needs_code).length;
 });
 
+const selectedPathChallenge = computed(() => {
+  if (!selectedPath.value) return null;
+
+  const pathChallenge = pathChallenges.value.find((item) => !item.is_joined)
+    || pathChallenges.value.find((item) => item.is_joined && !item.today_checked)
+    || pathChallenges.value[0]
+    || null;
+
+  if (pathChallenge) return pathChallenge;
+
+  const suggestedName = getSuggestedChallengeName(selectedPath.value).toLowerCase();
+  return items.value.find((item) => {
+    const name = String(item.name || item.challenge_name || item.enrollment_name || "").trim().toLowerCase();
+    return name === suggestedName;
+  }) || null;
+});
+
+const selectedPathItem = computed(() => {
+  return pathOptions.value.find((path) => path.key === selectedPath.value) || null;
+});
+
+const selectedPathTitle = computed(() => {
+  return selectedPathItem.value?.title || t(`challengeCard.paths.${selectedPath.value}`);
+});
+
+const selectedPathHeading = computed(() => {
+  if (selectedPathItem.value?.path_id) {
+    return t("challenges.selectedPath.backendTitle", { path: selectedPathTitle.value });
+  }
+
+  return selectedPath.value ? t(`challenges.selectedPath.${selectedPath.value}.title`) : "";
+});
+
+const selectedPathDescription = computed(() => {
+  return selectedPathItem.value?.description ||
+    (selectedPath.value ? t(`challenges.selectedPath.${selectedPath.value}.description`) : "");
+});
+
+const selectedMissionTitle = computed(() => {
+  const mission = selectedPathChallenge.value?.missions?.find((item) => item.available_today)
+    || selectedPathChallenge.value?.missions?.[0]
+    || null;
+
+  if (mission?.title) return mission.title;
+  if (selectedPath.value && !selectedPathItem.value?.path_id) {
+    return t(`challenges.selectedPath.${selectedPath.value}.mission`);
+  }
+  return t("challenges.selectedPath.backendMissionFallback");
+});
+
+const selectedChallengeName = computed(() => {
+  return selectedPathChallenge.value?.name ||
+    selectedPathChallenge.value?.challenge_name ||
+    getSuggestedChallengeName(selectedPath.value);
+});
+
+const challengeCoach = computed(() => {
+  if (selectedPath.value && selectedPathChallenge.value) {
+    const joined = selectedPathChallenge.value.is_joined;
+    const checkedToday = Boolean(selectedPathChallenge.value.today_checked);
+
+    return {
+      sprite_key: joined ? checkedToday ? "proud" : "thinking" : "focus",
+      message: joined
+        ? checkedToday
+          ? t("challenges.coach.pathDone", { challenge: selectedChallengeName.value })
+          : t("challenges.coach.pathJoined", { challenge: selectedChallengeName.value })
+        : t("challenges.coach.pathReady", {
+          path: selectedPathTitle.value,
+          challenge: selectedChallengeName.value,
+        }),
+      primary_action: {
+        label: selectedPathCta.value,
+        type: "start_selected_path",
+      },
+      secondary_action: {
+        label: t("challenges.coach.clearPath"),
+        type: "clear_path",
+      },
+    };
+  }
+
+  if (selectedPath.value && !selectedPathChallenge.value) {
+    return {
+      sprite_key: "explaining",
+      message: t("challenges.coach.pathMissing", { path: selectedPathTitle.value }),
+      primary_action: {
+        label: t("challenges.filters.available"),
+        type: "clear_path",
+      },
+      secondary_action: {
+        label: t("challenges.refresh"),
+        type: "refresh",
+      },
+    };
+  }
+
+  if (joinedCount.value > 0) {
+    return {
+      sprite_key: "encouraging",
+      message: t("challenges.coach.hasJoined", { count: joinedCount.value }),
+      primary_action: {
+        label: t("challenges.coach.pickPath"),
+        type: "focus_paths",
+      },
+      secondary_action: {
+        label: t("paths.openTodayMission"),
+        type: "route",
+        to: "/dashboard",
+      },
+    };
+  }
+
+  return {
+    sprite_key: "welcome",
+    message: t("challenges.coach.firstPath"),
+    primary_action: {
+      label: t("challenges.coach.pickPath"),
+      type: "focus_paths",
+    },
+    secondary_action: {
+      label: t("challenges.filters.available"),
+      type: "clear_path",
+    },
+  };
+});
+
+const selectedPathCta = computed(() => {
+  if (!selectedPathChallenge.value) return t("challenges.selectedPath.unavailableCta");
+  if (selectedPathChallenge.value.is_joined && selectedPathChallenge.value.enrollment_id) {
+    if (selectedPathChallenge.value.today_checked) {
+      return t("challenges.selectedPath.doneCta");
+    }
+    return t("challenges.selectedPath.continueCta");
+  }
+  if (isInviteOnly(selectedPathChallenge.value) || selectedPathChallenge.value.needs_code) {
+    return t("challenges.selectedPath.unlockCta");
+  }
+  if (selectedPathItem.value?.path_id) {
+    return t("challenges.selectedPath.backendCta", { path: selectedPathTitle.value });
+  }
+  return t(`challenges.selectedPath.${selectedPath.value}.cta`);
+});
+
 function isInviteOnly(challenge) {
   return isInviteOnlyChallenge(challenge);
 }
 
 const filteredItems = computed(() => {
   const query = search.value.trim().toLowerCase();
+  const selectedPathChallengeIds = new Set(pathChallenges.value.map((item) => item.challenge_id));
+  const sourceItems = selectedPath.value && selectedPathChallengeIds.size
+    ? items.value.filter((item) => selectedPathChallengeIds.has(item.challenge_id))
+    : items.value;
 
-  return items.value.filter((item) => {
+  return sourceItems.filter((item) => {
     const title = String(item.name || item.enrollment_name || item.challenge_name || "").toLowerCase();
     const description = String(item.description || "").toLowerCase();
     const visibility = String(item.visibility || "").toLowerCase();
@@ -236,7 +500,36 @@ const hasHiddenItems = computed(() => {
 
 function setFilter(value) {
   filter.value = value;
+  selectedPath.value = "";
+  pathChallenges.value = [];
+  search.value = "";
   showAll.value = false;
+}
+
+async function selectPath(path) {
+  selectedPath.value = path.key || path;
+  filter.value = "available";
+  search.value = "";
+  showAll.value = true;
+
+  if (path.path_id) {
+    await loadPathChallenges(path.path_id);
+    return;
+  }
+
+  pathChallenges.value = [];
+  search.value = getSuggestedChallengeName(selectedPath.value);
+}
+
+function startSelectedPath() {
+  if (!selectedPathChallenge.value) return;
+
+  if (selectedPathChallenge.value.is_joined && selectedPathChallenge.value.enrollment_id) {
+    router.push("/dashboard");
+    return;
+  }
+
+  join(selectedPathChallenge.value);
 }
 
 function humanizeError(msg) {
@@ -251,11 +544,61 @@ async function load() {
   try {
     const { data } = await api.get("/challenges");
     items.value = data.items || [];
+    await loadPaths();
   } catch (e) {
     loadError.value = e?.response?.data?.error || e?.message || String(e);
     items.value = [];
   } finally {
     loading.value = false;
+  }
+}
+
+async function loadPaths() {
+  pathLoadError.value = "";
+
+  try {
+    const { data } = await api.get("/paths");
+    pathItems.value = data?.items || [];
+  } catch (e) {
+    pathLoadError.value = e?.response?.data?.error || e?.message || String(e);
+    pathItems.value = [];
+  }
+}
+
+async function loadPathChallenges(pathId) {
+  pathLoadError.value = "";
+
+  try {
+    const { data } = await api.get(`/paths/${pathId}/challenges`);
+    pathChallenges.value = data?.items || [];
+  } catch (e) {
+    pathLoadError.value = e?.response?.data?.error || e?.message || String(e);
+    pathChallenges.value = [];
+  }
+}
+
+async function handleCoachAction(action) {
+  if (!action) return;
+
+  if (action.type === "start_selected_path") {
+    startSelectedPath();
+    return;
+  }
+
+  if (action.type === "clear_path") {
+    setFilter("available");
+    return;
+  }
+
+  if (action.type === "refresh") {
+    await load();
+    return;
+  }
+
+  if (action.type === "focus_paths") {
+    document
+      .getElementById("path-guide-title")
+      ?.scrollIntoView({ behavior: "smooth", block: "center" });
   }
 }
 
@@ -290,6 +633,10 @@ onMounted(load);
 .challengesPage {
   display: grid;
   gap: var(--s-16);
+}
+
+.challengeCoach {
+  border: 1px solid rgba(110, 229, 255, 0.14);
 }
 
 .heroCard {
@@ -380,9 +727,24 @@ onMounted(load);
   font-weight: 750;
 }
 
+.journeySteps {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 9px;
+  margin-top: var(--s-16);
+  padding: 10px 12px;
+  border-radius: 999px;
+  color: rgba(255, 255, 255, 0.78);
+  background: rgba(255, 255, 255, 0.055);
+  border: 1px solid rgba(253, 230, 138, 0.16);
+  font-size: 0.82rem;
+  font-weight: 850;
+}
+
 .heroStats {
   display: grid;
-  gap: var(--s-10);
+  gap: var(--s-12);
 }
 
 .heroStat {
@@ -426,6 +788,190 @@ onMounted(load);
 .discoveryPanel {
   display: grid;
   gap: var(--s-12);
+}
+
+.pathGuide {
+  display: grid;
+  grid-template-columns: minmax(0, 0.82fr) minmax(0, 1.18fr);
+  gap: var(--s-16);
+  align-items: center;
+  padding: 20px;
+  border-radius: 26px;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  background:
+    radial-gradient(circle at 0% 0%, rgba(253, 230, 138, 0.09), transparent 35%),
+    radial-gradient(circle at 100% 0%, rgba(110, 229, 255, 0.07), transparent 35%),
+    rgba(255, 255, 255, 0.026);
+}
+
+.pathGrid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: var(--s-12);
+}
+
+.pathOption {
+  display: grid;
+  gap: 8px;
+  min-height: 112px;
+  align-content: center;
+  padding: 12px;
+  border-radius: 18px;
+  text-align: start;
+  color: rgba(255, 255, 255, 0.84);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.085);
+  font-size: 0.84rem;
+  font-weight: 850;
+  cursor: pointer;
+  transition:
+    transform 150ms ease,
+    border-color 150ms ease,
+    background 150ms ease;
+}
+
+.pathOption small {
+  display: -webkit-box;
+  overflow: hidden;
+  color: rgba(255, 255, 255, 0.52);
+  font-size: 0.74rem;
+  font-weight: 650;
+  line-height: 1.35;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.pathOption:hover,
+.pathOption.active {
+  transform: translateY(-1px);
+  border-color: rgba(253, 230, 138, 0.24);
+  background:
+    radial-gradient(circle at 0% 0%, rgba(253, 230, 138, 0.11), transparent 36%),
+    rgba(255, 255, 255, 0.055);
+}
+
+.pathOption:focus-visible {
+  outline: none;
+  box-shadow: var(--focus);
+}
+
+.pathDot {
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  background: var(--path-color);
+  box-shadow: 0 0 18px color-mix(in srgb, var(--path-color) 42%, transparent);
+}
+
+.selectedPathPanel {
+  position: relative;
+  overflow: hidden;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 0.42fr);
+  gap: var(--s-20);
+  align-items: center;
+  padding: 24px;
+  border-radius: 28px;
+  border: 1px solid rgba(253, 230, 138, 0.18);
+  background:
+    radial-gradient(circle at 0% 0%, rgba(253, 230, 138, 0.13), transparent 35%),
+    radial-gradient(circle at 100% 8%, rgba(110, 229, 255, 0.10), transparent 36%),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.066), rgba(255, 255, 255, 0.024));
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.24);
+}
+
+.selectedPathPanel.missing {
+  border-color: rgba(255, 255, 255, 0.11);
+  background:
+    radial-gradient(circle at 0% 0%, rgba(110, 229, 255, 0.08), transparent 35%),
+    rgba(255, 255, 255, 0.025);
+}
+
+.selectedPathCopy,
+.selectedPathAction {
+  position: relative;
+  z-index: 1;
+}
+
+.selectedLabel {
+  margin: 0 0 9px;
+  color: rgba(253, 230, 138, 0.92);
+  font-size: 0.76rem;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.selectedPathCopy h2 {
+  max-width: 760px;
+  margin: 0;
+  color: rgba(255, 255, 255, 0.97);
+  font-size: clamp(1.65rem, 4vw, 3rem);
+  line-height: 1.05;
+}
+
+.selectedText {
+  max-width: 760px;
+  margin: 12px 0 0;
+  color: rgba(255, 255, 255, 0.70);
+  line-height: 1.7;
+}
+
+.missionPreview {
+  display: grid;
+  gap: 6px;
+  max-width: 720px;
+  margin-top: var(--s-16);
+  padding: 14px;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.missionPreview span,
+.recommendedLabel {
+  color: rgba(255, 255, 255, 0.54);
+  font-size: 0.75rem;
+  font-weight: 850;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.missionPreview strong {
+  color: rgba(255, 255, 255, 0.92);
+  line-height: 1.55;
+}
+
+.selectedPathAction {
+  display: grid;
+  gap: var(--s-12);
+  padding: 16px;
+  border-radius: 22px;
+  background: rgba(0, 0, 0, 0.20);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+}
+
+:deep(.pathStartButton) {
+  min-height: 58px;
+  border-color: rgba(253, 230, 138, 0.44);
+  background:
+    linear-gradient(135deg, rgba(253, 230, 138, 0.25), rgba(99, 102, 241, 0.24)),
+    rgba(99, 102, 241, 0.22);
+  box-shadow: 0 16px 46px rgba(99, 102, 241, 0.22);
+  font-size: 1rem;
+  font-weight: 900;
+}
+
+:deep(.pathStartButton:hover) {
+  background:
+    linear-gradient(135deg, rgba(253, 230, 138, 0.31), rgba(99, 102, 241, 0.30)),
+    rgba(99, 102, 241, 0.28);
+}
+
+.selectedHint {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.60);
+  line-height: 1.55;
 }
 
 .toolbar {
@@ -620,8 +1166,14 @@ onMounted(load);
 @media (max-width: 900px) {
 
   .heroContent,
-  .controls {
+  .controls,
+  .pathGuide,
+  .selectedPathPanel {
     grid-template-columns: 1fr;
+  }
+
+  .pathGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .heroStats {
@@ -649,6 +1201,24 @@ onMounted(load);
 
   .heroTitle {
     font-size: 2.2rem;
+  }
+
+  .journeySteps {
+    width: 100%;
+    border-radius: 18px;
+  }
+
+  .pathGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .selectedPathPanel {
+    padding: 20px;
+    border-radius: 24px;
+  }
+
+  :deep(.pathStartButton) {
+    width: 100%;
   }
 
   .segmentedControl {

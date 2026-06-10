@@ -14,7 +14,7 @@
         <div class="main">
           <div class="cardEyebrow">
             <span class="signalDot" :class="{ active: isActive }"></span>
-            <span>{{ isJoined ? t("challengeCard.joinedPath") : t("challengeCard.availablePath") }}</span>
+            <span>{{ pathLabel || (isJoined ? t("challengeCard.joinedPath") : t("challengeCard.availablePath")) }}</span>
           </div>
 
           <div class="titleRow">
@@ -162,6 +162,7 @@ import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import BaseCard from "@/components/ui/BaseCard.vue";
 import BaseButton from "@/components/ui/BaseButton.vue";
+import { getChallengePathKey } from "@/lib/guidedExperience";
 
 const props = defineProps({
   challenge: { type: Object, required: true },
@@ -178,6 +179,14 @@ const { t } = useI18n();
 
 const title = computed(() => {
   return props.challenge.name || props.challenge.enrollment_name || props.challenge.challenge_name || t("common.challenge");
+});
+
+const pathKey = computed(() => {
+  return getChallengePathKey(props.challenge);
+});
+
+const pathLabel = computed(() => {
+  return pathKey.value ? t(`challengeCard.paths.${pathKey.value}`) : "";
 });
 
 const isJoined = computed(() => Boolean(props.challenge.is_joined || props.challenge.enrollment_id));

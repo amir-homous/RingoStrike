@@ -31,9 +31,29 @@
         {{ description }}
       </p>
 
+      <div class="missionStepper" :aria-label="t('dashboard.mission.stepperLabel')">
+        <div
+          v-for="stepItem in missionSteps"
+          :key="stepItem.key"
+          class="stepItem"
+          :class="stepItem.state"
+        >
+          <span class="stepMarker" aria-hidden="true"></span>
+          <span>{{ stepItem.label }}</span>
+        </div>
+      </div>
+
+      <p
+        v-if="missionState === 'ready'"
+        class="missionInstruction"
+      >
+        {{ t("dashboard.mission.readyInstruction") }}
+      </p>
+
       <div class="missionActions">
         <BaseButton
           v-if="missionState === 'ready'"
+          class="missionCheckin"
           variant="primary"
           :loading="loading"
           @click="$emit('checkin', missionChallenge.enrollment_id)"
@@ -198,6 +218,29 @@ const nextStepText = computed(() => {
   if (missionState.value === "complete") return t("dashboard.mission.comeBackTomorrow");
   return t("dashboard.mission.readyNext");
 });
+
+const missionSteps = computed(() => {
+  const todayState = missionState.value === "complete" ? "complete" : "active";
+  const rewardState = missionState.value === "complete" ? "complete" : "upcoming";
+
+  return [
+    {
+      key: "path",
+      label: t("dashboard.mission.steps.path"),
+      state: "complete",
+    },
+    {
+      key: "today",
+      label: t("dashboard.mission.steps.today"),
+      state: todayState,
+    },
+    {
+      key: "reward",
+      label: t("dashboard.mission.steps.reward"),
+      state: rewardState,
+    },
+  ];
+});
 </script>
 
 <style scoped>
@@ -286,11 +329,90 @@ const nextStepText = computed(() => {
   line-height: 1.7;
 }
 
+.missionStepper {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: var(--s-20);
+}
+
+.stepItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 34px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  background: rgba(255, 255, 255, 0.045);
+  color: rgba(255, 255, 255, 0.58);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.stepMarker {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.28);
+}
+
+.stepItem.complete {
+  border-color: rgba(74, 222, 128, 0.22);
+  background: rgba(74, 222, 128, 0.075);
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.stepItem.complete .stepMarker {
+  background: #86efac;
+  box-shadow: 0 0 16px rgba(134, 239, 172, 0.42);
+}
+
+.stepItem.active {
+  border-color: rgba(253, 230, 138, 0.26);
+  background: rgba(253, 230, 138, 0.085);
+  color: rgba(255, 255, 255, 0.88);
+}
+
+.stepItem.active .stepMarker {
+  background: #fde68a;
+  box-shadow: 0 0 18px rgba(253, 230, 138, 0.46);
+}
+
+.missionInstruction {
+  max-width: 650px;
+  margin: 18px 0 0;
+  padding: 13px 14px;
+  border-radius: 18px;
+  border: 1px solid rgba(253, 230, 138, 0.18);
+  background: rgba(253, 230, 138, 0.065);
+  color: rgba(255, 255, 255, 0.76);
+  line-height: 1.65;
+}
+
 .missionActions {
   display: flex;
   flex-wrap: wrap;
   gap: var(--s-12);
   margin-top: 22px;
+}
+
+:deep(.missionCheckin) {
+  min-height: 56px;
+  padding: 0 24px;
+  border-color: rgba(253, 230, 138, 0.44);
+  background:
+    linear-gradient(135deg, rgba(253, 230, 138, 0.24), rgba(99, 102, 241, 0.24)),
+    rgba(99, 102, 241, 0.22);
+  box-shadow: 0 16px 42px rgba(99, 102, 241, 0.20);
+  font-size: 1rem;
+  font-weight: 850;
+}
+
+:deep(.missionCheckin:hover) {
+  background:
+    linear-gradient(135deg, rgba(253, 230, 138, 0.30), rgba(99, 102, 241, 0.30)),
+    rgba(99, 102, 241, 0.28);
 }
 
 .missionLink {
@@ -395,7 +517,8 @@ const nextStepText = computed(() => {
   }
 
   .missionActions,
-  .missionLink {
+  .missionLink,
+  :deep(.missionCheckin) {
     width: 100%;
   }
 

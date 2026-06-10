@@ -10,6 +10,7 @@ Rationale:
 
 - Strong modular direction with Flask blueprints and service files.
 - Progression, achievement, activity, profile, and public profile systems are mostly separated.
+- Path/mission work follows the existing route/service pattern and correctly delegates mission completion to the existing check-in pipeline.
 - Frontend component grouping is healthy and feature-oriented.
 - Recent stabilization removed several transitional problems: duplicate stats route ownership, unused auth-service duplication, old session-table initialization, public debug exposure, and the broken Pinia session-store assumption.
 - Recent privacy/progression fixes tightened profile validation, private challenge visibility, leaderboard ownership, left-enrollment discovery, uncounted-check-in handling, achievement XP persistence, local-login disabling, and public username lookup normalization.
@@ -21,12 +22,14 @@ Rationale:
 - Public profile aggregation calls private `get_profile()`, which syncs stats and queries private profile data before projecting public fields.
 - Activity feed is derived from check-ins and achievements on read rather than persisted as an event table; this is simple now but couples feed behavior to current query logic.
 - Frontend views call backend endpoints directly; Pinia is not consistently used as a stable state boundary.
+- Guided progression now spans path state, mission logs, enrollments, check-ins, and dashboard reward display. This is appropriate for the product, but it increases the need for end-to-end smoke coverage around duplicate mission/check-in submissions.
 
 ### Duplication Hotspots
 
 - Active auth code still combines route handling and auth helpers in `backend/auth.py`.
 - Profile update paths overlap: `/api/me/profile/settings`, `/api/profile/visibility`, and `/api/profile` update related user profile fields.
 - API route naming is mixed across `/me/...`, `/api/me/...`, and `/api/profile...`.
+- Ringo sprite resolution is split between backend decision keys and frontend asset imports. The current sprite map references `talking.png` and `victory.png`, but those files are missing from `frontend/src/assets/ringo/`.
 
 ### Complexity Analysis
 
@@ -169,13 +172,14 @@ Issues:
 
 ### Important - Next Sprint
 
-1. Consolidate active auth code into route + service modules.
-2. Add or evaluate an index strategy for public username lookup.
-3. Continue expanding shared request/response validation patterns.
-4. Normalize profile update endpoints into one clear contract.
-5. Add frontend smoke tests for login, router guard, dashboard, challenge check-in, profile, and public profile.
-6. Add explicit database migrations instead of ad hoc startup migrations.
-7. Keep public challenge/member visibility documented as the product policy evolves.
+1. Restore or remove missing Ringo sprite assets referenced by `frontend/src/constants/ringoSprites.js`.
+2. Add path/mission frontend smoke coverage for `/paths`, MissionCenter loading, mission done/remind/skip, and duplicate mission/check-in behavior.
+3. Consolidate active auth code into route + service modules.
+4. Add or evaluate an index strategy for public username lookup.
+5. Continue expanding shared request/response validation patterns.
+6. Normalize profile update endpoints into one clear contract.
+7. Add explicit database migrations instead of ad hoc startup migrations.
+8. Keep public challenge/member visibility documented as the product policy evolves.
 
 ### Optional - Future Improvement
 
