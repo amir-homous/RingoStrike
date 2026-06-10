@@ -47,6 +47,7 @@ Current convention:
 | `GET /me/stats` | `routes/stats_routes.py` | `services/stats_service.py` | Canonical stats endpoint. Do not reintroduce duplicate stats ownership in dashboard routes. |
 | `POST /paths/<path_id>/start` | `routes/path_routes.py` | `services/path_service.py` | Starts/reactivates a user path only. The frontend may separately join the first path challenge. |
 | `GET /me/today-missions` | `routes/mission_routes.py` | `services/mission_service.py`, `services/ringo_decision_service.py` | Dashboard MissionCenter source. Returns RingoCoach decision and available daily missions. |
+| `GET /me/ringo/today` | `routes/mission_routes.py` | `services/ringo_brain_service.py` | Additive Ringo Brain v1 guidance endpoint. Returns Ringo state, suggested mission, actions, progress, reward placeholder, and fallback metadata. |
 | `POST /me/missions/<mission_id>/done` | `routes/mission_routes.py` | `services/mission_service.py`, `services/enrollment_service.py` | Writes mission log and delegates to existing check-in pipeline. |
 | `POST /me/missions/<mission_id>/remind-later` | `routes/mission_routes.py` | `services/mission_service.py` | Route validates JSON object shape; service validates ISO-ish reminder time. |
 | `POST /me/missions/<mission_id>/skip` | `routes/mission_routes.py` | `services/mission_service.py` | Writes skipped mission log. Does not check in. |
@@ -86,6 +87,7 @@ Current convention:
 - `GET /me/enrollments/<id>/leaderboard` belongs to `routes/leaderboard_routes.py` and `services/leaderboard_service.py`.
 - Public profile read surfaces belong to `routes/public_profile_routes.py`; profile visibility rules belong in public/profile services.
 - Path discovery/start belongs to `routes/path_routes.py`; daily mission state belongs to `routes/mission_routes.py`.
+- Ringo Brain v1 guidance belongs to `routes/mission_routes.py` and `services/ringo_brain_service.py`; it must remain additive and must not replace `/me/today-missions`.
 - Mission completion must keep using `services/enrollment_service.py` for check-in side effects so stats, streaks, achievements, and activity stay canonical.
 - Active profile settings UI should prefer `/api/me/profile/settings`; older `/api/profile` and `/api/profile/visibility` routes remain for compatibility.
 - Debug routes must stay gated outside development.
@@ -97,5 +99,6 @@ Current convention:
 - Do not add public profile endpoints that bypass `profile_visibility`.
 - Do not duplicate check-in/progression calculations in route modules; keep them in services.
 - Do not add separate XP/streak/achievement logic for missions; route mission completion through the existing check-in/progression services.
+- Do not duplicate Ringo Brain decision logic in route modules; keep `GET /me/ringo/today` as a thin wrapper around `services/ringo_brain_service.py`.
 - Do not let path start implicitly hide challenge join behavior without documenting the frontend/backend split.
 - Do not return production debug data outside development-gated debug routes.

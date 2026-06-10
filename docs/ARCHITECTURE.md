@@ -81,6 +81,7 @@ Routes are mostly thin and defer to services. The main exception is `backend/aut
 - `path_service.py`: path listing, path challenge/missions projection, user path start/reactivation.
 - `mission_service.py`: today's mission list, mission logs, remind-later/skip state, and mission completion through the existing check-in pipeline.
 - `ringo_decision_service.py`: RingoCoach state, sprite key, message, and action decision from active path/enrollment/mission/stats context.
+- `ringo_brain_service.py`: Ringo Brain v1 guidance contract for `/me/ringo/today`, using existing mission/path/stats data without owning mission completion or progression writes.
 - `stats_service.py`: XP, level, streak, progress calculations, `user_stats` synchronization.
 - `achievement_service.py`: achievement definition seeding, unlock evaluation, achievement list.
 - `activity_service.py`: derived activity feed from check-ins, streaks, levels, achievements.
