@@ -204,6 +204,8 @@ export default {
       reward: "Reward",
     },
     nextMission: "Recommended next mission",
+    ringoSuggestedMission: "Ringo’s suggested mission",
+    todaySaved: "Today is safe.",
     focusCta: "Show me the mission",
     detailsCta: "View path details",
     nextPathCta: "Explore another path",

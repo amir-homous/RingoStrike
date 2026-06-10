@@ -204,6 +204,8 @@ export default {
       reward: "پاداش",
     },
     nextMission: "مأموریت پیشنهادی بعدی",
+    ringoSuggestedMission: "مأموریت پیشنهادی رینگو",
+    todaySaved: "امروزت نجات پیدا کرد.",
     focusCta: "مأموریت رو نشان بده",
     detailsCta: "دیدن جزئیات مسیر",
     nextPathCta: "کشف مسیر دیگر",

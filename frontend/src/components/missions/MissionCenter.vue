@@ -2,8 +2,8 @@
   <section class="missionCenter">
     <RingoCoach
       v-if="showCoach"
-      :message="ringo?.message"
-      :sprite="ringo?.sprite_key || ringo?.sprite"
+      :message="guidanceRingo?.message || ringo?.message"
+      :sprite="guidanceRingo?.sprite_key || guidanceRingo?.mood || ringo?.sprite_key || ringo?.sprite"
       :primary-action="ringo?.primary_action"
       :secondary-action="ringo?.secondary_action"
       @action="handleCoachAction"
@@ -52,10 +52,14 @@
       </div>
 
       <div v-if="focusMission" class="focusMission">
-        <span>{{ t("missions.nextMission") }}</span>
+        <span>{{ guidanceMission ? t("missions.ringoSuggestedMission") : t("missions.nextMission") }}</span>
         <strong>{{ focusMission.title }}</strong>
         <p>{{ focusMission.description }}</p>
       </div>
+
+      <p v-if="todaySavedLabel" class="todaySaved">
+        {{ todaySavedLabel }}
+      </p>
 
       <div class="missionGuideActions">
         <BaseButton
@@ -161,6 +165,7 @@ const loading = ref(true);
 const error = ref("");
 const date = ref("");
 const ringo = ref(null);
+const ringoGuidance = ref(null);
 const missions = ref([]);
 const busyId = ref(null);
 const busyAction = ref("");
@@ -176,6 +181,17 @@ const showCoach = computed(() => {
   return ringo.value?.state && ringo.value.state !== dismissedCoachState.value;
 });
 
+const guidanceRingo = computed(() => ringoGuidance.value?.ringo || null);
+
+const guidanceMission = computed(() => {
+  const mission = ringoGuidance.value?.mission;
+  if (!mission?.mission_id) return mission || null;
+
+  const currentMission = missions.value.find((item) => item.mission_id === mission.mission_id);
+
+  return currentMission ? { ...mission, ...currentMission } : mission;
+});
+
 const pendingMissions = computed(() => {
   return missions.value.filter((mission) => mission.status === "pending");
 });
@@ -189,7 +205,8 @@ const skippedMissions = computed(() => {
 });
 
 const focusMission = computed(() => {
-  return pendingMissions.value[0]
+  return guidanceMission.value
+    || pendingMissions.value[0]
     || skippedMissions.value[0]
     || deferredMissions.value[0]
     || missions.value[0]
@@ -244,12 +261,30 @@ const missionGuide = computed(() => {
   };
 });
 
+const todaySavedLabel = computed(() => {
+  if (!ringoGuidance.value?.progress?.today_saved) return "";
+
+  return t("missions.todaySaved");
+});
+
 async function loadMissions() {
   loading.value = true;
   error.value = "";
 
   try {
-    const { data } = await api.get("/me/today-missions");
+    const [missionsResult, guidanceResult] = await Promise.allSettled([
+      api.get("/me/today-missions"),
+      api.get("/me/ringo/today"),
+    ]);
+
+    if (missionsResult.status === "rejected") {
+      throw missionsResult.reason;
+    }
+
+    const { data } = missionsResult.value;
+    ringoGuidance.value = guidanceResult.status === "fulfilled"
+      ? guidanceResult.value?.data || null
+      : null;
     date.value = data?.date || "";
     ringo.value = data?.ringo || null;
     if (ringo.value?.state !== dismissedCoachState.value) {
@@ -263,6 +298,7 @@ async function loadMissions() {
       state: ringo.value?.state || "",
     });
   } catch (e) {
+    ringoGuidance.value = null;
     error.value = e?.response?.data?.error || e?.message || String(e);
     emit("loaded", {
       error: error.value,
@@ -483,6 +519,16 @@ onMounted(loadMissions);
 .focusMission p {
   color: rgba(255, 255, 255, 0.66);
   line-height: 1.55;
+}
+
+.todaySaved {
+  margin: 0;
+  padding: 11px 13px;
+  border: 1px solid rgba(74, 222, 128, 0.24);
+  border-radius: 16px;
+  color: rgba(187, 247, 208, 0.96);
+  background: rgba(74, 222, 128, 0.075);
+  font-weight: 850;
 }
 
 .missionGuideActions {
