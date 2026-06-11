@@ -1,5 +1,11 @@
 <template>
   <section class="missionCenter">
+    <RingoRewardSequence
+      :steps="rewardSequenceSteps"
+      :sprite="rewardSequenceSprite"
+      @finish="rewardSequenceSteps = []"
+    />
+
     <RingoCoach
       v-if="showCoach"
       :message="coachMessage"
@@ -274,6 +280,7 @@ import BaseButton from "@/components/ui/BaseButton.vue";
 import BaseCard from "@/components/ui/BaseCard.vue";
 import UiState from "@/components/ui/UiState.vue";
 import RingoCoach from "@/components/ringo/RingoCoach.vue";
+import RingoRewardSequence from "@/components/ringo/RingoRewardSequence.vue";
 import PathSelection from "@/components/missions/PathSelection.vue";
 import {
   localizeMissionList,
@@ -297,6 +304,8 @@ const dismissedCoachState = ref("");
 const ringoActionMessage = ref("");
 const manualFocusMissionId = ref(null);
 const showOtherMissions = ref(false);
+const rewardSequenceSteps = ref([]);
+const rewardSequenceSprite = ref("celebration");
 
 const SUPPORTED_GUIDANCE_ACTIONS = new Set([
   "start",
@@ -546,6 +555,11 @@ async function runMissionAction(mission, action, request) {
       });
     }
 
+    if (action === "done") {
+      rewardSequenceSteps.value = buildRewardSequence(data, mission);
+      rewardSequenceSprite.value = data?.checkin?.already_checked ? "happy" : "celebration";
+    }
+
     await loadMissions();
   } catch (e) {
     error.value = e?.response?.data?.error || e?.message || String(e);
@@ -581,6 +595,69 @@ function skipMission(mission) {
     "skip",
     () => api.post(`/me/missions/${mission.mission_id}/skip`, {}),
   );
+}
+
+function backendRewardSequenceSteps(data) {
+  const sequence = data?.reward_sequence;
+  if (!Array.isArray(sequence)) return [];
+
+  return sequence
+    .filter((step) => step && typeof step === "object")
+    .map((step) => ({
+      type: step.type || "default",
+      title: step.title || step.text || "",
+      text: step.description || step.message || "",
+      value: step.amount !== undefined ? String(step.amount) : "",
+      sprite: step.mood || step.sprite_key,
+    }));
+}
+
+function buildRewardSequence(data, mission) {
+  const backendSteps = backendRewardSequenceSteps(data);
+  if (backendSteps.length) return backendSteps;
+
+  const completedMission = data?.mission || {};
+  const xpEarned = Number(completedMission.xp_earned ?? mission.xp_reward ?? 0);
+  const todaySaved = Boolean(data?.checkin?.ok);
+  const steps = [
+    {
+      type: "ringo_message",
+      title: t("ringoRewardSequence.local.ringoTitle"),
+      text: data?.checkin?.already_checked
+        ? t("ringoRewardSequence.local.alreadySaved")
+        : t("ringoRewardSequence.local.ringoText"),
+      sprite: data?.checkin?.already_checked ? "happy" : "celebration",
+    },
+    {
+      type: "mission_completed",
+      title: mission.title || completedMission.title || t("ringoRewardSequence.local.missionFallback"),
+      text: t("ringoRewardSequence.local.missionText"),
+    },
+  ];
+
+  if (xpEarned > 0) {
+    steps.push({
+      type: "xp_earned",
+      title: t("ringoRewardSequence.local.xpTitle"),
+      value: t("ringoRewardSequence.local.xpValue", { count: xpEarned }),
+    });
+  }
+
+  if (todaySaved) {
+    steps.push({
+      type: "today_saved",
+      title: t("ringoRewardSequence.local.todaySavedTitle"),
+      text: t("ringoRewardSequence.local.todaySavedText"),
+    });
+  }
+
+  steps.push({
+    type: "next_choice",
+    title: t("ringoRewardSequence.local.nextTitle"),
+    text: t("ringoRewardSequence.local.nextText"),
+  });
+
+  return steps;
 }
 
 function guidanceActionLabel(action) {
