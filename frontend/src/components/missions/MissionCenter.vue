@@ -9,6 +9,39 @@
       @action="handleCoachAction"
     />
 
+    <BaseCard
+      v-if="coachActionPanel"
+      class="coachActionPanel"
+      :class="{ complete: !!todaySavedLabel }"
+    >
+      <div v-if="focusMission" class="focusMission coachFocusMission">
+        <span>{{ t("missions.ringoSuggestedMission") }}</span>
+        <strong>{{ focusMission.title }}</strong>
+        <p>{{ focusMission.description }}</p>
+      </div>
+
+      <p v-if="todaySavedLabel" class="todaySaved">
+        {{ todaySavedLabel }}
+      </p>
+
+      <p v-if="ringoActionMessage" class="ringoActionHint">
+        {{ ringoActionMessage }}
+      </p>
+
+      <div v-if="guidanceActions.length" class="ringoActionChoices" :aria-label="t('missions.ringoActions.label')">
+        <BaseButton
+          v-for="action in guidanceActions"
+          :key="action.type"
+          :variant="action.type === 'start' ? 'primary' : 'secondary'"
+          :loading="isGuidanceActionLoading(action)"
+          :disabled="isGuidanceActionDisabled(action)"
+          @click="handleGuidanceAction(action)"
+        >
+          {{ guidanceActionLabel(action) }}
+        </BaseButton>
+      </div>
+    </BaseCard>
+
     <UiState
       :loading="loading"
       :error="!!error"
@@ -51,31 +84,10 @@
         </span>
       </div>
 
-      <div v-if="focusMission" class="focusMission">
+      <div v-if="focusMission && !coachActionPanel" class="focusMission">
         <span>{{ guidanceMission ? t("missions.ringoSuggestedMission") : t("missions.nextMission") }}</span>
         <strong>{{ focusMission.title }}</strong>
         <p>{{ focusMission.description }}</p>
-      </div>
-
-      <p v-if="todaySavedLabel" class="todaySaved">
-        {{ todaySavedLabel }}
-      </p>
-
-      <p v-if="ringoActionMessage" class="ringoActionHint">
-        {{ ringoActionMessage }}
-      </p>
-
-      <div v-if="guidanceActions.length" class="ringoActionChoices" :aria-label="t('missions.ringoActions.label')">
-        <BaseButton
-          v-for="action in guidanceActions"
-          :key="action.type"
-          :variant="action.type === 'start' ? 'primary' : 'secondary'"
-          :loading="isGuidanceActionLoading(action)"
-          :disabled="isGuidanceActionDisabled(action)"
-          @click="handleGuidanceAction(action)"
-        >
-          {{ guidanceActionLabel(action) }}
-        </BaseButton>
       </div>
 
       <div class="missionGuideActions">
@@ -334,6 +346,15 @@ const guidanceActions = computed(() => {
   });
 });
 
+const coachActionPanel = computed(() => {
+  return !!(
+    guidanceMission.value
+    || guidanceActions.value.length
+    || todaySavedLabel.value
+    || ringoActionMessage.value
+  );
+});
+
 async function loadMissions() {
   loading.value = true;
   error.value = "";
@@ -564,6 +585,23 @@ onMounted(loadMissions);
   gap: var(--s-16);
 }
 
+.coachActionPanel {
+  display: grid;
+  gap: var(--s-12);
+  margin-top: calc(var(--s-16) * -0.5);
+  border-color: rgba(110, 229, 255, 0.16);
+  background:
+    radial-gradient(circle at 0% 0%, rgba(110, 229, 255, 0.10), transparent 32%),
+    rgba(255, 255, 255, 0.035);
+}
+
+.coachActionPanel.complete {
+  border-color: rgba(74, 222, 128, 0.22);
+  background:
+    radial-gradient(circle at 0% 0%, rgba(74, 222, 128, 0.10), transparent 32%),
+    rgba(255, 255, 255, 0.035);
+}
+
 .missionGuide {
   display: grid;
   gap: var(--s-16);
@@ -649,6 +687,11 @@ onMounted(loadMissions);
   border: 1px solid rgba(110, 229, 255, 0.18);
   border-radius: 18px;
   background: rgba(5, 10, 18, 0.26);
+}
+
+.coachFocusMission {
+  border-color: rgba(110, 229, 255, 0.22);
+  background: rgba(5, 10, 18, 0.18);
 }
 
 .focusMission span {
