@@ -61,9 +61,26 @@
         {{ todaySavedLabel }}
       </p>
 
+      <p v-if="ringoActionMessage" class="ringoActionHint">
+        {{ ringoActionMessage }}
+      </p>
+
+      <div v-if="guidanceActions.length" class="ringoActionChoices" :aria-label="t('missions.ringoActions.label')">
+        <BaseButton
+          v-for="action in guidanceActions"
+          :key="action.type"
+          :variant="action.type === 'start' ? 'primary' : 'secondary'"
+          :loading="isGuidanceActionLoading(action)"
+          :disabled="isGuidanceActionDisabled(action)"
+          @click="handleGuidanceAction(action)"
+        >
+          {{ guidanceActionLabel(action) }}
+        </BaseButton>
+      </div>
+
       <div class="missionGuideActions">
         <BaseButton
-          v-if="!missionGuide.complete && focusMission"
+          v-if="!missionGuide.complete && focusMission && !guidanceActions.length"
           variant="primary"
           @click="focusMissionCard(focusMission)"
         >
@@ -172,6 +189,15 @@ const busyAction = ref("");
 const notice = ref("");
 const noticeType = ref("success");
 const dismissedCoachState = ref("");
+const ringoActionMessage = ref("");
+
+const SUPPORTED_GUIDANCE_ACTIONS = new Set([
+  "start",
+  "remind_later",
+  "make_smaller",
+  "too_tired",
+  "skip_today",
+]);
 
 const showPathSelection = computed(() => {
   return ["new_user_no_path", "path_selected_no_challenge"].includes(ringo.value?.state);
@@ -267,9 +293,29 @@ const todaySavedLabel = computed(() => {
   return t("missions.todaySaved");
 });
 
+const guidanceActions = computed(() => {
+  const actions = Array.isArray(ringoGuidance.value?.actions)
+    ? ringoGuidance.value.actions
+    : [];
+
+  if (!actions.length || !focusMission.value || missionGuide.value?.complete) {
+    return [];
+  }
+
+  const seen = new Set();
+
+  return actions.filter((action) => {
+    const type = action?.type;
+    if (!SUPPORTED_GUIDANCE_ACTIONS.has(type) || seen.has(type)) return false;
+    seen.add(type);
+    return true;
+  });
+});
+
 async function loadMissions() {
   loading.value = true;
   error.value = "";
+  ringoActionMessage.value = "";
 
   try {
     const [missionsResult, guidanceResult] = await Promise.allSettled([
@@ -376,6 +422,79 @@ function skipMission(mission) {
     "skip",
     () => api.post(`/me/missions/${mission.mission_id}/skip`, {}),
   );
+}
+
+function guidanceActionLabel(action) {
+  return t(`missions.ringoActions.${action.type}`);
+}
+
+function missionForGuidanceAction(action) {
+  const actionMissionId = action?.mission_id;
+  if (actionMissionId) {
+    const matchingMission = missions.value.find((mission) => mission.mission_id === actionMissionId);
+    if (matchingMission) return matchingMission;
+  }
+
+  if (focusMission.value?.mission_id) {
+    const matchingFocus = missions.value.find((mission) => mission.mission_id === focusMission.value.mission_id);
+    return matchingFocus || focusMission.value;
+  }
+
+  return null;
+}
+
+function isGuidanceActionLoading(action) {
+  const mission = missionForGuidanceAction(action);
+  if (!mission) return false;
+
+  if (action.type === "remind_later") {
+    return busyId.value === mission.mission_id && busyAction.value === "remind";
+  }
+
+  if (action.type === "skip_today") {
+    return busyId.value === mission.mission_id && busyAction.value === "skip";
+  }
+
+  return false;
+}
+
+function isGuidanceActionDisabled(action) {
+  const mission = missionForGuidanceAction(action);
+
+  if (!mission) return action.type !== "make_smaller" && action.type !== "too_tired";
+  if (mission.status === "done") return true;
+  if (action.type === "remind_later") return mission.status === "remind_later";
+  if (action.type === "skip_today") return mission.status === "skipped";
+
+  return false;
+}
+
+function handleGuidanceAction(action) {
+  const mission = missionForGuidanceAction(action);
+
+  if (action.type === "make_smaller") {
+    ringoActionMessage.value = t("missions.ringoActions.makeSmallerMessage");
+    return;
+  }
+
+  if (action.type === "too_tired") {
+    ringoActionMessage.value = t("missions.ringoActions.tooTiredMessage");
+    return;
+  }
+
+  if (!mission) return;
+
+  if (action.type === "remind_later") {
+    remindLater(mission);
+    return;
+  }
+
+  if (action.type === "skip_today") {
+    skipMission(mission);
+    return;
+  }
+
+  focusMissionCard(mission);
 }
 
 async function focusMissionCard(mission) {
@@ -531,6 +650,24 @@ onMounted(loadMissions);
   font-weight: 850;
 }
 
+.ringoActionHint {
+  margin: 0;
+  padding: 11px 13px;
+  border: 1px solid rgba(110, 229, 255, 0.18);
+  border-radius: 16px;
+  color: rgba(219, 244, 255, 0.94);
+  background: rgba(110, 229, 255, 0.07);
+  font-weight: 780;
+  line-height: 1.55;
+}
+
+.ringoActionChoices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-8);
+  align-items: center;
+}
+
 .missionGuideActions {
   display: flex;
   flex-wrap: wrap;
@@ -680,6 +817,7 @@ onMounted(loadMissions);
   }
 
   .missionGuideActions :deep(.btn),
+  .ringoActionChoices :deep(.btn),
   .missionGuideLink {
     width: 100%;
   }
