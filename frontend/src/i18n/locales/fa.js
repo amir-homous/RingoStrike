@@ -206,6 +206,15 @@ export default {
     nextMission: "مأموریت پیشنهادی بعدی",
     ringoSuggestedMission: "مأموریت پیشنهادی رینگو",
     todaySaved: "امروزت نجات پیدا کرد.",
+    intensity: {
+      main: "مأموریت اصلی",
+      tiny: "نسخه کوچک",
+      bonus: "مأموریت اضافه",
+      mainDetail: "برای امروز کافیه",
+      tinyDetail: "رینگو این رو کوچک‌تر کرد",
+      bonusDetail: "اختیاریه",
+      minutes: "{count} دقیقه",
+    },
     ringoActions: {
       label: "انتخاب‌های مأموریت رینگو",
       start: "شروع",

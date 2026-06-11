@@ -16,6 +16,14 @@
     >
       <div v-if="focusMission" class="focusMission coachFocusMission">
         <span>{{ t("missions.ringoSuggestedMission") }}</span>
+        <div
+          v-if="focusMissionIntensity"
+          class="missionIntensity"
+          :class="focusMissionIntensity.intensity"
+        >
+          <span>{{ focusMissionIntensity.label }}</span>
+          <small v-if="focusMissionIntensity.detail">{{ focusMissionIntensity.detail }}</small>
+        </div>
         <strong>{{ focusMission.title }}</strong>
         <p>{{ focusMission.description }}</p>
       </div>
@@ -86,6 +94,14 @@
 
       <div v-if="focusMission && !coachActionPanel" class="focusMission">
         <span>{{ guidanceMission ? t("missions.ringoSuggestedMission") : t("missions.nextMission") }}</span>
+        <div
+          v-if="focusMissionIntensity"
+          class="missionIntensity"
+          :class="focusMissionIntensity.intensity"
+        >
+          <span>{{ focusMissionIntensity.label }}</span>
+          <small v-if="focusMissionIntensity.detail">{{ focusMissionIntensity.detail }}</small>
+        </div>
         <strong>{{ focusMission.title }}</strong>
         <p>{{ focusMission.description }}</p>
       </div>
@@ -282,6 +298,8 @@ const focusMission = computed(() => {
     || localizedMissions.value[0]
     || null;
 });
+
+const focusMissionIntensity = computed(() => buildMissionIntensityMeta(focusMission.value));
 
 const missionGuide = computed(() => {
   if (!localizedMissions.value.length || !focusMission.value) return null;
@@ -503,6 +521,36 @@ function missionForGuidanceAction(action) {
 
 function isTinyMission(mission) {
   return mission?.mission_intensity === "tiny";
+}
+
+function normalizedMissionIntensity(mission) {
+  const intensity = mission?.mission_intensity || "main";
+
+  return ["main", "tiny", "bonus"].includes(intensity) ? intensity : "main";
+}
+
+function missionEstimatedMinutes(mission) {
+  const minutes = Number(mission?.estimated_minutes);
+
+  return Number.isFinite(minutes) && minutes > 0 ? Math.round(minutes) : null;
+}
+
+function buildMissionIntensityMeta(mission) {
+  if (!mission) return null;
+
+  const intensity = normalizedMissionIntensity(mission);
+  const detailParts = [t(`missions.intensity.${intensity}Detail`)];
+  const minutes = missionEstimatedMinutes(mission);
+
+  if (minutes) {
+    detailParts.push(t("missions.intensity.minutes", { count: minutes }));
+  }
+
+  return {
+    intensity,
+    label: t(`missions.intensity.${intensity}`),
+    detail: detailParts.filter(Boolean).join(" · "),
+  };
 }
 
 function isPendingTinyMission(mission) {
@@ -769,6 +817,46 @@ onMounted(loadMissions);
 .focusMission p {
   color: rgba(255, 255, 255, 0.66);
   line-height: 1.55;
+}
+
+.missionIntensity {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  width: fit-content;
+  max-width: 100%;
+  padding: 5px 8px;
+  border: 1px solid rgba(110, 229, 255, 0.18);
+  border-radius: 999px;
+  color: rgba(219, 244, 255, 0.95);
+  background: rgba(110, 229, 255, 0.07);
+  font-size: var(--cap);
+  font-weight: 850;
+  line-height: 1.25;
+}
+
+.missionIntensity.tiny {
+  border-color: rgba(74, 222, 128, 0.24);
+  color: rgba(187, 247, 208, 0.96);
+  background: rgba(74, 222, 128, 0.075);
+}
+
+.missionIntensity.bonus {
+  border-color: rgba(247, 215, 116, 0.26);
+  color: rgba(253, 230, 138, 0.96);
+  background: rgba(247, 215, 116, 0.075);
+}
+
+.missionIntensity span,
+.missionIntensity small {
+  min-width: 0;
+  color: inherit;
+  font: inherit;
+}
+
+.missionIntensity small {
+  opacity: 0.78;
 }
 
 .todaySaved {
