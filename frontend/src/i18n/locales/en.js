@@ -206,6 +206,15 @@ export default {
     nextMission: "Recommended next mission",
     ringoSuggestedMission: "Ringo’s suggested mission",
     todaySaved: "Today is safe.",
+    intensity: {
+      main: "Main mission",
+      tiny: "Tiny version",
+      bonus: "Bonus mission",
+      mainDetail: "Enough for today",
+      tinyDetail: "Ringo made this smaller",
+      bonusDetail: "Optional extra",
+      minutes: "{count} min",
+    },
     ringoActions: {
       label: "Ringo mission choices",
       start: "Start",
