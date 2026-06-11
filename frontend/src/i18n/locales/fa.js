@@ -188,6 +188,11 @@ export default {
   missions: {
     eyebrow: "مرکز مأموریت",
     title: "مأموریت‌های کوچک امروز",
+    otherEyebrow: "نمای اختیاری",
+    otherTitle: "مأموریت‌های دیگر",
+    showOtherMissions: "نمایش مأموریت‌های دیگر ({count})",
+    hideOtherMissions: "پنهان کردن مأموریت‌های دیگر",
+    otherHint: "{count} مأموریت دیگر کنار گذاشته شده تا رینگو یک قدم روشن جلوی تو نگه دارد.",
     guideEyebrow: "تمرکز امروز",
     guideTitle: "{path}: با {mission} شروع کن",
     guideBody: "تو روی {challenge} هستی. اول همین مأموریت کوچک رو انجام بده، بعد «این مأموریت رو انجام دادم» رو بزن تا Strike امروزت ثبت بشه.",
