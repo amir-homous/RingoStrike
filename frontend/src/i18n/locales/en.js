@@ -188,6 +188,11 @@ export default {
   missions: {
     eyebrow: "Mission Center",
     title: "Today’s small missions",
+    otherEyebrow: "Optional view",
+    otherTitle: "Other missions",
+    showOtherMissions: "Show other missions ({count})",
+    hideOtherMissions: "Hide other missions",
+    otherHint: "{count} other missions are tucked away so Ringo can keep one clear next step in front.",
     guideEyebrow: "Today’s focus",
     guideTitle: "{path}: start with {mission}",
     guideBody: "You are on {challenge}. Do this one small mission first, then press “I did this mission” to secure today’s Strike.",

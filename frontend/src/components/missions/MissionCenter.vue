@@ -14,7 +14,11 @@
       class="coachActionPanel"
       :class="{ complete: !!todaySavedLabel }"
     >
-      <div v-if="focusMission" class="focusMission coachFocusMission">
+      <div
+        v-if="focusMission"
+        :id="`mission-${focusMission.mission_id}`"
+        class="focusMission coachFocusMission"
+      >
         <span>{{ t("missions.ringoSuggestedMission") }}</span>
         <div
           v-if="focusMissionIntensity"
@@ -26,6 +30,34 @@
         </div>
         <strong>{{ focusMission.title }}</strong>
         <p>{{ focusMission.description }}</p>
+        <div class="missionActions primaryMissionActions">
+          <BaseButton
+            variant="primary"
+            :loading="busyId === focusMission.mission_id && busyAction === 'done'"
+            :disabled="focusMission.status === 'done'"
+            @click="markDone(focusMission)"
+          >
+            {{ t("missions.doneCta") }}
+          </BaseButton>
+
+          <BaseButton
+            variant="secondary"
+            :loading="busyId === focusMission.mission_id && busyAction === 'remind'"
+            :disabled="focusMission.status === 'done' || focusMission.status === 'remind_later'"
+            @click="remindLater(focusMission)"
+          >
+            {{ focusMission.status === "remind_later" ? t("missions.reminderSet") : t("missions.remindLater") }}
+          </BaseButton>
+
+          <BaseButton
+            variant="secondary"
+            :loading="busyId === focusMission.mission_id && busyAction === 'skip'"
+            :disabled="focusMission.status === 'done' || focusMission.status === 'skipped'"
+            @click="skipMission(focusMission)"
+          >
+            {{ focusMission.status === "skipped" ? t("missions.skipped") : t("missions.skip") }}
+          </BaseButton>
+        </div>
       </div>
 
       <p v-if="todaySavedLabel" class="todaySaved">
@@ -92,7 +124,11 @@
         </span>
       </div>
 
-      <div v-if="focusMission && !coachActionPanel" class="focusMission">
+      <div
+        v-if="focusMission && !coachActionPanel"
+        :id="`mission-${focusMission.mission_id}`"
+        class="focusMission"
+      >
         <span>{{ guidanceMission ? t("missions.ringoSuggestedMission") : t("missions.nextMission") }}</span>
         <div
           v-if="focusMissionIntensity"
@@ -104,6 +140,34 @@
         </div>
         <strong>{{ focusMission.title }}</strong>
         <p>{{ focusMission.description }}</p>
+        <div class="missionActions primaryMissionActions">
+          <BaseButton
+            variant="primary"
+            :loading="busyId === focusMission.mission_id && busyAction === 'done'"
+            :disabled="focusMission.status === 'done'"
+            @click="markDone(focusMission)"
+          >
+            {{ t("missions.doneCta") }}
+          </BaseButton>
+
+          <BaseButton
+            variant="secondary"
+            :loading="busyId === focusMission.mission_id && busyAction === 'remind'"
+            :disabled="focusMission.status === 'done' || focusMission.status === 'remind_later'"
+            @click="remindLater(focusMission)"
+          >
+            {{ focusMission.status === "remind_later" ? t("missions.reminderSet") : t("missions.remindLater") }}
+          </BaseButton>
+
+          <BaseButton
+            variant="secondary"
+            :loading="busyId === focusMission.mission_id && busyAction === 'skip'"
+            :disabled="focusMission.status === 'done' || focusMission.status === 'skipped'"
+            @click="skipMission(focusMission)"
+          >
+            {{ focusMission.status === "skipped" ? t("missions.skipped") : t("missions.skip") }}
+          </BaseButton>
+        </div>
       </div>
 
       <div class="missionGuideActions">
@@ -133,18 +197,23 @@
       </div>
     </BaseCard>
 
-    <BaseCard v-if="!loading && !error && localizedMissions.length" class="missionList">
+    <BaseCard v-if="!loading && !error && otherMissions.length" class="missionList secondaryMissionList">
       <div class="missionListHead">
         <div>
-          <p class="eyebrow compact">{{ t("missions.eyebrow") }}</p>
-          <h2>{{ t("missions.title") }}</h2>
+          <p class="eyebrow compact">{{ t("missions.otherEyebrow") }}</p>
+          <h2>{{ t("missions.otherTitle") }}</h2>
         </div>
-        <span>{{ date }}</span>
+        <BaseButton
+          variant="secondary"
+          @click="showOtherMissions = !showOtherMissions"
+        >
+          {{ showOtherMissions ? t("missions.hideOtherMissions") : t("missions.showOtherMissions", { count: otherMissions.length }) }}
+        </BaseButton>
       </div>
 
-      <div class="missionItems">
+      <div v-if="showOtherMissions" class="missionItems">
         <article
-          v-for="mission in localizedMissions"
+          v-for="mission in otherMissions"
           :key="mission.mission_id"
           :id="`mission-${mission.mission_id}`"
           class="missionItem"
@@ -189,6 +258,10 @@
           </div>
         </article>
       </div>
+
+      <p v-else class="otherMissionHint">
+        {{ t("missions.otherHint", { count: otherMissions.length }) }}
+      </p>
     </BaseCard>
   </section>
 </template>
@@ -223,6 +296,7 @@ const noticeType = ref("success");
 const dismissedCoachState = ref("");
 const ringoActionMessage = ref("");
 const manualFocusMissionId = ref(null);
+const showOtherMissions = ref(false);
 
 const SUPPORTED_GUIDANCE_ACTIONS = new Set([
   "start",
@@ -300,6 +374,14 @@ const focusMission = computed(() => {
 });
 
 const focusMissionIntensity = computed(() => buildMissionIntensityMeta(focusMission.value));
+
+const otherMissions = computed(() => {
+  if (!focusMission.value?.mission_id) return localizedMissions.value;
+
+  return localizedMissions.value.filter((mission) => {
+    return !sameMissionId(mission.mission_id, focusMission.value.mission_id);
+  });
+});
 
 const missionGuide = computed(() => {
   if (!localizedMissions.value.length || !focusMission.value) return null;
@@ -388,6 +470,7 @@ async function loadMissions() {
   error.value = "";
   ringoActionMessage.value = "";
   manualFocusMissionId.value = null;
+  showOtherMissions.value = false;
 
   try {
     const [missionsResult, guidanceResult] = await Promise.allSettled([
@@ -695,6 +778,12 @@ onMounted(loadMissions);
   gap: var(--s-16);
 }
 
+.secondaryMissionList {
+  gap: var(--s-12);
+  border-color: rgba(255, 255, 255, 0.09);
+  background: rgba(255, 255, 255, 0.028);
+}
+
 .coachActionPanel {
   display: grid;
   gap: var(--s-12);
@@ -952,6 +1041,12 @@ onMounted(loadMissions);
   font-size: var(--cap);
 }
 
+.otherMissionHint {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.58);
+  line-height: 1.55;
+}
+
 .eyebrow {
   margin: 0 0 8px;
   color: rgba(110, 229, 255, 0.86);
@@ -1030,6 +1125,11 @@ onMounted(loadMissions);
   gap: var(--s-8);
 }
 
+.primaryMissionActions {
+  justify-content: flex-start;
+  margin-top: 4px;
+}
+
 @media (max-width: 760px) {
   .missionStepper {
     grid-template-columns: 1fr;
@@ -1037,8 +1137,14 @@ onMounted(loadMissions);
 
   .missionGuideActions :deep(.btn),
   .ringoActionChoices :deep(.btn),
+  .primaryMissionActions :deep(.btn),
+  .missionListHead :deep(.btn),
   .missionGuideLink {
     width: 100%;
+  }
+
+  .missionListHead {
+    display: grid;
   }
 
   .missionItem {
