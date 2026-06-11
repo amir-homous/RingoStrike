@@ -101,7 +101,21 @@ def _mission_status_counts(missions):
     }
 
 
-def _select_mission(missions):
+def _select_mission(missions, user_state=None):
+    preferred_intensity = "tiny" if user_state in {"returning_after_absence", "streak_risk"} else "main"
+
+    for status in ("pending", "remind_later", "skipped"):
+        mission = next(
+            (
+                item for item in missions
+                if item.get("status") == status
+                and (item.get("mission_intensity") or "main") == preferred_intensity
+            ),
+            None,
+        )
+        if mission:
+            return mission
+
     for status in ("pending", "remind_later", "skipped"):
         mission = next((item for item in missions if item.get("status") == status), None)
         if mission:
@@ -120,7 +134,8 @@ def _mission_payload(mission, mission_intensity):
         "title": mission.get("title"),
         "description": mission.get("description") or "",
         "mission_intensity": mission_intensity,
-        "estimated_minutes": None,
+        "estimated_minutes": mission.get("estimated_minutes"),
+        "parent_mission_id": mission.get("parent_mission_id"),
         "xp_reward": int(mission.get("xp_reward") or 0),
         "status": mission.get("status") or "pending",
         "challenge_id": mission.get("challenge_id"),
@@ -206,8 +221,9 @@ def _mission_intensity(user_state, selected_mission):
     if not selected_mission:
         return None
 
-    if user_state in {"returning_after_absence", "streak_risk"}:
-        return "tiny"
+    mission_intensity = selected_mission.get("mission_intensity")
+    if mission_intensity in {"main", "tiny", "bonus"}:
+        return mission_intensity
 
     if selected_mission.get("mission_type") == "bonus" or not selected_mission.get("is_core", True):
         return "bonus"
@@ -300,7 +316,7 @@ def get_today_ringo_guidance(user_id):
     missions = missions_payload.get("missions") or []
     legacy_state = (missions_payload.get("ringo") or {}).get("state")
     user_state = _map_legacy_state(legacy_state, stats, context, missions)
-    selected_mission = _select_mission(missions)
+    selected_mission = _select_mission(missions, user_state)
     mission_intensity = _mission_intensity(user_state, selected_mission)
     progress = _progress(stats)
     progress["today_saved"] = user_state == "today_completed"

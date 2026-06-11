@@ -136,7 +136,7 @@ def test_ringo_brain_returns_returning_after_absence(client):
 
     assert code == 200
     assert payload["ringo"]["user_state"] == "returning_after_absence"
-    assert payload["mission"]["mission_intensity"] == "tiny"
+    assert payload["mission"]["mission_intensity"] == "main"
     assert payload["reward_sequence"]["type"] == "comeback"
 
 
@@ -155,8 +155,69 @@ def test_ringo_brain_returns_streak_risk_for_young_streak(client):
 
     assert code == 200
     assert payload["ringo"]["user_state"] == "streak_risk"
-    assert payload["mission"]["mission_intensity"] == "tiny"
+    assert payload["mission"]["mission_intensity"] == "main"
     assert payload["reward_sequence"]["type"] == "streak_saved"
+
+
+def test_ringo_brain_prefers_tiny_mission_for_low_pressure_state(client):
+    user = register_user(client, username="BrainTiny")
+    headers = auth_headers(user["access_token"])
+    context = _start_path_and_join_first_challenge(client, headers)
+    old_date = (datetime.now(timezone.utc).date() - timedelta(days=3)).isoformat()
+    _insert_counted_checkin(
+        user["user_id"],
+        context["enrollment_id"],
+        context["challenge"]["challenge_id"],
+        old_date,
+    )
+
+    import database
+
+    conn = database.get_db_connection()
+    try:
+        main_mission = conn.execute(
+            """
+            SELECT id
+            FROM missions
+            WHERE challenge_id = ?
+            ORDER BY order_index ASC, id ASC
+            LIMIT 1
+            """,
+            (context["challenge"]["challenge_id"],),
+        ).fetchone()
+        tiny_mission = conn.execute(
+            """
+            SELECT id
+            FROM missions
+            WHERE challenge_id = ?
+            ORDER BY order_index ASC, id ASC
+            LIMIT 1 OFFSET 1
+            """,
+            (context["challenge"]["challenge_id"],),
+        ).fetchone()
+        conn.execute(
+            """
+            UPDATE missions
+            SET mission_intensity = 'tiny',
+                estimated_minutes = 1,
+                parent_mission_id = ?,
+                unlock_after_days = 0
+            WHERE id = ?
+            """,
+            (main_mission["id"], tiny_mission["id"]),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+    payload, code = get_today_ringo_guidance(user["user_id"])
+
+    assert code == 200
+    assert payload["ringo"]["user_state"] == "returning_after_absence"
+    assert payload["mission"]["mission_id"] == tiny_mission["id"]
+    assert payload["mission"]["mission_intensity"] == "tiny"
+    assert payload["mission"]["estimated_minutes"] == 1
+    assert payload["mission"]["parent_mission_id"] == main_mission["id"]
 
 
 def test_ringo_brain_returns_no_mission_today_when_none_available(client):
