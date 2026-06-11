@@ -206,6 +206,7 @@ const notice = ref("");
 const noticeType = ref("success");
 const dismissedCoachState = ref("");
 const ringoActionMessage = ref("");
+const manualFocusMissionId = ref(null);
 
 const SUPPORTED_GUIDANCE_ACTIONS = new Set([
   "start",
@@ -264,8 +265,17 @@ const skippedMissions = computed(() => {
   return localizedMissions.value.filter((mission) => mission.status === "skipped");
 });
 
+const manualFocusMission = computed(() => {
+  if (!manualFocusMissionId.value) return null;
+
+  return localizedMissions.value.find((mission) => {
+    return sameMissionId(mission.mission_id, manualFocusMissionId.value);
+  }) || null;
+});
+
 const focusMission = computed(() => {
-  return guidanceMission.value
+  return manualFocusMission.value
+    || guidanceMission.value
     || pendingMissions.value[0]
     || skippedMissions.value[0]
     || deferredMissions.value[0]
@@ -359,6 +369,7 @@ async function loadMissions() {
   loading.value = true;
   error.value = "";
   ringoActionMessage.value = "";
+  manualFocusMissionId.value = null;
 
   try {
     const [missionsResult, guidanceResult] = await Promise.allSettled([
@@ -490,6 +501,34 @@ function missionForGuidanceAction(action) {
   return null;
 }
 
+function isTinyMission(mission) {
+  return mission?.mission_intensity === "tiny";
+}
+
+function isPendingTinyMission(mission) {
+  return isTinyMission(mission) && mission?.status === "pending";
+}
+
+function sameMissionId(a, b) {
+  if (a === null || a === undefined || b === null || b === undefined) return false;
+
+  return String(a) === String(b);
+}
+
+function findTinyMissionFor(mission) {
+  if (isPendingTinyMission(mission)) return mission;
+
+  if (mission?.mission_id) {
+    const linkedTinyMission = localizedMissions.value.find((item) => {
+      return isPendingTinyMission(item) && sameMissionId(item.parent_mission_id, mission.mission_id);
+    });
+
+    if (linkedTinyMission) return linkedTinyMission;
+  }
+
+  return localizedMissions.value.find(isPendingTinyMission) || null;
+}
+
 function isGuidanceActionLoading(action) {
   const mission = missionForGuidanceAction(action);
   if (!mission) return false;
@@ -508,6 +547,7 @@ function isGuidanceActionLoading(action) {
 function isGuidanceActionDisabled(action) {
   const mission = missionForGuidanceAction(action);
 
+  if (action.type === "make_smaller" || action.type === "too_tired") return false;
   if (!mission) return action.type !== "make_smaller" && action.type !== "too_tired";
   if (mission.status === "done") return true;
   if (action.type === "remind_later") return mission.status === "remind_later";
@@ -516,16 +556,38 @@ function isGuidanceActionDisabled(action) {
   return false;
 }
 
+function focusTinyMissionFromAction(action, messageKey, fallbackMessageKey) {
+  const mission = missionForGuidanceAction(action);
+  const tinyMission = findTinyMissionFor(mission);
+
+  if (!tinyMission) {
+    ringoActionMessage.value = t(fallbackMessageKey);
+    return;
+  }
+
+  manualFocusMissionId.value = tinyMission.mission_id;
+  ringoActionMessage.value = t(messageKey, { mission: tinyMission.title });
+  focusMissionCard(tinyMission);
+}
+
 function handleGuidanceAction(action) {
   const mission = missionForGuidanceAction(action);
 
   if (action.type === "make_smaller") {
-    ringoActionMessage.value = t("missions.ringoActions.makeSmallerMessage");
+    focusTinyMissionFromAction(
+      action,
+      "missions.ringoActions.makeSmallerTinyMessage",
+      "missions.ringoActions.makeSmallerMessage",
+    );
     return;
   }
 
   if (action.type === "too_tired") {
-    ringoActionMessage.value = t("missions.ringoActions.tooTiredMessage");
+    focusTinyMissionFromAction(
+      action,
+      "missions.ringoActions.tooTiredTinyMessage",
+      "missions.ringoActions.tooTiredMessage",
+    );
     return;
   }
 
