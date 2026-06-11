@@ -54,6 +54,27 @@ def _insert_counted_checkin(user_id, enrollment_id, challenge_id, date):
         conn.close()
 
 
+def _today_missions(client, headers):
+    data = client.get("/me/today-missions", headers=headers).get_json()
+    assert data["ok"] is True
+    return data["missions"]
+
+
+def _main_mission(missions):
+    return next(
+        mission for mission in missions
+        if mission["mission_intensity"] == "main"
+    )
+
+
+def _linked_tiny_mission(missions, main_mission):
+    return next(
+        mission for mission in missions
+        if mission["mission_intensity"] == "tiny"
+        and mission["parent_mission_id"] == main_mission["mission_id"]
+    )
+
+
 def test_ringo_brain_returns_new_user_guidance_without_endpoint(client):
     user = register_user(client, username="BrainNewUser")
 
@@ -96,7 +117,7 @@ def test_ringo_brain_returns_today_completed_after_mission_done(client):
     user = register_user(client, username="BrainDone")
     headers = auth_headers(user["access_token"])
     _start_path_and_join_first_challenge(client, headers)
-    missions = client.get("/me/today-missions", headers=headers).get_json()["missions"]
+    missions = _today_missions(client, headers)
 
     for mission in missions:
         done_res = client.post(
@@ -111,6 +132,79 @@ def test_ringo_brain_returns_today_completed_after_mission_done(client):
     assert payload["ringo"]["user_state"] == "today_completed"
     assert payload["progress"]["today_saved"] is True
     assert payload["reward_sequence"]["type"] == "celebration"
+
+
+def test_ringo_brain_treats_linked_tiny_completion_as_today_saved(client):
+    user = register_user(client, username="BrainTinyDone")
+    headers = auth_headers(user["access_token"])
+    _start_path_and_join_first_challenge(client, headers)
+    missions = _today_missions(client, headers)
+    main_mission = _main_mission(missions)
+    tiny_mission = _linked_tiny_mission(missions, main_mission)
+
+    done_res = client.post(
+        f"/me/missions/{tiny_mission['mission_id']}/done",
+        headers=headers,
+    )
+    assert done_res.status_code == 200
+
+    payload, code = get_today_ringo_guidance(user["user_id"])
+
+    assert code == 200
+    assert payload["ringo"]["user_state"] == "today_completed"
+    assert payload["progress"]["today_saved"] is True
+    assert payload["mission"]["mission_id"] == tiny_mission["mission_id"]
+    assert payload["mission"]["mission_intensity"] == "tiny"
+    assert payload["actions"] == []
+
+
+def test_linked_tiny_completion_leaves_parent_main_pending_for_compatibility(client):
+    user = register_user(client, username="BrainTinyCompat")
+    headers = auth_headers(user["access_token"])
+    _start_path_and_join_first_challenge(client, headers)
+    missions = _today_missions(client, headers)
+    main_mission = _main_mission(missions)
+    tiny_mission = _linked_tiny_mission(missions, main_mission)
+
+    done_res = client.post(
+        f"/me/missions/{tiny_mission['mission_id']}/done",
+        headers=headers,
+    )
+    assert done_res.status_code == 200
+
+    updated_missions = _today_missions(client, headers)
+    updated_main = next(
+        mission for mission in updated_missions
+        if mission["mission_id"] == main_mission["mission_id"]
+    )
+    updated_tiny = next(
+        mission for mission in updated_missions
+        if mission["mission_id"] == tiny_mission["mission_id"]
+    )
+
+    assert updated_tiny["status"] == "done"
+    assert updated_main["status"] == "pending"
+
+
+def test_ringo_brain_main_completion_still_saves_today(client):
+    user = register_user(client, username="BrainMainDone")
+    headers = auth_headers(user["access_token"])
+    _start_path_and_join_first_challenge(client, headers)
+    main_mission = _main_mission(_today_missions(client, headers))
+
+    done_res = client.post(
+        f"/me/missions/{main_mission['mission_id']}/done",
+        headers=headers,
+    )
+    assert done_res.status_code == 200
+
+    payload, code = get_today_ringo_guidance(user["user_id"])
+
+    assert code == 200
+    assert payload["ringo"]["user_state"] == "today_completed"
+    assert payload["progress"]["today_saved"] is True
+    assert payload["mission"]["mission_id"] == main_mission["mission_id"]
+    assert payload["mission"]["mission_intensity"] == "main"
 
 
 def test_ringo_brain_returns_returning_after_absence(client):
@@ -175,6 +269,42 @@ def test_ringo_brain_prefers_tiny_mission_for_low_pressure_state(client):
     assert payload["mission"]["mission_intensity"] == "tiny"
     assert payload["mission"]["estimated_minutes"] in {1, 2, 3}
     assert payload["mission"]["parent_mission_id"] is not None
+
+
+def test_ringo_brain_low_pressure_state_falls_back_to_main_without_tiny(client):
+    user = register_user(client, username="BrainNoTiny")
+    headers = auth_headers(user["access_token"])
+    context = _start_path_and_join_first_challenge(client, headers)
+    old_date = (datetime.now(timezone.utc).date() - timedelta(days=3)).isoformat()
+    _insert_counted_checkin(
+        user["user_id"],
+        context["enrollment_id"],
+        context["challenge"]["challenge_id"],
+        old_date,
+    )
+
+    import database
+
+    conn = database.get_db_connection()
+    try:
+        conn.execute(
+            """
+            UPDATE missions
+            SET status = 'Archived'
+            WHERE challenge_id = ?
+              AND mission_intensity = 'tiny'
+            """,
+            (context["challenge"]["challenge_id"],),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+    payload, code = get_today_ringo_guidance(user["user_id"])
+
+    assert code == 200
+    assert payload["ringo"]["user_state"] == "returning_after_absence"
+    assert payload["mission"]["mission_intensity"] == "main"
 
 
 def test_ringo_brain_returns_no_mission_today_when_none_available(client):

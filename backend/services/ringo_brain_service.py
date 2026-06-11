@@ -101,7 +101,52 @@ def _mission_status_counts(missions):
     }
 
 
+def _same_mission_id(a, b):
+    if a is None or b is None:
+        return False
+
+    return str(a) == str(b)
+
+
+def _completed_linked_tiny_mission(missions):
+    main_mission_ids = {
+        mission.get("mission_id")
+        for mission in missions
+        if (mission.get("mission_intensity") or "main") == "main"
+    }
+
+    return next(
+        (
+            mission for mission in missions
+            if mission.get("status") == "done"
+            and mission.get("mission_intensity") == "tiny"
+            and any(_same_mission_id(mission.get("parent_mission_id"), main_id) for main_id in main_mission_ids)
+        ),
+        None,
+    )
+
+
+def _completed_main_mission(missions):
+    return next(
+        (
+            mission for mission in missions
+            if mission.get("status") == "done"
+            and (mission.get("mission_intensity") or "main") == "main"
+        ),
+        None,
+    )
+
+
+def _completed_satisfying_mission(missions):
+    return _completed_linked_tiny_mission(missions) or _completed_main_mission(missions)
+
+
 def _select_mission(missions, user_state=None):
+    if user_state == "today_completed":
+        satisfying_mission = _completed_satisfying_mission(missions)
+        if satisfying_mission:
+            return satisfying_mission
+
     preferred_intensity = "tiny" if user_state in {"returning_after_absence", "streak_risk"} else "main"
 
     for status in ("pending", "remind_later", "skipped"):
@@ -198,6 +243,9 @@ def _map_legacy_state(legacy_state, stats, context, missions):
 
     counts = _mission_status_counts(missions)
     if counts["done"] == len(missions):
+        return "today_completed"
+
+    if _completed_satisfying_mission(missions):
         return "today_completed"
 
     if total_checkins > 0 and current_streak == 0:
