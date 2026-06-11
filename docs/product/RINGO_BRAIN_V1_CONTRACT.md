@@ -52,6 +52,7 @@ Successful response:
     "description": "Walk, stretch, or do a light movement session.",
     "mission_intensity": "main",
     "estimated_minutes": 10,
+    "parent_mission_id": null,
     "xp_reward": 10,
     "status": "pending",
     "challenge_id": 1,
@@ -144,6 +145,13 @@ Initial v1 values:
 - `bonus`: an optional extra mission for high-momentum users.
 
 The user should always know which action is enough for today. Bonus missions must remain optional.
+
+Selection guidance:
+
+- Normal users should receive `main` missions first.
+- Returning or streak-risk users should receive an available `tiny` mission when one exists.
+- If no `tiny` mission is available, Ringo Brain should safely fall back to the current `main` mission.
+- `parent_mission_id` can link a `tiny` or `bonus` mission back to its main mission, but mission completion must still use the existing mission completion API.
 
 ## Supported Action Values
 

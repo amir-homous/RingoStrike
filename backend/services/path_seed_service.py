@@ -257,6 +257,23 @@ MVP_PATHS = [
 ]
 
 
+def _mission_seed_payload(mission, mission_index):
+    key, title, description, xp_reward = mission[:4]
+    options = mission[4] if len(mission) > 4 and isinstance(mission[4], dict) else {}
+
+    return {
+        "key": key,
+        "title": title,
+        "description": description,
+        "xp_reward": xp_reward,
+        "mission_intensity": options.get("mission_intensity") or options.get("intensity") or "main",
+        "estimated_minutes": options.get("estimated_minutes"),
+        "parent_mission_key": options.get("parent_mission_key"),
+        "order_index": mission_index,
+        "unlock_after_days": max(0, mission_index - 1),
+    }
+
+
 def ensure_mvp_paths_and_missions(conn):
     for path_index, path in enumerate(MVP_PATHS, start=1):
         conn.execute(
@@ -358,8 +375,10 @@ def ensure_mvp_paths_and_missions(conn):
                 )
                 challenge_id = cur.lastrowid
 
+            seeded_mission_ids = {}
+
             for mission_index, mission in enumerate(challenge["missions"], start=1):
-                key, title, description, xp_reward = mission
+                mission_payload = _mission_seed_payload(mission, mission_index)
                 conn.execute(
                     """
                     INSERT INTO missions (
@@ -374,29 +393,55 @@ def ensure_mvp_paths_and_missions(conn):
                         order_index,
                         suggested_time,
                         unlock_after_days,
+                        mission_intensity,
+                        estimated_minutes,
                         ringo_message,
                         status
                     )
-                    VALUES (?, ?, ?, ?, 'daily', 'easy', 1, ?, ?, 'Anytime today', ?, ?, 'Active')
+                    VALUES (?, ?, ?, ?, 'daily', 'easy', 1, ?, ?, 'Anytime today', ?, ?, ?, ?, 'Active')
                     ON CONFLICT(challenge_id, key) DO UPDATE SET
                         title = excluded.title,
                         description = excluded.description,
                         xp_reward = excluded.xp_reward,
                         order_index = excluded.order_index,
+                        mission_intensity = COALESCE(excluded.mission_intensity, missions.mission_intensity, 'main'),
+                        estimated_minutes = COALESCE(excluded.estimated_minutes, missions.estimated_minutes),
                         ringo_message = excluded.ringo_message,
                         status = 'Active'
                     """,
                     (
                         challenge_id,
-                        key,
-                        title,
-                        description,
-                        xp_reward,
-                        mission_index,
-                        max(0, mission_index - 1),
-                        f"Ringo says: {title} is enough for today's mission.",
+                        mission_payload["key"],
+                        mission_payload["title"],
+                        mission_payload["description"],
+                        mission_payload["xp_reward"],
+                        mission_payload["order_index"],
+                        mission_payload["unlock_after_days"],
+                        mission_payload["mission_intensity"],
+                        mission_payload["estimated_minutes"],
+                        f"Ringo says: {mission_payload['title']} is enough for today's mission.",
                     ),
                 )
+                row = conn.execute(
+                    "SELECT id FROM missions WHERE challenge_id = ? AND key = ?",
+                    (challenge_id, mission_payload["key"]),
+                ).fetchone()
+                if row:
+                    seeded_mission_ids[mission_payload["key"]] = row["id"]
+
+            for mission_index, mission in enumerate(challenge["missions"], start=1):
+                mission_payload = _mission_seed_payload(mission, mission_index)
+                parent_key = mission_payload.get("parent_mission_key")
+                parent_id = seeded_mission_ids.get(parent_key) if parent_key else None
+                if parent_id:
+                    conn.execute(
+                        """
+                        UPDATE missions
+                        SET parent_mission_id = ?
+                        WHERE challenge_id = ? AND key = ?
+                        """,
+                        (parent_id, challenge_id, mission_payload["key"]),
+                    )
 
 
 def archive_legacy_unlinked_challenges(conn):

@@ -130,13 +130,33 @@ def init_db():
         order_index INTEGER NOT NULL DEFAULT 0,
         suggested_time TEXT,
         unlock_after_days INTEGER NOT NULL DEFAULT 0,
+        mission_intensity TEXT CHECK(mission_intensity IN ('main', 'tiny', 'bonus')) DEFAULT 'main',
+        estimated_minutes INTEGER,
+        parent_mission_id INTEGER,
         ringo_message TEXT,
         status TEXT CHECK(status IN ('Active', 'Archived')) DEFAULT 'Active',
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         UNIQUE(challenge_id, key),
-        FOREIGN KEY(challenge_id) REFERENCES challenges(id) ON DELETE CASCADE
+        FOREIGN KEY(challenge_id) REFERENCES challenges(id) ON DELETE CASCADE,
+        FOREIGN KEY(parent_mission_id) REFERENCES missions(id) ON DELETE SET NULL
     )
     """)
+
+    _add_column_if_missing(
+        c,
+        "missions",
+        "mission_intensity",
+        "mission_intensity TEXT DEFAULT 'main'",
+    )
+    _add_column_if_missing(c, "missions", "estimated_minutes", "estimated_minutes INTEGER")
+    _add_column_if_missing(c, "missions", "parent_mission_id", "parent_mission_id INTEGER")
+    c.execute(
+        """
+        UPDATE missions
+        SET mission_intensity = 'main'
+        WHERE mission_intensity IS NULL OR mission_intensity = ''
+        """
+    )
 
     c.execute("""
     CREATE TABLE IF NOT EXISTS mission_logs (
@@ -178,6 +198,7 @@ def init_db():
 
     c.execute("CREATE INDEX IF NOT EXISTS idx_paths_status_sort ON paths(status, sort_order)")
     c.execute("CREATE INDEX IF NOT EXISTS idx_missions_challenge_status ON missions(challenge_id, status, order_index)")
+    c.execute("CREATE INDEX IF NOT EXISTS idx_missions_intensity ON missions(challenge_id, mission_intensity, status)")
     c.execute("CREATE INDEX IF NOT EXISTS idx_mission_logs_user_date ON mission_logs(user_id, date)")
     c.execute("CREATE INDEX IF NOT EXISTS idx_mission_logs_enrollment_date ON mission_logs(enrollment_id, date)")
     c.execute("CREATE INDEX IF NOT EXISTS idx_user_paths_user_status ON user_paths(user_id, status)")

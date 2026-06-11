@@ -125,6 +125,9 @@ def test_today_missions_trigger_checkin_safely(client):
     assert day_one_challenge["today_missions_total"] == 1
     assert day_one_challenge["missions"][0]["available_today"] is True
     assert day_one_challenge["missions"][0]["today_status"] == "pending"
+    assert day_one_challenge["missions"][0]["mission_intensity"] == "main"
+    assert "estimated_minutes" in day_one_challenge["missions"][0]
+    assert "parent_mission_id" in day_one_challenge["missions"][0]
     assert day_one_challenge["missions"][1]["available_today"] is False
     assert day_one_challenge["missions"][1]["today_status"] == "locked"
     assert day_one_challenge["missions"][1]["unlocks_in_days"] == 1
@@ -138,6 +141,7 @@ def test_today_missions_trigger_checkin_safely(client):
     assert enrollment_detail["mission_summary"]["future_missions_total"] >= 1
     assert enrollment_detail["missions"][0]["available_today"] is True
     assert enrollment_detail["missions"][1]["today_status"] == "locked"
+    assert enrollment_detail["missions"][0]["mission_intensity"] == "main"
 
     import database
 
@@ -177,6 +181,9 @@ def test_today_missions_trigger_checkin_safely(client):
     assert len(missions_data["missions"]) >= 3
 
     first, second, third = missions_data["missions"][:3]
+    assert first["mission_intensity"] == "main"
+    assert "estimated_minutes" in first
+    assert "parent_mission_id" in first
 
     done_res = client.post(
         f"/me/missions/{first['mission_id']}/done",
