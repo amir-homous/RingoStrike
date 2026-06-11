@@ -7,6 +7,7 @@ from services.mission_service import (
     remind_mission_later,
     skip_mission,
 )
+from services.ringo_brain_service import get_today_ringo_guidance
 from utils.api_response import error_response, service_response
 from utils.validation_utils import parse_json_object_payload
 
@@ -17,6 +18,13 @@ mission_bp = Blueprint("mission_bp", __name__)
 @require_auth()
 def today_missions_route(claims):
     payload, code = get_today_missions(int(claims["user_id"]))
+    return service_response(payload, code)
+
+
+@mission_bp.get("/me/ringo/today")
+@require_auth()
+def today_ringo_guidance_route(claims):
+    payload, code = get_today_ringo_guidance(int(claims["user_id"]))
     return service_response(payload, code)
 
 

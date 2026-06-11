@@ -2,9 +2,17 @@
 
 ## What It Is
 
-RingoStrike is a gamified consistency platform. Users join challenges, complete daily check-ins, build streaks, earn XP, unlock achievements, and shape a profile identity around their progress.
+RingoStrike is a caring daily self-improvement companion centered around Ringo, a character who helps users take small guided actions, feel emotionally supported, and build visible progress over time.
 
-The current product is both private-progression focused and public-identity capable.
+Ringo is the emotional interface of the product. Paths, challenges, missions, streaks, XP, achievements, activity, and profiles are supporting infrastructure that help Ringo understand the user's context and guide the next small step.
+
+The current product is both companion-first and progression-capable: it should feel warm, guided, and personal before it feels like a system dashboard.
+
+Product direction source:
+
+- [Product Direction Master Notes](product/PRODUCT_DIRECTION_MASTER_NOTES.md)
+- [MVP Relaunch Phases](product/MVP_RELAUNCH_PHASES.md)
+- [GitHub Issue Pack](product/GITHUB_ISSUE_PACK.md)
 
 ## Current Capabilities
 
@@ -86,14 +94,13 @@ Selected frontend language is stored in `localStorage.ringostrike_locale`.
 
 ```txt
 Register/Login
-  -> Dashboard Mission Center
-  -> Choose/start growth path
-  -> Auto-join first path challenge when available
-  -> Today's mission
-  -> Mark mission done
+  -> Ringo welcomes and reads the user's current state
+  -> Ringo suggests one clear daily mission
+  -> User chooses the main step, a smaller step, or an optional extra
+  -> User completes a small self-improvement action
   -> Existing check-in/stats/achievement pipeline
-  -> Reward Moment
-  -> Next path/challenge/profile surface
+  -> Ringo reacts and rewards the moment
+  -> Next gentle step or rest
 ```
 
 ## Guided User Flow
@@ -103,14 +110,14 @@ Register/Login
   -> Onboarding / Identity Path
   -> Suggested First Challenge or Growth Path
   -> Path Started Moment / JoinSuccessMoment
-  -> Today's Mission
+  -> Ringo-guided Today's Mission
   -> Mission Done / Check-in
-  -> Reward Moment
+  -> Ringo Moment / Reward Moment
   -> Next Step
   -> Paths/Dashboard/Profile as supporting surfaces
 ```
 
-The product has shifted from a dashboard-based MVP toward a guided mission-based progression experience where the next action is obvious. The dashboard remains important, but MissionCenter now leads the screen and older dashboard sections appear progressively after the user has meaningful check-in history.
+The product has shifted from a dashboard-based MVP toward a Ringo-first companion experience where the next action is emotionally clear and small enough to complete. The dashboard remains important, but it should feel like Ringo's home. MissionCenter, paths, challenges, stats, and profiles support the companion loop instead of competing with it.
 
 ## Current Architecture Strengths
 

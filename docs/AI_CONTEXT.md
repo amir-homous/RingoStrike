@@ -2,15 +2,31 @@
 
 ## Current State
 
-RingoStrike is a Flask + Vue progression platform for challenges, daily check-ins, XP, streaks, achievements, profile identity, and public profile sharing.
+RingoStrike is a Flask + Vue caring daily self-improvement companion centered around Ringo, with progression systems for challenges, daily missions, check-ins, XP, streaks, achievements, profile identity, and public profile sharing.
 
 This context reflects the code in this repository as of the current working tree, not only the earlier product roadmap.
 
 ## Product Identity
 
-RingoStrike should feel like a premium consistency and progression system, not a generic habit tracker. The product direction remains:
+RingoStrike should feel like a companion-first self-improvement experience, not a generic habit tracker or cold productivity dashboard.
 
-- consistency becomes visible progress
+Core product rule:
+
+```txt
+First Ringo. Then system.
+```
+
+Ringo is the emotional interface. The technical systems exist to help Ringo feel alive, caring, useful, and personally aware.
+
+Product direction references:
+
+- [Product Direction Master Notes](product/PRODUCT_DIRECTION_MASTER_NOTES.md)
+- [MVP Relaunch Phases](product/MVP_RELAUNCH_PHASES.md)
+- [GitHub Issue Pack](product/GITHUB_ISSUE_PACK.md)
+
+The supporting product principles remain:
+
+- small daily actions create visible progress
 - check-ins create momentum and identity
 - achievements and XP reward consistency without casino-style noise
 - public identity is shareable but privacy-aware
@@ -20,16 +36,17 @@ RingoStrike should feel like a premium consistency and progression system, not a
 
 Early tester feedback indicates that RingoStrike is valuable but feels too complex for first-time users.
 
-The next product priority is to evolve the experience from a dashboard-heavy interface into a guided progression journey.
+The next product priority is to evolve the experience from a dashboard-heavy interface into a Ringo-first companion journey.
 
 Primary implemented loop:
 
 ```txt
-Path -> Today's Mission -> Mission Done / Check-in -> Reward -> Next Step
+Ringo guidance -> Today's Mission -> Mission Done / Check-in -> Ringo Moment / Reward -> Next gentle step
 ```
 
 Implementation guidance:
 
+- Lead with Ringo's emotional state, message, and one clear next step before exposing system detail.
 - Prefer guided UX simplification that reuses the backend path/mission layer and existing progression services.
 - Reuse existing challenge, enrollment, check-in, stats, achievement, and activity systems.
 - Do not duplicate XP/streak/achievement logic.
@@ -80,11 +97,22 @@ Implementation guidance:
 
 ## Source Of Truth Rules
 
+- Product decision truth is in `docs/product/`, especially `PRODUCT_DIRECTION_MASTER_NOTES.md`, `MVP_RELAUNCH_PHASES.md`, and `GITHUB_ISSUE_PACK.md`.
 - Database truth is in `backend/database.py`; service queries reveal actual field usage.
 - API truth is in `backend/routes/*.py` plus endpoints registered directly by `backend/auth.py` and `backend/app.py`.
 - Frontend route truth is in `frontend/src/router/index.js`.
 - Frontend API usage truth is in `frontend/src/lib/api.js` and Vue views/components.
 - Git timeline truth is in recent commits on `main` and `dev`.
+
+## AI/Codex Working Rules
+
+- Preserve existing working functionality.
+- Make small, safe, reviewable changes.
+- Extend existing services, routes, components, and data flows before creating replacements.
+- Do not rewrite backend or frontend architecture unless an issue explicitly asks for it.
+- Treat path, challenge, mission, check-in, stats, achievement, activity, and profile systems as supporting infrastructure for Ringo.
+- For Ringo-related product behavior, follow `docs/product/` before inventing new direction.
+- Keep deterministic product decisions in code and services. AI-assisted language should come later and remain structured, validated, and fallback-safe.
 
 ## Critical Engineering Notes
 

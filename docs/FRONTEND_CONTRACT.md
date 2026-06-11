@@ -435,6 +435,75 @@ Current `ringo.state` values include `new_user_no_path`, `path_selected_no_chall
 
 Current action types include `route`, `mission`, `mission_reminder`, and `dismiss`.
 
+### `GET /me/ringo/today`
+
+Auth: required.
+
+Returns Ringo Brain v1 guidance for the Ringo-first dashboard. This endpoint is additive and does not replace `/me/today-missions` or the existing mission mutation APIs.
+
+```json
+{
+  "ok": true,
+  "date": "2026-06-10",
+  "ringo": {
+    "user_state": "today_not_started",
+    "mood": "focused",
+    "tone": "warm_no_shame",
+    "message": "Today's mission is ready: Move for 10 minutes. One clear step is enough.",
+    "sprite_key": "focus"
+  },
+  "mission": {
+    "mission_id": 1,
+    "key": "move_10",
+    "title": "Move for 10 minutes",
+    "description": "...",
+    "mission_intensity": "main",
+    "estimated_minutes": null,
+    "xp_reward": 10,
+    "status": "pending",
+    "challenge_id": 1,
+    "challenge_name": "Move Your Body",
+    "enrollment_id": 10,
+    "path_id": 1,
+    "path_title": "Body Momentum"
+  },
+  "actions": [
+    {
+      "type": "start",
+      "label": "Start",
+      "mission_id": 1
+    },
+    {
+      "type": "remind_later",
+      "label": "Remind me later",
+      "mission_id": 1
+    }
+  ],
+  "progress": {
+    "today_saved": false,
+    "current_streak": 3,
+    "total_checkins": 12
+  },
+  "reward_sequence": {
+    "type": "standard",
+    "available": true,
+    "placeholder": true
+  },
+  "fallback": {
+    "used": false,
+    "reason": null
+  }
+}
+```
+
+Supported action `type` values in v1 are `start`, `remind_later`, `make_smaller`, `too_tired`, and `skip_today`.
+
+Frontend guidance:
+
+- Use this endpoint to lead the Ringo-first dashboard with Ringo mood, message, suggested mission, action choices, Today Saved state, and reward sequence placeholder.
+- Continue using `/me/missions/:mission_id/done`, `/remind-later`, and `/skip` for mission mutations.
+- Keep `/me/today-missions` compatibility while the dashboard migrates progressively.
+
 ### `POST /me/missions/:mission_id/done`
 
 Auth: required.
