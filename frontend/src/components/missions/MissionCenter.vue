@@ -1,11 +1,17 @@
 <template>
   <section class="missionCenter">
+    <RingoRewardSequence
+      :steps="rewardSequenceSteps"
+      :sprite="rewardSequenceSprite"
+      @finish="finishRewardSequence"
+    />
+
     <RingoCoach
       v-if="showCoach"
       :message="coachMessage"
       :sprite="guidanceRingo?.sprite_key || guidanceRingo?.mood || localizedRingo?.sprite_key || localizedRingo?.sprite"
-      :primary-action="localizedRingo?.primary_action"
-      :secondary-action="localizedRingo?.secondary_action"
+      :primary-action="coachPrimaryAction"
+      :secondary-action="coachSecondaryAction"
       @action="handleCoachAction"
     />
 
@@ -30,7 +36,7 @@
         </div>
         <strong>{{ focusMission.title }}</strong>
         <p>{{ focusMission.description }}</p>
-        <div class="missionActions primaryMissionActions">
+        <div v-if="!isTodaySaved" class="missionActions primaryMissionActions">
           <BaseButton
             variant="primary"
             :loading="busyId === focusMission.mission_id && busyAction === 'done'"
@@ -61,12 +67,35 @@
       </div>
 
       <p v-if="todaySavedLabel" class="todaySaved">
-        {{ todaySavedLabel }}
+        <strong>{{ todaySavedLabel }}</strong>
+        <span>{{ t("missions.todaySavedBody") }}</span>
       </p>
 
       <p v-if="ringoActionMessage" class="ringoActionHint">
         {{ ringoActionMessage }}
       </p>
+
+      <div v-if="isTodaySaved" class="completedChoices">
+        <RouterLink
+          v-if="focusMission?.enrollment_id"
+          class="missionGuideLink"
+          :to="`/enrollment/${focusMission.enrollment_id}`"
+        >
+          {{ t("missions.detailsCta") }}
+        </RouterLink>
+
+        <BaseButton
+          v-if="otherMissions.length"
+          variant="secondary"
+          @click="showOtherMissions = true"
+        >
+          {{ t("missions.showOtherMissions", { count: otherMissions.length }) }}
+        </BaseButton>
+
+        <BaseButton variant="secondary" @click="finishForToday">
+          {{ t("missions.finishForToday") }}
+        </BaseButton>
+      </div>
 
       <div v-if="guidanceActions.length" class="ringoActionChoices" :aria-label="t('missions.ringoActions.label')">
         <BaseButton
@@ -140,7 +169,7 @@
         </div>
         <strong>{{ focusMission.title }}</strong>
         <p>{{ focusMission.description }}</p>
-        <div class="missionActions primaryMissionActions">
+        <div v-if="!isTodaySaved" class="missionActions primaryMissionActions">
           <BaseButton
             variant="primary"
             :loading="busyId === focusMission.mission_id && busyAction === 'done'"
@@ -172,7 +201,7 @@
 
       <div class="missionGuideActions">
         <BaseButton
-          v-if="!missionGuide.complete && focusMission && !guidanceActions.length"
+          v-if="!missionGuide.complete && !isTodaySaved && focusMission && !guidanceActions.length"
           variant="primary"
           @click="focusMissionCard(focusMission)"
         >
@@ -260,7 +289,7 @@
       </div>
 
       <p v-else class="otherMissionHint">
-        {{ t("missions.otherHint", { count: otherMissions.length }) }}
+        {{ t(isTodaySaved ? "missions.optionalOtherHint" : "missions.otherHint", { count: otherMissions.length }) }}
       </p>
     </BaseCard>
   </section>
@@ -274,6 +303,7 @@ import BaseButton from "@/components/ui/BaseButton.vue";
 import BaseCard from "@/components/ui/BaseCard.vue";
 import UiState from "@/components/ui/UiState.vue";
 import RingoCoach from "@/components/ringo/RingoCoach.vue";
+import RingoRewardSequence from "@/components/ringo/RingoRewardSequence.vue";
 import PathSelection from "@/components/missions/PathSelection.vue";
 import {
   localizeMissionList,
@@ -297,6 +327,8 @@ const dismissedCoachState = ref("");
 const ringoActionMessage = ref("");
 const manualFocusMissionId = ref(null);
 const showOtherMissions = ref(false);
+const rewardSequenceSteps = ref([]);
+const rewardSequenceSprite = ref("celebration");
 
 const SUPPORTED_GUIDANCE_ACTIONS = new Set([
   "start",
@@ -329,9 +361,21 @@ const preferLocalizedRingo = computed(() => {
 });
 
 const coachMessage = computed(() => {
-  return preferLocalizedRingo.value
-    ? localizedRingo.value?.message || guidanceRingo.value?.message
-    : guidanceRingo.value?.message || localizedRingo.value?.message;
+  return guidanceRingo.value?.message || localizedRingo.value?.message;
+});
+
+const hasRingoGuidance = computed(() => !!guidanceRingo.value);
+
+const coachPrimaryAction = computed(() => {
+  if (hasRingoGuidance.value || isTodaySaved.value) return null;
+
+  return localizedRingo.value?.primary_action || null;
+});
+
+const coachSecondaryAction = computed(() => {
+  if (hasRingoGuidance.value || isTodaySaved.value) return null;
+
+  return localizedRingo.value?.secondary_action || null;
 });
 
 const guidanceMission = computed(() => {
@@ -405,6 +449,15 @@ const missionGuide = computed(() => {
     };
   }
 
+  if (isTodaySaved.value) {
+    return {
+      complete: true,
+      state: "complete",
+      title: t("missions.guideSavedTitle", context),
+      body: t("missions.guideSavedBody", context),
+    };
+  }
+
   if (!hasPending && hasSkipped) {
     return {
       complete: false,
@@ -437,12 +490,14 @@ const todaySavedLabel = computed(() => {
   return t("missions.todaySaved");
 });
 
+const isTodaySaved = computed(() => Boolean(ringoGuidance.value?.progress?.today_saved));
+
 const guidanceActions = computed(() => {
   const actions = Array.isArray(ringoGuidance.value?.actions)
     ? ringoGuidance.value.actions
     : [];
 
-  if (!actions.length || !focusMission.value || missionGuide.value?.complete) {
+  if (!actions.length || !focusMission.value || missionGuide.value?.complete || isTodaySaved.value) {
     return [];
   }
 
@@ -546,6 +601,11 @@ async function runMissionAction(mission, action, request) {
       });
     }
 
+    if (action === "done") {
+      rewardSequenceSteps.value = buildRewardSequence(data, mission);
+      rewardSequenceSprite.value = data?.checkin?.already_checked ? "happy" : "celebration";
+    }
+
     await loadMissions();
   } catch (e) {
     error.value = e?.response?.data?.error || e?.message || String(e);
@@ -581,6 +641,79 @@ function skipMission(mission) {
     "skip",
     () => api.post(`/me/missions/${mission.mission_id}/skip`, {}),
   );
+}
+
+function backendRewardSequenceSteps(data) {
+  const sequence = data?.reward_sequence;
+  if (!Array.isArray(sequence)) return [];
+
+  return sequence
+    .filter((step) => step && typeof step === "object")
+    .map((step) => ({
+      type: step.type || "default",
+      title: step.title || step.text || "",
+      text: step.description || step.message || "",
+      value: step.amount !== undefined ? String(step.amount) : "",
+      sprite: step.mood || step.sprite_key,
+    }));
+}
+
+function buildRewardSequence(data, mission) {
+  const backendSteps = backendRewardSequenceSteps(data);
+  if (backendSteps.length) return backendSteps;
+
+  const completedMission = data?.mission || {};
+  const xpEarned = Number(completedMission.xp_earned ?? mission.xp_reward ?? 0);
+  const todaySaved = Boolean(data?.checkin?.ok);
+  const steps = [
+    {
+      type: "ringo_message",
+      title: t("ringoRewardSequence.local.ringoTitle"),
+      text: data?.checkin?.already_checked
+        ? t("ringoRewardSequence.local.alreadySaved")
+        : t("ringoRewardSequence.local.ringoText"),
+      sprite: data?.checkin?.already_checked ? "happy" : "celebration",
+    },
+    {
+      type: "mission_completed",
+      title: mission.title || completedMission.title || t("ringoRewardSequence.local.missionFallback"),
+      text: t("ringoRewardSequence.local.missionText"),
+    },
+  ];
+
+  if (xpEarned > 0) {
+    steps.push({
+      type: "xp_earned",
+      title: t("ringoRewardSequence.local.xpTitle"),
+      value: t("ringoRewardSequence.local.xpValue", { count: xpEarned }),
+    });
+  }
+
+  if (todaySaved) {
+    steps.push({
+      type: "today_saved",
+      title: t("ringoRewardSequence.local.todaySavedTitle"),
+      text: t("ringoRewardSequence.local.todaySavedText"),
+    });
+  }
+
+  steps.push({
+    type: "next_choice",
+    title: t("ringoRewardSequence.local.nextTitle"),
+    text: t("ringoRewardSequence.local.nextText"),
+  });
+
+  return steps;
+}
+
+function finishRewardSequence() {
+  rewardSequenceSteps.value = [];
+  showOtherMissions.value = false;
+}
+
+function finishForToday() {
+  showOtherMissions.value = false;
+  ringoActionMessage.value = t("missions.finishedForTodayMessage");
 }
 
 function guidanceActionLabel(action) {
@@ -949,6 +1082,8 @@ onMounted(loadMissions);
 }
 
 .todaySaved {
+  display: grid;
+  gap: 4px;
   margin: 0;
   padding: 11px 13px;
   border: 1px solid rgba(74, 222, 128, 0.24);
@@ -956,6 +1091,24 @@ onMounted(loadMissions);
   color: rgba(187, 247, 208, 0.96);
   background: rgba(74, 222, 128, 0.075);
   font-weight: 850;
+}
+
+.todaySaved strong,
+.todaySaved span {
+  min-width: 0;
+}
+
+.todaySaved span {
+  color: rgba(220, 252, 231, 0.74);
+  font-weight: 700;
+  line-height: 1.5;
+}
+
+.completedChoices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-8);
+  align-items: center;
 }
 
 .ringoActionHint {
@@ -1137,9 +1290,11 @@ onMounted(loadMissions);
 
   .missionGuideActions :deep(.btn),
   .ringoActionChoices :deep(.btn),
+  .completedChoices :deep(.btn),
   .primaryMissionActions :deep(.btn),
   .missionListHead :deep(.btn),
-  .missionGuideLink {
+  .missionGuideLink,
+  .completedChoices .missionGuideLink {
     width: 100%;
   }
 
