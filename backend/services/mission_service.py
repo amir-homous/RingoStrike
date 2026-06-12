@@ -6,6 +6,16 @@ from services.ringo_decision_service import decide_ringo_state
 from utils.date_utils import utc_today_iso
 
 
+ALLOWED_SKIP_REASONS = {
+    "too_tired",
+    "no_time",
+    "too_hard",
+    "not_relevant",
+    "disliked",
+    "other",
+}
+
+
 def _row_status(row):
     return row["log_status"] or "pending"
 
@@ -29,6 +39,7 @@ def _mission_payload(row):
         "ringo_message": row["ringo_message"] or "",
         "status": _row_status(row),
         "reminder_at": row["reminder_at"],
+        "skip_reason": row["skip_reason"],
         "xp_earned": int(row["xp_earned"] or 0),
         "challenge_id": row["challenge_id"],
         "challenge_name": row["challenge_name"],
@@ -97,6 +108,7 @@ def _today_mission_rows(conn, user_id, today):
             e.id AS enrollment_id,
             ml.status AS log_status,
             ml.reminder_at,
+            ml.skip_reason,
             ml.xp_earned
         FROM enrollments e
         JOIN challenges c ON c.id = e.challenge_id
@@ -336,7 +348,15 @@ def _build_reward_sequence(payload, today_missions, *, was_today_saved=False):
     return steps
 
 
-def _upsert_mission_log(user_id, mission_id, status, *, reminder_at=None, notes=None):
+def _upsert_mission_log(
+    user_id,
+    mission_id,
+    status,
+    *,
+    reminder_at=None,
+    notes=None,
+    skip_reason=None,
+):
     today = utc_today_iso()
     conn = get_db_connection()
     try:
@@ -372,14 +392,16 @@ def _upsert_mission_log(user_id, mission_id, status, *, reminder_at=None, notes=
                 date,
                 status,
                 reminder_at,
+                skip_reason,
                 notes,
                 xp_earned,
                 updated_at
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
             ON CONFLICT(user_id, mission_id, date) DO UPDATE SET
                 status = excluded.status,
                 reminder_at = excluded.reminder_at,
+                skip_reason = excluded.skip_reason,
                 notes = COALESCE(excluded.notes, mission_logs.notes),
                 xp_earned = excluded.xp_earned,
                 updated_at = datetime('now')
@@ -392,6 +414,7 @@ def _upsert_mission_log(user_id, mission_id, status, *, reminder_at=None, notes=
                 today,
                 status,
                 reminder_at,
+                skip_reason,
                 notes,
                 xp_earned,
             ),
@@ -414,6 +437,7 @@ def _upsert_mission_log(user_id, mission_id, status, *, reminder_at=None, notes=
                 "path_id": mission["path_id"],
                 "path_title": mission["path_title"],
                 "reminder_at": reminder_at,
+                "skip_reason": skip_reason,
                 "today_done_before_you": done_before_you,
                 "today_done_count": done_before_you + 1 if status == "done" else None,
             },
@@ -471,5 +495,34 @@ def remind_mission_later(user_id, mission_id, reminder_at):
     return _upsert_mission_log(user_id, mission_id, "remind_later", reminder_at=value)
 
 
-def skip_mission(user_id, mission_id):
-    return _upsert_mission_log(user_id, mission_id, "skipped")
+def _normalize_skip_reason(reason):
+    if reason is None:
+        return None, None
+
+    if not isinstance(reason, str):
+        return None, "invalid_skip_reason"
+
+    value = reason.strip()
+    if not value:
+        return None, None
+
+    if len(value) > 40:
+        return None, "skip_reason_too_long"
+
+    if value not in ALLOWED_SKIP_REASONS:
+        return None, "unsupported_skip_reason"
+
+    return value, None
+
+
+def skip_mission(user_id, mission_id, reason=None):
+    skip_reason, error = _normalize_skip_reason(reason)
+    if error:
+        return {"ok": False, "error": error}, 400
+
+    return _upsert_mission_log(
+        user_id,
+        mission_id,
+        "skipped",
+        skip_reason=skip_reason,
+    )

@@ -288,6 +288,7 @@ Implementation guidance:
 - Reuse existing mission, path, stats, and Ringo decision services where practical.
 - Mission completion must continue to flow through `POST /me/missions/:mission_id/done`.
 - Reminder and skip actions should continue to use the existing mission mutation endpoints.
+- Mission skip may include an optional stable `reason` key: `too_tired`, `no_time`, `too_hard`, `not_relevant`, `disliked`, or `other`. Skip reasons are context for future adaptation only and must not create shame, punishment, XP loss, streak loss, or check-in writes.
 - Frontend can adopt this endpoint progressively while keeping `MissionCenter` compatible with `/me/today-missions`.
 - Existing `ringo.state` values from `/me/today-missions` should be mapped carefully rather than renamed in place.
 

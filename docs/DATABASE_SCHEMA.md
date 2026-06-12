@@ -218,6 +218,7 @@ CREATE TABLE IF NOT EXISTS mission_logs (
   date TEXT NOT NULL,
   status TEXT CHECK(status IN ('pending', 'done', 'skipped', 'remind_later')) DEFAULT 'pending',
   reminder_at TEXT,
+  skip_reason TEXT,
   notes TEXT,
   xp_earned INTEGER NOT NULL DEFAULT 0,
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
@@ -236,6 +237,8 @@ Status values:
 - `done`
 - `skipped`
 - `remind_later`
+
+`skip_reason` is optional metadata for skipped missions. Supported stable reason keys are `too_tired`, `no_time`, `too_hard`, `not_relevant`, `disliked`, and `other`. Skip reasons are future Ringo Brain context only; they do not affect XP, streak, achievements, or check-in logic.
 
 Indexes:
 

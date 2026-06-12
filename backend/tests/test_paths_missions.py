@@ -337,6 +337,7 @@ def test_today_missions_trigger_checkin_safely(client):
     assert skip_data["ok"] is True
     assert skip_data["mission"]["status"] == "skipped"
     assert skip_data["mission"]["xp_earned"] == 0
+    assert skip_data["mission"]["skip_reason"] is None
 
     stats_res = client.get("/me/stats", headers=headers)
 
@@ -345,6 +346,91 @@ def test_today_missions_trigger_checkin_safely(client):
     assert stats_data["ok"] is True
     assert stats_data["stats"]["total_checkins"] == 1
     assert stats_data["stats"]["total_points"] >= 10
+
+
+def test_mission_skip_reason_is_optional_and_persisted(client):
+    user = register_user(client, username="SkipReason")
+    headers = auth_headers(user["access_token"])
+
+    paths_data = client.get("/paths", headers=headers).get_json()
+    fitness_path = next(item for item in paths_data["items"] if item["key"] == "fitness")
+
+    client.post(f"/paths/{fitness_path['path_id']}/start", headers=headers)
+    challenge_id = client.get(
+        f"/paths/{fitness_path['path_id']}/challenges",
+        headers=headers,
+    ).get_json()["items"][0]["challenge_id"]
+    client.post(
+        f"/challenges/{challenge_id}/join",
+        json={},
+        headers=headers,
+    )
+
+    mission = client.get("/me/today-missions", headers=headers).get_json()["missions"][0]
+
+    skip_res = client.post(
+        f"/me/missions/{mission['mission_id']}/skip",
+        json={"reason": "too_tired"},
+        headers=headers,
+    )
+
+    assert skip_res.status_code == 200
+    skip_data = skip_res.get_json()
+    assert skip_data["ok"] is True
+    assert skip_data["mission"]["status"] == "skipped"
+    assert skip_data["mission"]["skip_reason"] == "too_tired"
+    assert skip_data["mission"]["xp_earned"] == 0
+
+    missions = client.get("/me/today-missions", headers=headers).get_json()["missions"]
+    skipped_mission = next(
+        item for item in missions
+        if item["mission_id"] == mission["mission_id"]
+    )
+
+    assert skipped_mission["status"] == "skipped"
+    assert skipped_mission["skip_reason"] == "too_tired"
+
+    stats_data = client.get("/me/stats", headers=headers).get_json()
+
+    assert stats_data["ok"] is True
+    assert stats_data["stats"]["total_checkins"] == 0
+
+
+def test_mission_skip_rejects_invalid_reason_payload(client):
+    user = register_user(client, username="SkipReasonInvalid")
+    headers = auth_headers(user["access_token"])
+
+    paths_data = client.get("/paths", headers=headers).get_json()
+    fitness_path = next(item for item in paths_data["items"] if item["key"] == "fitness")
+
+    client.post(f"/paths/{fitness_path['path_id']}/start", headers=headers)
+    challenge_id = client.get(
+        f"/paths/{fitness_path['path_id']}/challenges",
+        headers=headers,
+    ).get_json()["items"][0]["challenge_id"]
+    client.post(
+        f"/challenges/{challenge_id}/join",
+        json={},
+        headers=headers,
+    )
+
+    mission = client.get("/me/today-missions", headers=headers).get_json()["missions"][0]
+
+    invalid_type_res = client.post(
+        f"/me/missions/{mission['mission_id']}/skip",
+        json={"reason": 123},
+        headers=headers,
+    )
+    unsupported_res = client.post(
+        f"/me/missions/{mission['mission_id']}/skip",
+        json={"reason": "not_a_reason"},
+        headers=headers,
+    )
+
+    assert invalid_type_res.status_code == 400
+    assert invalid_type_res.get_json()["error"] == "invalid_skip_reason"
+    assert unsupported_res.status_code == 400
+    assert unsupported_res.get_json()["error"] == "unsupported_skip_reason"
 
 
 def test_linked_tiny_mission_completion_reward_sequence_saves_today(client):
