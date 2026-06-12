@@ -573,7 +573,7 @@ Success:
 
 `reward_sequence` is additive. Existing consumers can ignore it and continue reading `ok`, `mission`, `checkin`, and `checkin_status_code`.
 
-The `today_saved` step is included when the completed mission satisfies today: either a completed `main` mission or a completed linked `tiny` mission whose `parent_mission_id` points to a main mission. Parent main missions are not automatically marked done when a linked tiny mission is completed.
+The `today_saved` step is included only for the first completion that satisfies today: either a completed `main` mission or a completed linked `tiny` mission whose `parent_mission_id` points to a main mission. If today was already saved before the current completion, the backend does not repeat `today_saved`; it returns bonus/optional progress copy using supported reward step types. Parent main missions are not automatically marked done when a linked tiny mission is completed.
 
 Frontend `MissionCenter.vue` emits the returned payload to `Dashboard.vue`, which reloads dashboard data and shows RewardMoment from the returned check-in reward data.
 

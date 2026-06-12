@@ -280,7 +280,7 @@ Mission completion may return an additive `reward_sequence` array for frontend R
 - `today_saved`
 - `next_choice`
 
-The `today_saved` completion step should be included when the completed mission satisfies today: either a `main` mission or a linked `tiny` mission whose `parent_mission_id` points to a main mission. Completing a linked tiny mission must not automatically mark the parent main mission done unless a later compatibility plan explicitly changes that.
+The `today_saved` completion step should be included only for the first completion that satisfies today: either a `main` mission or a linked `tiny` mission whose `parent_mission_id` points to a main mission. If today was already saved before the current completion, the backend should not repeat the `today_saved` step and should return warm bonus/optional progress copy using frontend-supported step types. Completing a linked tiny mission must not automatically mark the parent main mission done unless a later compatibility plan explicitly changes that.
 
 Implementation guidance:
 
