@@ -64,6 +64,22 @@
             {{ focusMission.status === "skipped" ? t("missions.skipped") : t("missions.skip") }}
           </BaseButton>
         </div>
+
+        <div v-if="isReminderPanelOpen(focusMission)" class="remindOptionsPanel">
+          <p>{{ t("missions.remindOptions.prompt") }}</p>
+          <div class="remindOptions">
+            <BaseButton
+              v-for="option in reminderOptions"
+              :key="option.key"
+              variant="secondary"
+              :loading="isReminderOptionLoading(focusMission, option.key)"
+              :disabled="busyAction === 'remind' && busyId === focusMission.mission_id"
+              @click="selectReminderOption(focusMission, option)"
+            >
+              {{ option.label }}
+            </BaseButton>
+          </div>
+        </div>
       </div>
 
       <p v-if="todaySavedLabel" class="todaySaved">
@@ -197,6 +213,22 @@
             {{ focusMission.status === "skipped" ? t("missions.skipped") : t("missions.skip") }}
           </BaseButton>
         </div>
+
+        <div v-if="isReminderPanelOpen(focusMission)" class="remindOptionsPanel">
+          <p>{{ t("missions.remindOptions.prompt") }}</p>
+          <div class="remindOptions">
+            <BaseButton
+              v-for="option in reminderOptions"
+              :key="option.key"
+              variant="secondary"
+              :loading="isReminderOptionLoading(focusMission, option.key)"
+              :disabled="busyAction === 'remind' && busyId === focusMission.mission_id"
+              @click="selectReminderOption(focusMission, option)"
+            >
+              {{ option.label }}
+            </BaseButton>
+          </div>
+        </div>
       </div>
 
       <div class="missionGuideActions">
@@ -285,6 +317,22 @@
               {{ mission.status === "skipped" ? t("missions.skipped") : t("missions.skip") }}
             </BaseButton>
           </div>
+
+          <div v-if="isReminderPanelOpen(mission)" class="remindOptionsPanel">
+            <p>{{ t("missions.remindOptions.prompt") }}</p>
+            <div class="remindOptions">
+              <BaseButton
+                v-for="option in reminderOptions"
+                :key="option.key"
+                variant="secondary"
+                :loading="isReminderOptionLoading(mission, option.key)"
+                :disabled="busyAction === 'remind' && busyId === mission.mission_id"
+                @click="selectReminderOption(mission, option)"
+              >
+                {{ option.label }}
+              </BaseButton>
+            </div>
+          </div>
         </article>
       </div>
 
@@ -327,6 +375,8 @@ const dismissedCoachState = ref("");
 const ringoActionMessage = ref("");
 const manualFocusMissionId = ref(null);
 const showOtherMissions = ref(false);
+const reminderPanelMissionId = ref(null);
+const busyReminderOption = ref("");
 const rewardSequenceSteps = ref([]);
 const rewardSequenceSprite = ref("celebration");
 
@@ -345,6 +395,13 @@ const SUPPORTED_REWARD_STEP_TYPES = new Set([
   "today_saved",
   "next_choice",
 ]);
+
+const REMINDER_OPTION_KEYS = [
+  "fifteenMinutes",
+  "oneHour",
+  "evening",
+  "tonight",
+];
 
 const showPathSelection = computed(() => {
   return ["new_user_no_path", "path_selected_no_challenge"].includes(ringo.value?.state);
@@ -528,12 +585,20 @@ const coachActionPanel = computed(() => {
   );
 });
 
+const reminderOptions = computed(() => {
+  return REMINDER_OPTION_KEYS.map((key) => ({
+    key,
+    label: t(`missions.remindOptions.${key}`),
+  }));
+});
+
 async function loadMissions() {
   loading.value = true;
   error.value = "";
   ringoActionMessage.value = "";
   manualFocusMissionId.value = null;
   showOtherMissions.value = false;
+  reminderPanelMissionId.value = null;
 
   try {
     const [missionsResult, guidanceResult] = await Promise.allSettled([
@@ -575,20 +640,20 @@ async function loadMissions() {
   }
 }
 
-async function runMissionAction(mission, action, request) {
+async function runMissionAction(mission, action, request, options = {}) {
   busyId.value = mission.mission_id;
   busyAction.value = action;
   error.value = "";
 
   try {
     const { data } = await request();
-    notice.value = action === "done"
+    notice.value = options.successNotice || (action === "done"
       ? data?.checkin?.already_checked
         ? t("missions.alreadySecuredNotice")
         : t("missions.securedNotice")
       : action === "remind"
         ? t("missions.reminderNotice")
-        : t("missions.skipNotice");
+        : t("missions.skipNotice"));
     noticeType.value = action === "done"
       ? "success"
       : action === "remind"
@@ -620,6 +685,7 @@ async function runMissionAction(mission, action, request) {
   } finally {
     busyId.value = null;
     busyAction.value = "";
+    busyReminderOption.value = "";
   }
 }
 
@@ -632,7 +698,64 @@ function markDone(mission) {
 }
 
 function remindLater(mission) {
-  const reminderAt = new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString();
+  if (!mission || mission.status === "done" || mission.status === "remind_later") return null;
+
+  reminderPanelMissionId.value = mission.mission_id;
+  ringoActionMessage.value = "";
+  return focusMissionCard(mission);
+}
+
+function fallbackReminderAt() {
+  return new Date(Date.now() + 2 * 60 * 60 * 1000);
+}
+
+function reminderAtForOption(key) {
+  const now = new Date();
+
+  if (key === "fifteenMinutes") {
+    return new Date(now.getTime() + 15 * 60 * 1000);
+  }
+
+  if (key === "oneHour") {
+    return new Date(now.getTime() + 60 * 60 * 1000);
+  }
+
+  if (key === "evening" || key === "tonight") {
+    const target = new Date(now);
+    target.setHours(key === "evening" ? 18 : 21, 0, 0, 0);
+
+    return target > now ? target : fallbackReminderAt();
+  }
+
+  return fallbackReminderAt();
+}
+
+function isReminderPanelOpen(mission) {
+  return !!(
+    mission?.mission_id
+    && sameMissionId(reminderPanelMissionId.value, mission.mission_id)
+    && mission.status !== "done"
+    && mission.status !== "remind_later"
+  );
+}
+
+function isReminderOptionLoading(mission, key) {
+  return !!(
+    mission?.mission_id
+    && busyId.value === mission.mission_id
+    && busyAction.value === "remind"
+    && busyReminderOption.value === key
+  );
+}
+
+function selectReminderOption(mission, option) {
+  if (!mission) return null;
+
+  busyReminderOption.value = option?.key || "";
+  const reminderAt = reminderAtForOption(option?.key).toISOString();
+  const successNotice = option?.label
+    ? t("missions.remindOptions.confirmation", { time: option.label })
+    : t("missions.remindOptions.fallbackConfirmation");
 
   return runMissionAction(
     mission,
@@ -640,6 +763,7 @@ function remindLater(mission) {
     () => api.post(`/me/missions/${mission.mission_id}/remind-later`, {
       reminder_at: reminderAt,
     }),
+    { successNotice },
   );
 }
 
@@ -1183,6 +1307,33 @@ onMounted(loadMissions);
   align-items: center;
 }
 
+.remindOptionsPanel {
+  display: grid;
+  gap: var(--s-8);
+  margin-top: 4px;
+  padding: 11px;
+  border: 1px solid rgba(247, 215, 116, 0.22);
+  border-radius: 16px;
+  background: rgba(247, 215, 116, 0.065);
+}
+
+.missionItem .remindOptionsPanel {
+  grid-column: 1 / -1;
+}
+
+.remindOptionsPanel p {
+  margin: 0;
+  color: rgba(253, 230, 138, 0.95);
+  font-weight: 820;
+  line-height: 1.45;
+}
+
+.remindOptions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-8);
+}
+
 .missionGuideActions {
   display: flex;
   flex-wrap: wrap;
@@ -1344,6 +1495,7 @@ onMounted(loadMissions);
 
   .missionGuideActions :deep(.btn),
   .ringoActionChoices :deep(.btn),
+  .remindOptions :deep(.btn),
   .completedChoices :deep(.btn),
   .primaryMissionActions :deep(.btn),
   .missionListHead :deep(.btn),
