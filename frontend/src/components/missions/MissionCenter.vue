@@ -3,15 +3,15 @@
     <RingoRewardSequence
       :steps="rewardSequenceSteps"
       :sprite="rewardSequenceSprite"
-      @finish="rewardSequenceSteps = []"
+      @finish="finishRewardSequence"
     />
 
     <RingoCoach
       v-if="showCoach"
       :message="coachMessage"
       :sprite="guidanceRingo?.sprite_key || guidanceRingo?.mood || localizedRingo?.sprite_key || localizedRingo?.sprite"
-      :primary-action="localizedRingo?.primary_action"
-      :secondary-action="localizedRingo?.secondary_action"
+      :primary-action="coachPrimaryAction"
+      :secondary-action="coachSecondaryAction"
       @action="handleCoachAction"
     />
 
@@ -36,7 +36,7 @@
         </div>
         <strong>{{ focusMission.title }}</strong>
         <p>{{ focusMission.description }}</p>
-        <div class="missionActions primaryMissionActions">
+        <div v-if="!isTodaySaved" class="missionActions primaryMissionActions">
           <BaseButton
             variant="primary"
             :loading="busyId === focusMission.mission_id && busyAction === 'done'"
@@ -67,12 +67,35 @@
       </div>
 
       <p v-if="todaySavedLabel" class="todaySaved">
-        {{ todaySavedLabel }}
+        <strong>{{ todaySavedLabel }}</strong>
+        <span>{{ t("missions.todaySavedBody") }}</span>
       </p>
 
       <p v-if="ringoActionMessage" class="ringoActionHint">
         {{ ringoActionMessage }}
       </p>
+
+      <div v-if="isTodaySaved" class="completedChoices">
+        <RouterLink
+          v-if="focusMission?.enrollment_id"
+          class="missionGuideLink"
+          :to="`/enrollment/${focusMission.enrollment_id}`"
+        >
+          {{ t("missions.detailsCta") }}
+        </RouterLink>
+
+        <BaseButton
+          v-if="otherMissions.length"
+          variant="secondary"
+          @click="showOtherMissions = true"
+        >
+          {{ t("missions.showOtherMissions", { count: otherMissions.length }) }}
+        </BaseButton>
+
+        <BaseButton variant="secondary" @click="finishForToday">
+          {{ t("missions.finishForToday") }}
+        </BaseButton>
+      </div>
 
       <div v-if="guidanceActions.length" class="ringoActionChoices" :aria-label="t('missions.ringoActions.label')">
         <BaseButton
@@ -146,7 +169,7 @@
         </div>
         <strong>{{ focusMission.title }}</strong>
         <p>{{ focusMission.description }}</p>
-        <div class="missionActions primaryMissionActions">
+        <div v-if="!isTodaySaved" class="missionActions primaryMissionActions">
           <BaseButton
             variant="primary"
             :loading="busyId === focusMission.mission_id && busyAction === 'done'"
@@ -178,7 +201,7 @@
 
       <div class="missionGuideActions">
         <BaseButton
-          v-if="!missionGuide.complete && focusMission && !guidanceActions.length"
+          v-if="!missionGuide.complete && !isTodaySaved && focusMission && !guidanceActions.length"
           variant="primary"
           @click="focusMissionCard(focusMission)"
         >
@@ -266,7 +289,7 @@
       </div>
 
       <p v-else class="otherMissionHint">
-        {{ t("missions.otherHint", { count: otherMissions.length }) }}
+        {{ t(isTodaySaved ? "missions.optionalOtherHint" : "missions.otherHint", { count: otherMissions.length }) }}
       </p>
     </BaseCard>
   </section>
@@ -338,9 +361,21 @@ const preferLocalizedRingo = computed(() => {
 });
 
 const coachMessage = computed(() => {
-  return preferLocalizedRingo.value
-    ? localizedRingo.value?.message || guidanceRingo.value?.message
-    : guidanceRingo.value?.message || localizedRingo.value?.message;
+  return guidanceRingo.value?.message || localizedRingo.value?.message;
+});
+
+const hasRingoGuidance = computed(() => !!guidanceRingo.value);
+
+const coachPrimaryAction = computed(() => {
+  if (hasRingoGuidance.value || isTodaySaved.value) return null;
+
+  return localizedRingo.value?.primary_action || null;
+});
+
+const coachSecondaryAction = computed(() => {
+  if (hasRingoGuidance.value || isTodaySaved.value) return null;
+
+  return localizedRingo.value?.secondary_action || null;
 });
 
 const guidanceMission = computed(() => {
@@ -414,6 +449,15 @@ const missionGuide = computed(() => {
     };
   }
 
+  if (isTodaySaved.value) {
+    return {
+      complete: true,
+      state: "complete",
+      title: t("missions.guideSavedTitle", context),
+      body: t("missions.guideSavedBody", context),
+    };
+  }
+
   if (!hasPending && hasSkipped) {
     return {
       complete: false,
@@ -446,12 +490,14 @@ const todaySavedLabel = computed(() => {
   return t("missions.todaySaved");
 });
 
+const isTodaySaved = computed(() => Boolean(ringoGuidance.value?.progress?.today_saved));
+
 const guidanceActions = computed(() => {
   const actions = Array.isArray(ringoGuidance.value?.actions)
     ? ringoGuidance.value.actions
     : [];
 
-  if (!actions.length || !focusMission.value || missionGuide.value?.complete) {
+  if (!actions.length || !focusMission.value || missionGuide.value?.complete || isTodaySaved.value) {
     return [];
   }
 
@@ -658,6 +704,16 @@ function buildRewardSequence(data, mission) {
   });
 
   return steps;
+}
+
+function finishRewardSequence() {
+  rewardSequenceSteps.value = [];
+  showOtherMissions.value = false;
+}
+
+function finishForToday() {
+  showOtherMissions.value = false;
+  ringoActionMessage.value = t("missions.finishedForTodayMessage");
 }
 
 function guidanceActionLabel(action) {
@@ -1026,6 +1082,8 @@ onMounted(loadMissions);
 }
 
 .todaySaved {
+  display: grid;
+  gap: 4px;
   margin: 0;
   padding: 11px 13px;
   border: 1px solid rgba(74, 222, 128, 0.24);
@@ -1033,6 +1091,24 @@ onMounted(loadMissions);
   color: rgba(187, 247, 208, 0.96);
   background: rgba(74, 222, 128, 0.075);
   font-weight: 850;
+}
+
+.todaySaved strong,
+.todaySaved span {
+  min-width: 0;
+}
+
+.todaySaved span {
+  color: rgba(220, 252, 231, 0.74);
+  font-weight: 700;
+  line-height: 1.5;
+}
+
+.completedChoices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-8);
+  align-items: center;
 }
 
 .ringoActionHint {
@@ -1214,9 +1290,11 @@ onMounted(loadMissions);
 
   .missionGuideActions :deep(.btn),
   .ringoActionChoices :deep(.btn),
+  .completedChoices :deep(.btn),
   .primaryMissionActions :deep(.btn),
   .missionListHead :deep(.btn),
-  .missionGuideLink {
+  .missionGuideLink,
+  .completedChoices .missionGuideLink {
     width: 100%;
   }
 
