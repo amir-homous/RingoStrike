@@ -300,7 +300,10 @@
       <div class="missionListHead">
         <div>
           <p class="eyebrow compact">{{ t("missions.otherEyebrow") }}</p>
-          <h2>{{ t("missions.otherTitle") }}</h2>
+          <h2>{{ t(isTodaySaved ? "missions.optionalOtherTitle" : "missions.otherTitle") }}</h2>
+          <p v-if="isTodaySaved" class="otherMissionContext">
+            {{ t("missions.optionalOtherContext") }}
+          </p>
         </div>
         <BaseButton
           variant="secondary"
@@ -552,12 +555,16 @@ const focusMission = computed(() => {
 
 const focusMissionIntensity = computed(() => buildMissionIntensityMeta(focusMission.value));
 
-const otherMissions = computed(() => {
+const rawOtherMissions = computed(() => {
   if (!focusMission.value?.mission_id) return localizedMissions.value;
 
   return localizedMissions.value.filter((mission) => {
     return !sameMissionId(mission.mission_id, focusMission.value.mission_id);
   });
+});
+
+const otherMissions = computed(() => {
+  return rawOtherMissions.value.filter(shouldShowOtherMission);
 });
 
 const missionGuide = computed(() => {
@@ -1098,6 +1105,32 @@ function buildMissionIntensityMeta(mission) {
     label: t(`missions.intensity.${intensity}`),
     detail: detailParts.filter(Boolean).join(" · "),
   };
+}
+
+function parentMissionFor(mission) {
+  if (!mission?.parent_mission_id) return null;
+
+  return localizedMissions.value.find((item) => {
+    return sameMissionId(item.mission_id, mission.parent_mission_id);
+  }) || null;
+}
+
+function shouldShowOtherMission(mission) {
+  if (!mission?.mission_id) return false;
+  if (sameMissionId(mission.mission_id, focusMission.value?.mission_id)) return true;
+
+  const intensity = normalizedMissionIntensity(mission);
+  const parentMission = parentMissionFor(mission);
+
+  if (intensity === "tiny" && parentMission && missionHasStatus(parentMission, "done")) {
+    return false;
+  }
+
+  if (intensity === "bonus" && parentMission && missionHasStatus(parentMission, "skipped", "remind_later")) {
+    return false;
+  }
+
+  return true;
 }
 
 function normalizedMissionStatus(status) {
@@ -1649,6 +1682,13 @@ onMounted(loadMissions);
 .missionListHead > span {
   color: var(--muted2);
   font-size: var(--cap);
+}
+
+.otherMissionContext {
+  margin-top: 6px;
+  max-width: 620px;
+  color: rgba(255, 255, 255, 0.62);
+  line-height: 1.5;
 }
 
 .otherMissionHint {
