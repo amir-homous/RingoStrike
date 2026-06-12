@@ -110,6 +110,49 @@
         {{ ringoActionMessage }}
       </p>
 
+      <section v-if="isTodaySaved && optionalNextMission" class="optionalNextStep">
+        <div class="optionalNextCopy">
+          <p class="eyebrow compact">{{ t("missions.optionalNextEyebrow") }}</p>
+          <h3>{{ t("missions.optionalNextTitle") }}</h3>
+          <p>{{ t("missions.optionalNextBody") }}</p>
+        </div>
+
+        <div class="optionalNextMission">
+          <div
+            v-if="optionalNextMissionIntensity"
+            class="missionIntensity"
+            :class="optionalNextMissionIntensity.intensity"
+          >
+            <span>{{ optionalNextMissionIntensity.label }}</span>
+            <small v-if="optionalNextMissionIntensity.detail">
+              {{ optionalNextMissionIntensity.detail }}
+            </small>
+          </div>
+          <strong>{{ optionalNextMission.title }}</strong>
+          <p>{{ optionalNextMission.description }}</p>
+          <small v-if="optionalNextMission.challenge_name" class="missionStatusCopy">
+            {{ optionalNextMission.challenge_name }}
+          </small>
+        </div>
+
+        <div class="optionalNextActions">
+          <BaseButton variant="secondary" @click="focusOptionalNextMission(optionalNextMission)">
+            {{ t("missions.optionalNextFocusCta") }}
+          </BaseButton>
+          <BaseButton
+            variant="secondary"
+            :loading="busyId === optionalNextMission.mission_id && busyAction === 'remind'"
+            :disabled="missionHasStatus(optionalNextMission, 'remind_later')"
+            @click="remindOptionalNextMission(optionalNextMission)"
+          >
+            {{ t("missions.remindLater") }}
+          </BaseButton>
+          <BaseButton variant="secondary" @click="finishForToday">
+            {{ t("missions.finishForToday") }}
+          </BaseButton>
+        </div>
+      </section>
+
       <div v-if="isTodaySaved" class="completedChoices">
         <RouterLink
           v-if="focusMission?.enrollment_id"
@@ -319,7 +362,13 @@
           :key="mission.mission_id"
           :id="`mission-${mission.mission_id}`"
           class="missionItem"
-          :class="[normalizedMissionStatus(mission.status), { focus: focusMission?.mission_id === mission.mission_id }]"
+          :class="[
+            normalizedMissionStatus(mission.status),
+            {
+              focus: focusMission?.mission_id === mission.mission_id,
+              optionalNext: optionalNextMission && sameMissionId(optionalNextMission.mission_id, mission.mission_id),
+            },
+          ]"
         >
           <div>
             <p class="missionMeta">
@@ -566,6 +615,24 @@ const rawOtherMissions = computed(() => {
 const otherMissions = computed(() => {
   return rawOtherMissions.value.filter(shouldShowOtherMission);
 });
+
+const optionalNextMission = computed(() => {
+  if (!isTodaySaved.value) return null;
+
+  const candidates = otherMissions.value.filter((mission) => {
+    return missionHasStatus(mission, "pending");
+  });
+
+  if (!candidates.length) return null;
+
+  const focusChallengeId = focusMission.value?.challenge_id;
+
+  return [...candidates].sort((a, b) => {
+    return optionalMissionRank(a, focusChallengeId) - optionalMissionRank(b, focusChallengeId);
+  })[0];
+});
+
+const optionalNextMissionIntensity = computed(() => buildMissionIntensityMeta(optionalNextMission.value));
 
 const missionGuide = computed(() => {
   if (!localizedMissions.value.length || !focusMission.value) return null;
@@ -1054,6 +1121,20 @@ function finishForToday() {
   ringoActionMessage.value = t("missions.finishedForTodayMessage");
 }
 
+function focusOptionalNextMission(mission) {
+  if (!mission) return null;
+
+  showOtherMissions.value = true;
+  return focusMissionCard(mission);
+}
+
+function remindOptionalNextMission(mission) {
+  if (!mission) return null;
+
+  showOtherMissions.value = true;
+  return remindLater(mission);
+}
+
 function guidanceActionLabel(action) {
   return t(`missions.ringoActions.${action.type}`);
 }
@@ -1131,6 +1212,19 @@ function shouldShowOtherMission(mission) {
   }
 
   return true;
+}
+
+function optionalMissionRank(mission, focusChallengeId) {
+  const intensity = normalizedMissionIntensity(mission);
+  const isDifferentChallenge = !sameMissionId(mission?.challenge_id, focusChallengeId);
+
+  if (intensity === "main" && isDifferentChallenge) return 0;
+  if (intensity === "main") return 1;
+  if (intensity === "bonus" && isDifferentChallenge) return 2;
+  if (intensity === "bonus") return 3;
+  if (isDifferentChallenge) return 4;
+
+  return 5;
 }
 
 function normalizedMissionStatus(status) {
@@ -1547,6 +1641,57 @@ onMounted(loadMissions);
   align-items: center;
 }
 
+.optionalNextStep {
+  display: grid;
+  gap: var(--s-10);
+  padding: 12px;
+  border: 1px solid rgba(247, 215, 116, 0.18);
+  border-radius: 18px;
+  background: rgba(247, 215, 116, 0.055);
+}
+
+.optionalNextCopy h3,
+.optionalNextCopy p,
+.optionalNextMission p {
+  margin: 0;
+}
+
+.optionalNextCopy h3 {
+  color: rgba(255, 255, 255, 0.94);
+  font-size: 1rem;
+}
+
+.optionalNextCopy p:not(.eyebrow) {
+  margin-top: 5px;
+  color: rgba(255, 255, 255, 0.66);
+  line-height: 1.55;
+}
+
+.optionalNextMission {
+  display: grid;
+  gap: 6px;
+  padding: 11px;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  border-radius: 16px;
+  background: rgba(5, 10, 18, 0.20);
+}
+
+.optionalNextMission strong {
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.optionalNextMission p {
+  color: rgba(255, 255, 255, 0.66);
+  line-height: 1.5;
+}
+
+.optionalNextActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-8);
+  align-items: center;
+}
+
 .ringoActionHint {
   margin: 0;
   padding: 11px 13px;
@@ -1732,6 +1877,10 @@ onMounted(loadMissions);
   box-shadow: 0 0 0 1px rgba(247, 215, 116, 0.05), 0 18px 45px rgba(0, 0, 0, 0.16);
 }
 
+.missionItem.optionalNext {
+  border-color: rgba(247, 215, 116, 0.24);
+}
+
 .missionItem.remind_later {
   border-color: rgba(247, 215, 116, 0.24);
   background: rgba(247, 215, 116, 0.055);
@@ -1784,6 +1933,7 @@ onMounted(loadMissions);
   .remindOptions :deep(.btn),
   .skipReasons :deep(.btn),
   .completedChoices :deep(.btn),
+  .optionalNextActions :deep(.btn),
   .primaryMissionActions :deep(.btn),
   .missionListHead :deep(.btn),
   .missionGuideLink,
