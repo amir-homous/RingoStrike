@@ -338,6 +338,14 @@ const SUPPORTED_GUIDANCE_ACTIONS = new Set([
   "skip_today",
 ]);
 
+const SUPPORTED_REWARD_STEP_TYPES = new Set([
+  "ringo_message",
+  "mission_completed",
+  "xp_earned",
+  "today_saved",
+  "next_choice",
+]);
+
 const showPathSelection = computed(() => {
   return ["new_user_no_path", "path_selected_no_challenge"].includes(ringo.value?.state);
 });
@@ -643,23 +651,69 @@ function skipMission(mission) {
   );
 }
 
-function backendRewardSequenceSteps(data) {
+function rewardStepFallbackTitle(type, mission) {
+  const titleMap = {
+    ringo_message: "ringoTitle",
+    mission_completed: "missionFallback",
+    xp_earned: "xpTitle",
+    today_saved: "todaySavedTitle",
+    next_choice: "nextTitle",
+  };
+
+  if (type === "mission_completed") {
+    return mission?.title || t("ringoRewardSequence.local.missionFallback");
+  }
+
+  return t(`ringoRewardSequence.local.${titleMap[type] || "missionFallback"}`);
+}
+
+function rewardStepFallbackText(type) {
+  const textMap = {
+    ringo_message: "ringoText",
+    mission_completed: "missionText",
+    today_saved: "todaySavedText",
+    next_choice: "nextText",
+  };
+
+  return textMap[type] ? t(`ringoRewardSequence.local.${textMap[type]}`) : "";
+}
+
+function rewardStepValue(step) {
+  if (step?.value !== undefined && step?.value !== null && String(step.value).trim()) {
+    return String(step.value);
+  }
+
+  const amount = Number(step?.amount);
+  if (Number.isFinite(amount) && amount > 0) {
+    return t("ringoRewardSequence.local.xpValue", { count: amount });
+  }
+
+  return "";
+}
+
+function backendRewardSequenceSteps(data, mission) {
   const sequence = data?.reward_sequence;
   if (!Array.isArray(sequence)) return [];
 
   return sequence
-    .filter((step) => step && typeof step === "object")
+    .filter((step) => {
+      return step && typeof step === "object" && SUPPORTED_REWARD_STEP_TYPES.has(step.type);
+    })
     .map((step) => ({
-      type: step.type || "default",
-      title: step.title || step.text || "",
-      text: step.description || step.message || "",
-      value: step.amount !== undefined ? String(step.amount) : "",
+      type: step.type,
+      label: step.label ? String(step.label) : "",
+      title: step.title ? String(step.title) : rewardStepFallbackTitle(step.type, mission),
+      text: step.text || step.description || step.message
+        ? String(step.text || step.description || step.message)
+        : rewardStepFallbackText(step.type),
+      value: rewardStepValue(step),
       sprite: step.mood || step.sprite_key,
-    }));
+    }))
+    .filter((step) => step.title || step.text || step.value);
 }
 
 function buildRewardSequence(data, mission) {
-  const backendSteps = backendRewardSequenceSteps(data);
+  const backendSteps = backendRewardSequenceSteps(data, mission);
   if (backendSteps.length) return backendSteps;
 
   const completedMission = data?.mission || {};
