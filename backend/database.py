@@ -168,6 +168,7 @@ def init_db():
         date TEXT NOT NULL,
         status TEXT CHECK(status IN ('pending', 'done', 'skipped', 'remind_later')) DEFAULT 'pending',
         reminder_at TEXT,
+        skip_reason TEXT,
         notes TEXT,
         xp_earned INTEGER NOT NULL DEFAULT 0,
         created_at TEXT NOT NULL DEFAULT (datetime('now')),
@@ -179,6 +180,8 @@ def init_db():
         FOREIGN KEY(mission_id) REFERENCES missions(id) ON DELETE CASCADE
     )
     """)
+
+    _add_column_if_missing(c, "mission_logs", "skip_reason", "skip_reason TEXT")
 
     c.execute("""
     CREATE TABLE IF NOT EXISTS user_paths (

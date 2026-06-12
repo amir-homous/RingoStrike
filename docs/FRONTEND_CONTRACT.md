@@ -600,7 +600,15 @@ Success returns the same `mission` shape as mission done with `status: "remind_l
 
 Auth: required.
 
-Marks the mission skipped for today and returns the same `mission` shape with `status: "skipped"`. It does not call check-in.
+Request may be empty or may include an optional stable reason key:
+
+```json
+{ "reason": "too_tired" }
+```
+
+Supported reason keys are `too_tired`, `no_time`, `too_hard`, `not_relevant`, `disliked`, and `other`. If provided, `reason` must be a string, is trimmed, and is length-limited.
+
+Marks the mission skipped for today and returns the same `mission` shape with `status: "skipped"` plus `skip_reason` when available. It does not call check-in.
 
 ## Enrollment, Check-ins, History, Leaderboard
 

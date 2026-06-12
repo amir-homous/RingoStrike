@@ -55,5 +55,14 @@ def mission_remind_later_route(claims, mission_id):
 @mission_bp.post("/me/missions/<int:mission_id>/skip")
 @require_auth()
 def mission_skip_route(claims, mission_id):
-    payload, code = skip_mission(int(claims["user_id"]), mission_id)
+    body, payload_error = parse_json_object_payload(request)
+
+    if payload_error:
+        return error_response(payload_error, 400)
+
+    payload, code = skip_mission(
+        int(claims["user_id"]),
+        mission_id,
+        reason=body.get("reason"),
+    )
     return service_response(payload, code)
