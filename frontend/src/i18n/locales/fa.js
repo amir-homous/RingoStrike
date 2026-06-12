@@ -217,6 +217,10 @@ export default {
     ringoSuggestedMission: "مأموریت پیشنهادی رینگو",
     todaySaved: "امروزت نجات پیدا کرد.",
     todaySavedBody: "می‌تونی همین‌جا متوقف بشی. هر چیز دیگه‌ای اختیاریه.",
+    optionalNextEyebrow: "قدم اختیاری بعدی",
+    optionalNextTitle: "فقط اگر انرژی بیشتری می‌خوای",
+    optionalNextBody: "امروزت به اندازه کافی جلو رفته. رینگو می‌تونه یک مأموریت اضافه آماده نگه داره، اما لازم نیست انجامش بدی.",
+    optionalNextFocusCta: "دیدن مأموریت اختیاری",
     finishForToday: "امروز رو تمام کن",
     finishedForTodayMessage: "باشه. امروز رو آروم و کامل رها می‌کنیم. فردا برای قدم کوچک بعدی برگرد.",
     intensity: {

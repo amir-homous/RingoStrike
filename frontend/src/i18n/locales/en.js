@@ -217,6 +217,10 @@ export default {
     ringoSuggestedMission: "Ringo’s suggested mission",
     todaySaved: "Today is safe.",
     todaySavedBody: "You can stop here. Anything else is optional.",
+    optionalNextEyebrow: "Optional next step",
+    optionalNextTitle: "Only if you want more momentum",
+    optionalNextBody: "You already did enough today. Ringo can keep one extra mission ready, but it is not required.",
+    optionalNextFocusCta: "View optional mission",
     finishForToday: "Finish for today",
     finishedForTodayMessage: "Okay. We’ll leave today calm and complete. Come back tomorrow for the next small step.",
     intensity: {
