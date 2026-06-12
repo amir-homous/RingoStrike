@@ -80,6 +80,22 @@
             </BaseButton>
           </div>
         </div>
+
+        <div v-if="isSkipReasonPanelOpen(focusMission)" class="skipReasonPanel">
+          <p>{{ t("missions.skipReasons.prompt") }}</p>
+          <div class="skipReasons">
+            <BaseButton
+              v-for="reason in skipReasonOptions"
+              :key="reason.key"
+              variant="secondary"
+              :loading="isSkipReasonLoading(focusMission, reason.key)"
+              :disabled="busyAction === 'skip' && busyId === focusMission.mission_id"
+              @click="selectSkipReason(focusMission, reason)"
+            >
+              {{ reason.label }}
+            </BaseButton>
+          </div>
+        </div>
       </div>
 
       <p v-if="todaySavedLabel" class="todaySaved">
@@ -229,6 +245,22 @@
             </BaseButton>
           </div>
         </div>
+
+        <div v-if="isSkipReasonPanelOpen(focusMission)" class="skipReasonPanel">
+          <p>{{ t("missions.skipReasons.prompt") }}</p>
+          <div class="skipReasons">
+            <BaseButton
+              v-for="reason in skipReasonOptions"
+              :key="reason.key"
+              variant="secondary"
+              :loading="isSkipReasonLoading(focusMission, reason.key)"
+              :disabled="busyAction === 'skip' && busyId === focusMission.mission_id"
+              @click="selectSkipReason(focusMission, reason)"
+            >
+              {{ reason.label }}
+            </BaseButton>
+          </div>
+        </div>
       </div>
 
       <div class="missionGuideActions">
@@ -333,6 +365,22 @@
               </BaseButton>
             </div>
           </div>
+
+          <div v-if="isSkipReasonPanelOpen(mission)" class="skipReasonPanel">
+            <p>{{ t("missions.skipReasons.prompt") }}</p>
+            <div class="skipReasons">
+              <BaseButton
+                v-for="reason in skipReasonOptions"
+                :key="reason.key"
+                variant="secondary"
+                :loading="isSkipReasonLoading(mission, reason.key)"
+                :disabled="busyAction === 'skip' && busyId === mission.mission_id"
+                @click="selectSkipReason(mission, reason)"
+              >
+                {{ reason.label }}
+              </BaseButton>
+            </div>
+          </div>
         </article>
       </div>
 
@@ -377,6 +425,8 @@ const manualFocusMissionId = ref(null);
 const showOtherMissions = ref(false);
 const reminderPanelMissionId = ref(null);
 const busyReminderOption = ref("");
+const skipReasonPanelMissionId = ref(null);
+const busySkipReason = ref("");
 const rewardSequenceSteps = ref([]);
 const rewardSequenceSprite = ref("celebration");
 
@@ -401,6 +451,16 @@ const REMINDER_OPTION_KEYS = [
   "oneHour",
   "evening",
   "tonight",
+];
+
+const SKIP_REASON_KEYS = [
+  "tooTired",
+  "noTime",
+  "tooHard",
+  "notRelevant",
+  "dontLike",
+  "other",
+  "withoutReason",
 ];
 
 const showPathSelection = computed(() => {
@@ -592,6 +652,13 @@ const reminderOptions = computed(() => {
   }));
 });
 
+const skipReasonOptions = computed(() => {
+  return SKIP_REASON_KEYS.map((key) => ({
+    key,
+    label: t(`missions.skipReasons.${key}`),
+  }));
+});
+
 async function loadMissions() {
   loading.value = true;
   error.value = "";
@@ -599,6 +666,7 @@ async function loadMissions() {
   manualFocusMissionId.value = null;
   showOtherMissions.value = false;
   reminderPanelMissionId.value = null;
+  skipReasonPanelMissionId.value = null;
 
   try {
     const [missionsResult, guidanceResult] = await Promise.allSettled([
@@ -686,6 +754,7 @@ async function runMissionAction(mission, action, request, options = {}) {
     busyId.value = null;
     busyAction.value = "";
     busyReminderOption.value = "";
+    busySkipReason.value = "";
   }
 }
 
@@ -701,6 +770,7 @@ function remindLater(mission) {
   if (!mission || mission.status === "done" || mission.status === "remind_later") return null;
 
   reminderPanelMissionId.value = mission.mission_id;
+  skipReasonPanelMissionId.value = null;
   ringoActionMessage.value = "";
   return focusMissionCard(mission);
 }
@@ -768,10 +838,45 @@ function selectReminderOption(mission, option) {
 }
 
 function skipMission(mission) {
+  if (!mission || mission.status === "done" || mission.status === "skipped") return null;
+
+  skipReasonPanelMissionId.value = mission.mission_id;
+  reminderPanelMissionId.value = null;
+  ringoActionMessage.value = "";
+  return focusMissionCard(mission);
+}
+
+function isSkipReasonPanelOpen(mission) {
+  return !!(
+    mission?.mission_id
+    && sameMissionId(skipReasonPanelMissionId.value, mission.mission_id)
+    && mission.status !== "done"
+    && mission.status !== "skipped"
+  );
+}
+
+function isSkipReasonLoading(mission, key) {
+  return !!(
+    mission?.mission_id
+    && busyId.value === mission.mission_id
+    && busyAction.value === "skip"
+    && busySkipReason.value === key
+  );
+}
+
+function selectSkipReason(mission, reason) {
+  if (!mission) return null;
+
+  busySkipReason.value = reason?.key || "";
+  const successNotice = reason?.key && reason.key !== "withoutReason"
+    ? t("missions.skipReasons.confirmationWithReason", { reason: reason.label })
+    : t("missions.skipReasons.confirmationWithoutReason");
+
   return runMissionAction(
     mission,
     "skip",
     () => api.post(`/me/missions/${mission.mission_id}/skip`, {}),
+    { successNotice },
   );
 }
 
@@ -1334,6 +1439,33 @@ onMounted(loadMissions);
   gap: var(--s-8);
 }
 
+.skipReasonPanel {
+  display: grid;
+  gap: var(--s-8);
+  margin-top: 4px;
+  padding: 11px;
+  border: 1px solid rgba(255, 255, 255, 0.13);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.045);
+}
+
+.missionItem .skipReasonPanel {
+  grid-column: 1 / -1;
+}
+
+.skipReasonPanel p {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.76);
+  font-weight: 780;
+  line-height: 1.45;
+}
+
+.skipReasons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-8);
+}
+
 .missionGuideActions {
   display: flex;
   flex-wrap: wrap;
@@ -1496,6 +1628,7 @@ onMounted(loadMissions);
   .missionGuideActions :deep(.btn),
   .ringoActionChoices :deep(.btn),
   .remindOptions :deep(.btn),
+  .skipReasons :deep(.btn),
   .completedChoices :deep(.btn),
   .primaryMissionActions :deep(.btn),
   .missionListHead :deep(.btn),
