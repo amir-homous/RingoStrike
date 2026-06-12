@@ -13,7 +13,7 @@
           <img v-if="resolvedSprite.src" :src="resolvedSprite.src" :alt="resolvedSprite.key" />
         </div>
 
-        <div class="rewardStep">
+        <div class="rewardStep" :class="currentStep.type || 'default'">
           <span class="stepType">{{ stepLabel }}</span>
           <h2>{{ stepTitle }}</h2>
           <p v-if="stepText">{{ stepText }}</p>
@@ -56,10 +56,15 @@ const currentIndex = ref(0);
 const currentStep = computed(() => props.steps[currentIndex.value] || {});
 const isLastStep = computed(() => currentIndex.value >= props.steps.length - 1);
 const resolvedSprite = computed(() => resolveRingoSprite(currentStep.value.sprite || props.sprite));
+
 const stepLabel = computed(() => {
   return currentStep.value.label || t(`ringoRewardSequence.types.${currentStep.value.type || "default"}`);
 });
-const stepTitle = computed(() => currentStep.value.title || t("ringoRewardSequence.fallbackTitle"));
+
+const stepTitle = computed(() => {
+  return currentStep.value.title || t("ringoRewardSequence.fallbackTitle");
+});
+
 const stepText = computed(() => currentStep.value.text || "");
 const stepValue = computed(() => currentStep.value.value || "");
 
