@@ -36,11 +36,14 @@
         </div>
         <strong>{{ focusMission.title }}</strong>
         <p>{{ focusMission.description }}</p>
+        <small v-if="missionStatusCopy(focusMission)" class="missionStatusCopy">
+          {{ missionStatusCopy(focusMission) }}
+        </small>
         <div v-if="!isTodaySaved" class="missionActions primaryMissionActions">
           <BaseButton
             variant="primary"
             :loading="busyId === focusMission.mission_id && busyAction === 'done'"
-            :disabled="focusMission.status === 'done'"
+            :disabled="missionHasStatus(focusMission, 'done')"
             @click="markDone(focusMission)"
           >
             {{ t("missions.doneCta") }}
@@ -49,19 +52,19 @@
           <BaseButton
             variant="secondary"
             :loading="busyId === focusMission.mission_id && busyAction === 'remind'"
-            :disabled="focusMission.status === 'done' || focusMission.status === 'remind_later'"
+            :disabled="missionHasStatus(focusMission, 'done', 'remind_later')"
             @click="remindLater(focusMission)"
           >
-            {{ focusMission.status === "remind_later" ? t("missions.reminderSet") : t("missions.remindLater") }}
+            {{ missionHasStatus(focusMission, "remind_later") ? t("missions.reminderSet") : t("missions.remindLater") }}
           </BaseButton>
 
           <BaseButton
             variant="secondary"
             :loading="busyId === focusMission.mission_id && busyAction === 'skip'"
-            :disabled="focusMission.status === 'done' || focusMission.status === 'skipped'"
+            :disabled="missionHasStatus(focusMission, 'done', 'skipped')"
             @click="skipMission(focusMission)"
           >
-            {{ focusMission.status === "skipped" ? t("missions.skipped") : t("missions.skip") }}
+            {{ missionHasStatus(focusMission, "skipped") ? t("missions.skipped") : t("missions.skip") }}
           </BaseButton>
         </div>
 
@@ -201,11 +204,14 @@
         </div>
         <strong>{{ focusMission.title }}</strong>
         <p>{{ focusMission.description }}</p>
+        <small v-if="missionStatusCopy(focusMission)" class="missionStatusCopy">
+          {{ missionStatusCopy(focusMission) }}
+        </small>
         <div v-if="!isTodaySaved" class="missionActions primaryMissionActions">
           <BaseButton
             variant="primary"
             :loading="busyId === focusMission.mission_id && busyAction === 'done'"
-            :disabled="focusMission.status === 'done'"
+            :disabled="missionHasStatus(focusMission, 'done')"
             @click="markDone(focusMission)"
           >
             {{ t("missions.doneCta") }}
@@ -214,19 +220,19 @@
           <BaseButton
             variant="secondary"
             :loading="busyId === focusMission.mission_id && busyAction === 'remind'"
-            :disabled="focusMission.status === 'done' || focusMission.status === 'remind_later'"
+            :disabled="missionHasStatus(focusMission, 'done', 'remind_later')"
             @click="remindLater(focusMission)"
           >
-            {{ focusMission.status === "remind_later" ? t("missions.reminderSet") : t("missions.remindLater") }}
+            {{ missionHasStatus(focusMission, "remind_later") ? t("missions.reminderSet") : t("missions.remindLater") }}
           </BaseButton>
 
           <BaseButton
             variant="secondary"
             :loading="busyId === focusMission.mission_id && busyAction === 'skip'"
-            :disabled="focusMission.status === 'done' || focusMission.status === 'skipped'"
+            :disabled="missionHasStatus(focusMission, 'done', 'skipped')"
             @click="skipMission(focusMission)"
           >
-            {{ focusMission.status === "skipped" ? t("missions.skipped") : t("missions.skip") }}
+            {{ missionHasStatus(focusMission, "skipped") ? t("missions.skipped") : t("missions.skip") }}
           </BaseButton>
         </div>
 
@@ -310,22 +316,24 @@
           :key="mission.mission_id"
           :id="`mission-${mission.mission_id}`"
           class="missionItem"
-          :class="[mission.status, { focus: focusMission?.mission_id === mission.mission_id }]"
+          :class="[normalizedMissionStatus(mission.status), { focus: focusMission?.mission_id === mission.mission_id }]"
         >
           <div>
             <p class="missionMeta">
-              {{ mission.challenge_name }} · {{ t(`missions.status.${mission.status}`) }}
+              {{ mission.challenge_name }} · {{ missionStatusLabel(mission) }}
             </p>
             <h3>{{ mission.title }}</h3>
             <p>{{ mission.description }}</p>
-            <small v-if="mission.ringo_message">{{ mission.ringo_message }}</small>
+            <small v-if="missionStatusCopy(mission)" class="missionStatusCopy">
+              {{ missionStatusCopy(mission) }}
+            </small>
           </div>
 
           <div class="missionActions">
             <BaseButton
               variant="primary"
               :loading="busyId === mission.mission_id && busyAction === 'done'"
-              :disabled="mission.status === 'done'"
+              :disabled="missionHasStatus(mission, 'done')"
               @click="markDone(mission)"
             >
               {{ t("missions.doneCta") }}
@@ -334,19 +342,19 @@
             <BaseButton
               variant="secondary"
               :loading="busyId === mission.mission_id && busyAction === 'remind'"
-              :disabled="mission.status === 'done' || mission.status === 'remind_later'"
+              :disabled="missionHasStatus(mission, 'done', 'remind_later')"
               @click="remindLater(mission)"
             >
-              {{ mission.status === "remind_later" ? t("missions.reminderSet") : t("missions.remindLater") }}
+              {{ missionHasStatus(mission, "remind_later") ? t("missions.reminderSet") : t("missions.remindLater") }}
             </BaseButton>
 
             <BaseButton
               variant="secondary"
               :loading="busyId === mission.mission_id && busyAction === 'skip'"
-              :disabled="mission.status === 'done' || mission.status === 'skipped'"
+              :disabled="missionHasStatus(mission, 'done', 'skipped')"
               @click="skipMission(mission)"
             >
-              {{ mission.status === "skipped" ? t("missions.skipped") : t("missions.skip") }}
+              {{ missionHasStatus(mission, "skipped") ? t("missions.skipped") : t("missions.skip") }}
             </BaseButton>
           </div>
 
@@ -513,15 +521,15 @@ const guidanceMission = computed(() => {
 });
 
 const pendingMissions = computed(() => {
-  return localizedMissions.value.filter((mission) => mission.status === "pending");
+  return localizedMissions.value.filter((mission) => missionHasStatus(mission, "pending"));
 });
 
 const deferredMissions = computed(() => {
-  return localizedMissions.value.filter((mission) => mission.status === "remind_later");
+  return localizedMissions.value.filter((mission) => missionHasStatus(mission, "remind_later"));
 });
 
 const skippedMissions = computed(() => {
-  return localizedMissions.value.filter((mission) => mission.status === "skipped");
+  return localizedMissions.value.filter((mission) => missionHasStatus(mission, "skipped"));
 });
 
 const manualFocusMission = computed(() => {
@@ -555,7 +563,7 @@ const otherMissions = computed(() => {
 const missionGuide = computed(() => {
   if (!localizedMissions.value.length || !focusMission.value) return null;
 
-  const complete = localizedMissions.value.every((mission) => mission.status === "done");
+  const complete = localizedMissions.value.every((mission) => missionHasStatus(mission, "done"));
   const hasSkipped = skippedMissions.value.length > 0;
   const hasDeferred = deferredMissions.value.length > 0;
   const hasPending = pendingMissions.value.length > 0;
@@ -767,7 +775,7 @@ function markDone(mission) {
 }
 
 function remindLater(mission) {
-  if (!mission || mission.status === "done" || mission.status === "remind_later") return null;
+  if (!mission || missionHasStatus(mission, "done", "remind_later")) return null;
 
   reminderPanelMissionId.value = mission.mission_id;
   skipReasonPanelMissionId.value = null;
@@ -804,8 +812,7 @@ function isReminderPanelOpen(mission) {
   return !!(
     mission?.mission_id
     && sameMissionId(reminderPanelMissionId.value, mission.mission_id)
-    && mission.status !== "done"
-    && mission.status !== "remind_later"
+    && !missionHasStatus(mission, "done", "remind_later")
   );
 }
 
@@ -838,7 +845,7 @@ function selectReminderOption(mission, option) {
 }
 
 function skipMission(mission) {
-  if (!mission || mission.status === "done" || mission.status === "skipped") return null;
+  if (!mission || missionHasStatus(mission, "done", "skipped")) return null;
 
   skipReasonPanelMissionId.value = mission.mission_id;
   reminderPanelMissionId.value = null;
@@ -850,8 +857,7 @@ function isSkipReasonPanelOpen(mission) {
   return !!(
     mission?.mission_id
     && sameMissionId(skipReasonPanelMissionId.value, mission.mission_id)
-    && mission.status !== "done"
-    && mission.status !== "skipped"
+    && !missionHasStatus(mission, "done", "skipped")
   );
 }
 
@@ -1052,8 +1058,71 @@ function buildMissionIntensityMeta(mission) {
   };
 }
 
+function normalizedMissionStatus(status) {
+  const value = String(status || "pending")
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, "_");
+
+  if (["done", "complete", "completed"].includes(value)) return "done";
+  if (["skipped", "skip"].includes(value)) return "skipped";
+  if (["remind_later", "reminder_set", "reminded"].includes(value)) return "remind_later";
+
+  return value || "pending";
+}
+
+function missionHasStatus(mission, ...statuses) {
+  const normalized = normalizedMissionStatus(mission?.status);
+
+  return statuses.includes(normalized);
+}
+
+function missionStatusLabel(mission) {
+  const status = normalizedMissionStatus(mission?.status);
+  const knownStatus = ["pending", "done", "skipped", "remind_later", "locked"].includes(status)
+    ? status
+    : "pending";
+
+  return t(`missions.status.${knownStatus}`);
+}
+
+function formattedReminderTime(value) {
+  if (!value) return "";
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+
+  return new Intl.DateTimeFormat(locale.value || undefined, {
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(date);
+}
+
+function missionStatusCopy(mission) {
+  if (!mission) return "";
+
+  const status = normalizedMissionStatus(mission.status);
+
+  if (status === "skipped") {
+    return t("missions.statusCopy.skipped");
+  }
+
+  if (status === "remind_later") {
+    const time = formattedReminderTime(mission.reminder_at);
+    return time
+      ? t("missions.statusCopy.reminderWithTime", { time })
+      : t("missions.statusCopy.reminder");
+  }
+
+  if (status === "done") {
+    return t("missions.statusCopy.done");
+  }
+
+  return mission.ringo_message || "";
+}
+
 function isPendingTinyMission(mission) {
-  return isTinyMission(mission) && mission?.status === "pending";
+  return isTinyMission(mission) && missionHasStatus(mission, "pending");
 }
 
 function sameMissionId(a, b) {
@@ -1096,9 +1165,9 @@ function isGuidanceActionDisabled(action) {
 
   if (action.type === "make_smaller" || action.type === "too_tired") return false;
   if (!mission) return action.type !== "make_smaller" && action.type !== "too_tired";
-  if (mission.status === "done") return true;
-  if (action.type === "remind_later") return mission.status === "remind_later";
-  if (action.type === "skip_today") return mission.status === "skipped";
+  if (missionHasStatus(mission, "done")) return true;
+  if (action.type === "remind_later") return missionHasStatus(mission, "remind_later");
+  if (action.type === "skip_today") return missionHasStatus(mission, "skipped");
 
   return false;
 }
@@ -1364,6 +1433,15 @@ onMounted(loadMissions);
   opacity: 0.78;
 }
 
+.missionStatusCopy {
+  display: block;
+  margin-top: 2px;
+  color: rgba(247, 215, 116, 0.82);
+  font-size: 0.86rem;
+  font-weight: 720;
+  line-height: 1.5;
+}
+
 .todaySaved {
   display: grid;
   gap: 4px;
@@ -1594,12 +1672,6 @@ onMounted(loadMissions);
   margin-top: 6px;
   color: rgba(255, 255, 255, 0.66);
   line-height: 1.55;
-}
-
-.missionItem small {
-  display: block;
-  margin-top: 8px;
-  color: rgba(247, 215, 116, 0.82);
 }
 
 .missionMeta {
