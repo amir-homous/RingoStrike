@@ -537,9 +537,43 @@ Success:
     "enrollment_id": 10,
     "rewards": {}
   },
-  "checkin_status_code": 200
+  "checkin_status_code": 200,
+  "reward_sequence": [
+    {
+      "type": "ringo_message",
+      "title": "Nice work.",
+      "text": "You did the small step. That counts.",
+      "mood": "proud"
+    },
+    {
+      "type": "mission_completed",
+      "title": "Move for 10 minutes",
+      "text": "This mission is marked done."
+    },
+    {
+      "type": "xp_earned",
+      "title": "XP earned",
+      "value": "+10 XP",
+      "amount": 10
+    },
+    {
+      "type": "today_saved",
+      "title": "Today is safe.",
+      "text": "You did enough for today. Anything else is optional.",
+      "mood": "celebrating"
+    },
+    {
+      "type": "next_choice",
+      "title": "Choose your pace.",
+      "text": "You can stop here, or continue only if you have energy."
+    }
+  ]
 }
 ```
+
+`reward_sequence` is additive. Existing consumers can ignore it and continue reading `ok`, `mission`, `checkin`, and `checkin_status_code`.
+
+The `today_saved` step is included when the completed mission satisfies today: either a completed `main` mission or a completed linked `tiny` mission whose `parent_mission_id` points to a main mission. Parent main missions are not automatically marked done when a linked tiny mission is completed.
 
 Frontend `MissionCenter.vue` emits the returned payload to `Dashboard.vue`, which reloads dashboard data and shows RewardMoment from the returned check-in reward data.
 

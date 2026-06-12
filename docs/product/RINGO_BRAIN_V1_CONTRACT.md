@@ -272,6 +272,16 @@ Existing mission APIs remain canonical for mission state and completion:
 
 Ringo Brain v1 should not duplicate mission logs, check-ins, XP, streaks, achievements, or activity writes.
 
+Mission completion may return an additive `reward_sequence` array for frontend Ringo Moment rendering. Existing completion fields remain valid and should not be removed or renamed. Initial completion step types are:
+
+- `ringo_message`
+- `mission_completed`
+- `xp_earned`
+- `today_saved`
+- `next_choice`
+
+The `today_saved` completion step should be included when the completed mission satisfies today: either a `main` mission or a linked `tiny` mission whose `parent_mission_id` points to a main mission. Completing a linked tiny mission must not automatically mark the parent main mission done unless a later compatibility plan explicitly changes that.
+
 Implementation guidance:
 
 - Build `GET /me/ringo/today` as an additive guidance endpoint.
