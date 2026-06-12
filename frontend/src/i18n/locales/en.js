@@ -277,6 +277,13 @@ export default {
     alreadySecuredNotice: "Mission done. Today was already secured, so this updated your mission stack.",
     reminderNotice: "Reminder saved. This mission is paused until later today.",
     skipNotice: "Mission skipped for today. It will not secure today’s check-in.",
+    statusCopy: {
+      pending: "Ringo says this small step is enough for today.",
+      done: "Done for today. You can stop here or keep going only if you want to.",
+      skipped: "Skipped for today. No shame; this just helps Ringo keep the pressure low.",
+      reminder: "Paused for later today. Ringo will keep this step gentle.",
+      reminderWithTime: "Paused until {time}. Ringo will keep this step gentle.",
+    },
     status: {
       pending: "Pending",
       done: "Done",
