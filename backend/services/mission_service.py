@@ -217,6 +217,45 @@ def _mission_satisfies_today(missions, mission_id):
     )
 
 
+def _completed_linked_tiny_mission(missions):
+    main_mission_ids = {
+        mission.get("mission_id")
+        for mission in missions
+        if (mission.get("mission_intensity") or "main") == "main"
+    }
+
+    return next(
+        (
+            mission for mission in missions
+            if mission.get("status") == "done"
+            and mission.get("mission_intensity") == "tiny"
+            and any(
+                _same_mission_id(mission.get("parent_mission_id"), main_id)
+                for main_id in main_mission_ids
+            )
+        ),
+        None,
+    )
+
+
+def _completed_main_mission(missions):
+    return next(
+        (
+            mission for mission in missions
+            if mission.get("status") == "done"
+            and (mission.get("mission_intensity") or "main") == "main"
+        ),
+        None,
+    )
+
+
+def _today_satisfied_by_missions(missions):
+    return bool(
+        _completed_linked_tiny_mission(missions)
+        or _completed_main_mission(missions)
+    )
+
+
 def _reward_step(step_type, title, *, text="", value=None, amount=None, mood=None):
     step = {
         "type": step_type,
@@ -238,13 +277,13 @@ def _reward_step(step_type, title, *, text="", value=None, amount=None, mood=Non
     return step
 
 
-def _build_reward_sequence(payload, today_missions):
+def _build_reward_sequence(payload, today_missions, *, was_today_saved=False):
     mission = payload.get("mission") or {}
     mission_id = mission.get("mission_id")
     mission_title = mission.get("title") or "Mission"
     xp_earned = int(mission.get("xp_earned") or 0)
     already_checked = bool((payload.get("checkin") or {}).get("already_checked"))
-    today_saved = _mission_satisfies_today(today_missions, mission_id)
+    today_saved_by_current = _mission_satisfies_today(today_missions, mission_id)
 
     steps = [
         _reward_step(
@@ -272,12 +311,20 @@ def _build_reward_sequence(payload, today_missions):
             amount=xp_earned,
         ))
 
-    if today_saved:
+    if today_saved_by_current and not was_today_saved:
         steps.append(_reward_step(
             "today_saved",
             "Today is safe.",
             text="You did enough for today. Anything else is optional.",
             mood="celebrating",
+        ))
+
+    if was_today_saved:
+        steps.append(_reward_step(
+            "ringo_message",
+            "Bonus momentum.",
+            text="Today was already safe. This was optional extra progress.",
+            mood="happy",
         ))
 
     steps.append(_reward_step(
@@ -376,6 +423,14 @@ def _upsert_mission_log(user_id, mission_id, status, *, reminder_at=None, notes=
 
 
 def mark_mission_done(user_id, mission_id):
+    before_missions_payload, _ = get_today_missions(user_id)
+    before_missions = (
+        before_missions_payload.get("missions")
+        if before_missions_payload.get("ok")
+        else []
+    )
+    was_today_saved = _today_satisfied_by_missions(before_missions or [])
+
     payload, code = _upsert_mission_log(user_id, mission_id, "done")
 
     if not payload.get("ok"):
@@ -390,7 +445,11 @@ def mark_mission_done(user_id, mission_id):
     payload["checkin_status_code"] = checkin_code
     today_missions_payload, _ = get_today_missions(user_id)
     today_missions = today_missions_payload.get("missions") if today_missions_payload.get("ok") else []
-    payload["reward_sequence"] = _build_reward_sequence(payload, today_missions or [])
+    payload["reward_sequence"] = _build_reward_sequence(
+        payload,
+        today_missions or [],
+        was_today_saved=was_today_saved,
+    )
 
     return payload, code
 

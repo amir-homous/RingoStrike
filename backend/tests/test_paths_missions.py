@@ -302,8 +302,13 @@ def test_today_missions_trigger_checkin_safely(client):
     assert repeat_done_data["checkin"]["already_checked"] is True
     assert "reward_sequence" in repeat_done_data
     assert repeat_done_data["mission"]["status"] == "done"
-    assert any(
+    assert not any(
         step["type"] == "today_saved"
+        for step in repeat_done_data["reward_sequence"]
+    )
+    assert any(
+        step["title"] == "Bonus momentum."
+        and "optional extra progress" in step["text"]
         for step in repeat_done_data["reward_sequence"]
     )
 
@@ -397,6 +402,71 @@ def test_linked_tiny_mission_completion_reward_sequence_saves_today(client):
 
     assert updated_tiny["status"] == "done"
     assert updated_main["status"] == "pending"
+
+
+def test_completion_after_today_saved_gets_bonus_reward_copy(client):
+    user = register_user(client, username="BonusReward")
+    headers = auth_headers(user["access_token"])
+
+    paths_data = client.get("/paths", headers=headers).get_json()
+    fitness_path = next(item for item in paths_data["items"] if item["key"] == "fitness")
+
+    client.post(f"/paths/{fitness_path['path_id']}/start", headers=headers)
+    challenge_id = client.get(
+        f"/paths/{fitness_path['path_id']}/challenges",
+        headers=headers,
+    ).get_json()["items"][0]["challenge_id"]
+
+    client.post(
+        f"/challenges/{challenge_id}/join",
+        json={},
+        headers=headers,
+    )
+
+    missions = client.get("/me/today-missions", headers=headers).get_json()["missions"]
+    main_mission = next(
+        mission for mission in missions
+        if mission["mission_intensity"] == "main"
+    )
+    tiny_mission = next(
+        mission for mission in missions
+        if mission["mission_intensity"] == "tiny"
+        and mission["parent_mission_id"] == main_mission["mission_id"]
+    )
+
+    first_done_res = client.post(
+        f"/me/missions/{main_mission['mission_id']}/done",
+        headers=headers,
+    )
+    assert first_done_res.status_code == 200
+    first_done_data = first_done_res.get_json()
+    assert any(
+        step["type"] == "today_saved"
+        for step in first_done_data["reward_sequence"]
+    )
+
+    extra_done_res = client.post(
+        f"/me/missions/{tiny_mission['mission_id']}/done",
+        headers=headers,
+    )
+
+    assert extra_done_res.status_code == 200
+    extra_done_data = extra_done_res.get_json()
+    assert extra_done_data["ok"] is True
+    assert "mission" in extra_done_data
+    assert "checkin" in extra_done_data
+    assert "checkin_status_code" in extra_done_data
+    assert "reward_sequence" in extra_done_data
+    assert not any(
+        step["type"] == "today_saved"
+        for step in extra_done_data["reward_sequence"]
+    )
+    assert any(
+        step["type"] == "ringo_message"
+        and step["title"] == "Bonus momentum."
+        and "optional extra progress" in step["text"]
+        for step in extra_done_data["reward_sequence"]
+    )
 
 
 def test_legacy_challenge_checkin_syncs_first_today_mission(client):
