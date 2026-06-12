@@ -241,11 +241,11 @@ def _map_legacy_state(legacy_state, stats, context, missions):
     if not missions:
         return "no_mission_today"
 
-    counts = _mission_status_counts(missions)
-    if counts["done"] == len(missions):
+    if _completed_satisfying_mission(missions):
         return "today_completed"
 
-    if _completed_satisfying_mission(missions):
+    counts = _mission_status_counts(missions)
+    if counts["done"] == len(missions):
         return "today_completed"
 
     if total_checkins > 0 and current_streak == 0:
