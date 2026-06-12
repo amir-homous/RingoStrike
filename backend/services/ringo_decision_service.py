@@ -42,6 +42,45 @@ def _mission_label(prefix, mission):
     return f"{prefix}: {title}"
 
 
+def _same_mission_id(a, b):
+    if a is None or b is None:
+        return False
+
+    return str(a) == str(b)
+
+
+def _completed_satisfying_mission(missions):
+    main_mission_ids = {
+        mission.get("mission_id")
+        for mission in missions
+        if (mission.get("mission_intensity") or "main") == "main"
+    }
+
+    linked_tiny = next(
+        (
+            mission for mission in missions
+            if mission.get("status") == "done"
+            and mission.get("mission_intensity") == "tiny"
+            and any(
+                _same_mission_id(mission.get("parent_mission_id"), main_id)
+                for main_id in main_mission_ids
+            )
+        ),
+        None,
+    )
+    if linked_tiny:
+        return linked_tiny
+
+    return next(
+        (
+            mission for mission in missions
+            if mission.get("status") == "done"
+            and (mission.get("mission_intensity") or "main") == "main"
+        ),
+        None,
+    )
+
+
 def _decision(state, sprite, message, primary_action=None, secondary_action=None):
     sprite_key = sprite if sprite in VALID_SPRITES else "idle"
 
@@ -97,7 +136,7 @@ def decide_ringo_state(
     deferred = [mission for mission in missions if mission.get("status") == "remind_later"]
     skipped = [mission for mission in missions if mission.get("status") == "skipped"]
 
-    if done_count == len(missions):
+    if _completed_satisfying_mission(missions):
         return _decision(
             "today_completed",
             "celebration",
