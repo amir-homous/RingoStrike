@@ -461,14 +461,14 @@ const REMINDER_OPTION_KEYS = [
   "tonight",
 ];
 
-const SKIP_REASON_KEYS = [
-  "tooTired",
-  "noTime",
-  "tooHard",
-  "notRelevant",
-  "dontLike",
-  "other",
-  "withoutReason",
+const SKIP_REASON_OPTIONS = [
+  { key: "tooTired", reason: "too_tired" },
+  { key: "noTime", reason: "no_time" },
+  { key: "tooHard", reason: "too_hard" },
+  { key: "notRelevant", reason: "not_relevant" },
+  { key: "dontLike", reason: "disliked" },
+  { key: "other", reason: "other" },
+  { key: "withoutReason", reason: null },
 ];
 
 const showPathSelection = computed(() => {
@@ -661,9 +661,9 @@ const reminderOptions = computed(() => {
 });
 
 const skipReasonOptions = computed(() => {
-  return SKIP_REASON_KEYS.map((key) => ({
-    key,
-    label: t(`missions.skipReasons.${key}`),
+  return SKIP_REASON_OPTIONS.map((option) => ({
+    ...option,
+    label: t(`missions.skipReasons.${option.key}`),
   }));
 });
 
@@ -755,6 +755,7 @@ async function runMissionAction(mission, action, request, options = {}) {
       rewardSequenceSprite.value = data?.checkin?.already_checked ? "happy" : "celebration";
     }
 
+    applyMissionResponse(data, mission);
     await loadMissions();
   } catch (e) {
     error.value = e?.response?.data?.error || e?.message || String(e);
@@ -877,13 +878,54 @@ function selectSkipReason(mission, reason) {
   const successNotice = reason?.key && reason.key !== "withoutReason"
     ? t("missions.skipReasons.confirmationWithReason", { reason: reason.label })
     : t("missions.skipReasons.confirmationWithoutReason");
+  const requestBody = reason?.reason ? { reason: reason.reason } : {};
 
   return runMissionAction(
     mission,
     "skip",
-    () => api.post(`/me/missions/${mission.mission_id}/skip`, {}),
+    () => postMissionSkip(mission.mission_id, requestBody),
     { successNotice },
   );
+}
+
+async function postMissionSkip(missionId, body) {
+  const hasReason = !!body?.reason;
+
+  try {
+    return await api.post(`/me/missions/${missionId}/skip`, body || {});
+  } catch (e) {
+    const error = e?.response?.data?.error;
+    const canRetryWithoutReason = hasReason && [
+      "invalid_skip_reason",
+      "skip_reason_too_long",
+      "unsupported_skip_reason",
+    ].includes(error);
+
+    if (!canRetryWithoutReason) {
+      throw e;
+    }
+
+    return api.post(`/me/missions/${missionId}/skip`, {});
+  }
+}
+
+function applyMissionResponse(data, fallbackMission) {
+  const responseMission = data?.mission;
+  const missionId = responseMission?.mission_id || fallbackMission?.mission_id;
+  if (!missionId) return;
+
+  missions.value = missions.value.map((mission) => {
+    if (!sameMissionId(mission.mission_id, missionId)) return mission;
+
+    return {
+      ...mission,
+      ...(responseMission || {}),
+      title: mission.title,
+      description: mission.description,
+      challenge_name: mission.challenge_name,
+      path_title: mission.path_title,
+    };
+  });
 }
 
 function rewardStepFallbackTitle(type, mission) {
