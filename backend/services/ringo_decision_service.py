@@ -136,7 +136,7 @@ def decide_ringo_state(
     deferred = [mission for mission in missions if mission.get("status") == "remind_later"]
     skipped = [mission for mission in missions if mission.get("status") == "skipped"]
 
-    if _completed_satisfying_mission(missions):
+    if _completed_satisfying_mission(missions) and not pending and not deferred and not skipped:
         return _decision(
             "today_completed",
             "celebration",
