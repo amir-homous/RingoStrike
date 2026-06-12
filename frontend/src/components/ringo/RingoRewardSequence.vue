@@ -42,6 +42,7 @@
 import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import BaseButton from "@/components/ui/BaseButton.vue";
+import { normalizeRingoMood } from "@/constants/ringoMood";
 import { resolveRingoSprite } from "@/constants/ringoSprites";
 
 const props = defineProps({
@@ -55,7 +56,9 @@ const currentIndex = ref(0);
 
 const currentStep = computed(() => props.steps[currentIndex.value] || {});
 const isLastStep = computed(() => currentIndex.value >= props.steps.length - 1);
-const resolvedSprite = computed(() => resolveRingoSprite(currentStep.value.sprite || props.sprite));
+const resolvedSprite = computed(() => {
+  return resolveRingoSprite(normalizeRingoMood(currentStep.value, props.sprite));
+});
 
 const stepLabel = computed(() => {
   return currentStep.value.label || t(`ringoRewardSequence.types.${currentStep.value.type || "default"}`);

@@ -31,6 +31,7 @@
 <script setup>
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
+import { normalizeRingoMood } from "@/constants/ringoMood";
 import { resolveRingoSprite } from "@/constants/ringoSprites";
 
 const props = defineProps({
@@ -44,7 +45,7 @@ defineEmits(["action"]);
 
 const { t } = useI18n();
 
-const resolved = computed(() => resolveRingoSprite(props.sprite));
+const resolved = computed(() => resolveRingoSprite(normalizeRingoMood(props.sprite)));
 const spriteInitial = computed(() => resolved.value.key.slice(0, 1).toUpperCase());
 </script>
 <style scoped>

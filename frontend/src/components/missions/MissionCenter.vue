@@ -9,7 +9,7 @@
     <RingoCoach
       v-if="showCoach"
       :message="coachMessage"
-      :sprite="guidanceRingo?.sprite_key || guidanceRingo?.mood || localizedRingo?.sprite_key || localizedRingo?.sprite"
+      :sprite="coachSprite"
       :primary-action="coachPrimaryAction"
       :secondary-action="coachSecondaryAction"
       @action="handleCoachAction"
@@ -461,6 +461,7 @@ import UiState from "@/components/ui/UiState.vue";
 import RingoCoach from "@/components/ringo/RingoCoach.vue";
 import RingoRewardSequence from "@/components/ringo/RingoRewardSequence.vue";
 import PathSelection from "@/components/missions/PathSelection.vue";
+import { normalizeRingoMood } from "@/constants/ringoMood";
 import {
   localizeMissionList,
   localizeRingoState,
@@ -547,6 +548,10 @@ const preferLocalizedRingo = computed(() => {
 
 const coachMessage = computed(() => {
   return guidanceRingo.value?.message || localizedRingo.value?.message;
+});
+
+const coachSprite = computed(() => {
+  return normalizeRingoMood(guidanceRingo.value || localizedRingo.value || ringo.value, "idle");
 });
 
 const hasRingoGuidance = computed(() => !!guidanceRingo.value);
@@ -1058,7 +1063,10 @@ function backendRewardSequenceSteps(data, mission) {
         ? String(step.text || step.description || step.message)
         : rewardStepFallbackText(step.type),
       value: rewardStepValue(step),
-      sprite: step.mood || step.sprite_key,
+      sprite_key: step.sprite_key ? String(step.sprite_key) : "",
+      sprite: step.sprite ? String(step.sprite) : "",
+      mood: step.mood ? String(step.mood) : "",
+      state: step.state || step.user_state ? String(step.state || step.user_state) : "",
     }))
     .filter((step) => step.title || step.text || step.value);
 }
