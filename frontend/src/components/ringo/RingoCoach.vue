@@ -1,5 +1,5 @@
 <template>
-  <section class="coach">
+  <section class="coach" :class="{ embedded: props.embedded }">
     <div class="spriteFrame" aria-hidden="true">
       <img v-if="resolved.src" :src="resolved.src" :alt="resolved.key" />
     </div>
@@ -38,6 +38,7 @@ const props = defineProps({
   sprite: { type: String, default: "idle" },
   primaryAction: { type: Object, default: null },
   secondaryAction: { type: Object, default: null },
+  embedded: { type: Boolean, default: false },
 });
 
 defineEmits(["action"]);
@@ -60,6 +61,15 @@ const spriteInitial = computed(() => resolved.value.key.slice(0, 1).toUpperCase(
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.25);
   color: #ffffff;
   font-family: 'Poppins', sans-serif;
+}
+
+.coach.embedded {
+  padding: 0 0 14px;
+  border-radius: 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
 }
 
 .spriteFrame {

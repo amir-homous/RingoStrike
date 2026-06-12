@@ -6,20 +6,21 @@
       @finish="finishRewardSequence"
     />
 
-    <RingoCoach
-      v-if="showCoach"
-      :message="coachMessage"
-      :sprite="guidanceRingo?.sprite_key || guidanceRingo?.mood || localizedRingo?.sprite_key || localizedRingo?.sprite"
-      :primary-action="coachPrimaryAction"
-      :secondary-action="coachSecondaryAction"
-      @action="handleCoachAction"
-    />
-
     <BaseCard
       v-if="coachActionPanel"
       class="coachActionPanel"
       :class="{ complete: !!todaySavedLabel }"
     >
+      <RingoCoach
+        v-if="showCoach"
+        embedded
+        :message="coachMessage"
+        :sprite="guidanceRingo?.sprite_key || guidanceRingo?.mood || localizedRingo?.sprite_key || localizedRingo?.sprite"
+        :primary-action="coachPrimaryAction"
+        :secondary-action="coachSecondaryAction"
+        @action="handleCoachAction"
+      />
+
       <div
         v-if="focusMission"
         :id="`mission-${focusMission.mission_id}`"
@@ -170,7 +171,7 @@
           {{ t("missions.showOtherMissions", { count: otherMissions.length }) }}
         </BaseButton>
 
-        <BaseButton variant="secondary" @click="finishForToday">
+        <BaseButton v-if="!optionalNextMission" variant="secondary" @click="finishForToday">
           {{ t("missions.finishForToday") }}
         </BaseButton>
       </div>
@@ -211,7 +212,7 @@
     />
 
     <BaseCard
-      v-if="missionGuide"
+      v-if="missionGuide && !coachActionPanel"
       class="missionGuide"
       :class="[missionGuide.state, { complete: missionGuide.complete }]"
     >
@@ -720,7 +721,8 @@ const guidanceActions = computed(() => {
 
 const coachActionPanel = computed(() => {
   return !!(
-    guidanceMission.value
+    showCoach.value
+    || guidanceMission.value
     || guidanceActions.value.length
     || todaySavedLabel.value
     || ringoActionMessage.value
@@ -1441,7 +1443,6 @@ onMounted(loadMissions);
 .coachActionPanel {
   display: grid;
   gap: var(--s-12);
-  margin-top: calc(var(--s-16) * -0.5);
   border-color: rgba(110, 229, 255, 0.16);
   background:
     radial-gradient(circle at 0% 0%, rgba(110, 229, 255, 0.10), transparent 32%),
