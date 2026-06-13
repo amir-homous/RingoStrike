@@ -46,7 +46,6 @@ defineEmits(["action"]);
 const { t } = useI18n();
 
 const resolved = computed(() => resolveRingoSprite(props.sprite));
-const spriteInitial = computed(() => resolved.value.key.slice(0, 1).toUpperCase());
 </script>
 <style scoped>
 .coach {
@@ -60,7 +59,6 @@ const spriteInitial = computed(() => resolved.value.key.slice(0, 1).toUpperCase(
   backdrop-filter: blur(12px);
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.25);
   color: #ffffff;
-  font-family: 'Poppins', sans-serif;
 }
 
 .coach.embedded {
