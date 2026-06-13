@@ -207,7 +207,7 @@
       @retry="loadMissions"
     />
 
-    <p v-if="notice" class="missionNotice" :class="noticeType">
+    <p v-if="showMissionNotice" class="missionNotice" :class="noticeType">
       {{ notice }}
     </p>
 
@@ -410,7 +410,7 @@
             </small>
           </div>
 
-          <div class="missionActions">
+          <div v-if="showMissionItemActions(mission)" class="missionActions">
             <BaseButton
               variant="primary"
               :loading="busyId === mission.mission_id && busyAction === 'done'"
@@ -452,6 +452,9 @@
               >
                 {{ option.label }}
               </BaseButton>
+              <BaseButton variant="secondary" @click="closeReminderPanel">
+                {{ t("missions.backToMissionActions") }}
+              </BaseButton>
             </div>
           </div>
 
@@ -467,6 +470,9 @@
                 @click="selectSkipReason(mission, reason)"
               >
                 {{ reason.label }}
+              </BaseButton>
+              <BaseButton variant="secondary" @click="closeSkipReasonPanel">
+                {{ t("missions.backToMissionActions") }}
               </BaseButton>
             </div>
           </div>
@@ -782,23 +788,23 @@ const guidanceActions = computed(() => {
   });
 });
 
-const focusMissionActionPanelOpen = computed(() => {
-  return !!(
-    focusMission.value
-    && (
-      isReminderPanelOpen(focusMission.value)
-      || isSkipReasonPanelOpen(focusMission.value)
-    )
-  );
+const anyMissionActionPanelOpen = computed(() => {
+  return !!(reminderPanelMissionId.value || skipReasonPanelMissionId.value);
 });
 
 const showFocusMissionActions = computed(() => {
   return !!(
     focusMission.value
     && !isTodaySaved.value
-    && !focusMissionActionPanelOpen.value
+    && !anyMissionActionPanelOpen.value
     && !missionHasStatus(focusMission.value, "done")
   );
+});
+
+const showMissionNotice = computed(() => {
+  if (!notice.value) return false;
+
+  return noticeType.value !== "success" && !rewardSequenceSteps.value.length;
 });
 
 const coachActionPanel = computed(() => {
@@ -973,6 +979,7 @@ function markDone(mission) {
 function remindLater(mission) {
   if (!mission || missionHasStatus(mission, "done", "remind_later")) return null;
 
+  notice.value = "";
   reminderPanelMissionId.value = mission.mission_id;
   skipReasonPanelMissionId.value = null;
   setInteractionNarrative("missions.narrative.remindOpen", "thinking");
@@ -1057,6 +1064,7 @@ function closeReminderPanel() {
 function skipMission(mission) {
   if (!mission || missionHasStatus(mission, "done", "skipped")) return null;
 
+  notice.value = "";
   skipReasonPanelMissionId.value = mission.mission_id;
   reminderPanelMissionId.value = null;
   setInteractionNarrative("missions.narrative.skipOpen", "concerned");
@@ -1494,6 +1502,14 @@ function shouldShowFocusSupportAction(type, mission) {
 
 function handleFocusSupportAction(type, mission) {
   handleGuidanceAction(guidanceActionForMission(type, mission));
+}
+
+function showMissionItemActions(mission) {
+  return !!(
+    mission
+    && !isReminderPanelOpen(mission)
+    && !isSkipReasonPanelOpen(mission)
+  );
 }
 
 function focusTinyMissionFromAction(action, messageKey, fallbackMessageKey) {
