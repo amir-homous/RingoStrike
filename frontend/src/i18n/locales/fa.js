@@ -245,10 +245,10 @@ export default {
     ringoActions: {
       label: "انتخاب‌های مأموریت رینگو",
       start: "شروع",
-      remind_later: "بعداً",
+      remind_later: "بعدا یادآوری کن",
       make_smaller: "کوچک‌ترش کن",
       too_tired: "خیلی خسته‌ام",
-      skip_today: "امروز رد کن",
+      skip_today: "رد کردن",
       makeSmallerMessage: "باشه. کوچکش کن: کوچک‌ترین نسخه واقعی همین مأموریت را انجام بده. یک دقیقه هم حسابه.",
       makeSmallerTinyMessage: "انتخاب خوبیه. بیا نسخه کوچک‌ترش رو بزنیم: {mission}.",
       tooTiredMessage: "اشکالی نداره. امروز می‌تونه نرم‌تر باشه. یک نفس بکش، مأموریت رو کوچک‌تر کن، یا بعداً برگرد.",
@@ -266,6 +266,7 @@ export default {
     doneCta: "این مأموریت رو انجام دادم",
     remindLater: "بعدا یادآوری کن",
     reminderSet: "یادآوری تنظیم شد",
+    backToMissionActions: "برگشت",
     remindOptions: {
       prompt: "باشه مشتی. کی صدات کنم؟",
       fifteenMinutes: "۱۵ دقیقه دیگر",

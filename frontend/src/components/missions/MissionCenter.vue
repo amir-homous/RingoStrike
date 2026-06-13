@@ -40,7 +40,7 @@
         <small v-if="missionStatusCopy(focusMission)" class="missionStatusCopy">
           {{ missionStatusCopy(focusMission) }}
         </small>
-        <div v-if="!isTodaySaved" class="missionActions primaryMissionActions">
+        <div v-if="showFocusMissionActions" class="missionActions primaryMissionActions">
           <BaseButton
             variant="primary"
             :loading="busyId === focusMission.mission_id && busyAction === 'done'"
@@ -57,6 +57,22 @@
             @click="remindLater(focusMission)"
           >
             {{ missionHasStatus(focusMission, "remind_later") ? t("missions.reminderSet") : t("missions.remindLater") }}
+          </BaseButton>
+
+          <BaseButton
+            v-if="shouldShowFocusSupportAction('make_smaller', focusMission)"
+            variant="secondary"
+            @click="handleFocusSupportAction('make_smaller', focusMission)"
+          >
+            {{ t("missions.ringoActions.make_smaller") }}
+          </BaseButton>
+
+          <BaseButton
+            v-if="shouldShowFocusSupportAction('too_tired', focusMission)"
+            variant="secondary"
+            @click="handleFocusSupportAction('too_tired', focusMission)"
+          >
+            {{ t("missions.ringoActions.too_tired") }}
           </BaseButton>
 
           <BaseButton
@@ -82,6 +98,9 @@
             >
               {{ option.label }}
             </BaseButton>
+            <BaseButton variant="secondary" @click="closeReminderPanel">
+              {{ t("missions.backToMissionActions") }}
+            </BaseButton>
           </div>
         </div>
 
@@ -97,6 +116,9 @@
               @click="selectSkipReason(focusMission, reason)"
             >
               {{ reason.label }}
+            </BaseButton>
+            <BaseButton variant="secondary" @click="closeSkipReasonPanel">
+              {{ t("missions.backToMissionActions") }}
             </BaseButton>
           </div>
         </div>
@@ -172,18 +194,6 @@
         </BaseButton>
       </div>
 
-      <div v-if="guidanceActions.length" class="ringoActionChoices" :aria-label="t('missions.ringoActions.label')">
-        <BaseButton
-          v-for="action in guidanceActions"
-          :key="action.type"
-          :variant="action.type === 'start' ? 'primary' : 'secondary'"
-          :loading="isGuidanceActionLoading(action)"
-          :disabled="isGuidanceActionDisabled(action)"
-          @click="handleGuidanceAction(action)"
-        >
-          {{ guidanceActionLabel(action) }}
-        </BaseButton>
-      </div>
     </BaseCard>
 
     <UiState
@@ -247,7 +257,7 @@
         <small v-if="missionStatusCopy(focusMission)" class="missionStatusCopy">
           {{ missionStatusCopy(focusMission) }}
         </small>
-        <div v-if="!isTodaySaved" class="missionActions primaryMissionActions">
+        <div v-if="showFocusMissionActions" class="missionActions primaryMissionActions">
           <BaseButton
             variant="primary"
             :loading="busyId === focusMission.mission_id && busyAction === 'done'"
@@ -264,6 +274,22 @@
             @click="remindLater(focusMission)"
           >
             {{ missionHasStatus(focusMission, "remind_later") ? t("missions.reminderSet") : t("missions.remindLater") }}
+          </BaseButton>
+
+          <BaseButton
+            v-if="shouldShowFocusSupportAction('make_smaller', focusMission)"
+            variant="secondary"
+            @click="handleFocusSupportAction('make_smaller', focusMission)"
+          >
+            {{ t("missions.ringoActions.make_smaller") }}
+          </BaseButton>
+
+          <BaseButton
+            v-if="shouldShowFocusSupportAction('too_tired', focusMission)"
+            variant="secondary"
+            @click="handleFocusSupportAction('too_tired', focusMission)"
+          >
+            {{ t("missions.ringoActions.too_tired") }}
           </BaseButton>
 
           <BaseButton
@@ -289,6 +315,9 @@
             >
               {{ option.label }}
             </BaseButton>
+            <BaseButton variant="secondary" @click="closeReminderPanel">
+              {{ t("missions.backToMissionActions") }}
+            </BaseButton>
           </div>
         </div>
 
@@ -304,6 +333,9 @@
               @click="selectSkipReason(focusMission, reason)"
             >
               {{ reason.label }}
+            </BaseButton>
+            <BaseButton variant="secondary" @click="closeSkipReasonPanel">
+              {{ t("missions.backToMissionActions") }}
             </BaseButton>
           </div>
         </div>
@@ -584,13 +616,13 @@ const coachSprite = computed(() => {
 const hasRingoGuidance = computed(() => !!guidanceRingo.value);
 
 const coachPrimaryAction = computed(() => {
-  if (hasRingoGuidance.value || isTodaySaved.value) return null;
+  if (hasRingoGuidance.value || isTodaySaved.value || focusMission.value) return null;
 
   return localizedRingo.value?.primary_action || null;
 });
 
 const coachSecondaryAction = computed(() => {
-  if (hasRingoGuidance.value || isTodaySaved.value) return null;
+  if (hasRingoGuidance.value || isTodaySaved.value || focusMission.value) return null;
 
   return localizedRingo.value?.secondary_action || null;
 });
@@ -748,6 +780,25 @@ const guidanceActions = computed(() => {
     seen.add(type);
     return true;
   });
+});
+
+const focusMissionActionPanelOpen = computed(() => {
+  return !!(
+    focusMission.value
+    && (
+      isReminderPanelOpen(focusMission.value)
+      || isSkipReasonPanelOpen(focusMission.value)
+    )
+  );
+});
+
+const showFocusMissionActions = computed(() => {
+  return !!(
+    focusMission.value
+    && !isTodaySaved.value
+    && !focusMissionActionPanelOpen.value
+    && !missionHasStatus(focusMission.value, "done")
+  );
 });
 
 const coachActionPanel = computed(() => {
@@ -998,6 +1049,11 @@ function selectReminderOption(mission, option) {
   );
 }
 
+function closeReminderPanel() {
+  reminderPanelMissionId.value = null;
+  clearNarrativeState();
+}
+
 function skipMission(mission) {
   if (!mission || missionHasStatus(mission, "done", "skipped")) return null;
 
@@ -1022,6 +1078,11 @@ function isSkipReasonLoading(mission, key) {
     && busyAction.value === "skip"
     && busySkipReason.value === key
   );
+}
+
+function closeSkipReasonPanel() {
+  skipReasonPanelMissionId.value = null;
+  clearNarrativeState();
 }
 
 function selectSkipReason(mission, reason) {
@@ -1223,10 +1284,6 @@ function remindOptionalNextMission(mission) {
   return remindLater(mission);
 }
 
-function guidanceActionLabel(action) {
-  return t(`missions.ringoActions.${action.type}`);
-}
-
 function missionForGuidanceAction(action) {
   const actionMissionId = action?.mission_id;
   if (actionMissionId) {
@@ -1402,21 +1459,6 @@ function findTinyMissionFor(mission) {
   return localizedMissions.value.find(isPendingTinyMission) || null;
 }
 
-function isGuidanceActionLoading(action) {
-  const mission = missionForGuidanceAction(action);
-  if (!mission) return false;
-
-  if (action.type === "remind_later") {
-    return busyId.value === mission.mission_id && busyAction.value === "remind";
-  }
-
-  if (action.type === "skip_today") {
-    return busyId.value === mission.mission_id && busyAction.value === "skip";
-  }
-
-  return false;
-}
-
 function isGuidanceActionDisabled(action) {
   const mission = missionForGuidanceAction(action);
 
@@ -1427,6 +1469,31 @@ function isGuidanceActionDisabled(action) {
   if (action.type === "skip_today") return missionHasStatus(mission, "skipped");
 
   return false;
+}
+
+function guidanceActionByType(type) {
+  return guidanceActions.value.find((action) => action.type === type) || null;
+}
+
+function guidanceActionForMission(type, mission) {
+  return guidanceActionByType(type) || {
+    type,
+    mission_id: mission?.mission_id,
+  };
+}
+
+function shouldShowFocusSupportAction(type, mission) {
+  if (!["make_smaller", "too_tired"].includes(type)) return false;
+  if (!mission || missionHasStatus(mission, "done", "skipped", "remind_later")) return false;
+
+  const action = guidanceActionForMission(type, mission);
+  if (isGuidanceActionDisabled(action)) return false;
+
+  return !!(guidanceActionByType(type) || findTinyMissionFor(mission) || missionHasStatus(mission, "pending"));
+}
+
+function handleFocusSupportAction(type, mission) {
+  handleGuidanceAction(guidanceActionForMission(type, mission));
 }
 
 function focusTinyMissionFromAction(action, messageKey, fallbackMessageKey) {
@@ -1792,13 +1859,6 @@ onMounted(loadMissions);
   line-height: 1.55;
 }
 
-.ringoActionChoices {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--s-8);
-  align-items: center;
-}
-
 .remindOptionsPanel {
   display: grid;
   gap: var(--s-8);
@@ -2018,7 +2078,6 @@ onMounted(loadMissions);
   }
 
   .missionGuideActions :deep(.btn),
-  .ringoActionChoices :deep(.btn),
   .remindOptions :deep(.btn),
   .skipReasons :deep(.btn),
   .completedChoices :deep(.btn),

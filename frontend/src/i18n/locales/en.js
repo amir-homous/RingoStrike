@@ -245,10 +245,10 @@ export default {
     ringoActions: {
       label: "Ringo mission choices",
       start: "Start",
-      remind_later: "Later",
+      remind_later: "Remind later",
       make_smaller: "Make it smaller",
       too_tired: "I’m too tired",
-      skip_today: "Skip today",
+      skip_today: "Skip",
       makeSmallerMessage: "Okay. Make it tiny: do the smallest honest version of this mission. One minute still counts.",
       makeSmallerTinyMessage: "Good call. Let’s switch to the tiny version: {mission}.",
       tooTiredMessage: "That’s okay. Today can be gentle. Take one breath, make the mission smaller, or come back later.",
@@ -264,8 +264,9 @@ export default {
     errorTitle: "Couldn’t load missions",
     done: "Done",
     doneCta: "I did this mission",
-    remindLater: "Remind me later",
+    remindLater: "Remind later",
     reminderSet: "Reminder set",
+    backToMissionActions: "Back",
     remindOptions: {
       prompt: "Okay. When should I remind you?",
       fifteenMinutes: "15 minutes",
