@@ -491,6 +491,18 @@ Returns Ringo Brain v1 guidance for the Ringo-first dashboard. This endpoint is 
     "current_streak": 3,
     "total_checkins": 12
   },
+  "agenda": {
+    "today_saved": false,
+    "next_action_type": "primary_mission",
+    "next_mission_id": 1,
+    "next_mission_title": "Move for 10 minutes",
+    "next_reminder_at": null,
+    "pending_count": 1,
+    "reminded_count": 0,
+    "skipped_count": 0,
+    "done_count": 0,
+    "has_optional_work": false
+  },
   "reward_sequence": {
     "type": "standard",
     "available": true,
@@ -504,6 +516,27 @@ Returns Ringo Brain v1 guidance for the Ringo-first dashboard. This endpoint is 
 ```
 
 Supported action `type` values in v1 are `start`, `remind_later`, `make_smaller`, `too_tired`, and `skip_today`.
+
+The `agenda` object is additive and summarizes the user's daily mission situation. Existing frontend consumers can ignore it safely. `next_action_type` is selected with this priority order:
+
+1. `due_reminder`
+2. `upcoming_reminder`
+3. `primary_mission`
+4. `optional_mission`
+5. `skipped_optional`
+6. `done_for_today`
+
+Agenda fields:
+
+- `today_saved`: mirrors whether today's required step is already safe.
+- `next_action_type`: nearest useful next step using the priority order above.
+- `next_mission_id`: mission id for the next action, or `null`.
+- `next_mission_title`: mission title for the next action, or an empty string.
+- `next_reminder_at`: reminder timestamp only for reminder next actions, otherwise `null`.
+- `pending_count`, `reminded_count`, `skipped_count`, `done_count`: counts from today's mission list.
+- `has_optional_work`: `true` when remaining work exists but should be treated as optional/paused/no-pressure context.
+
+When `today_saved` is `true`, reminders and skipped missions may still appear in `agenda` as optional context. This does not make them required and does not change mission mutation behavior.
 
 Frontend guidance:
 

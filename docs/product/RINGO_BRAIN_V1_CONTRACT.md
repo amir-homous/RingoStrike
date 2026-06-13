@@ -83,6 +83,18 @@ Successful response:
     "current_streak": 3,
     "total_checkins": 12
   },
+  "agenda": {
+    "today_saved": false,
+    "next_action_type": "primary_mission",
+    "next_mission_id": 1,
+    "next_mission_title": "Move for 10 minutes",
+    "next_reminder_at": null,
+    "pending_count": 1,
+    "reminded_count": 0,
+    "skipped_count": 0,
+    "done_count": 0,
+    "has_optional_work": false
+  },
   "reward_sequence": {
     "type": "standard",
     "available": true,
@@ -201,6 +213,54 @@ Field meaning:
 - `total_checkins`: total counted check-ins from the existing stats/check-in system.
 
 Do not create a separate Ringo-specific streak or XP economy.
+
+## Agenda Fields
+
+The `agenda` object is additive. It gives Ringo a compact summary of today's mission situation so the frontend can keep Today Saved while still understanding the nearest useful optional/paused action.
+
+Shape:
+
+```json
+{
+  "today_saved": true,
+  "next_action_type": "upcoming_reminder",
+  "next_mission_id": 123,
+  "next_mission_title": "Get morning light",
+  "next_reminder_at": "2026-06-12T19:00:00Z",
+  "pending_count": 1,
+  "reminded_count": 2,
+  "skipped_count": 1,
+  "done_count": 1,
+  "has_optional_work": true
+}
+```
+
+Supported `next_action_type` values:
+
+- `due_reminder`
+- `upcoming_reminder`
+- `primary_mission`
+- `optional_mission`
+- `skipped_optional`
+- `done_for_today`
+
+Priority order:
+
+1. `due_reminder`
+2. `upcoming_reminder`
+3. `primary_mission`
+4. `optional_mission`
+5. `skipped_optional`
+6. `done_for_today`
+
+Rules:
+
+- Counts are computed from today's mission list: pending, reminded/remind_later, skipped, and done.
+- If today is saved and a reminder exists, Today Saved remains true and the reminder appears as optional/paused context.
+- If today is saved and skipped missions exist, skipped work appears only as no-shame optional context.
+- If today is not saved, pending main/tiny missions remain the meaningful primary mission path.
+- If all missions are done or safely paused with no useful next mission, return `done_for_today`.
+- Agenda must not change mission mutation APIs, reward sequence behavior, XP, streaks, or check-in writes.
 
 ## Reward Sequence Placeholder
 
