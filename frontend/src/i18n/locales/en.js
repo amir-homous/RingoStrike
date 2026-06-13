@@ -223,6 +223,16 @@ export default {
     optionalNextFocusCta: "View optional mission",
     finishForToday: "Finish for today",
     finishedForTodayMessage: "Okay. We’ll leave today calm and complete. Come back tomorrow for the next small step.",
+    narrative: {
+      completed: "Nice. {mission} counts. Let’s enjoy the win before deciding anything else.",
+      optionalNext: "Today is already safe. If you want extra momentum, {mission} is the one I’d keep ready.",
+      remindOpen: "Okay. When should I remind you? We can keep this gentle.",
+      remindConfirmed: "Done. I’ll remind you {time}. You can leave it parked for now.",
+      remindConfirmedFallback: "Done. I’ll remind you later today. You can leave it parked for now.",
+      skipOpen: "That’s okay. If you want, tell me why so I can learn your pace.",
+      skipConfirmedWithReason: "Okay. I marked it skipped for today: {reason}. No shame here.",
+      skipConfirmedWithoutReason: "Okay. I marked it skipped for today. No shame here.",
+    },
     intensity: {
       main: "Main mission",
       tiny: "Tiny version",

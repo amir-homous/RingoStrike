@@ -15,7 +15,7 @@
         v-if="showCoach"
         embedded
         :message="coachMessage"
-        :sprite="guidanceRingo?.sprite_key || guidanceRingo?.mood || localizedRingo?.sprite_key || localizedRingo?.sprite"
+        :sprite="coachSprite"
         :primary-action="coachPrimaryAction"
         :secondary-action="coachSecondaryAction"
         @action="handleCoachAction"
@@ -105,10 +105,6 @@
       <p v-if="todaySavedLabel" class="todaySaved">
         <strong>{{ todaySavedLabel }}</strong>
         <span>{{ t("missions.todaySavedBody") }}</span>
-      </p>
-
-      <p v-if="ringoActionMessage" class="ringoActionHint">
-        {{ ringoActionMessage }}
       </p>
 
       <section v-if="isTodaySaved && optionalNextMission" class="optionalNextStep">
@@ -481,7 +477,8 @@ const busyAction = ref("");
 const notice = ref("");
 const noticeType = ref("success");
 const dismissedCoachState = ref("");
-const ringoActionMessage = ref("");
+const interactionNarrative = ref(null);
+const completionNarrative = ref(null);
 const manualFocusMissionId = ref(null);
 const showOtherMissions = ref(false);
 const reminderPanelMissionId = ref(null);
@@ -529,6 +526,7 @@ const showPathSelection = computed(() => {
 });
 
 const showCoach = computed(() => {
+  if (interactionNarrative.value || completionNarrative.value || guidanceRingo.value) return true;
   return ringo.value?.state && ringo.value.state !== dismissedCoachState.value;
 });
 
@@ -546,8 +544,41 @@ const preferLocalizedRingo = computed(() => {
   return String(locale.value || "").toLowerCase().startsWith("fa");
 });
 
+const backendCoachNarrative = computed(() => {
+  const source = guidanceRingo.value || localizedRingo.value || {};
+
+  return {
+    message: source.message || "",
+    mood: source.sprite_key || source.mood || source.sprite || "idle",
+  };
+});
+
+const optionalNextNarrative = computed(() => {
+  if (!isTodaySaved.value || !optionalNextMission.value) return null;
+
+  return {
+    message: t("missions.narrative.optionalNext", { mission: optionalNextMission.value.title }),
+    mood: "happy",
+  };
+});
+
+const coachNarrative = computed(() => {
+  return interactionNarrative.value
+    || completionNarrative.value
+    || optionalNextNarrative.value
+    || backendCoachNarrative.value
+    || {
+      message: t("ringoCoach.fallbackMessage"),
+      mood: "idle",
+    };
+});
+
 const coachMessage = computed(() => {
-  return guidanceRingo.value?.message || localizedRingo.value?.message;
+  return coachNarrative.value?.message || t("ringoCoach.fallbackMessage");
+});
+
+const coachSprite = computed(() => {
+  return coachNarrative.value?.mood || "idle";
 });
 
 const hasRingoGuidance = computed(() => !!guidanceRingo.value);
@@ -725,7 +756,8 @@ const coachActionPanel = computed(() => {
     || guidanceMission.value
     || guidanceActions.value.length
     || todaySavedLabel.value
-    || ringoActionMessage.value
+    || interactionNarrative.value
+    || completionNarrative.value
   );
 });
 
@@ -743,10 +775,38 @@ const skipReasonOptions = computed(() => {
   }));
 });
 
+function clearNarrativeState() {
+  interactionNarrative.value = null;
+  completionNarrative.value = null;
+}
+
+function setNarrative(narrative) {
+  const payload = {
+    message: narrative?.message || "",
+    mood: narrative?.mood || "idle",
+  };
+
+  if (narrative?.type === "completion") {
+    completionNarrative.value = payload;
+    interactionNarrative.value = null;
+    return;
+  }
+
+  interactionNarrative.value = payload;
+}
+
+function setInteractionNarrative(messageKey, mood, params = {}) {
+  setNarrative({
+    message: t(messageKey, params),
+    mood,
+    type: "interaction",
+  });
+}
+
 async function loadMissions() {
   loading.value = true;
   error.value = "";
-  ringoActionMessage.value = "";
+  clearNarrativeState();
   manualFocusMissionId.value = null;
   showOtherMissions.value = false;
   reminderPanelMissionId.value = null;
@@ -833,6 +893,14 @@ async function runMissionAction(mission, action, request, options = {}) {
 
     applyMissionResponse(data, mission);
     await loadMissions();
+    if (options.narrative) {
+      setNarrative(options.narrative);
+    } else if (action === "done") {
+      completionNarrative.value = {
+        message: t("missions.narrative.completed", { mission: mission.title }),
+        mood: "proud",
+      };
+    }
   } catch (e) {
     error.value = e?.response?.data?.error || e?.message || String(e);
   } finally {
@@ -856,7 +924,7 @@ function remindLater(mission) {
 
   reminderPanelMissionId.value = mission.mission_id;
   skipReasonPanelMissionId.value = null;
-  ringoActionMessage.value = "";
+  setInteractionNarrative("missions.narrative.remindOpen", "thinking");
   return focusMissionCard(mission);
 }
 
@@ -917,7 +985,16 @@ function selectReminderOption(mission, option) {
     () => api.post(`/me/missions/${mission.mission_id}/remind-later`, {
       reminder_at: reminderAt,
     }),
-    { successNotice },
+    {
+      successNotice,
+      narrative: {
+        message: option?.label
+          ? t("missions.narrative.remindConfirmed", { time: option.label })
+          : t("missions.narrative.remindConfirmedFallback"),
+        mood: "happy",
+        type: "interaction",
+      },
+    },
   );
 }
 
@@ -926,7 +1003,7 @@ function skipMission(mission) {
 
   skipReasonPanelMissionId.value = mission.mission_id;
   reminderPanelMissionId.value = null;
-  ringoActionMessage.value = "";
+  setInteractionNarrative("missions.narrative.skipOpen", "concerned");
   return focusMissionCard(mission);
 }
 
@@ -960,7 +1037,16 @@ function selectSkipReason(mission, reason) {
     mission,
     "skip",
     () => postMissionSkip(mission.mission_id, requestBody),
-    { successNotice },
+    {
+      successNotice,
+      narrative: {
+        message: reason?.key && reason.key !== "withoutReason"
+          ? t("missions.narrative.skipConfirmedWithReason", { reason: reason.label })
+          : t("missions.narrative.skipConfirmedWithoutReason"),
+        mood: "concerned",
+        type: "interaction",
+      },
+    },
   );
 }
 
@@ -1120,7 +1206,7 @@ function finishRewardSequence() {
 
 function finishForToday() {
   showOtherMissions.value = false;
-  ringoActionMessage.value = t("missions.finishedForTodayMessage");
+  setInteractionNarrative("missions.finishedForTodayMessage", "sleeping");
 }
 
 function focusOptionalNextMission(mission) {
@@ -1348,12 +1434,14 @@ function focusTinyMissionFromAction(action, messageKey, fallbackMessageKey) {
   const tinyMission = findTinyMissionFor(mission);
 
   if (!tinyMission) {
-    ringoActionMessage.value = t(fallbackMessageKey);
+    setInteractionNarrative(fallbackMessageKey, action.type === "too_tired" ? "sleeping" : "thinking");
     return;
   }
 
   manualFocusMissionId.value = tinyMission.mission_id;
-  ringoActionMessage.value = t(messageKey, { mission: tinyMission.title });
+  setInteractionNarrative(messageKey, action.type === "too_tired" ? "sleeping" : "encouraging", {
+    mission: tinyMission.title,
+  });
   focusMissionCard(tinyMission);
 }
 
