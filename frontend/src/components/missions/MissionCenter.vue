@@ -2209,10 +2209,6 @@ function shouldShowOtherMission(mission) {
     return false;
   }
 
-  if (intensity === "bonus" && parentMission && hasDoneTinyChild(parentMission)) {
-    return false;
-  }
-
   return true;
 }
 
@@ -2468,6 +2464,10 @@ function missionStatusCopy(mission) {
   const status = normalizedMissionStatus(mission.status);
 
   if (status === "skipped") {
+    if (normalizedMissionIntensity(mission) === "bonus") {
+      return t("missions.statusCopy.bonusSkipped");
+    }
+
     return t("missions.statusCopy.skipped");
   }
 
