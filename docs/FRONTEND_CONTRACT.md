@@ -363,6 +363,9 @@ Returns a path summary, path-linked active challenges, mission previews, joined 
           "order_index": 1,
           "suggested_time": "morning",
           "unlock_after_days": 0,
+          "mission_intensity": "main",
+          "estimated_minutes": null,
+          "parent_mission_id": null,
           "unlocks_in_days": 0,
           "available_today": true,
           "ringo_message": "...",
@@ -417,6 +420,9 @@ Returns daily missions available for active enrollments and a RingoCoach decisio
       "order_index": 1,
       "suggested_time": "morning",
       "unlock_after_days": 0,
+      "mission_intensity": "main",
+      "estimated_minutes": null,
+      "parent_mission_id": null,
       "ringo_message": "...",
       "status": "pending",
       "reminder_at": null,
@@ -459,6 +465,7 @@ Returns Ringo Brain v1 guidance for the Ringo-first dashboard. This endpoint is 
     "description": "...",
     "mission_intensity": "main",
     "estimated_minutes": null,
+    "parent_mission_id": null,
     "xp_reward": 10,
     "status": "pending",
     "challenge_id": 1,
@@ -484,6 +491,24 @@ Returns Ringo Brain v1 guidance for the Ringo-first dashboard. This endpoint is 
     "current_streak": 3,
     "total_checkins": 12
   },
+  "ringo_day": {
+    "date": "2026-06-10",
+    "next_reset_at": "2026-06-11T00:00:00Z",
+    "reset_basis": "utc",
+    "server_now": "2026-06-10T20:52:00Z"
+  },
+  "agenda": {
+    "today_saved": false,
+    "next_action_type": "primary_mission",
+    "next_mission_id": 1,
+    "next_mission_title": "Move for 10 minutes",
+    "next_reminder_at": null,
+    "pending_count": 1,
+    "reminded_count": 0,
+    "skipped_count": 0,
+    "done_count": 0,
+    "has_optional_work": false
+  },
   "reward_sequence": {
     "type": "standard",
     "available": true,
@@ -497,6 +522,38 @@ Returns Ringo Brain v1 guidance for the Ringo-first dashboard. This endpoint is 
 ```
 
 Supported action `type` values in v1 are `start`, `remind_later`, `make_smaller`, `too_tired`, and `skip_today`.
+
+The `ringo_day` object is additive and describes the backend daily reset boundary used by Ringo Brain. Current reset basis is UTC/server date:
+
+- `date`: current Ringo day as a UTC date.
+- `next_reset_at`: next UTC midnight reset timestamp.
+- `reset_basis`: currently `utc`.
+- `server_now`: backend UTC timestamp when the response was built.
+
+Frontend clients should remain compatible when `ringo_day` is missing. When present, reminder labels can compare reminder times to `next_reset_at`; if a reminder lands after the next reset, copy should clarify that it is after the user's next Ringo daily reset rather than relying only on local calendar-day wording.
+
+Current daily mission reminders should be scheduled before `ringo_day.next_reset_at`. The frontend should block reminder options that cross this boundary when metadata is available, and the backend rejects cross-reset reminder writes with `reminder_after_next_reset`.
+
+The `agenda` object is additive and summarizes the user's daily mission situation. Existing frontend consumers can ignore it safely. `next_action_type` is selected with this priority order:
+
+1. `due_reminder`
+2. `upcoming_reminder`
+3. `primary_mission`
+4. `optional_mission`
+5. `skipped_optional`
+6. `done_for_today`
+
+Agenda fields:
+
+- `today_saved`: mirrors whether today's required step is already safe.
+- `next_action_type`: nearest useful next step using the priority order above.
+- `next_mission_id`: mission id for the next action, or `null`.
+- `next_mission_title`: mission title for the next action, or an empty string.
+- `next_reminder_at`: reminder timestamp only for reminder next actions, otherwise `null`.
+- `pending_count`, `reminded_count`, `skipped_count`, `done_count`: counts from today's mission list.
+- `has_optional_work`: `true` when remaining work exists but should be treated as optional/paused/no-pressure context.
+
+When `today_saved` is `true`, reminders and skipped missions may still appear in `agenda` as optional context. This does not make them required and does not change mission mutation behavior.
 
 Frontend guidance:
 
@@ -530,9 +587,43 @@ Success:
     "enrollment_id": 10,
     "rewards": {}
   },
-  "checkin_status_code": 200
+  "checkin_status_code": 200,
+  "reward_sequence": [
+    {
+      "type": "ringo_message",
+      "title": "Nice work.",
+      "text": "You did the small step. That counts.",
+      "mood": "proud"
+    },
+    {
+      "type": "mission_completed",
+      "title": "Move for 10 minutes",
+      "text": "This mission is marked done."
+    },
+    {
+      "type": "xp_earned",
+      "title": "XP earned",
+      "value": "+10 XP",
+      "amount": 10
+    },
+    {
+      "type": "today_saved",
+      "title": "Today is safe.",
+      "text": "You did enough for today. Anything else is optional.",
+      "mood": "celebrating"
+    },
+    {
+      "type": "next_choice",
+      "title": "Choose your pace.",
+      "text": "You can stop here, or continue only if you have energy."
+    }
+  ]
 }
 ```
+
+`reward_sequence` is additive. Existing consumers can ignore it and continue reading `ok`, `mission`, `checkin`, and `checkin_status_code`.
+
+The `today_saved` step is included only for the first completion that satisfies today: either a completed `main` mission or a completed linked `tiny` mission whose `parent_mission_id` points to a main mission. If today was already saved before the current completion, the backend does not repeat `today_saved`; it returns bonus/optional progress copy using supported reward step types. Parent main missions are not automatically marked done when a linked tiny mission is completed.
 
 Frontend `MissionCenter.vue` emits the returned payload to `Dashboard.vue`, which reloads dashboard data and shows RewardMoment from the returned check-in reward data.
 
@@ -552,6 +643,7 @@ Validation:
 - `reminder_at` is required
 - value must be ISO-parseable after replacing `Z` with `+00:00`
 - value must be at most 80 characters
+- value must be before the current Ringo day `next_reset_at`; otherwise the endpoint returns `400` with `reminder_after_next_reset`
 
 Success returns the same `mission` shape as mission done with `status: "remind_later"` and no check-in payload.
 
@@ -559,7 +651,15 @@ Success returns the same `mission` shape as mission done with `status: "remind_l
 
 Auth: required.
 
-Marks the mission skipped for today and returns the same `mission` shape with `status: "skipped"`. It does not call check-in.
+Request may be empty or may include an optional stable reason key:
+
+```json
+{ "reason": "too_tired" }
+```
+
+Supported reason keys are `too_tired`, `no_time`, `too_hard`, `not_relevant`, `disliked`, and `other`. If provided, `reason` must be a string, is trimmed, and is length-limited.
+
+Marks the mission skipped for today and returns the same `mission` shape with `status: "skipped"` plus `skip_reason` when available. It does not call check-in.
 
 ## Enrollment, Check-ins, History, Leaderboard
 

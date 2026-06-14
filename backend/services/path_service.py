@@ -189,6 +189,9 @@ def get_path_challenges(path_id, user_id=None):
                 order_index,
                 suggested_time,
                 unlock_after_days,
+                COALESCE(mission_intensity, 'main') AS mission_intensity,
+                estimated_minutes,
+                parent_mission_id,
                 ringo_message,
                 status
             FROM missions
@@ -226,6 +229,9 @@ def get_path_challenges(path_id, user_id=None):
                 "order_index": int(mission["order_index"] or 0),
                 "suggested_time": mission["suggested_time"] or "",
                 "unlock_after_days": unlock_after_days,
+                "mission_intensity": mission["mission_intensity"] or "main",
+                "estimated_minutes": int(mission["estimated_minutes"]) if mission["estimated_minutes"] is not None else None,
+                "parent_mission_id": mission["parent_mission_id"],
                 "unlocks_in_days": max(0, unlock_after_days - days_elapsed),
                 "available_today": available_today,
                 "ringo_message": mission["ringo_message"] or "",

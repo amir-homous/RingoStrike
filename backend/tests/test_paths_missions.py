@@ -1,6 +1,25 @@
 from datetime import datetime, timedelta, timezone
 
 from helpers import auth_headers, register_user
+from utils.date_utils import ringo_day_metadata
+
+
+def _before_next_reset_at():
+    next_reset = datetime.fromisoformat(
+        ringo_day_metadata()["next_reset_at"].replace("Z", "+00:00"),
+    )
+    target = min(
+        datetime.now(timezone.utc) + timedelta(hours=2),
+        next_reset - timedelta(minutes=1),
+    )
+    return target.isoformat()
+
+
+def _after_next_reset_at():
+    next_reset = datetime.fromisoformat(
+        ringo_day_metadata()["next_reset_at"].replace("Z", "+00:00"),
+    )
+    return (next_reset + timedelta(minutes=1)).isoformat()
 
 
 def test_paths_seed_does_not_create_legacy_unlinked_challenges(client):
@@ -43,6 +62,54 @@ def test_paths_seed_does_not_create_legacy_unlinked_challenges(client):
     assert active_unlinked == 0
     assert active_without_missions == 0
     assert canonical_seeded == 15
+
+
+def test_seeded_missions_include_linked_intensity_variants(client):
+    import database
+
+    conn = database.get_db_connection()
+    try:
+        intensity_counts = {
+            row["mission_intensity"]: row["count"]
+            for row in conn.execute(
+                """
+                SELECT COALESCE(mission_intensity, 'main') AS mission_intensity,
+                       COUNT(*) AS count
+                FROM missions
+                WHERE status = 'Active'
+                GROUP BY COALESCE(mission_intensity, 'main')
+                """
+            ).fetchall()
+        }
+        tiny_links = conn.execute(
+            """
+            SELECT COUNT(*) AS count
+            FROM missions tiny
+            JOIN missions parent ON parent.id = tiny.parent_mission_id
+            WHERE tiny.status = 'Active'
+              AND tiny.mission_intensity = 'tiny'
+              AND parent.mission_intensity = 'main'
+              AND tiny.estimated_minutes BETWEEN 1 AND 3
+            """
+        ).fetchone()["count"]
+        bonus_links = conn.execute(
+            """
+            SELECT COUNT(*) AS count
+            FROM missions bonus
+            JOIN missions parent ON parent.id = bonus.parent_mission_id
+            WHERE bonus.status = 'Active'
+              AND bonus.mission_intensity = 'bonus'
+              AND parent.mission_intensity = 'main'
+            """
+        ).fetchone()["count"]
+    finally:
+        conn.close()
+
+    assert intensity_counts["main"] >= 45
+    assert intensity_counts["tiny"] >= 15
+    assert intensity_counts["bonus"] >= 5
+    assert tiny_links >= 15
+    assert bonus_links >= 5
 
 
 def test_paths_seed_and_start_user_path(client):
@@ -122,9 +189,23 @@ def test_today_missions_trigger_checkin_safely(client):
         if item["challenge_id"] == challenge_id
     )
 
-    assert day_one_challenge["today_missions_total"] == 1
+    assert day_one_challenge["today_missions_total"] == 2
     assert day_one_challenge["missions"][0]["available_today"] is True
     assert day_one_challenge["missions"][0]["today_status"] == "pending"
+    assert day_one_challenge["missions"][0]["mission_intensity"] == "main"
+    assert "estimated_minutes" in day_one_challenge["missions"][0]
+    assert "parent_mission_id" in day_one_challenge["missions"][0]
+    available_day_one = [
+        mission for mission in day_one_challenge["missions"]
+        if mission["available_today"]
+    ]
+    assert {mission["mission_intensity"] for mission in available_day_one} == {"main", "tiny"}
+    tiny_mission = next(
+        mission for mission in available_day_one
+        if mission["mission_intensity"] == "tiny"
+    )
+    assert tiny_mission["parent_mission_id"] == day_one_challenge["missions"][0]["mission_id"]
+    assert tiny_mission["estimated_minutes"] in {1, 2, 3}
     assert day_one_challenge["missions"][1]["available_today"] is False
     assert day_one_challenge["missions"][1]["today_status"] == "locked"
     assert day_one_challenge["missions"][1]["unlocks_in_days"] == 1
@@ -134,10 +215,11 @@ def test_today_missions_trigger_checkin_safely(client):
         headers=headers,
     ).get_json()
 
-    assert enrollment_detail["mission_summary"]["today_missions_total"] == 1
+    assert enrollment_detail["mission_summary"]["today_missions_total"] == 2
     assert enrollment_detail["mission_summary"]["future_missions_total"] >= 1
     assert enrollment_detail["missions"][0]["available_today"] is True
     assert enrollment_detail["missions"][1]["today_status"] == "locked"
+    assert enrollment_detail["missions"][0]["mission_intensity"] == "main"
 
     import database
 
@@ -177,6 +259,9 @@ def test_today_missions_trigger_checkin_safely(client):
     assert len(missions_data["missions"]) >= 3
 
     first, second, third = missions_data["missions"][:3]
+    assert first["mission_intensity"] == "main"
+    assert "estimated_minutes" in first
+    assert "parent_mission_id" in first
 
     done_res = client.post(
         f"/me/missions/{first['mission_id']}/done",
@@ -192,6 +277,16 @@ def test_today_missions_trigger_checkin_safely(client):
     assert done_data["checkin"]["ok"] is True
     assert done_data["checkin"]["mode"] == "created"
     assert done_data["checkin"]["already_checked"] is False
+    assert "reward_sequence" in done_data
+    assert [step["type"] for step in done_data["reward_sequence"]] == [
+        "ringo_message",
+        "mission_completed",
+        "xp_earned",
+        "today_saved",
+        "next_choice",
+    ]
+    assert done_data["reward_sequence"][1]["title"] == first["title"]
+    assert done_data["reward_sequence"][2]["amount"] == first["xp_reward"]
 
     progress_res = client.get(
         f"/paths/{learning_path['path_id']}/challenges",
@@ -224,10 +319,19 @@ def test_today_missions_trigger_checkin_safely(client):
     assert repeat_done_data["checkin"]["ok"] is True
     assert repeat_done_data["checkin"]["mode"] == "existing"
     assert repeat_done_data["checkin"]["already_checked"] is True
+    assert "reward_sequence" in repeat_done_data
+    assert repeat_done_data["mission"]["status"] == "done"
+    assert not any(
+        step["type"] == "today_saved"
+        for step in repeat_done_data["reward_sequence"]
+    )
+    assert any(
+        step["title"] == "Bonus momentum."
+        and "optional extra progress" in step["text"]
+        for step in repeat_done_data["reward_sequence"]
+    )
 
-    reminder_at = (
-        datetime.now(timezone.utc) + timedelta(hours=2)
-    ).isoformat()
+    reminder_at = _before_next_reset_at()
     remind_res = client.post(
         f"/me/missions/{second['mission_id']}/remind-later",
         json={"reminder_at": reminder_at},
@@ -250,6 +354,7 @@ def test_today_missions_trigger_checkin_safely(client):
     assert skip_data["ok"] is True
     assert skip_data["mission"]["status"] == "skipped"
     assert skip_data["mission"]["xp_earned"] == 0
+    assert skip_data["mission"]["skip_reason"] is None
 
     stats_res = client.get("/me/stats", headers=headers)
 
@@ -258,6 +363,252 @@ def test_today_missions_trigger_checkin_safely(client):
     assert stats_data["ok"] is True
     assert stats_data["stats"]["total_checkins"] == 1
     assert stats_data["stats"]["total_points"] >= 10
+
+
+def test_mission_reminder_rejects_time_after_next_daily_reset(client):
+    user = register_user(client, username="ResetReminder")
+    headers = auth_headers(user["access_token"])
+
+    paths_data = client.get("/paths", headers=headers).get_json()
+    fitness_path = next(item for item in paths_data["items"] if item["key"] == "fitness")
+
+    client.post(f"/paths/{fitness_path['path_id']}/start", headers=headers)
+    challenge_id = client.get(
+        f"/paths/{fitness_path['path_id']}/challenges",
+        headers=headers,
+    ).get_json()["items"][0]["challenge_id"]
+    client.post(
+        f"/challenges/{challenge_id}/join",
+        json={},
+        headers=headers,
+    )
+
+    mission = client.get("/me/today-missions", headers=headers).get_json()["missions"][0]
+
+    remind_res = client.post(
+        f"/me/missions/{mission['mission_id']}/remind-later",
+        json={"reminder_at": _after_next_reset_at()},
+        headers=headers,
+    )
+
+    assert remind_res.status_code == 400
+    assert remind_res.get_json()["error"] == "reminder_after_next_reset"
+
+    missions = client.get("/me/today-missions", headers=headers).get_json()["missions"]
+    unchanged_mission = next(
+        item for item in missions
+        if item["mission_id"] == mission["mission_id"]
+    )
+
+    assert unchanged_mission["status"] == "pending"
+    assert unchanged_mission["reminder_at"] is None
+
+
+def test_mission_skip_reason_is_optional_and_persisted(client):
+    user = register_user(client, username="SkipReason")
+    headers = auth_headers(user["access_token"])
+
+    paths_data = client.get("/paths", headers=headers).get_json()
+    fitness_path = next(item for item in paths_data["items"] if item["key"] == "fitness")
+
+    client.post(f"/paths/{fitness_path['path_id']}/start", headers=headers)
+    challenge_id = client.get(
+        f"/paths/{fitness_path['path_id']}/challenges",
+        headers=headers,
+    ).get_json()["items"][0]["challenge_id"]
+    client.post(
+        f"/challenges/{challenge_id}/join",
+        json={},
+        headers=headers,
+    )
+
+    mission = client.get("/me/today-missions", headers=headers).get_json()["missions"][0]
+
+    skip_res = client.post(
+        f"/me/missions/{mission['mission_id']}/skip",
+        json={"reason": "too_tired"},
+        headers=headers,
+    )
+
+    assert skip_res.status_code == 200
+    skip_data = skip_res.get_json()
+    assert skip_data["ok"] is True
+    assert skip_data["mission"]["status"] == "skipped"
+    assert skip_data["mission"]["skip_reason"] == "too_tired"
+    assert skip_data["mission"]["xp_earned"] == 0
+
+    missions = client.get("/me/today-missions", headers=headers).get_json()["missions"]
+    skipped_mission = next(
+        item for item in missions
+        if item["mission_id"] == mission["mission_id"]
+    )
+
+    assert skipped_mission["status"] == "skipped"
+    assert skipped_mission["skip_reason"] == "too_tired"
+
+    stats_data = client.get("/me/stats", headers=headers).get_json()
+
+    assert stats_data["ok"] is True
+    assert stats_data["stats"]["total_checkins"] == 0
+
+
+def test_mission_skip_rejects_invalid_reason_payload(client):
+    user = register_user(client, username="SkipReasonInvalid")
+    headers = auth_headers(user["access_token"])
+
+    paths_data = client.get("/paths", headers=headers).get_json()
+    fitness_path = next(item for item in paths_data["items"] if item["key"] == "fitness")
+
+    client.post(f"/paths/{fitness_path['path_id']}/start", headers=headers)
+    challenge_id = client.get(
+        f"/paths/{fitness_path['path_id']}/challenges",
+        headers=headers,
+    ).get_json()["items"][0]["challenge_id"]
+    client.post(
+        f"/challenges/{challenge_id}/join",
+        json={},
+        headers=headers,
+    )
+
+    mission = client.get("/me/today-missions", headers=headers).get_json()["missions"][0]
+
+    invalid_type_res = client.post(
+        f"/me/missions/{mission['mission_id']}/skip",
+        json={"reason": 123},
+        headers=headers,
+    )
+    unsupported_res = client.post(
+        f"/me/missions/{mission['mission_id']}/skip",
+        json={"reason": "not_a_reason"},
+        headers=headers,
+    )
+
+    assert invalid_type_res.status_code == 400
+    assert invalid_type_res.get_json()["error"] == "invalid_skip_reason"
+    assert unsupported_res.status_code == 400
+    assert unsupported_res.get_json()["error"] == "unsupported_skip_reason"
+
+
+def test_linked_tiny_mission_completion_reward_sequence_saves_today(client):
+    user = register_user(client, username="TinyReward")
+    headers = auth_headers(user["access_token"])
+
+    paths_data = client.get("/paths", headers=headers).get_json()
+    fitness_path = next(item for item in paths_data["items"] if item["key"] == "fitness")
+
+    client.post(f"/paths/{fitness_path['path_id']}/start", headers=headers)
+    challenge_id = client.get(
+        f"/paths/{fitness_path['path_id']}/challenges",
+        headers=headers,
+    ).get_json()["items"][0]["challenge_id"]
+
+    client.post(
+        f"/challenges/{challenge_id}/join",
+        json={},
+        headers=headers,
+    )
+
+    missions = client.get("/me/today-missions", headers=headers).get_json()["missions"]
+    main_mission = next(
+        mission for mission in missions
+        if mission["mission_intensity"] == "main"
+    )
+    tiny_mission = next(
+        mission for mission in missions
+        if mission["mission_intensity"] == "tiny"
+        and mission["parent_mission_id"] == main_mission["mission_id"]
+    )
+
+    done_res = client.post(
+        f"/me/missions/{tiny_mission['mission_id']}/done",
+        headers=headers,
+    )
+
+    assert done_res.status_code == 200
+    done_data = done_res.get_json()
+    step_types = [step["type"] for step in done_data["reward_sequence"]]
+
+    assert done_data["mission"]["mission_id"] == tiny_mission["mission_id"]
+    assert "today_saved" in step_types
+    assert done_data["reward_sequence"][1]["title"] == tiny_mission["title"]
+
+    updated_missions = client.get("/me/today-missions", headers=headers).get_json()["missions"]
+    updated_main = next(
+        mission for mission in updated_missions
+        if mission["mission_id"] == main_mission["mission_id"]
+    )
+    updated_tiny = next(
+        mission for mission in updated_missions
+        if mission["mission_id"] == tiny_mission["mission_id"]
+    )
+
+    assert updated_tiny["status"] == "done"
+    assert updated_main["status"] == "pending"
+
+
+def test_completion_after_today_saved_gets_bonus_reward_copy(client):
+    user = register_user(client, username="BonusReward")
+    headers = auth_headers(user["access_token"])
+
+    paths_data = client.get("/paths", headers=headers).get_json()
+    fitness_path = next(item for item in paths_data["items"] if item["key"] == "fitness")
+
+    client.post(f"/paths/{fitness_path['path_id']}/start", headers=headers)
+    challenge_id = client.get(
+        f"/paths/{fitness_path['path_id']}/challenges",
+        headers=headers,
+    ).get_json()["items"][0]["challenge_id"]
+
+    client.post(
+        f"/challenges/{challenge_id}/join",
+        json={},
+        headers=headers,
+    )
+
+    missions = client.get("/me/today-missions", headers=headers).get_json()["missions"]
+    main_mission = next(
+        mission for mission in missions
+        if mission["mission_intensity"] == "main"
+    )
+    tiny_mission = next(
+        mission for mission in missions
+        if mission["mission_intensity"] == "tiny"
+        and mission["parent_mission_id"] == main_mission["mission_id"]
+    )
+
+    first_done_res = client.post(
+        f"/me/missions/{main_mission['mission_id']}/done",
+        headers=headers,
+    )
+    assert first_done_res.status_code == 200
+    first_done_data = first_done_res.get_json()
+    assert any(
+        step["type"] == "today_saved"
+        for step in first_done_data["reward_sequence"]
+    )
+
+    extra_done_res = client.post(
+        f"/me/missions/{tiny_mission['mission_id']}/done",
+        headers=headers,
+    )
+
+    assert extra_done_res.status_code == 200
+    extra_done_data = extra_done_res.get_json()
+    assert extra_done_data["ok"] is True
+    assert "mission" in extra_done_data
+    assert "checkin" in extra_done_data
+    assert "checkin_status_code" in extra_done_data
+    assert "reward_sequence" in extra_done_data
+    assert not any(
+        step["type"] == "today_saved"
+        for step in extra_done_data["reward_sequence"]
+    )
+    assert any(
+        step["type"] == "ringo_message"
+        and step["title"] == "Bonus momentum."
+        and "optional extra progress" in step["text"]
+        for step in extra_done_data["reward_sequence"]
+    )
 
 
 def test_legacy_challenge_checkin_syncs_first_today_mission(client):
@@ -304,10 +655,10 @@ def test_legacy_challenge_checkin_syncs_first_today_mission(client):
     assert checkin_data["synced_mission_id"] is not None
 
     missions_data = client.get("/me/today-missions", headers=headers).get_json()
-    mission_statuses = [mission["status"] for mission in missions_data["missions"][:3]]
+    mission_statuses = [mission["status"] for mission in missions_data["missions"]]
 
     assert mission_statuses.count("done") == 1
-    assert mission_statuses.count("pending") == 2
+    assert mission_statuses.count("pending") >= 2
 
     repeat_checkin_res = client.post(
         f"/me/challenges/{enrollment_id}/checkin",
@@ -320,10 +671,10 @@ def test_legacy_challenge_checkin_syncs_first_today_mission(client):
     assert repeat_checkin_data["synced_mission_id"] is None
 
     repeat_missions_data = client.get("/me/today-missions", headers=headers).get_json()
-    repeat_statuses = [mission["status"] for mission in repeat_missions_data["missions"][:3]]
+    repeat_statuses = [mission["status"] for mission in repeat_missions_data["missions"]]
 
     assert repeat_statuses.count("done") == 1
-    assert repeat_statuses.count("pending") == 2
+    assert repeat_statuses.count("pending") >= 2
 
 
 def test_today_missions_are_not_truncated_after_many_active_challenges(client):
@@ -356,5 +707,5 @@ def test_today_missions_are_not_truncated_after_many_active_challenges(client):
     missions_data = missions_res.get_json()
     challenge_names = {mission["challenge_name"] for mission in missions_data["missions"]}
 
-    assert len(missions_data["missions"]) == len(selected_ids)
+    assert len(missions_data["missions"]) >= len(selected_ids)
     assert "Creative Spark" in challenge_names

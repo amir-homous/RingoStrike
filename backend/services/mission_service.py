@@ -3,7 +3,17 @@ from datetime import datetime, timezone
 from database import get_db_connection
 from services.enrollment_service import checkin
 from services.ringo_decision_service import decide_ringo_state
-from utils.date_utils import utc_today_iso
+from utils.date_utils import ringo_day_metadata, utc_today_iso
+
+
+ALLOWED_SKIP_REASONS = {
+    "too_tired",
+    "no_time",
+    "too_hard",
+    "not_relevant",
+    "disliked",
+    "other",
+}
 
 
 def _row_status(row):
@@ -23,9 +33,13 @@ def _mission_payload(row):
         "order_index": int(row["order_index"] or 0),
         "suggested_time": row["suggested_time"] or "",
         "unlock_after_days": int(row["unlock_after_days"] or 0),
+        "mission_intensity": row["mission_intensity"] or "main",
+        "estimated_minutes": int(row["estimated_minutes"]) if row["estimated_minutes"] is not None else None,
+        "parent_mission_id": row["parent_mission_id"],
         "ringo_message": row["ringo_message"] or "",
         "status": _row_status(row),
         "reminder_at": row["reminder_at"],
+        "skip_reason": row["skip_reason"],
         "xp_earned": int(row["xp_earned"] or 0),
         "challenge_id": row["challenge_id"],
         "challenge_name": row["challenge_name"],
@@ -83,6 +97,9 @@ def _today_mission_rows(conn, user_id, today):
             m.order_index,
             m.suggested_time,
             m.unlock_after_days,
+            COALESCE(m.mission_intensity, 'main') AS mission_intensity,
+            m.estimated_minutes,
+            m.parent_mission_id,
             m.ringo_message,
             c.id AS challenge_id,
             c.name AS challenge_name,
@@ -91,6 +108,7 @@ def _today_mission_rows(conn, user_id, today):
             e.id AS enrollment_id,
             ml.status AS log_status,
             ml.reminder_at,
+            ml.skip_reason,
             ml.xp_earned
         FROM enrollments e
         JOIN challenges c ON c.id = e.challenge_id
@@ -173,7 +191,172 @@ def _find_user_mission_context(conn, user_id, mission_id):
     ).fetchone()
 
 
-def _upsert_mission_log(user_id, mission_id, status, *, reminder_at=None, notes=None):
+def _same_mission_id(a, b):
+    if a is None or b is None:
+        return False
+
+    return str(a) == str(b)
+
+
+def _completed_mission_from_today_payload(missions, mission_id):
+    return next(
+        (
+            mission for mission in missions
+            if _same_mission_id(mission.get("mission_id"), mission_id)
+            and mission.get("status") == "done"
+        ),
+        None,
+    )
+
+
+def _mission_satisfies_today(missions, mission_id):
+    completed = _completed_mission_from_today_payload(missions, mission_id)
+    if not completed:
+        return False
+
+    mission_intensity = completed.get("mission_intensity") or "main"
+    if mission_intensity == "main":
+        return True
+
+    if mission_intensity != "tiny":
+        return False
+
+    parent_id = completed.get("parent_mission_id")
+    return any(
+        (mission.get("mission_intensity") or "main") == "main"
+        and _same_mission_id(mission.get("mission_id"), parent_id)
+        for mission in missions
+    )
+
+
+def _completed_linked_tiny_mission(missions):
+    main_mission_ids = {
+        mission.get("mission_id")
+        for mission in missions
+        if (mission.get("mission_intensity") or "main") == "main"
+    }
+
+    return next(
+        (
+            mission for mission in missions
+            if mission.get("status") == "done"
+            and mission.get("mission_intensity") == "tiny"
+            and any(
+                _same_mission_id(mission.get("parent_mission_id"), main_id)
+                for main_id in main_mission_ids
+            )
+        ),
+        None,
+    )
+
+
+def _completed_main_mission(missions):
+    return next(
+        (
+            mission for mission in missions
+            if mission.get("status") == "done"
+            and (mission.get("mission_intensity") or "main") == "main"
+        ),
+        None,
+    )
+
+
+def _today_satisfied_by_missions(missions):
+    return bool(
+        _completed_linked_tiny_mission(missions)
+        or _completed_main_mission(missions)
+    )
+
+
+def _reward_step(step_type, title, *, text="", value=None, amount=None, mood=None):
+    step = {
+        "type": step_type,
+        "title": title,
+    }
+
+    if text:
+        step["text"] = text
+
+    if value is not None:
+        step["value"] = value
+
+    if amount is not None:
+        step["amount"] = amount
+
+    if mood:
+        step["mood"] = mood
+
+    return step
+
+
+def _build_reward_sequence(payload, today_missions, *, was_today_saved=False):
+    mission = payload.get("mission") or {}
+    mission_id = mission.get("mission_id")
+    mission_title = mission.get("title") or "Mission"
+    xp_earned = int(mission.get("xp_earned") or 0)
+    already_checked = bool((payload.get("checkin") or {}).get("already_checked"))
+    today_saved_by_current = _mission_satisfies_today(today_missions, mission_id)
+
+    steps = [
+        _reward_step(
+            "ringo_message",
+            "Nice work.",
+            text=(
+                "You added another small win to today."
+                if already_checked
+                else "You did the small step. That counts."
+            ),
+            mood="proud",
+        ),
+        _reward_step(
+            "mission_completed",
+            mission_title,
+            text="This mission is marked done.",
+        ),
+    ]
+
+    if xp_earned > 0:
+        steps.append(_reward_step(
+            "xp_earned",
+            "XP earned",
+            value=f"+{xp_earned} XP",
+            amount=xp_earned,
+        ))
+
+    if today_saved_by_current and not was_today_saved:
+        steps.append(_reward_step(
+            "today_saved",
+            "Today is safe.",
+            text="You did enough for today. Anything else is optional.",
+            mood="celebrating",
+        ))
+
+    if was_today_saved:
+        steps.append(_reward_step(
+            "ringo_message",
+            "Bonus momentum.",
+            text="Today was already safe. This was optional extra progress.",
+            mood="happy",
+        ))
+
+    steps.append(_reward_step(
+        "next_choice",
+        "Choose your pace.",
+        text="You can stop here, or continue only if you have energy.",
+    ))
+
+    return steps
+
+
+def _upsert_mission_log(
+    user_id,
+    mission_id,
+    status,
+    *,
+    reminder_at=None,
+    notes=None,
+    skip_reason=None,
+):
     today = utc_today_iso()
     conn = get_db_connection()
     try:
@@ -209,14 +392,16 @@ def _upsert_mission_log(user_id, mission_id, status, *, reminder_at=None, notes=
                 date,
                 status,
                 reminder_at,
+                skip_reason,
                 notes,
                 xp_earned,
                 updated_at
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
             ON CONFLICT(user_id, mission_id, date) DO UPDATE SET
                 status = excluded.status,
                 reminder_at = excluded.reminder_at,
+                skip_reason = excluded.skip_reason,
                 notes = COALESCE(excluded.notes, mission_logs.notes),
                 xp_earned = excluded.xp_earned,
                 updated_at = datetime('now')
@@ -229,6 +414,7 @@ def _upsert_mission_log(user_id, mission_id, status, *, reminder_at=None, notes=
                 today,
                 status,
                 reminder_at,
+                skip_reason,
                 notes,
                 xp_earned,
             ),
@@ -251,6 +437,7 @@ def _upsert_mission_log(user_id, mission_id, status, *, reminder_at=None, notes=
                 "path_id": mission["path_id"],
                 "path_title": mission["path_title"],
                 "reminder_at": reminder_at,
+                "skip_reason": skip_reason,
                 "today_done_before_you": done_before_you,
                 "today_done_count": done_before_you + 1 if status == "done" else None,
             },
@@ -260,6 +447,14 @@ def _upsert_mission_log(user_id, mission_id, status, *, reminder_at=None, notes=
 
 
 def mark_mission_done(user_id, mission_id):
+    before_missions_payload, _ = get_today_missions(user_id)
+    before_missions = (
+        before_missions_payload.get("missions")
+        if before_missions_payload.get("ok")
+        else []
+    )
+    was_today_saved = _today_satisfied_by_missions(before_missions or [])
+
     payload, code = _upsert_mission_log(user_id, mission_id, "done")
 
     if not payload.get("ok"):
@@ -272,6 +467,13 @@ def mark_mission_done(user_id, mission_id):
 
     payload["checkin"] = checkin_payload
     payload["checkin_status_code"] = checkin_code
+    today_missions_payload, _ = get_today_missions(user_id)
+    today_missions = today_missions_payload.get("missions") if today_missions_payload.get("ok") else []
+    payload["reward_sequence"] = _build_reward_sequence(
+        payload,
+        today_missions or [],
+        was_today_saved=was_today_saved,
+    )
 
     return payload, code
 
@@ -286,12 +488,52 @@ def remind_mission_later(user_id, mission_id, reminder_at):
         return {"ok": False, "error": "reminder_at_too_long"}, 400
 
     try:
-        datetime.fromisoformat(value.replace("Z", "+00:00"))
+        parsed_reminder_at = datetime.fromisoformat(value.replace("Z", "+00:00"))
     except ValueError:
         return {"ok": False, "error": "invalid_reminder_at"}, 400
+
+    if parsed_reminder_at.tzinfo is None:
+        parsed_reminder_at = parsed_reminder_at.replace(tzinfo=timezone.utc)
+    else:
+        parsed_reminder_at = parsed_reminder_at.astimezone(timezone.utc)
+
+    next_reset_at = datetime.fromisoformat(
+        ringo_day_metadata()["next_reset_at"].replace("Z", "+00:00"),
+    )
+    if parsed_reminder_at >= next_reset_at:
+        return {"ok": False, "error": "reminder_after_next_reset"}, 400
 
     return _upsert_mission_log(user_id, mission_id, "remind_later", reminder_at=value)
 
 
-def skip_mission(user_id, mission_id):
-    return _upsert_mission_log(user_id, mission_id, "skipped")
+def _normalize_skip_reason(reason):
+    if reason is None:
+        return None, None
+
+    if not isinstance(reason, str):
+        return None, "invalid_skip_reason"
+
+    value = reason.strip()
+    if not value:
+        return None, None
+
+    if len(value) > 40:
+        return None, "skip_reason_too_long"
+
+    if value not in ALLOWED_SKIP_REASONS:
+        return None, "unsupported_skip_reason"
+
+    return value, None
+
+
+def skip_mission(user_id, mission_id, reason=None):
+    skip_reason, error = _normalize_skip_reason(reason)
+    if error:
+        return {"ok": False, "error": error}, 400
+
+    return _upsert_mission_log(
+        user_id,
+        mission_id,
+        "skipped",
+        skip_reason=skip_reason,
+    )

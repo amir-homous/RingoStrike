@@ -185,19 +185,26 @@ CREATE TABLE IF NOT EXISTS missions (
   order_index INTEGER NOT NULL DEFAULT 0,
   suggested_time TEXT,
   unlock_after_days INTEGER NOT NULL DEFAULT 0,
+  mission_intensity TEXT CHECK(mission_intensity IN ('main', 'tiny', 'bonus')) DEFAULT 'main',
+  estimated_minutes INTEGER,
+  parent_mission_id INTEGER,
   ringo_message TEXT,
   status TEXT CHECK(status IN ('Active', 'Archived')) DEFAULT 'Active',
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   UNIQUE(challenge_id, key),
-  FOREIGN KEY(challenge_id) REFERENCES challenges(id) ON DELETE CASCADE
+  FOREIGN KEY(challenge_id) REFERENCES challenges(id) ON DELETE CASCADE,
+  FOREIGN KEY(parent_mission_id) REFERENCES missions(id) ON DELETE SET NULL
 );
 ```
 
 Used by `/paths/:id/challenges` for mission previews and `/me/today-missions` for available daily missions. `unlock_after_days` is compared against days since enrollment join date.
 
+`mission_intensity` supports `main`, `tiny`, and `bonus`. Existing rows default to `main`. `estimated_minutes` and `parent_mission_id` are optional metadata for lower-pressure tiny missions or bonus variants; they do not create a separate completion, XP, streak, or achievement system.
+
 Indexes:
 
 - `idx_missions_challenge_status` on `(challenge_id, status, order_index)`
+- `idx_missions_intensity` on `(challenge_id, mission_intensity, status)`
 
 ## `mission_logs`
 
@@ -211,6 +218,7 @@ CREATE TABLE IF NOT EXISTS mission_logs (
   date TEXT NOT NULL,
   status TEXT CHECK(status IN ('pending', 'done', 'skipped', 'remind_later')) DEFAULT 'pending',
   reminder_at TEXT,
+  skip_reason TEXT,
   notes TEXT,
   xp_earned INTEGER NOT NULL DEFAULT 0,
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
@@ -229,6 +237,8 @@ Status values:
 - `done`
 - `skipped`
 - `remind_later`
+
+`skip_reason` is optional metadata for skipped missions. Supported stable reason keys are `too_tired`, `no_time`, `too_hard`, `not_relevant`, `disliked`, and `other`. Skip reasons are future Ringo Brain context only; they do not affect XP, streak, achievements, or check-in logic.
 
 Indexes:
 

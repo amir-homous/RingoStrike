@@ -52,6 +52,7 @@ Successful response:
     "description": "Walk, stretch, or do a light movement session.",
     "mission_intensity": "main",
     "estimated_minutes": 10,
+    "parent_mission_id": null,
     "xp_reward": 10,
     "status": "pending",
     "challenge_id": 1,
@@ -81,6 +82,24 @@ Successful response:
     "today_saved": false,
     "current_streak": 3,
     "total_checkins": 12
+  },
+  "ringo_day": {
+    "date": "2026-06-10",
+    "next_reset_at": "2026-06-11T00:00:00Z",
+    "reset_basis": "utc",
+    "server_now": "2026-06-10T20:52:00Z"
+  },
+  "agenda": {
+    "today_saved": false,
+    "next_action_type": "primary_mission",
+    "next_mission_id": 1,
+    "next_mission_title": "Move for 10 minutes",
+    "next_reminder_at": null,
+    "pending_count": 1,
+    "reminded_count": 0,
+    "skipped_count": 0,
+    "done_count": 0,
+    "has_optional_work": false
   },
   "reward_sequence": {
     "type": "standard",
@@ -145,6 +164,13 @@ Initial v1 values:
 
 The user should always know which action is enough for today. Bonus missions must remain optional.
 
+Selection guidance:
+
+- Normal users should receive `main` missions first.
+- Returning or streak-risk users should receive an available `tiny` mission when one exists.
+- If no `tiny` mission is available, Ringo Brain should safely fall back to the current `main` mission.
+- `parent_mission_id` can link a `tiny` or `bonus` mission back to its main mission, but mission completion must still use the existing mission completion API.
+
 ## Supported Action Values
 
 Initial v1 action `type` values:
@@ -193,6 +219,78 @@ Field meaning:
 - `total_checkins`: total counted check-ins from the existing stats/check-in system.
 
 Do not create a separate Ringo-specific streak or XP economy.
+
+## Ringo Day Fields
+
+The `ringo_day` object is additive. It explains the daily mission/check-in boundary used by Ringo Brain so clients can avoid confusing reminder copy around local midnight.
+
+Shape:
+
+```json
+{
+  "date": "2026-06-14",
+  "next_reset_at": "2026-06-15T00:00:00Z",
+  "reset_basis": "utc",
+  "server_now": "2026-06-14T20:52:00Z"
+}
+```
+
+Rules:
+
+- `date` is the current Ringo day according to the backend's UTC date.
+- `next_reset_at` is the next UTC midnight boundary.
+- `reset_basis` is `utc`; this matches the existing mission log/check-in date helpers and does not change completion, reminder, reward, or streak behavior.
+- `server_now` is the backend's current UTC timestamp when the guidance payload is built.
+- Frontend clients may ignore this object safely. When present, they should use `next_reset_at` to clarify reminder labels that land after the next Ringo daily reset.
+- Current daily mission reminders should not be scheduled at or after `next_reset_at`; these reminders point to stale daily work after reset. The frontend should block the option when metadata is available, and the backend may reject the mutation with `reminder_after_next_reset`.
+
+## Agenda Fields
+
+The `agenda` object is additive. It gives Ringo a compact summary of today's mission situation so the frontend can keep Today Saved while still understanding the nearest useful optional/paused action.
+
+Shape:
+
+```json
+{
+  "today_saved": true,
+  "next_action_type": "upcoming_reminder",
+  "next_mission_id": 123,
+  "next_mission_title": "Get morning light",
+  "next_reminder_at": "2026-06-12T19:00:00Z",
+  "pending_count": 1,
+  "reminded_count": 2,
+  "skipped_count": 1,
+  "done_count": 1,
+  "has_optional_work": true
+}
+```
+
+Supported `next_action_type` values:
+
+- `due_reminder`
+- `upcoming_reminder`
+- `primary_mission`
+- `optional_mission`
+- `skipped_optional`
+- `done_for_today`
+
+Priority order:
+
+1. `due_reminder`
+2. `upcoming_reminder`
+3. `primary_mission`
+4. `optional_mission`
+5. `skipped_optional`
+6. `done_for_today`
+
+Rules:
+
+- Counts are computed from today's mission list: pending, reminded/remind_later, skipped, and done.
+- If today is saved and a reminder exists, Today Saved remains true and the reminder appears as optional/paused context.
+- If today is saved and skipped missions exist, skipped work appears only as no-shame optional context.
+- If today is not saved, pending main/tiny missions remain the meaningful primary mission path.
+- If all missions are done or safely paused with no useful next mission, return `done_for_today`.
+- Agenda must not change mission mutation APIs, reward sequence behavior, XP, streaks, or check-in writes.
 
 ## Reward Sequence Placeholder
 
@@ -264,12 +362,23 @@ Existing mission APIs remain canonical for mission state and completion:
 
 Ringo Brain v1 should not duplicate mission logs, check-ins, XP, streaks, achievements, or activity writes.
 
+Mission completion may return an additive `reward_sequence` array for frontend Ringo Moment rendering. Existing completion fields remain valid and should not be removed or renamed. Initial completion step types are:
+
+- `ringo_message`
+- `mission_completed`
+- `xp_earned`
+- `today_saved`
+- `next_choice`
+
+The `today_saved` completion step should be included only for the first completion that satisfies today: either a `main` mission or a linked `tiny` mission whose `parent_mission_id` points to a main mission. If today was already saved before the current completion, the backend should not repeat the `today_saved` step and should return warm bonus/optional progress copy using frontend-supported step types. Completing a linked tiny mission must not automatically mark the parent main mission done unless a later compatibility plan explicitly changes that.
+
 Implementation guidance:
 
 - Build `GET /me/ringo/today` as an additive guidance endpoint.
 - Reuse existing mission, path, stats, and Ringo decision services where practical.
 - Mission completion must continue to flow through `POST /me/missions/:mission_id/done`.
 - Reminder and skip actions should continue to use the existing mission mutation endpoints.
+- Mission skip may include an optional stable `reason` key: `too_tired`, `no_time`, `too_hard`, `not_relevant`, `disliked`, or `other`. Skip reasons are context for future adaptation only and must not create shame, punishment, XP loss, streak loss, or check-in writes.
 - Frontend can adopt this endpoint progressively while keeping `MissionCenter` compatible with `/me/today-missions`.
 - Existing `ringo.state` values from `/me/today-missions` should be mapped carefully rather than renamed in place.
 
