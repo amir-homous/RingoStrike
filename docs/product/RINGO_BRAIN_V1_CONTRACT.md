@@ -83,6 +83,12 @@ Successful response:
     "current_streak": 3,
     "total_checkins": 12
   },
+  "ringo_day": {
+    "date": "2026-06-10",
+    "next_reset_at": "2026-06-11T00:00:00Z",
+    "reset_basis": "utc",
+    "server_now": "2026-06-10T20:52:00Z"
+  },
   "agenda": {
     "today_saved": false,
     "next_action_type": "primary_mission",
@@ -213,6 +219,30 @@ Field meaning:
 - `total_checkins`: total counted check-ins from the existing stats/check-in system.
 
 Do not create a separate Ringo-specific streak or XP economy.
+
+## Ringo Day Fields
+
+The `ringo_day` object is additive. It explains the daily mission/check-in boundary used by Ringo Brain so clients can avoid confusing reminder copy around local midnight.
+
+Shape:
+
+```json
+{
+  "date": "2026-06-14",
+  "next_reset_at": "2026-06-15T00:00:00Z",
+  "reset_basis": "utc",
+  "server_now": "2026-06-14T20:52:00Z"
+}
+```
+
+Rules:
+
+- `date` is the current Ringo day according to the backend's UTC date.
+- `next_reset_at` is the next UTC midnight boundary.
+- `reset_basis` is `utc`; this matches the existing mission log/check-in date helpers and does not change completion, reminder, reward, or streak behavior.
+- `server_now` is the backend's current UTC timestamp when the guidance payload is built.
+- Frontend clients may ignore this object safely. When present, they should use `next_reset_at` to clarify reminder labels that land after the next Ringo daily reset.
+- Current daily mission reminders should not be scheduled at or after `next_reset_at`; these reminders point to stale daily work after reset. The frontend should block the option when metadata is available, and the backend may reject the mutation with `reminder_after_next_reset`.
 
 ## Agenda Fields
 

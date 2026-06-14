@@ -1,6 +1,25 @@
 from datetime import datetime, timedelta, timezone
 
 from helpers import auth_headers, register_user
+from utils.date_utils import ringo_day_metadata
+
+
+def _before_next_reset_at():
+    next_reset = datetime.fromisoformat(
+        ringo_day_metadata()["next_reset_at"].replace("Z", "+00:00"),
+    )
+    target = min(
+        datetime.now(timezone.utc) + timedelta(hours=2),
+        next_reset - timedelta(minutes=1),
+    )
+    return target.isoformat()
+
+
+def _after_next_reset_at():
+    next_reset = datetime.fromisoformat(
+        ringo_day_metadata()["next_reset_at"].replace("Z", "+00:00"),
+    )
+    return (next_reset + timedelta(minutes=1)).isoformat()
 
 
 def test_paths_seed_does_not_create_legacy_unlinked_challenges(client):
@@ -312,9 +331,7 @@ def test_today_missions_trigger_checkin_safely(client):
         for step in repeat_done_data["reward_sequence"]
     )
 
-    reminder_at = (
-        datetime.now(timezone.utc) + timedelta(hours=2)
-    ).isoformat()
+    reminder_at = _before_next_reset_at()
     remind_res = client.post(
         f"/me/missions/{second['mission_id']}/remind-later",
         json={"reminder_at": reminder_at},
@@ -346,6 +363,45 @@ def test_today_missions_trigger_checkin_safely(client):
     assert stats_data["ok"] is True
     assert stats_data["stats"]["total_checkins"] == 1
     assert stats_data["stats"]["total_points"] >= 10
+
+
+def test_mission_reminder_rejects_time_after_next_daily_reset(client):
+    user = register_user(client, username="ResetReminder")
+    headers = auth_headers(user["access_token"])
+
+    paths_data = client.get("/paths", headers=headers).get_json()
+    fitness_path = next(item for item in paths_data["items"] if item["key"] == "fitness")
+
+    client.post(f"/paths/{fitness_path['path_id']}/start", headers=headers)
+    challenge_id = client.get(
+        f"/paths/{fitness_path['path_id']}/challenges",
+        headers=headers,
+    ).get_json()["items"][0]["challenge_id"]
+    client.post(
+        f"/challenges/{challenge_id}/join",
+        json={},
+        headers=headers,
+    )
+
+    mission = client.get("/me/today-missions", headers=headers).get_json()["missions"][0]
+
+    remind_res = client.post(
+        f"/me/missions/{mission['mission_id']}/remind-later",
+        json={"reminder_at": _after_next_reset_at()},
+        headers=headers,
+    )
+
+    assert remind_res.status_code == 400
+    assert remind_res.get_json()["error"] == "reminder_after_next_reset"
+
+    missions = client.get("/me/today-missions", headers=headers).get_json()["missions"]
+    unchanged_mission = next(
+        item for item in missions
+        if item["mission_id"] == mission["mission_id"]
+    )
+
+    assert unchanged_mission["status"] == "pending"
+    assert unchanged_mission["reminder_at"] is None
 
 
 def test_mission_skip_reason_is_optional_and_persisted(client):
