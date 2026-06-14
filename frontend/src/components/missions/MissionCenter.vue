@@ -652,6 +652,11 @@ const guidanceAgenda = computed(() => {
   return agenda;
 });
 
+const guidanceRingoDay = computed(() => {
+  const ringoDay = ringoGuidance.value?.ringo_day;
+  return ringoDay && typeof ringoDay === "object" ? ringoDay : null;
+});
+
 const preferLocalizedRingo = computed(() => {
   return String(locale.value || "").toLowerCase().startsWith("fa");
 });
@@ -1375,7 +1380,15 @@ async function runMissionAction(mission, action, request, options = {}) {
       };
     }
   } catch (e) {
-    error.value = e?.response?.data?.error || e?.message || String(e);
+    const errorCode = e?.response?.data?.error || e?.message || String(e);
+    if (action === "remind" && errorCode === "reminder_after_next_reset") {
+      error.value = "";
+      notice.value = t("missions.remindOptions.afterResetBlockedNotice");
+      noticeType.value = "reminder";
+      setInteractionNarrative("missions.narrative.remindBlockedAfterReset", "thinking");
+    } else {
+      error.value = errorCode;
+    }
   } finally {
     busyId.value = null;
     busyAction.value = "";
@@ -1463,14 +1476,27 @@ function selectReminderOption(mission, option) {
   busyReminderOption.value = option?.key || "";
   const reminderAtDate = reminderAtForOption(option?.key);
   const tomorrowSlot = reminderTomorrowSlotKey(reminderAtDate);
+  const afterNextReset = isAfterNextRingoReset(reminderAtDate);
   const reminderAt = reminderAtDate.toISOString();
   const timeLabel = formattedReminderTime(reminderAtDate);
-  const confirmationKey = option?.key === "evening" && tomorrowSlot === "evening"
+  if (afterNextReset) {
+    busyReminderOption.value = "";
+    notice.value = t("missions.remindOptions.afterResetBlockedNotice");
+    noticeType.value = "reminder";
+    setInteractionNarrative("missions.narrative.remindBlockedAfterReset", "thinking");
+    return null;
+  }
+
+  const confirmationKey = afterNextReset
+    ? "missions.remindOptions.confirmationAfterReset"
+    : option?.key === "evening" && tomorrowSlot === "evening"
     ? "missions.remindOptions.confirmationTomorrowEvening"
     : option?.key === "tonight" && tomorrowSlot === "night"
       ? "missions.remindOptions.confirmationTomorrowNight"
       : "missions.remindOptions.confirmation";
-  const narrativeKey = option?.key === "evening" && tomorrowSlot === "evening"
+  const narrativeKey = afterNextReset
+    ? "missions.narrative.remindConfirmedAfterReset"
+    : option?.key === "evening" && tomorrowSlot === "evening"
     ? "missions.narrative.remindConfirmedTomorrowEvening"
     : option?.key === "tonight" && tomorrowSlot === "night"
       ? "missions.narrative.remindConfirmedTomorrowNight"
@@ -2065,6 +2091,24 @@ function formattedReminderTime(value) {
   }).format(date);
 }
 
+function parsedNextResetAt() {
+  const value = guidanceRingoDay.value?.next_reset_at;
+  if (!value) return null;
+
+  const reset = new Date(value);
+  return Number.isNaN(reset.getTime()) ? null : reset;
+}
+
+function isAfterNextRingoReset(value) {
+  const reset = parsedNextResetAt();
+  if (!reset) return false;
+
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return false;
+
+  return date.getTime() >= reset.getTime();
+}
+
 function isTomorrowLocalDate(date) {
   if (!(date instanceof Date) || Number.isNaN(date.getTime())) return false;
 
@@ -2097,6 +2141,10 @@ function formattedReminderLabel(value) {
   const time = formattedReminderTime(value);
   const tomorrowSlot = reminderTomorrowSlotKey(date);
 
+  if (isAfterNextRingoReset(date)) {
+    return t("missions.remindOptions.afterReset", { time });
+  }
+
   if (tomorrowSlot === "evening") {
     return t("missions.remindOptions.tomorrowEveningAt", { time });
   }
@@ -2120,6 +2168,10 @@ function formattedReminderSummaryLabel(value) {
 
   const label = formattedReminderLabel(value);
   if (!label) return "";
+
+  if (isAfterNextRingoReset(date)) {
+    return t("missions.remindOptions.afterResetAt", { time: formattedReminderTime(value) });
+  }
 
   return reminderTomorrowSlotKey(date)
     ? label

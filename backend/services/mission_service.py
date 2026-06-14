@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 from database import get_db_connection
 from services.enrollment_service import checkin
 from services.ringo_decision_service import decide_ringo_state
-from utils.date_utils import utc_today_iso
+from utils.date_utils import ringo_day_metadata, utc_today_iso
 
 
 ALLOWED_SKIP_REASONS = {
@@ -488,9 +488,20 @@ def remind_mission_later(user_id, mission_id, reminder_at):
         return {"ok": False, "error": "reminder_at_too_long"}, 400
 
     try:
-        datetime.fromisoformat(value.replace("Z", "+00:00"))
+        parsed_reminder_at = datetime.fromisoformat(value.replace("Z", "+00:00"))
     except ValueError:
         return {"ok": False, "error": "invalid_reminder_at"}, 400
+
+    if parsed_reminder_at.tzinfo is None:
+        parsed_reminder_at = parsed_reminder_at.replace(tzinfo=timezone.utc)
+    else:
+        parsed_reminder_at = parsed_reminder_at.astimezone(timezone.utc)
+
+    next_reset_at = datetime.fromisoformat(
+        ringo_day_metadata()["next_reset_at"].replace("Z", "+00:00"),
+    )
+    if parsed_reminder_at >= next_reset_at:
+        return {"ok": False, "error": "reminder_after_next_reset"}, 400
 
     return _upsert_mission_log(user_id, mission_id, "remind_later", reminder_at=value)
 

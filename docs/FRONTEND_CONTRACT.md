@@ -491,6 +491,12 @@ Returns Ringo Brain v1 guidance for the Ringo-first dashboard. This endpoint is 
     "current_streak": 3,
     "total_checkins": 12
   },
+  "ringo_day": {
+    "date": "2026-06-10",
+    "next_reset_at": "2026-06-11T00:00:00Z",
+    "reset_basis": "utc",
+    "server_now": "2026-06-10T20:52:00Z"
+  },
   "agenda": {
     "today_saved": false,
     "next_action_type": "primary_mission",
@@ -516,6 +522,17 @@ Returns Ringo Brain v1 guidance for the Ringo-first dashboard. This endpoint is 
 ```
 
 Supported action `type` values in v1 are `start`, `remind_later`, `make_smaller`, `too_tired`, and `skip_today`.
+
+The `ringo_day` object is additive and describes the backend daily reset boundary used by Ringo Brain. Current reset basis is UTC/server date:
+
+- `date`: current Ringo day as a UTC date.
+- `next_reset_at`: next UTC midnight reset timestamp.
+- `reset_basis`: currently `utc`.
+- `server_now`: backend UTC timestamp when the response was built.
+
+Frontend clients should remain compatible when `ringo_day` is missing. When present, reminder labels can compare reminder times to `next_reset_at`; if a reminder lands after the next reset, copy should clarify that it is after the user's next Ringo daily reset rather than relying only on local calendar-day wording.
+
+Current daily mission reminders should be scheduled before `ringo_day.next_reset_at`. The frontend should block reminder options that cross this boundary when metadata is available, and the backend rejects cross-reset reminder writes with `reminder_after_next_reset`.
 
 The `agenda` object is additive and summarizes the user's daily mission situation. Existing frontend consumers can ignore it safely. `next_action_type` is selected with this priority order:
 
@@ -626,6 +643,7 @@ Validation:
 - `reminder_at` is required
 - value must be ISO-parseable after replacing `Z` with `+00:00`
 - value must be at most 80 characters
+- value must be before the current Ringo day `next_reset_at`; otherwise the endpoint returns `400` with `reminder_after_next_reset`
 
 Success returns the same `mission` shape as mission done with `status: "remind_later"` and no check-in payload.
 

@@ -4,7 +4,7 @@ from sqlite3 import DatabaseError
 from database import get_db_connection
 from services.mission_service import get_today_missions
 from services.stats_service import build_user_stats_payload
-from utils.date_utils import utc_today_iso
+from utils.date_utils import ringo_day_metadata, utc_today_iso
 
 
 FALLBACK_RINGO = {
@@ -462,9 +462,11 @@ def _reward_sequence(user_state):
 def _fallback_payload(reason, stats=None):
     stats = stats or {}
     progress = _progress(stats)
+    ringo_day = ringo_day_metadata()
     return {
         "ok": True,
-        "date": utc_today_iso(),
+        "date": ringo_day["date"],
+        "ringo_day": ringo_day,
         "ringo": dict(FALLBACK_RINGO),
         "mission": None,
         "actions": [_action("start", "View paths")],
@@ -514,10 +516,12 @@ def get_today_ringo_guidance(user_id):
     progress = _progress(stats)
     progress["today_saved"] = user_state == "today_completed"
     agenda = _agenda_payload(missions, progress["today_saved"])
+    ringo_day = ringo_day_metadata()
 
     return {
         "ok": True,
         "date": missions_payload.get("date") or utc_today_iso(),
+        "ringo_day": ringo_day,
         "ringo": _ringo_payload(user_state, selected_mission, agenda),
         "mission": _mission_payload(selected_mission, mission_intensity),
         "actions": _actions_for_state(user_state, selected_mission),

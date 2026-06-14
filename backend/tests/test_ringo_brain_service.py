@@ -2,7 +2,7 @@ from datetime import datetime, timedelta, timezone
 
 from helpers import auth_headers, register_user
 from services.ringo_brain_service import get_today_ringo_guidance
-from utils.date_utils import utc_today_iso
+from utils.date_utils import ringo_day_metadata, utc_today_iso
 
 
 def _start_path_and_join_first_challenge(client, headers, path_key="fitness"):
@@ -90,7 +90,14 @@ def _set_challenge_missions_available(challenge_id):
 
 
 def _reminder_at():
-    return (datetime.now(timezone.utc) + timedelta(hours=2)).isoformat()
+    next_reset = datetime.fromisoformat(
+        ringo_day_metadata()["next_reset_at"].replace("Z", "+00:00"),
+    )
+    target = min(
+        datetime.now(timezone.utc) + timedelta(hours=2),
+        next_reset - timedelta(minutes=1),
+    )
+    return target.isoformat()
 
 
 def _due_reminder_at():
@@ -121,6 +128,10 @@ def test_ringo_brain_returns_new_user_guidance_without_endpoint(client):
         "current_streak": 0,
         "total_checkins": 0,
     }
+    assert payload["ringo_day"]["date"] == utc_today_iso()
+    assert payload["ringo_day"]["reset_basis"] == "utc"
+    assert payload["ringo_day"]["next_reset_at"].endswith("T00:00:00Z")
+    assert payload["ringo_day"]["server_now"].endswith("Z")
     assert payload["fallback"]["used"] is False
 
 
