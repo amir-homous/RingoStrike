@@ -76,6 +76,14 @@
           </BaseButton>
 
           <BaseButton
+            v-if="shouldShowFullVersionAction(focusMission)"
+            variant="secondary"
+            @click="focusMainMissionVariant(focusMission)"
+          >
+            {{ t("missions.ringoActions.useFullVersion") }}
+          </BaseButton>
+
+          <BaseButton
             variant="secondary"
             :loading="busyId === focusMission.mission_id && busyAction === 'skip'"
             :disabled="missionHasStatus(focusMission, 'done', 'skipped')"
@@ -348,6 +356,14 @@
           </BaseButton>
 
           <BaseButton
+            v-if="shouldShowFullVersionAction(focusMission)"
+            variant="secondary"
+            @click="focusMainMissionVariant(focusMission)"
+          >
+            {{ t("missions.ringoActions.useFullVersion") }}
+          </BaseButton>
+
+          <BaseButton
             variant="secondary"
             :loading="busyId === focusMission.mission_id && busyAction === 'skip'"
             :disabled="missionHasStatus(focusMission, 'done', 'skipped')"
@@ -532,6 +548,22 @@
               @click="skipMission(mission)"
             >
               {{ missionHasStatus(mission, "skipped") ? t("missions.skipped") : t("missions.skip") }}
+            </BaseButton>
+
+            <BaseButton
+              v-if="shouldShowMissionItemTinyAction(mission)"
+              variant="secondary"
+              @click="focusTinyMissionVariant(mission)"
+            >
+              {{ t("missions.ringoActions.tryTinyVersion") }}
+            </BaseButton>
+
+            <BaseButton
+              v-if="shouldShowFullVersionAction(mission)"
+              variant="secondary"
+              @click="focusMainMissionVariant(mission)"
+            >
+              {{ t("missions.ringoActions.useFullVersion") }}
             </BaseButton>
           </div>
 
@@ -1059,17 +1091,42 @@ const effectiveMissionRepresentatives = computed(() => {
     const mainMission = items.find((mission) => normalizedMissionIntensity(mission) === "main") || null;
     const tinyMissions = items.filter((mission) => normalizedMissionIntensity(mission) === "tiny");
     const bonusMissions = items.filter((mission) => normalizedMissionIntensity(mission) === "bonus");
+    const doneTiny = tinyMissions.find((mission) => {
+      return missionHasStatus(mission, "done");
+    }) || null;
+    const mainOverridesDoneTiny = !!(
+      mainMission
+      && doneTiny
+      && (
+        missionHasStatus(mainMission, "remind_later", "done", "skipped")
+        || sameMissionId(mainMission.mission_id, manualFocusMissionId.value)
+      )
+    );
     const effectiveTiny = tinyMissions.find((mission) => {
       return missionHasStatus(mission, "remind_later", "done");
     }) || tinyMissions.find((mission) => {
       return isTinyMissionRevealed(mission) && missionHasStatus(mission, "pending", "skipped");
     }) || null;
 
-    if (mainMission && missionHasStatus(mainMission, "done")) {
+    if (mainOverridesDoneTiny) {
       representatives.push(mainMission);
-      bonusMissions
-        .filter((mission) => missionHasStatus(mission, "pending", "done", "remind_later", "skipped"))
-        .forEach((mission) => representatives.push(mission));
+      if (missionHasStatus(mainMission, "done")) {
+        bonusMissions
+          .filter((mission) => missionHasStatus(mission, "pending", "done", "remind_later", "skipped"))
+          .forEach((mission) => representatives.push(mission));
+      }
+      return;
+    }
+
+    if (mainMission && missionHasStatus(mainMission, "done")) {
+      if (doneTiny) {
+        representatives.push(doneTiny);
+      } else {
+        representatives.push(mainMission);
+        bonusMissions
+          .filter((mission) => missionHasStatus(mission, "pending", "done", "remind_later", "skipped"))
+          .forEach((mission) => representatives.push(mission));
+      }
       return;
     }
 
@@ -2081,7 +2138,7 @@ function childMissionsFor(mission) {
 
 function hasDoneTinyChild(mission) {
   return childMissionsFor(mission).some((item) => {
-    return isTinyMission(item) && isTinyMissionRevealed(item) && missionHasStatus(item, "done");
+    return isTinyMission(item) && missionHasStatus(item, "done");
   });
 }
 
@@ -2128,11 +2185,19 @@ function shouldShowOtherMission(mission) {
   const intensity = normalizedMissionIntensity(mission);
   const parentMission = parentMissionFor(mission);
 
-  if (intensity === "main" && (hasRepresentativeTinyChild(mission) || isFocusedTinyChildOf(mission))) {
+  const mainHasExplicitState = missionHasStatus(mission, "remind_later", "done", "skipped")
+    || sameMissionId(mission.mission_id, manualFocusMissionId.value);
+
+  if (
+    intensity === "main"
+    && !mainHasExplicitState
+    && (hasRepresentativeTinyChild(mission) || isFocusedTinyChildOf(mission))
+  ) {
     return false;
   }
 
   if (intensity === "tiny") {
+    if (missionHasStatus(mission, "done")) return true;
     if (!isTinyMissionRevealed(mission)) return false;
     if (parentMission && missionHasStatus(parentMission, "done") && missionHasStatus(mission, "pending")) {
       return false;
@@ -2423,6 +2488,14 @@ function missionStatusCopy(mission) {
     return t("missions.statusCopy.done");
   }
 
+  if (
+    status === "pending"
+    && normalizedMissionIntensity(mission) === "main"
+    && hasDoneTinyChild(mission)
+  ) {
+    return t("missions.statusCopy.optionalUpgrade");
+  }
+
   return mission.ringo_message || "";
 }
 
@@ -2517,6 +2590,56 @@ function handleOptionalNextSupportAction(type, mission) {
       ? "missions.ringoActions.tooTiredMessage"
       : "missions.ringoActions.makeSmallerMessage",
   );
+}
+
+function shouldShowMissionItemTinyAction(mission) {
+  if (!mission || normalizedMissionIntensity(mission) !== "main") return false;
+  if (!missionHasStatus(mission, "pending", "remind_later", "skipped")) return false;
+
+  return !!linkedTinyMissionFor(mission);
+}
+
+function focusTinyMissionVariant(mission) {
+  if (!shouldShowMissionItemTinyAction(mission)) return;
+
+  focusTinyMissionFromAction(
+    {
+      type: "make_smaller",
+      mission_id: mission.mission_id,
+    },
+    "missions.ringoActions.makeSmallerTinyMessage",
+    "missions.ringoActions.makeSmallerMessage",
+  );
+}
+
+function shouldShowFullVersionAction(mission) {
+  if (!mission || normalizedMissionIntensity(mission) !== "tiny") return false;
+
+  const parentMission = parentMissionFor(mission);
+  return !!(
+    parentMission
+    && !missionHasStatus(parentMission, "done", "locked")
+  );
+}
+
+function focusMainMissionVariant(mission) {
+  if (!shouldShowFullVersionAction(mission)) return;
+
+  const parentMission = parentMissionFor(mission);
+  revealedTinyMissionIds.value = new Set(
+    [...revealedTinyMissionIds.value].filter((missionId) => {
+      return !sameMissionId(missionId, mission.mission_id);
+    }),
+  );
+  manualFocusMissionId.value = parentMission.mission_id;
+  reminderPanelMissionId.value = null;
+  customReminderPanelMissionId.value = null;
+  customReminderTime.value = "";
+  skipReasonPanelMissionId.value = null;
+  setInteractionNarrative("missions.ringoActions.useFullVersionMessage", "encouraging", {
+    mission: parentMission.title,
+  });
+  focusMissionCard(parentMission);
 }
 
 function showMissionItemActions(mission) {
