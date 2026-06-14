@@ -53,10 +53,10 @@
           <BaseButton
             variant="secondary"
             :loading="busyId === focusMission.mission_id && busyAction === 'remind'"
-            :disabled="missionHasStatus(focusMission, 'done', 'remind_later')"
+            :disabled="missionHasStatus(focusMission, 'done')"
             @click="remindLater(focusMission)"
           >
-            {{ missionHasStatus(focusMission, "remind_later") ? t("missions.reminderSet") : t("missions.remindLater") }}
+            {{ missionHasStatus(focusMission, "remind_later") ? t("missions.editReminder") : t("missions.remindLater") }}
           </BaseButton>
 
           <BaseButton
@@ -166,10 +166,10 @@
           <BaseButton
             variant="secondary"
             :loading="busyId === optionalNextMission.mission_id && busyAction === 'remind'"
-            :disabled="missionHasStatus(optionalNextMission, 'remind_later')"
+            :disabled="missionHasStatus(optionalNextMission, 'done')"
             @click="remindOptionalNextMission(optionalNextMission)"
           >
-            {{ t("missions.remindLater") }}
+            {{ missionHasStatus(optionalNextMission, "remind_later") ? t("missions.editReminder") : t("missions.remindLater") }}
           </BaseButton>
           <BaseButton
             v-if="shouldShowOptionalNextSupportAction('make_smaller', optionalNextMission)"
@@ -297,10 +297,10 @@
           <BaseButton
             variant="secondary"
             :loading="busyId === focusMission.mission_id && busyAction === 'remind'"
-            :disabled="missionHasStatus(focusMission, 'done', 'remind_later')"
+            :disabled="missionHasStatus(focusMission, 'done')"
             @click="remindLater(focusMission)"
           >
-            {{ missionHasStatus(focusMission, "remind_later") ? t("missions.reminderSet") : t("missions.remindLater") }}
+            {{ missionHasStatus(focusMission, "remind_later") ? t("missions.editReminder") : t("missions.remindLater") }}
           </BaseButton>
 
           <BaseButton
@@ -399,7 +399,7 @@
       <div class="missionListHead">
         <div>
           <p class="eyebrow compact">{{ t("missions.otherEyebrow") }}</p>
-          <h2>{{ t(isTodaySaved ? "missions.optionalOtherTitle" : "missions.otherTitle") }}</h2>
+          <h2>{{ t("missions.otherTitle") }}</h2>
           <p v-if="isTodaySaved" class="otherMissionContext">
             {{ t("missions.optionalOtherContext") }}
           </p>
@@ -427,20 +427,23 @@
           ]"
         >
           <div>
-            <div
-              v-if="missionItemIntensity(mission)"
-              class="missionIntensity"
-              :class="missionItemIntensity(mission).intensity"
-            >
-              <span>{{ missionItemIntensity(mission).label }}</span>
-              <small v-if="missionItemIntensity(mission).detail">
-                {{ missionItemIntensity(mission).detail }}
-              </small>
+            <div class="missionChips" :aria-label="t('missions.statusChipsLabel')">
+              <span
+                v-for="chip in missionChips(mission)"
+                :key="chip.key"
+                class="missionChip"
+                :class="chip.type"
+              >
+                {{ chip.label }}
+              </span>
             </div>
             <p class="missionMeta">
               {{ mission.challenge_name }} · {{ missionStatusLabel(mission) }}
             </p>
             <h3>{{ mission.title }}</h3>
+            <small v-if="missionParentCopy(mission)" class="missionRelationCopy">
+              {{ missionParentCopy(mission) }}
+            </small>
             <p>{{ mission.description }}</p>
             <small v-if="missionStatusCopy(mission)" class="missionStatusCopy">
               {{ missionStatusCopy(mission) }}
@@ -460,10 +463,10 @@
             <BaseButton
               variant="secondary"
               :loading="busyId === mission.mission_id && busyAction === 'remind'"
-              :disabled="missionHasStatus(mission, 'done', 'remind_later')"
+              :disabled="missionHasStatus(mission, 'done')"
               @click="remindLater(mission)"
             >
-              {{ missionHasStatus(mission, "remind_later") ? t("missions.reminderSet") : t("missions.remindLater") }}
+              {{ missionHasStatus(mission, "remind_later") ? t("missions.editReminder") : t("missions.remindLater") }}
             </BaseButton>
 
             <BaseButton
@@ -624,6 +627,7 @@ const showCoach = computed(() => {
     interactionNarrative.value
     || completionNarrative.value
     || finishedForTodayNarrative.value
+    || dailySummaryNarrative.value
     || agendaNarrative.value
     || guidanceRingo.value
   ) return true;
@@ -674,6 +678,76 @@ const finishedForTodayNarrative = computed(() => {
   if (!optionalNextSuppressed.value || !isTodaySaved.value) return null;
 
   return doneForTodayAgendaNarrative();
+});
+
+const dailySummaryNarrative = computed(() => {
+  if (!isTodaySaved.value || !localizedMissions.value.length) return null;
+
+  const summary = dailySummary.value;
+  const nearestReminder = summary.reminded[0] || null;
+  const reminderTime = formattedReminderLabel(nearestReminder?.reminder_at || guidanceAgenda.value?.next_reminder_at);
+  const reminderSummaryTime = formattedReminderSummaryLabel(
+    nearestReminder?.reminder_at || guidanceAgenda.value?.next_reminder_at,
+  );
+  const params = {
+    done: summary.done.length,
+    reminded: summary.reminded.length,
+    skipped: summary.skipped.length,
+    mission: nearestReminder?.title || t("missions.fallbackMission"),
+    time: reminderTime,
+    summaryTime: reminderSummaryTime,
+  };
+  const facts = [];
+
+  if (summary.bonusDone.length) {
+    facts.push(t("missions.dailySummary.bonusCompletedFact"));
+  } else if (summary.done.length > 1) {
+    facts.push(t("missions.dailySummary.multipleDoneFact", params));
+  }
+
+  if (nearestReminder) {
+    const reminderDue = isReminderDue(nearestReminder);
+    const reminderKey = reminderDue
+      ? summary.reminded.length > 1
+        ? "missions.dailySummary.dueReminderMultiple"
+        : "missions.dailySummary.dueReminder"
+      : summary.reminded.length > 1
+        ? "missions.dailySummary.upcomingReminderMultiple"
+        : "missions.dailySummary.upcomingReminder";
+    facts.push(t(reminderKey, params));
+  }
+
+  if (summary.skipped.length) {
+    facts.push(t("missions.dailySummary.skippedFact", params));
+  }
+
+  if (facts.length) {
+    return {
+      message: [
+        t("missions.dailySummary.safePrefix"),
+        ...facts,
+      ].join(" "),
+      mood: nearestReminder && isReminderDue(nearestReminder)
+        ? "thinking"
+        : summary.bonusDone.length || summary.done.length > 1
+          ? "proud"
+          : summary.skipped.length
+            ? "concerned"
+            : "calm",
+    };
+  }
+
+  if (summary.bonusAvailable.length) {
+    return {
+      message: t("missions.dailySummary.bonusAvailable", params),
+      mood: "happy",
+    };
+  }
+
+  return {
+    message: t("missions.dailySummary.allDone", params),
+    mood: "sleeping",
+  };
 });
 
 const agendaNarrative = computed(() => {
@@ -779,8 +853,9 @@ const agendaNarrative = computed(() => {
 
 const coachNarrative = computed(() => {
   return interactionNarrative.value
-    || completionNarrative.value
     || finishedForTodayNarrative.value
+    || dailySummaryNarrative.value
+    || completionNarrative.value
     || agendaNarrative.value
     || optionalNextNarrative.value
     || backendCoachNarrative.value
@@ -841,8 +916,22 @@ const manualFocusMission = computed(() => {
   }) || null;
 });
 
+const activeInteractionMission = computed(() => {
+  const missionId = manualFocusMissionId.value
+    || reminderPanelMissionId.value
+    || skipReasonPanelMissionId.value
+    || busyId.value;
+
+  if (!missionId) return null;
+
+  return localizedMissions.value.find((mission) => {
+    return sameMissionId(mission.mission_id, missionId);
+  }) || null;
+});
+
 const focusMission = computed(() => {
-  return manualFocusMission.value
+  return activeInteractionMission.value
+    || primaryReminderMission()
     || guidanceMission.value
     || pendingMissions.value[0]
     || skippedMissions.value[0]
@@ -856,15 +945,74 @@ const focusMissionIntensity = computed(() => buildMissionIntensityMeta(focusMiss
 }));
 
 const rawOtherMissions = computed(() => {
-  if (!focusMission.value?.mission_id) return localizedMissions.value;
+  if (!focusMission.value?.mission_id || !isFocusMissionRendered()) return localizedMissions.value;
 
   return localizedMissions.value.filter((mission) => {
     return !sameMissionId(mission.mission_id, focusMission.value.mission_id);
   });
 });
 
+const effectiveMissionRepresentatives = computed(() => {
+  const representatives = [];
+  const groups = new Map();
+
+  localizedMissions.value.forEach((mission) => {
+    const rootId = missionGroupRootId(mission);
+    if (!rootId) return;
+
+    if (!groups.has(rootId)) groups.set(rootId, []);
+    groups.get(rootId).push(mission);
+  });
+
+  groups.forEach((items) => {
+    const mainMission = items.find((mission) => normalizedMissionIntensity(mission) === "main") || null;
+    const tinyMissions = items.filter((mission) => normalizedMissionIntensity(mission) === "tiny");
+    const bonusMissions = items.filter((mission) => normalizedMissionIntensity(mission) === "bonus");
+    const effectiveTiny = tinyMissions.find((mission) => {
+      return missionHasStatus(mission, "remind_later", "done");
+    }) || tinyMissions.find((mission) => {
+      return isTinyMissionRevealed(mission) && missionHasStatus(mission, "pending", "skipped");
+    }) || null;
+
+    if (mainMission && missionHasStatus(mainMission, "done")) {
+      representatives.push(mainMission);
+      bonusMissions
+        .filter((mission) => missionHasStatus(mission, "pending", "done", "remind_later", "skipped"))
+        .forEach((mission) => representatives.push(mission));
+      return;
+    }
+
+    if (effectiveTiny && missionHasStatus(effectiveTiny, "done", "remind_later")) {
+      representatives.push(effectiveTiny);
+      return;
+    }
+
+    if (mainMission) {
+      representatives.push(mainMission);
+      return;
+    }
+
+    if (effectiveTiny) {
+      representatives.push(effectiveTiny);
+      return;
+    }
+
+    const fallbackMission = items.find((mission) => {
+      return missionHasStatus(mission, "remind_later", "done", "pending", "skipped");
+    });
+
+    if (fallbackMission) representatives.push(fallbackMission);
+  });
+
+  return representatives;
+});
+
 const curatedOtherMissions = computed(() => {
-  return rawOtherMissions.value.filter(shouldShowOtherMission);
+  const visibleMissionIds = new Set(effectiveMissionRepresentatives.value.map((mission) => String(mission.mission_id)));
+
+  return rawOtherMissions.value.filter((mission) => {
+    return visibleMissionIds.has(String(mission.mission_id)) && shouldShowOtherMission(mission);
+  });
 });
 
 const showOtherMissionList = computed(() => {
@@ -874,8 +1022,11 @@ const showOtherMissionList = computed(() => {
 });
 
 const safeOptionalMissions = computed(() => {
-  const candidates = curatedOtherMissions.value.filter((mission) => {
-    return missionHasStatus(mission, "pending");
+  const candidates = effectiveMissionRepresentatives.value.filter((mission) => {
+    if (!missionHasStatus(mission, "pending")) return false;
+    if (isFocusMissionRendered() && sameMissionId(mission.mission_id, focusMission.value?.mission_id)) return false;
+
+    return true;
   });
 
   if (!candidates.length) return [];
@@ -897,22 +1048,62 @@ const otherMissions = computed(() => {
   return curatedOtherMissions.value.filter(shouldShowOtherMissionItem);
 });
 
+const dailySummary = computed(() => {
+  const effectiveMissions = effectiveMissionRepresentatives.value;
+  const done = effectiveMissions.filter((mission) => missionHasStatus(mission, "done"));
+  const reminded = sortReminderMissions(
+    effectiveMissions.filter((mission) => missionHasStatus(mission, "remind_later")),
+  );
+  const skipped = effectiveMissions.filter((mission) => missionHasStatus(mission, "skipped"));
+  const bonusAvailable = otherMissions.value.filter((mission) => {
+    return normalizedMissionIntensity(mission) === "bonus" && missionHasStatus(mission, "pending");
+  });
+  const bonusDone = localizedMissions.value.filter((mission) => {
+    return normalizedMissionIntensity(mission) === "bonus" && missionHasStatus(mission, "done");
+  });
+
+  return {
+    done,
+    reminded,
+    skipped,
+    bonusAvailable,
+    bonusDone,
+  };
+});
+
 const optionalNextMissionIntensity = computed(() => buildMissionIntensityMeta(optionalNextMission.value, {
   optionalContext: true,
 }));
 
-const detailsMission = computed(() => optionalNextMission.value || focusMission.value);
+const missionContextCount = computed(() => {
+  const contexts = new Set();
+
+  localizedMissions.value.forEach((mission) => {
+    const contextId = mission?.enrollment_id || mission?.challenge_id || mission?.path_id;
+    if (contextId !== null && contextId !== undefined) {
+      contexts.add(String(contextId));
+    }
+  });
+
+  return contexts.size;
+});
+
+const allMissionsDone = computed(() => {
+  return !!localizedMissions.value.length && localizedMissions.value.every((mission) => {
+    return missionHasStatus(mission, "done");
+  });
+});
+
+const detailsMission = computed(() => {
+  if (optionalNextMission.value) return optionalNextMission.value;
+  if (showFocusMissionCard.value) return focusMission.value;
+  if (allMissionsDone.value && missionContextCount.value > 1) return null;
+
+  return focusMission.value;
+});
 
 const showFocusMissionCard = computed(() => {
-  if (!focusMission.value) return false;
-  if (!isTodaySaved.value) return true;
-  if (missionHasStatus(focusMission.value, "done")) return false;
-
-  return !!(
-    sameMissionId(focusMission.value.mission_id, manualFocusMissionId.value)
-    || isReminderPanelOpen(focusMission.value)
-    || isSkipReasonPanelOpen(focusMission.value)
-  );
+  return isFocusMissionRendered();
 });
 
 const missionGuide = computed(() => {
@@ -1032,6 +1223,7 @@ const coachActionPanel = computed(() => {
     || guidanceMission.value
     || guidanceActions.value.length
     || finishedForTodayNarrative.value
+    || dailySummaryNarrative.value
     || agendaNarrative.value
     || todaySavedLabel.value
     || interactionNarrative.value
@@ -1171,6 +1363,9 @@ async function runMissionAction(mission, action, request, options = {}) {
 
     applyMissionResponse(data, mission);
     await loadMissions();
+    if (action === "remind") {
+      manualFocusMissionId.value = mission.mission_id;
+    }
     if (options.narrative) {
       setNarrative(options.narrative);
     } else if (action === "done") {
@@ -1198,7 +1393,7 @@ function markDone(mission) {
 }
 
 function remindLater(mission) {
-  if (!mission || missionHasStatus(mission, "done", "remind_later")) return null;
+  if (!mission || missionHasStatus(mission, "done")) return null;
 
   notice.value = "";
   reminderPanelMissionId.value = mission.mission_id;
@@ -1209,6 +1404,18 @@ function remindLater(mission) {
 
 function fallbackReminderAt() {
   return new Date(Date.now() + 2 * 60 * 60 * 1000);
+}
+
+function nextLocalReminderSlot(hour, minute = 0) {
+  const now = new Date();
+  const target = new Date(now);
+  target.setHours(hour, minute, 0, 0);
+
+  if (target <= now) {
+    target.setDate(target.getDate() + 1);
+  }
+
+  return target;
 }
 
 function reminderAtForOption(key) {
@@ -1222,11 +1429,12 @@ function reminderAtForOption(key) {
     return new Date(now.getTime() + 60 * 60 * 1000);
   }
 
-  if (key === "evening" || key === "tonight") {
-    const target = new Date(now);
-    target.setHours(key === "evening" ? 18 : 21, 0, 0, 0);
+  if (key === "evening") {
+    return nextLocalReminderSlot(18, 0);
+  }
 
-    return target > now ? target : fallbackReminderAt();
+  if (key === "tonight") {
+    return nextLocalReminderSlot(22, 0);
   }
 
   return fallbackReminderAt();
@@ -1236,7 +1444,7 @@ function isReminderPanelOpen(mission) {
   return !!(
     mission?.mission_id
     && sameMissionId(reminderPanelMissionId.value, mission.mission_id)
-    && !missionHasStatus(mission, "done", "remind_later")
+    && !missionHasStatus(mission, "done")
   );
 }
 
@@ -1253,9 +1461,22 @@ function selectReminderOption(mission, option) {
   if (!mission) return null;
 
   busyReminderOption.value = option?.key || "";
-  const reminderAt = reminderAtForOption(option?.key).toISOString();
+  const reminderAtDate = reminderAtForOption(option?.key);
+  const tomorrowSlot = reminderTomorrowSlotKey(reminderAtDate);
+  const reminderAt = reminderAtDate.toISOString();
+  const timeLabel = formattedReminderTime(reminderAtDate);
+  const confirmationKey = option?.key === "evening" && tomorrowSlot === "evening"
+    ? "missions.remindOptions.confirmationTomorrowEvening"
+    : option?.key === "tonight" && tomorrowSlot === "night"
+      ? "missions.remindOptions.confirmationTomorrowNight"
+      : "missions.remindOptions.confirmation";
+  const narrativeKey = option?.key === "evening" && tomorrowSlot === "evening"
+    ? "missions.narrative.remindConfirmedTomorrowEvening"
+    : option?.key === "tonight" && tomorrowSlot === "night"
+      ? "missions.narrative.remindConfirmedTomorrowNight"
+      : "missions.narrative.remindConfirmed";
   const successNotice = option?.label
-    ? t("missions.remindOptions.confirmation", { time: option.label })
+    ? t(confirmationKey, { time: option.label, exactTime: timeLabel })
     : t("missions.remindOptions.fallbackConfirmation");
 
   return runMissionAction(
@@ -1268,7 +1489,7 @@ function selectReminderOption(mission, option) {
       successNotice,
       narrative: {
         message: option?.label
-          ? t("missions.narrative.remindConfirmed", { time: option.label })
+          ? t(narrativeKey, { time: option.label, exactTime: timeLabel })
           : t("missions.narrative.remindConfirmedFallback"),
         mood: "happy",
         type: "interaction",
@@ -1639,7 +1860,15 @@ function childMissionsFor(mission) {
 
 function hasDoneTinyChild(mission) {
   return childMissionsFor(mission).some((item) => {
-    return isTinyMission(item) && missionHasStatus(item, "done");
+    return isTinyMission(item) && isTinyMissionRevealed(item) && missionHasStatus(item, "done");
+  });
+}
+
+function hasRepresentativeTinyChild(mission) {
+  return childMissionsFor(mission).some((item) => {
+    return isTinyMission(item)
+      && isTinyMissionRevealed(item)
+      && missionHasStatus(item, "done", "remind_later");
   });
 }
 
@@ -1673,30 +1902,21 @@ function sameMissionGroup(a, b) {
 
 function shouldShowOtherMission(mission) {
   if (!mission?.mission_id) return false;
-  if (sameMissionId(mission.mission_id, focusMission.value?.mission_id)) return true;
+  if (sameMissionId(mission.mission_id, focusMission.value?.mission_id) && isFocusMissionRendered()) return true;
 
   const intensity = normalizedMissionIntensity(mission);
   const parentMission = parentMissionFor(mission);
 
-  if (intensity === "main" && (hasDoneTinyChild(mission) || isFocusedTinyChildOf(mission))) {
+  if (intensity === "main" && (hasRepresentativeTinyChild(mission) || isFocusedTinyChildOf(mission))) {
     return false;
   }
 
-  if (intensity === "tiny" && missionHasStatus(mission, "done")) {
-    return false;
-  }
-
-  if (intensity === "tiny" && parentMission && missionHasStatus(parentMission, "done")) {
-    return false;
-  }
-
-  if (
-    intensity === "tiny"
-    && parentMission
-    && missionHasStatus(parentMission, "pending")
-    && !isTinyMissionRevealed(mission)
-  ) {
-    return false;
+  if (intensity === "tiny") {
+    if (!isTinyMissionRevealed(mission)) return false;
+    if (parentMission && missionHasStatus(parentMission, "done") && missionHasStatus(mission, "pending")) {
+      return false;
+    }
+    return true;
   }
 
   if (intensity === "bonus" && parentMission && !missionHasStatus(parentMission, "done")) {
@@ -1726,10 +1946,70 @@ function shouldShowOtherMissionItem(mission) {
   return true;
 }
 
+function isFocusMissionRendered() {
+  if (!focusMission.value) return false;
+  if (!isTodaySaved.value) return true;
+  if (missionHasStatus(focusMission.value, "done")) return false;
+  if (missionHasStatus(focusMission.value, "remind_later")) return true;
+
+  return !!(
+    sameMissionId(focusMission.value.mission_id, manualFocusMissionId.value)
+    || isReminderPanelOpen(focusMission.value)
+    || isSkipReasonPanelOpen(focusMission.value)
+  );
+}
+
+function primaryReminderMission() {
+  return sortReminderMissions(
+    effectiveMissionRepresentatives.value.filter((mission) => {
+      return missionHasStatus(mission, "remind_later");
+    }),
+  )[0] || null;
+}
+
 function missionItemIntensity(mission) {
   return buildMissionIntensityMeta(mission, {
     optionalContext: isTodaySaved.value,
   });
+}
+
+function missionTypeLabel(mission) {
+  const intensity = normalizedMissionIntensity(mission);
+
+  if (intensity === "main") return t("missions.typeChips.main");
+  if (intensity === "tiny") return t("missions.typeChips.tiny");
+  if (intensity === "bonus") return t("missions.typeChips.bonus");
+
+  return t("missions.typeChips.main");
+}
+
+function missionChips(mission) {
+  if (!mission) return [];
+
+  const status = normalizedMissionStatus(mission.status);
+  const knownStatus = ["pending", "done", "skipped", "remind_later"].includes(status)
+    ? status
+    : "pending";
+
+  return [
+    {
+      key: "type",
+      type: normalizedMissionIntensity(mission),
+      label: missionTypeLabel(mission),
+    },
+    {
+      key: "status",
+      type: knownStatus,
+      label: t(`missions.status.${knownStatus}`),
+    },
+  ];
+}
+
+function missionParentCopy(mission) {
+  const parentMission = parentMissionFor(mission);
+  if (!parentMission) return "";
+
+  return t("missions.variantOf", { mission: parentMission.title });
 }
 
 function optionalMissionRank(mission, focusChallengeId) {
@@ -1785,6 +2065,91 @@ function formattedReminderTime(value) {
   }).format(date);
 }
 
+function isTomorrowLocalDate(date) {
+  if (!(date instanceof Date) || Number.isNaN(date.getTime())) return false;
+
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+
+  return date.getFullYear() === tomorrow.getFullYear()
+    && date.getMonth() === tomorrow.getMonth()
+    && date.getDate() === tomorrow.getDate();
+}
+
+function reminderTomorrowSlotKey(date) {
+  if (!isTomorrowLocalDate(date)) return "";
+
+  const hour = date.getHours();
+  const minute = date.getMinutes();
+
+  if (hour === 18 && minute === 0) return "evening";
+  if (hour === 22 && minute === 0) return "night";
+
+  return "default";
+}
+
+function formattedReminderLabel(value) {
+  if (!value) return "";
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+
+  const time = formattedReminderTime(value);
+  const tomorrowSlot = reminderTomorrowSlotKey(date);
+
+  if (tomorrowSlot === "evening") {
+    return t("missions.remindOptions.tomorrowEveningAt", { time });
+  }
+
+  if (tomorrowSlot === "night") {
+    return t("missions.remindOptions.tomorrowNightAt", { time });
+  }
+
+  if (tomorrowSlot === "default") {
+    return t("missions.remindOptions.tomorrowAt", { time });
+  }
+
+  return time;
+}
+
+function formattedReminderSummaryLabel(value) {
+  if (!value) return "";
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+
+  const label = formattedReminderLabel(value);
+  if (!label) return "";
+
+  return reminderTomorrowSlotKey(date)
+    ? label
+    : t("missions.remindOptions.atTime", { time: label });
+}
+
+function reminderTimestamp(mission) {
+  if (!mission?.reminder_at) return Number.POSITIVE_INFINITY;
+
+  const date = new Date(mission.reminder_at);
+  const timestamp = date.getTime();
+
+  return Number.isNaN(timestamp) ? Number.POSITIVE_INFINITY : timestamp;
+}
+
+function isReminderDue(mission) {
+  return reminderTimestamp(mission) <= Date.now();
+}
+
+function sortReminderMissions(items) {
+  return [...items].sort((a, b) => {
+    const aDue = isReminderDue(a);
+    const bDue = isReminderDue(b);
+
+    if (aDue !== bDue) return aDue ? -1 : 1;
+
+    return reminderTimestamp(a) - reminderTimestamp(b);
+  });
+}
+
 function missionStatusCopy(mission) {
   if (!mission) return "";
 
@@ -1795,7 +2160,13 @@ function missionStatusCopy(mission) {
   }
 
   if (status === "remind_later") {
-    const time = formattedReminderTime(mission.reminder_at);
+    const time = formattedReminderLabel(mission.reminder_at);
+    if (isReminderDue(mission)) {
+      return time
+        ? t("missions.statusCopy.reminderDueWithTime", { time })
+        : t("missions.statusCopy.reminderDue");
+    }
+
     return time
       ? t("missions.statusCopy.reminderWithTime", { time })
       : t("missions.statusCopy.reminder");
@@ -1844,7 +2215,6 @@ function isGuidanceActionDisabled(action) {
   if (action.type === "make_smaller" || action.type === "too_tired") return false;
   if (!mission) return action.type !== "make_smaller" && action.type !== "too_tired";
   if (missionHasStatus(mission, "done")) return true;
-  if (action.type === "remind_later") return missionHasStatus(mission, "remind_later");
   if (action.type === "skip_today") return missionHasStatus(mission, "skipped");
 
   return false;
@@ -2466,10 +2836,67 @@ onMounted(loadMissions);
   margin-top: 4px;
 }
 
+.missionChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.missionChip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 3px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  color: rgba(255, 255, 255, 0.78);
+  background: rgba(255, 255, 255, 0.045);
+  font-size: var(--cap);
+  font-weight: 850;
+  line-height: 1.2;
+}
+
+.missionChip.main,
+.missionChip.pending {
+  border-color: rgba(110, 229, 255, 0.18);
+  color: rgba(219, 244, 255, 0.92);
+  background: rgba(110, 229, 255, 0.07);
+}
+
+.missionChip.tiny,
+.missionChip.done {
+  border-color: rgba(74, 222, 128, 0.22);
+  color: rgba(187, 247, 208, 0.94);
+  background: rgba(74, 222, 128, 0.07);
+}
+
+.missionChip.bonus,
+.missionChip.remind_later {
+  border-color: rgba(247, 215, 116, 0.24);
+  color: rgba(253, 230, 138, 0.94);
+  background: rgba(247, 215, 116, 0.07);
+}
+
+.missionChip.skipped {
+  color: rgba(255, 255, 255, 0.68);
+  background: rgba(255, 255, 255, 0.04);
+}
+
 .missionItem p:not(.missionMeta) {
   margin-top: 6px;
   color: rgba(255, 255, 255, 0.66);
   line-height: 1.55;
+}
+
+.missionRelationCopy {
+  display: block;
+  margin-top: 4px;
+  color: rgba(255, 255, 255, 0.50);
+  font-size: var(--cap);
+  font-weight: 760;
+  line-height: 1.4;
 }
 
 .missionMeta {
