@@ -98,9 +98,37 @@
             >
               {{ option.label }}
             </BaseButton>
+            <BaseButton
+              variant="secondary"
+              :disabled="busyAction === 'remind' && busyId === focusMission.mission_id"
+              @click="openCustomReminderTime(focusMission)"
+            >
+              {{ t("missions.remindOptions.customTime") }}
+            </BaseButton>
             <BaseButton variant="secondary" @click="closeReminderPanel">
               {{ t("missions.backToMissionActions") }}
             </BaseButton>
+          </div>
+          <div v-if="isCustomReminderPanelOpen(focusMission)" class="customReminderPanel">
+            <label :for="`custom-reminder-${focusMission.mission_id}`">
+              {{ t("missions.remindOptions.customPrompt") }}
+            </label>
+            <div class="customReminderControls">
+              <input
+                :id="`custom-reminder-${focusMission.mission_id}`"
+                v-model="customReminderTime"
+                type="time"
+              />
+              <BaseButton
+                variant="primary"
+                :loading="isReminderOptionLoading(focusMission, 'custom')"
+                :disabled="busyAction === 'remind' && busyId === focusMission.mission_id"
+                @click="selectCustomReminderTime(focusMission)"
+              >
+                {{ t("missions.remindOptions.setCustom") }}
+              </BaseButton>
+            </div>
+            <small>{{ t("missions.remindOptions.customHelp") }}</small>
           </div>
         </div>
 
@@ -342,9 +370,37 @@
             >
               {{ option.label }}
             </BaseButton>
+            <BaseButton
+              variant="secondary"
+              :disabled="busyAction === 'remind' && busyId === focusMission.mission_id"
+              @click="openCustomReminderTime(focusMission)"
+            >
+              {{ t("missions.remindOptions.customTime") }}
+            </BaseButton>
             <BaseButton variant="secondary" @click="closeReminderPanel">
               {{ t("missions.backToMissionActions") }}
             </BaseButton>
+          </div>
+          <div v-if="isCustomReminderPanelOpen(focusMission)" class="customReminderPanel">
+            <label :for="`custom-reminder-${focusMission.mission_id}`">
+              {{ t("missions.remindOptions.customPrompt") }}
+            </label>
+            <div class="customReminderControls">
+              <input
+                :id="`custom-reminder-${focusMission.mission_id}`"
+                v-model="customReminderTime"
+                type="time"
+              />
+              <BaseButton
+                variant="primary"
+                :loading="isReminderOptionLoading(focusMission, 'custom')"
+                :disabled="busyAction === 'remind' && busyId === focusMission.mission_id"
+                @click="selectCustomReminderTime(focusMission)"
+              >
+                {{ t("missions.remindOptions.setCustom") }}
+              </BaseButton>
+            </div>
+            <small>{{ t("missions.remindOptions.customHelp") }}</small>
           </div>
         </div>
 
@@ -492,9 +548,37 @@
               >
                 {{ option.label }}
               </BaseButton>
+              <BaseButton
+                variant="secondary"
+                :disabled="busyAction === 'remind' && busyId === mission.mission_id"
+                @click="openCustomReminderTime(mission)"
+              >
+                {{ t("missions.remindOptions.customTime") }}
+              </BaseButton>
               <BaseButton variant="secondary" @click="closeReminderPanel">
                 {{ t("missions.backToMissionActions") }}
               </BaseButton>
+            </div>
+            <div v-if="isCustomReminderPanelOpen(mission)" class="customReminderPanel">
+              <label :for="`custom-reminder-${mission.mission_id}`">
+                {{ t("missions.remindOptions.customPrompt") }}
+              </label>
+              <div class="customReminderControls">
+                <input
+                  :id="`custom-reminder-${mission.mission_id}`"
+                  v-model="customReminderTime"
+                  type="time"
+                />
+                <BaseButton
+                  variant="primary"
+                  :loading="isReminderOptionLoading(mission, 'custom')"
+                  :disabled="busyAction === 'remind' && busyId === mission.mission_id"
+                  @click="selectCustomReminderTime(mission)"
+                >
+                  {{ t("missions.remindOptions.setCustom") }}
+                </BaseButton>
+              </div>
+              <small>{{ t("missions.remindOptions.customHelp") }}</small>
             </div>
           </div>
 
@@ -561,6 +645,8 @@ const manualFocusMissionId = ref(null);
 const showOtherMissions = ref(false);
 const reminderPanelMissionId = ref(null);
 const busyReminderOption = ref("");
+const customReminderPanelMissionId = ref(null);
+const customReminderTime = ref("");
 const skipReasonPanelMissionId = ref(null);
 const busySkipReason = ref("");
 const rewardSequenceSteps = ref([]);
@@ -1285,6 +1371,8 @@ async function loadMissions() {
   manualFocusMissionId.value = null;
   showOtherMissions.value = false;
   reminderPanelMissionId.value = null;
+  customReminderPanelMissionId.value = null;
+  customReminderTime.value = "";
   skipReasonPanelMissionId.value = null;
 
   try {
@@ -1410,6 +1498,8 @@ function remindLater(mission) {
 
   notice.value = "";
   reminderPanelMissionId.value = mission.mission_id;
+  customReminderPanelMissionId.value = null;
+  customReminderTime.value = "";
   skipReasonPanelMissionId.value = null;
   setInteractionNarrative("missions.narrative.remindOpen", "thinking");
   return focusMissionCard(mission);
@@ -1461,6 +1551,14 @@ function isReminderPanelOpen(mission) {
   );
 }
 
+function isCustomReminderPanelOpen(mission) {
+  return !!(
+    mission?.mission_id
+    && sameMissionId(customReminderPanelMissionId.value, mission.mission_id)
+    && isReminderPanelOpen(mission)
+  );
+}
+
 function isReminderOptionLoading(mission, key) {
   return !!(
     mission?.mission_id
@@ -1468,6 +1566,20 @@ function isReminderOptionLoading(mission, key) {
     && busyAction.value === "remind"
     && busyReminderOption.value === key
   );
+}
+
+function blockReminderAfterReset() {
+  busyReminderOption.value = "";
+  notice.value = t("missions.remindOptions.afterResetBlockedNotice");
+  noticeType.value = "reminder";
+  setInteractionNarrative("missions.narrative.remindBlockedAfterReset", "thinking");
+}
+
+function blockPastCustomReminder() {
+  busyReminderOption.value = "";
+  notice.value = t("missions.remindOptions.pastTimeNotice");
+  noticeType.value = "reminder";
+  setInteractionNarrative("missions.narrative.remindBlockedPastTime", "thinking");
 }
 
 function selectReminderOption(mission, option) {
@@ -1480,10 +1592,7 @@ function selectReminderOption(mission, option) {
   const reminderAt = reminderAtDate.toISOString();
   const timeLabel = formattedReminderTime(reminderAtDate);
   if (afterNextReset) {
-    busyReminderOption.value = "";
-    notice.value = t("missions.remindOptions.afterResetBlockedNotice");
-    noticeType.value = "reminder";
-    setInteractionNarrative("missions.narrative.remindBlockedAfterReset", "thinking");
+    blockReminderAfterReset();
     return null;
   }
 
@@ -1524,8 +1633,92 @@ function selectReminderOption(mission, option) {
   );
 }
 
+function openCustomReminderTime(mission) {
+  if (!mission) return null;
+
+  customReminderPanelMissionId.value = mission.mission_id;
+  customReminderTime.value = "";
+  notice.value = "";
+  setInteractionNarrative("missions.narrative.remindCustomOpen", "thinking");
+  return focusMissionCard(mission);
+}
+
+function customReminderAt(value) {
+  const match = /^(\d{2}):(\d{2})$/.exec(String(value || ""));
+  if (!match) return { error: "missing" };
+
+  const hour = Number(match[1]);
+  const minute = Number(match[2]);
+  if (hour > 23 || minute > 59) return { error: "missing" };
+
+  const now = new Date();
+  const candidate = new Date(now);
+  candidate.setHours(hour, minute, 0, 0);
+
+  if (candidate > now) return { date: candidate };
+
+  const nextReset = parsedNextResetAt();
+  if (nextReset) {
+    const tomorrowCandidate = new Date(candidate);
+    tomorrowCandidate.setDate(tomorrowCandidate.getDate() + 1);
+
+    if (tomorrowCandidate > now && tomorrowCandidate < nextReset) {
+      return { date: tomorrowCandidate };
+    }
+  }
+
+  return { error: "past" };
+}
+
+function selectCustomReminderTime(mission) {
+  if (!mission) return null;
+
+  busyReminderOption.value = "custom";
+  const resolved = customReminderAt(customReminderTime.value);
+
+  if (resolved.error === "missing") {
+    busyReminderOption.value = "";
+    notice.value = t("missions.remindOptions.customHelp");
+    noticeType.value = "reminder";
+    setInteractionNarrative("missions.narrative.remindCustomOpen", "thinking");
+    return null;
+  }
+
+  if (resolved.error === "past") {
+    blockPastCustomReminder();
+    return null;
+  }
+
+  const reminderAtDate = resolved.date;
+  if (isAfterNextRingoReset(reminderAtDate)) {
+    blockReminderAfterReset();
+    return null;
+  }
+
+  const reminderAt = reminderAtDate.toISOString();
+  const timeLabel = formattedReminderTime(reminderAtDate);
+
+  return runMissionAction(
+    mission,
+    "remind",
+    () => api.post(`/me/missions/${mission.mission_id}/remind-later`, {
+      reminder_at: reminderAt,
+    }),
+    {
+      successNotice: t("missions.remindOptions.confirmation", { time: timeLabel, exactTime: timeLabel }),
+      narrative: {
+        message: t("missions.narrative.remindConfirmed", { time: timeLabel, exactTime: timeLabel }),
+        mood: "happy",
+        type: "interaction",
+      },
+    },
+  );
+}
+
 function closeReminderPanel() {
   reminderPanelMissionId.value = null;
+  customReminderPanelMissionId.value = null;
+  customReminderTime.value = "";
   clearNarrativeState();
 }
 
@@ -1535,6 +1728,8 @@ function skipMission(mission) {
   notice.value = "";
   skipReasonPanelMissionId.value = mission.mission_id;
   reminderPanelMissionId.value = null;
+  customReminderPanelMissionId.value = null;
+  customReminderTime.value = "";
   setInteractionNarrative("missions.narrative.skipOpen", "concerned");
   return focusMissionCard(mission);
 }
@@ -2726,6 +2921,43 @@ onMounted(loadMissions);
   gap: var(--s-8);
 }
 
+.customReminderPanel {
+  display: grid;
+  gap: var(--s-8);
+  padding-top: 2px;
+}
+
+.customReminderPanel label {
+  color: rgba(255, 255, 255, 0.82);
+  font-size: var(--cap);
+  font-weight: 850;
+}
+
+.customReminderPanel small {
+  color: rgba(255, 255, 255, 0.62);
+  font-weight: 720;
+  line-height: 1.45;
+}
+
+.customReminderControls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-8);
+  align-items: center;
+}
+
+.customReminderControls input {
+  min-height: 42px;
+  min-width: 142px;
+  padding: 9px 11px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 12px;
+  color: rgba(255, 255, 255, 0.92);
+  background: rgba(0, 0, 0, 0.22);
+  font: inherit;
+  font-weight: 760;
+}
+
 .skipReasonPanel {
   display: grid;
   gap: var(--s-8);
@@ -2976,6 +3208,8 @@ onMounted(loadMissions);
 
   .missionGuideActions :deep(.btn),
   .remindOptions :deep(.btn),
+  .customReminderControls :deep(.btn),
+  .customReminderControls input,
   .skipReasons :deep(.btn),
   .completedChoices :deep(.btn),
   .optionalNextActions :deep(.btn),
