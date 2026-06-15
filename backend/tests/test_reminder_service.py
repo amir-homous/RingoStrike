@@ -588,8 +588,17 @@ def test_due_mission_reminder_dry_run_does_not_mark_sent(client):
 
 def test_due_mission_reminder_marker_resets_when_reminder_changes(client):
     from services.mission_service import remind_mission_later
+    from utils.date_utils import ringo_day_metadata
 
-    future = utc_iso_z(datetime.now(timezone.utc) + timedelta(minutes=30))
+    next_reset = datetime.fromisoformat(
+        ringo_day_metadata()["next_reset_at"].replace("Z", "+00:00"),
+    )
+    future = utc_iso_z(
+        min(
+            datetime.now(timezone.utc) + timedelta(minutes=30),
+            next_reset - timedelta(minutes=1),
+        ),
+    )
     fixture = _mission_reminder_fixture(
         "MissionResetUser",
         chat_id="20008",
