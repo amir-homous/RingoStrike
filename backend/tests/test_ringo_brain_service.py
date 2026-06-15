@@ -388,6 +388,85 @@ def test_ringo_brain_agenda_not_saved_prioritizes_pending_mission(client):
     assert payload["agenda"]["pending_count"] >= 1
 
 
+def test_ringo_brain_agenda_not_saved_future_reminder_does_not_block_pending(client):
+    user = register_user(client, username="BrainAgendaFuture")
+    headers = auth_headers(user["access_token"])
+    context = _start_path_and_join_first_challenge(client, headers)
+    _set_challenge_missions_available(context["challenge"]["challenge_id"])
+    missions = _today_missions(client, headers)
+    main_mission = _main_mission(missions)
+    other_pending = next(
+        mission for mission in missions
+        if mission["mission_id"] != main_mission["mission_id"]
+        and mission["status"] == "pending"
+    )
+    reminder_at = _reminder_at()
+
+    remind_res = client.post(
+        f"/me/missions/{main_mission['mission_id']}/remind-later",
+        json={"reminder_at": reminder_at},
+        headers=headers,
+    )
+    assert remind_res.status_code == 200
+
+    payload, code = get_today_ringo_guidance(user["user_id"])
+
+    assert code == 200
+    assert payload["progress"]["today_saved"] is False
+    assert payload["agenda"]["next_action_type"] == "primary_mission"
+    assert payload["agenda"]["next_mission_id"] == other_pending["mission_id"]
+    assert payload["agenda"]["next_reminder_at"] is None
+    assert payload["agenda"]["reminded_count"] == 1
+
+
+def test_ringo_brain_agenda_not_saved_due_reminder_beats_pending(client):
+    user = register_user(client, username="BrainAgendaDueReminder")
+    headers = auth_headers(user["access_token"])
+    context = _start_path_and_join_first_challenge(client, headers)
+    _set_challenge_missions_available(context["challenge"]["challenge_id"])
+    missions = _today_missions(client, headers)
+    main_mission = _main_mission(missions)
+    reminder_at = _due_reminder_at()
+
+    remind_res = client.post(
+        f"/me/missions/{main_mission['mission_id']}/remind-later",
+        json={"reminder_at": reminder_at},
+        headers=headers,
+    )
+    assert remind_res.status_code == 200
+
+    payload, code = get_today_ringo_guidance(user["user_id"])
+
+    assert code == 200
+    assert payload["progress"]["today_saved"] is False
+    assert payload["agenda"]["next_action_type"] == "due_reminder"
+    assert payload["agenda"]["next_mission_id"] == main_mission["mission_id"]
+    assert payload["agenda"]["next_reminder_at"] == reminder_at
+
+
+def test_ringo_brain_agenda_not_saved_future_reminder_when_no_pending(client):
+    user = register_user(client, username="BrainAgendaOnlyFuture")
+    headers = auth_headers(user["access_token"])
+    _start_path_and_join_first_challenge(client, headers)
+    missions = _today_missions(client, headers)
+    reminder_at = _reminder_at()
+
+    for mission in missions:
+        remind_res = client.post(
+            f"/me/missions/{mission['mission_id']}/remind-later",
+            json={"reminder_at": reminder_at},
+            headers=headers,
+        )
+        assert remind_res.status_code == 200
+
+    payload, code = get_today_ringo_guidance(user["user_id"])
+
+    assert code == 200
+    assert payload["progress"]["today_saved"] is False
+    assert payload["agenda"]["next_action_type"] == "upcoming_reminder"
+    assert payload["agenda"]["next_reminder_at"] == reminder_at
+
+
 def test_ringo_brain_agenda_all_done_returns_done_for_today(client):
     user = register_user(client, username="BrainAgendaAllDone")
     headers = auth_headers(user["access_token"])

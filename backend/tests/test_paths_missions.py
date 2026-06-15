@@ -426,6 +426,209 @@ def test_mission_reminder_rejects_time_after_next_daily_reset(client):
     assert unchanged_mission["reminder_at"] is None
 
 
+def test_plan_reminders_schedules_pending_only_before_reset(client):
+    user = register_user(client, username="ReminderPlanner")
+    headers = auth_headers(user["access_token"])
+
+    paths_data = client.get("/paths", headers=headers).get_json()
+    learning_path = next(item for item in paths_data["items"] if item["key"] == "learning")
+
+    client.post(f"/paths/{learning_path['path_id']}/start", headers=headers)
+    challenge_id = client.get(
+        f"/paths/{learning_path['path_id']}/challenges",
+        headers=headers,
+    ).get_json()["items"][0]["challenge_id"]
+    client.post(
+        f"/challenges/{challenge_id}/join",
+        json={},
+        headers=headers,
+    )
+
+    import database
+
+    conn = database.get_db_connection()
+    try:
+        conn.execute(
+            "UPDATE missions SET unlock_after_days = 0 WHERE challenge_id = ?",
+            (challenge_id,),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+    missions = client.get("/me/today-missions", headers=headers).get_json()["missions"]
+    first, second, third = missions[:3]
+    existing_reminder_at = _before_next_reset_at()
+
+    client.post(
+        f"/me/missions/{first['mission_id']}/remind-later",
+        json={"reminder_at": existing_reminder_at},
+        headers=headers,
+    )
+    client.post(
+        f"/me/missions/{second['mission_id']}/done",
+        headers=headers,
+    )
+    client.post(
+        f"/me/missions/{third['mission_id']}/skip",
+        headers=headers,
+    )
+
+    plan_res = client.post("/me/missions/plan-reminders", headers=headers)
+
+    assert plan_res.status_code == 200
+    plan_data = plan_res.get_json()
+    assert plan_data["ok"] is True
+    assert "scheduled" in plan_data
+    assert "unscheduled" in plan_data
+    assert plan_data["summary"]["scheduled_count"] == len(plan_data["scheduled"])
+    assert plan_data["summary"]["unscheduled_count"] == len(plan_data["unscheduled"])
+
+    next_reset = datetime.fromisoformat(
+        plan_data["ringo_day"]["next_reset_at"].replace("Z", "+00:00"),
+    )
+    for item in plan_data["scheduled"]:
+        reminder_at = datetime.fromisoformat(item["reminder_at"].replace("Z", "+00:00"))
+        assert datetime.now(timezone.utc) < reminder_at < next_reset
+
+    updated_missions = client.get("/me/today-missions", headers=headers).get_json()["missions"]
+    existing_reminder = next(
+        item for item in updated_missions
+        if item["mission_id"] == first["mission_id"]
+    )
+    done_mission = next(
+        item for item in updated_missions
+        if item["mission_id"] == second["mission_id"]
+    )
+    skipped_mission = next(
+        item for item in updated_missions
+        if item["mission_id"] == third["mission_id"]
+    )
+
+    assert existing_reminder["status"] == "remind_later"
+    assert existing_reminder["reminder_at"] == existing_reminder_at
+    assert done_mission["status"] == "done"
+    assert skipped_mission["status"] == "skipped"
+
+
+def test_plan_single_mission_reminder_applies_safe_future_time(client):
+    user = register_user(client, username="SinglePlanner")
+    headers = auth_headers(user["access_token"])
+
+    paths_data = client.get("/paths", headers=headers).get_json()
+    learning_path = next(item for item in paths_data["items"] if item["key"] == "learning")
+
+    client.post(f"/paths/{learning_path['path_id']}/start", headers=headers)
+    challenge_id = client.get(
+        f"/paths/{learning_path['path_id']}/challenges",
+        headers=headers,
+    ).get_json()["items"][0]["challenge_id"]
+    client.post(
+        f"/challenges/{challenge_id}/join",
+        json={},
+        headers=headers,
+    )
+
+    mission = client.get("/me/today-missions", headers=headers).get_json()["missions"][0]
+    plan_res = client.post(
+        f"/me/missions/{mission['mission_id']}/plan-reminder",
+        headers=headers,
+    )
+
+    assert plan_res.status_code == 200
+    plan_data = plan_res.get_json()
+    assert plan_data["ok"] is True
+    assert plan_data["mission"]["status"] == "remind_later"
+    reminder_at = datetime.fromisoformat(
+        plan_data["scheduled"]["reminder_at"].replace("Z", "+00:00"),
+    )
+    next_reset = datetime.fromisoformat(
+        plan_data["ringo_day"]["next_reset_at"].replace("Z", "+00:00"),
+    )
+    assert datetime.now(timezone.utc) < reminder_at < next_reset
+
+
+def test_plan_single_mission_reminder_can_replace_existing_reminder(client):
+    user = register_user(client, username="SinglePlannerEdit")
+    headers = auth_headers(user["access_token"])
+
+    paths_data = client.get("/paths", headers=headers).get_json()
+    fitness_path = next(item for item in paths_data["items"] if item["key"] == "fitness")
+
+    client.post(f"/paths/{fitness_path['path_id']}/start", headers=headers)
+    challenge_id = client.get(
+        f"/paths/{fitness_path['path_id']}/challenges",
+        headers=headers,
+    ).get_json()["items"][0]["challenge_id"]
+    client.post(
+        f"/challenges/{challenge_id}/join",
+        json={},
+        headers=headers,
+    )
+
+    mission = client.get("/me/today-missions", headers=headers).get_json()["missions"][0]
+    existing_reminder_at = _before_next_reset_at()
+    client.post(
+        f"/me/missions/{mission['mission_id']}/remind-later",
+        json={"reminder_at": existing_reminder_at},
+        headers=headers,
+    )
+
+    plan_res = client.post(
+        f"/me/missions/{mission['mission_id']}/plan-reminder",
+        headers=headers,
+    )
+
+    assert plan_res.status_code == 200
+    plan_data = plan_res.get_json()
+    assert plan_data["ok"] is True
+    assert plan_data["mission"]["status"] == "remind_later"
+    assert plan_data["mission"]["reminder_at"] != existing_reminder_at
+
+
+def test_plan_single_mission_reminder_rejects_when_no_safe_time(monkeypatch, client):
+    from services import mission_service
+
+    user = register_user(client, username="SinglePlannerNoTime")
+    headers = auth_headers(user["access_token"])
+
+    paths_data = client.get("/paths", headers=headers).get_json()
+    fitness_path = next(item for item in paths_data["items"] if item["key"] == "fitness")
+
+    client.post(f"/paths/{fitness_path['path_id']}/start", headers=headers)
+    challenge_id = client.get(
+        f"/paths/{fitness_path['path_id']}/challenges",
+        headers=headers,
+    ).get_json()["items"][0]["challenge_id"]
+    client.post(
+        f"/challenges/{challenge_id}/join",
+        json={},
+        headers=headers,
+    )
+
+    current = datetime.now(timezone.utc).replace(microsecond=0)
+    next_reset = current + timedelta(minutes=5)
+    monkeypatch.setattr(
+        mission_service,
+        "ringo_day_metadata",
+        lambda: {
+            "date": current.date().isoformat(),
+            "next_reset_at": next_reset.isoformat().replace("+00:00", "Z"),
+            "reset_basis": "utc",
+            "server_now": current.isoformat().replace("+00:00", "Z"),
+        },
+    )
+
+    mission = client.get("/me/today-missions", headers=headers).get_json()["missions"][0]
+    plan_res = client.post(
+        f"/me/missions/{mission['mission_id']}/plan-reminder",
+        headers=headers,
+    )
+
+    assert plan_res.status_code == 400
+    assert plan_res.get_json()["error"] == "no_safe_reminder_time"
+
+
 def test_today_missions_ignore_previous_day_event_timestamps(client):
     import database
 

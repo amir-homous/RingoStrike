@@ -665,6 +665,72 @@ Validation:
 
 Success returns the same `mission` shape as mission done with `status: "remind_later"` and no check-in payload.
 
+### `POST /me/missions/plan-reminders`
+
+Auth: required.
+
+Creates gentle reminder times for current-day pending missions that do not already have reminders. Existing `done`, `skipped`, and `remind_later` mission logs are preserved. Planned reminder times are always after server now and before the current Ringo day `next_reset_at`.
+
+Success response:
+
+```json
+{
+  "ok": true,
+  "scheduled": [
+    {
+      "mission_id": 12,
+      "title": "Read five pages",
+      "reminder_at": "2026-06-15T10:30:00Z",
+      "reason": "gentle_spacing"
+    }
+  ],
+  "unscheduled": [
+    {
+      "mission_id": 18,
+      "title": "Bonus movement",
+      "reason": "not_enough_time_before_reset"
+    }
+  ],
+  "summary": {
+    "scheduled_count": 1,
+    "unscheduled_count": 1
+  },
+  "ringo_day": {
+    "date": "2026-06-15",
+    "next_reset_at": "2026-06-16T00:00:00Z",
+    "reset_basis": "utc",
+    "server_now": "2026-06-15T09:00:00Z"
+  }
+}
+```
+
+### `POST /me/missions/:mission_id/plan-reminder`
+
+Auth: required.
+
+Applies one Ringo-suggested reminder time for a single mission. The mission must be `pending` or already `remind_later`; existing reminders may be replaced. The reminder time is chosen by the same planner rules as the global planner and must be after server now and before `ringo_day.next_reset_at`.
+
+Returns `400` with `no_safe_reminder_time` if no safe reminder slot exists before reset.
+
+Success response includes the applied `mission` and a `scheduled` object:
+
+```json
+{
+  "ok": true,
+  "scheduled": {
+    "mission_id": 12,
+    "title": "Read five pages",
+    "reminder_at": "2026-06-15T10:30:00Z",
+    "reason": "gentle_spacing"
+  },
+  "mission": {
+    "mission_id": 12,
+    "status": "remind_later",
+    "reminder_at": "2026-06-15T10:30:00Z"
+  }
+}
+```
+
 ### `POST /me/missions/:mission_id/skip`
 
 Auth: required.

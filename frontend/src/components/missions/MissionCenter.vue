@@ -60,6 +60,11 @@
               @click="selectReminderOption(focusMission, option)">
               {{ option.label }}
             </BaseButton>
+            <BaseButton variant="secondary" :loading="isReminderOptionLoading(focusMission, 'ringo')"
+              :disabled="busyAction === 'remind' && busyId === focusMission.mission_id"
+              @click="planMissionReminder(focusMission)">
+              {{ t("missions.remindOptions.ringoPick") }}
+            </BaseButton>
             <BaseButton variant="secondary" :disabled="busyAction === 'remind' && busyId === focusMission.mission_id"
               @click="openCustomReminderTime(focusMission)">
               {{ t("missions.remindOptions.customTime") }}
@@ -258,6 +263,11 @@
               @click="selectReminderOption(focusMission, option)">
               {{ option.label }}
             </BaseButton>
+            <BaseButton variant="secondary" :loading="isReminderOptionLoading(focusMission, 'ringo')"
+              :disabled="busyAction === 'remind' && busyId === focusMission.mission_id"
+              @click="planMissionReminder(focusMission)">
+              {{ t("missions.remindOptions.ringoPick") }}
+            </BaseButton>
             <BaseButton variant="secondary" :disabled="busyAction === 'remind' && busyId === focusMission.mission_id"
               @click="openCustomReminderTime(focusMission)">
               {{ t("missions.remindOptions.customTime") }}
@@ -318,6 +328,14 @@
     <BaseCard v-if="showOtherMissionList" class="missionList secondaryMissionList">
       <div v-if="showOtherMissions" class="missionItems">
         <div class="missionTimeline">
+          <div v-if="plannableReminderCount" class="plannerCallout">
+            <p>{{ t("missions.planRemindersHelp", { count: plannableReminderCount }) }}</p>
+            <BaseButton variant="primary" :loading="planningReminders" :disabled="planningReminders"
+              @click="planTodayReminders">
+              {{ t("missions.planRemindersCta") }}
+            </BaseButton>
+          </div>
+
           <div v-if="timelineUntimedItems.length" class="timelineUntimed">
             <p>{{ t("missions.timeline.untimedTitle") }}</p>
             <div class="timelineUntimedItems">
@@ -525,6 +543,11 @@
                           @click="selectReminderOption(mission, option)">
                           {{ option.label }}
                         </BaseButton>
+                        <BaseButton variant="secondary" :loading="isReminderOptionLoading(mission, 'ringo')"
+                          :disabled="busyAction === 'remind' && busyId === mission.mission_id"
+                          @click="planMissionReminder(mission)">
+                          {{ t("missions.remindOptions.ringoPick") }}
+                        </BaseButton>
                         <BaseButton variant="secondary"
                           :disabled="busyAction === 'remind' && busyId === mission.mission_id"
                           @click="openCustomReminderTime(mission)">
@@ -637,6 +660,7 @@ const customReminderPanelMissionId = ref(null);
 const customReminderTime = ref("");
 const skipReasonPanelMissionId = ref(null);
 const busySkipReason = ref("");
+const planningReminders = ref(false);
 const rewardSequenceSteps = ref([]);
 const rewardSequenceSprite = ref("celebration");
 const optionalNextSuppressed = ref(false);
@@ -1043,43 +1067,42 @@ const effectiveMissionRepresentatives = computed(() => {
     const mainMission = items.find((mission) => normalizedMissionIntensity(mission) === "main") || null;
     const tinyMissions = items.filter((mission) => normalizedMissionIntensity(mission) === "tiny");
     const bonusMissions = items.filter((mission) => normalizedMissionIntensity(mission) === "bonus");
-    const mainHasExplicitRepresentativeState = !!(
-      mainMission
-      && (
-        missionHasStatus(mainMission, "remind_later", "done", "skipped")
-        || sameMissionId(mainMission.mission_id, manualFocusMissionId.value)
-      )
-    );
+    const focusedMission = items.find((mission) => {
+      return sameMissionId(mission.mission_id, manualFocusMissionId.value);
+    }) || null;
     const effectiveTiny = tinyMissions.find((mission) => {
-      return missionHasStatus(mission, "remind_later", "done");
+      return missionHasStatus(mission, "remind_later", "done", "skipped");
     }) || tinyMissions.find((mission) => {
-      return isTinyMissionRevealed(mission) && missionHasStatus(mission, "pending", "skipped");
+      return isTinyMissionRevealed(mission) && missionHasStatus(mission, "pending");
+    }) || null;
+    const meaningfulTiny = tinyMissions.find((mission) => {
+      return missionHasStatus(mission, "remind_later", "done", "skipped");
     }) || null;
 
-    if (effectiveTiny && mainHasExplicitRepresentativeState) {
+    if (focusedMission && !missionHasStatus(focusedMission, "locked")) {
+      if (normalizedMissionIntensity(focusedMission) === "tiny" || !meaningfulTiny) {
+        representatives.push(focusedMission);
+        if (mainMission && sameMissionId(focusedMission.mission_id, mainMission.mission_id) && missionHasStatus(mainMission, "done")) {
+          bonusMissions
+            .filter((mission) => missionHasStatus(mission, "pending", "done", "remind_later", "skipped"))
+            .forEach((mission) => representatives.push(mission));
+        }
+        return;
+      }
+    }
+
+    if (meaningfulTiny) {
+      representatives.push(meaningfulTiny);
+      return;
+    }
+
+    if (mainMission && missionHasStatus(mainMission, "remind_later", "done", "skipped")) {
       representatives.push(mainMission);
       if (missionHasStatus(mainMission, "done")) {
         bonusMissions
           .filter((mission) => missionHasStatus(mission, "pending", "done", "remind_later", "skipped"))
           .forEach((mission) => representatives.push(mission));
       }
-      return;
-    }
-
-    if (mainMission && missionHasStatus(mainMission, "done")) {
-      if (effectiveTiny && missionHasStatus(effectiveTiny, "done", "remind_later", "skipped")) {
-        representatives.push(effectiveTiny);
-      } else {
-        representatives.push(mainMission);
-        bonusMissions
-          .filter((mission) => missionHasStatus(mission, "pending", "done", "remind_later", "skipped"))
-          .forEach((mission) => representatives.push(mission));
-      }
-      return;
-    }
-
-    if (effectiveTiny && missionHasStatus(effectiveTiny, "done", "remind_later")) {
-      representatives.push(effectiveTiny);
       return;
     }
 
@@ -1274,6 +1297,12 @@ const timelineUntimedItems = computed(() => {
   return otherMissions.value.filter((mission) => {
     return !timedMissionIds.has(String(mission.mission_id));
   });
+});
+
+const plannableReminderCount = computed(() => {
+  return otherMissions.value.filter((mission) => {
+    return missionHasStatus(mission, "pending") && !mission.reminder_at;
+  }).length;
 });
 
 const dailySummary = computed(() => {
@@ -1720,6 +1749,82 @@ function blockPastCustomReminder() {
   notice.value = t("missions.remindOptions.pastTimeNotice");
   noticeType.value = "reminder";
   setInteractionNarrative("missions.narrative.remindBlockedPastTime", "thinking");
+}
+
+async function planTodayReminders() {
+  if (planningReminders.value) return;
+
+  planningReminders.value = true;
+  error.value = "";
+  notice.value = "";
+  try {
+    const { data } = await api.post("/me/missions/plan-reminders", {});
+    await loadMissions();
+    showOtherMissions.value = true;
+    const scheduledCount = Number(data?.summary?.scheduled_count || 0);
+    const unscheduledCount = Number(data?.summary?.unscheduled_count || 0);
+    const firstScheduledMissionId = data?.scheduled?.[0]?.mission_id;
+
+    if (firstScheduledMissionId) {
+      selectedTimelineMissionId.value = firstScheduledMissionId;
+      manualFocusMissionId.value = firstScheduledMissionId;
+    }
+
+    notice.value = scheduledCount
+      ? t("missions.planRemindersNotice", { count: scheduledCount, unscheduled: unscheduledCount })
+      : t("missions.planRemindersNoneNotice");
+    noticeType.value = scheduledCount ? "reminder" : "muted";
+    setNarrative({
+      message: scheduledCount
+        ? t("missions.narrative.planRemindersDone", { count: scheduledCount, unscheduled: unscheduledCount })
+        : t("missions.narrative.planRemindersNone"),
+      mood: scheduledCount ? "encouraging" : "thinking",
+      type: "interaction",
+    });
+  } catch (e) {
+    error.value = e?.response?.data?.error || e?.message || String(e);
+  } finally {
+    planningReminders.value = false;
+  }
+}
+
+async function planMissionReminder(mission) {
+  if (!mission?.mission_id || missionHasStatus(mission, "done", "skipped")) return null;
+
+  busyId.value = mission.mission_id;
+  busyAction.value = "remind";
+  busyReminderOption.value = "ringo";
+  error.value = "";
+  notice.value = "";
+  try {
+    const { data } = await api.post(`/me/missions/${mission.mission_id}/plan-reminder`, {});
+    const reminderTime = formattedReminderTime(data?.scheduled?.reminder_at || data?.mission?.reminder_at);
+    applyMissionResponse(data, mission);
+    await loadMissions();
+    manualFocusMissionId.value = mission.mission_id;
+    selectedTimelineMissionId.value = mission.mission_id;
+    showOtherMissions.value = true;
+    notice.value = t("missions.remindOptions.ringoConfirmation", { time: reminderTime });
+    noticeType.value = "reminder";
+    setNarrative({
+      message: t("missions.narrative.ringoReminderSet", { time: reminderTime }),
+      mood: "happy",
+      type: "interaction",
+    });
+  } catch (e) {
+    const errorCode = e?.response?.data?.error || e?.message || String(e);
+    if (errorCode === "no_safe_reminder_time") {
+      notice.value = t("missions.remindOptions.noSafeRingoTime");
+      noticeType.value = "reminder";
+      setInteractionNarrative("missions.narrative.noSafeRingoReminder", "thinking");
+    } else {
+      error.value = errorCode;
+    }
+  } finally {
+    busyId.value = null;
+    busyAction.value = "";
+    busyReminderOption.value = "";
+  }
 }
 
 function selectReminderOption(mission, option) {
@@ -3494,6 +3599,25 @@ onMounted(loadMissions);
     rgba(5, 10, 18, 0.18);
 }
 
+.plannerCallout {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 15px;
+  gap: var(--s-12);
+  padding: 12px;
+  border: 1px solid rgba(110, 229, 255, 0.14);
+  border-radius: 16px;
+  background: rgba(110, 229, 255, 0.055);
+}
+
+.plannerCallout p {
+  margin: 0;
+  color: rgba(219, 244, 255, 0.82);
+  font-size: var(--body);
+  line-height: 1.45;
+}
+
 .timelineStage {
   display: grid;
   grid-template-columns: minmax(260px, 28%) minmax(0, 1fr);
@@ -3895,6 +4019,13 @@ onMounted(loadMissions);
   gap: 6px;
   margin-top: 15px;
   margin-bottom: 15px;
+}
+
+.timelineSupportActions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--s-8);
 }
 
 .timelineLegendItem,
@@ -4375,6 +4506,14 @@ onMounted(loadMissions);
     gap: var(--s-14);
   }
 
+  .plannerCallout {
+    display: grid;
+  }
+
+  .plannerCallout :deep(.btn) {
+    width: 100%;
+  }
+
   .timelineRail {
     max-width: none;
     height: min(78vh, 720px);
@@ -4418,6 +4557,14 @@ onMounted(loadMissions);
 
   .timelineLegend {
     justify-content: flex-start;
+  }
+
+  .timelineSupportActions {
+    justify-content: stretch;
+  }
+
+  .timelineSupportActions :deep(.btn) {
+    flex: 1 1 100%;
   }
 
   .timelineClusterChoice {
