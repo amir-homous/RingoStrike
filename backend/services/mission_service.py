@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 from database import get_db_connection
 from services.enrollment_service import checkin
 from services.ringo_decision_service import decide_ringo_state
-from utils.date_utils import ringo_day_metadata, utc_today_iso
+from utils.date_utils import ringo_day_metadata, utc_iso_z, utc_today_iso
 
 
 ALLOWED_SKIP_REASONS = {
@@ -20,7 +20,31 @@ def _row_status(row):
     return row["log_status"] or "pending"
 
 
+def _mission_log_timestamp(value):
+    if not value:
+        return None
+
+    raw_value = str(value).strip()
+    try:
+        parsed = datetime.fromisoformat(raw_value.replace("Z", "+00:00"))
+    except ValueError:
+        try:
+            parsed = datetime.strptime(raw_value, "%Y-%m-%d %H:%M:%S")
+        except ValueError:
+            return None
+
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    else:
+        parsed = parsed.astimezone(timezone.utc)
+
+    return utc_iso_z(parsed)
+
+
 def _mission_payload(row):
+    status = _row_status(row)
+    status_updated_at = _mission_log_timestamp(row["log_updated_at"])
+
     return {
         "mission_id": row["mission_id"],
         "key": row["key"],
@@ -37,8 +61,12 @@ def _mission_payload(row):
         "estimated_minutes": int(row["estimated_minutes"]) if row["estimated_minutes"] is not None else None,
         "parent_mission_id": row["parent_mission_id"],
         "ringo_message": row["ringo_message"] or "",
-        "status": _row_status(row),
+        "status": status,
         "reminder_at": row["reminder_at"],
+        "done_at": status_updated_at if status == "done" else None,
+        "skipped_at": status_updated_at if status == "skipped" else None,
+        "reminder_set_at": status_updated_at if status == "remind_later" else None,
+        "status_updated_at": status_updated_at,
         "skip_reason": row["skip_reason"],
         "xp_earned": int(row["xp_earned"] or 0),
         "challenge_id": row["challenge_id"],
@@ -109,7 +137,8 @@ def _today_mission_rows(conn, user_id, today):
             ml.status AS log_status,
             ml.reminder_at,
             ml.skip_reason,
-            ml.xp_earned
+            ml.xp_earned,
+            ml.updated_at AS log_updated_at
         FROM enrollments e
         JOIN challenges c ON c.id = e.challenge_id
         JOIN missions m ON m.challenge_id = c.id
@@ -366,6 +395,7 @@ def _upsert_mission_log(
             return {"ok": False, "error": "mission_not_found"}, 404
 
         xp_earned = int(mission["xp_reward"] or 0) if status == "done" else 0
+        event_at = utc_iso_z(datetime.now(timezone.utc))
         secured_at = datetime.now(timezone.utc).isoformat() if status == "done" else None
         done_before_you = 0
 
@@ -397,14 +427,14 @@ def _upsert_mission_log(
                 xp_earned,
                 updated_at
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(user_id, mission_id, date) DO UPDATE SET
                 status = excluded.status,
                 reminder_at = excluded.reminder_at,
                 skip_reason = excluded.skip_reason,
                 notes = COALESCE(excluded.notes, mission_logs.notes),
                 xp_earned = excluded.xp_earned,
-                updated_at = datetime('now')
+                updated_at = excluded.updated_at
             """,
             (
                 user_id,
@@ -417,6 +447,7 @@ def _upsert_mission_log(
                 skip_reason,
                 notes,
                 xp_earned,
+                event_at,
             ),
         )
         conn.commit()
@@ -430,6 +461,10 @@ def _upsert_mission_log(
                 "status": status,
                 "date": today,
                 "secured_at": secured_at,
+                "done_at": event_at if status == "done" else None,
+                "skipped_at": event_at if status == "skipped" else None,
+                "reminder_set_at": event_at if status == "remind_later" else None,
+                "status_updated_at": event_at,
                 "xp_earned": xp_earned,
                 "enrollment_id": mission["enrollment_id"],
                 "challenge_id": mission["challenge_id"],
