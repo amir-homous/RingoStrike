@@ -3,7 +3,10 @@ from flask import Blueprint, jsonify, request
 from auth import require_auth
 from services.telegram_service import send_telegram_message
 from config import Config
-from services.reminder_service import send_unchecked_test_reminder
+from services.reminder_service import (
+    send_due_mission_telegram_reminders,
+    send_unchecked_test_reminder,
+)
 from services.telegram_connection_service import (
     connect_telegram_code,
     create_connect_code,
@@ -54,6 +57,34 @@ def remind_unchecked_test():
         }), 401
 
     result = send_unchecked_test_reminder()
+    return jsonify(result)
+
+
+@telegram_bp.post("/api/telegram/remind-due-missions")
+def remind_due_missions():
+    token = request.headers.get("X-Reminder-Token")
+
+    if not Config.REMINDER_ADMIN_TOKEN or token != Config.REMINDER_ADMIN_TOKEN:
+        return jsonify({
+            "ok": False,
+            "error": "unauthorized",
+        }), 401
+
+    payload, payload_error = parse_json_object_payload(request)
+
+    if payload_error:
+        return _service_response(
+            {
+                "ok": False,
+                "error": payload_error,
+            },
+            400,
+        )
+
+    result = send_due_mission_telegram_reminders(
+        dry_run=bool(payload.get("dry_run", False)),
+        limit=payload.get("limit"),
+    )
     return jsonify(result)
 
 

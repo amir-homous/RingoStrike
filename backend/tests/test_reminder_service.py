@@ -1,5 +1,7 @@
+from datetime import datetime, timedelta, timezone
+
 from helpers import insert_challenge
-from utils.date_utils import utc_today_iso
+from utils.date_utils import utc_iso_z, utc_today_iso
 
 
 def _create_user(username, telegram_id=None):
@@ -64,6 +66,151 @@ def _create_enrollment(user_id, challenge_id, status="Active"):
         return cur.lastrowid
     finally:
         conn.close()
+
+
+def _create_mission(
+    challenge_id,
+    *,
+    key,
+    title="Mission reminder test",
+    status="Active",
+    estimated_minutes=5,
+    difficulty="easy",
+    mission_intensity="main",
+):
+    import database
+
+    conn = database.get_db_connection()
+    try:
+        cur = conn.execute(
+            """
+            INSERT INTO missions (
+                challenge_id,
+                key,
+                title,
+                description,
+                mission_type,
+                difficulty,
+                is_core,
+                xp_reward,
+                order_index,
+                suggested_time,
+                unlock_after_days,
+                mission_intensity,
+                estimated_minutes,
+                status
+            )
+            VALUES (?, ?, ?, 'Mission reminder description', 'daily', ?, 1, 10, 1, 'afternoon', 0, ?, ?, ?)
+            """,
+            (
+                challenge_id,
+                key,
+                title,
+                difficulty,
+                mission_intensity,
+                estimated_minutes,
+                status,
+            ),
+        )
+        conn.commit()
+        return cur.lastrowid
+    finally:
+        conn.close()
+
+
+def _insert_mission_log(
+    *,
+    user_id,
+    enrollment_id,
+    challenge_id,
+    mission_id,
+    status="remind_later",
+    reminder_at=None,
+    reminder_sent_at=None,
+):
+    import database
+
+    conn = database.get_db_connection()
+    try:
+        cur = conn.execute(
+            """
+            INSERT INTO mission_logs (
+                user_id,
+                enrollment_id,
+                challenge_id,
+                mission_id,
+                date,
+                status,
+                reminder_at,
+                reminder_sent_at,
+                xp_earned,
+                updated_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?)
+            """,
+            (
+                user_id,
+                enrollment_id,
+                challenge_id,
+                mission_id,
+                utc_today_iso(),
+                status,
+                reminder_at,
+                reminder_sent_at,
+                utc_iso_z(datetime.now(timezone.utc)),
+            ),
+        )
+        conn.commit()
+        return cur.lastrowid
+    finally:
+        conn.close()
+
+
+def _mission_reminder_fixture(
+    username,
+    *,
+    chat_id="20001",
+    reminders_enabled=1,
+    enrollment_status="Active",
+    challenge_status="Active",
+    mission_status="Active",
+    log_status="remind_later",
+    reminder_at=None,
+    reminder_sent_at=None,
+):
+    user_id = _create_user(username)
+    if chat_id is not None:
+        _connect_telegram(user_id, chat_id, reminders_enabled=reminders_enabled)
+    challenge_id = insert_challenge(
+        name=f"{username} Challenge",
+        description="Mission reminder selection test",
+        status=challenge_status,
+    )
+    enrollment_id = _create_enrollment(user_id, challenge_id, status=enrollment_status)
+    mission_id = _create_mission(
+        challenge_id,
+        key=f"{username.lower()}-mission",
+        title=f"{username} mission",
+        status=mission_status,
+    )
+    mission_log_id = _insert_mission_log(
+        user_id=user_id,
+        enrollment_id=enrollment_id,
+        challenge_id=challenge_id,
+        mission_id=mission_id,
+        status=log_status,
+        reminder_at=reminder_at or utc_iso_z(datetime.now(timezone.utc) - timedelta(minutes=1)),
+        reminder_sent_at=reminder_sent_at,
+    )
+
+    return {
+        "user_id": user_id,
+        "challenge_id": challenge_id,
+        "enrollment_id": enrollment_id,
+        "mission_id": mission_id,
+        "mission_log_id": mission_log_id,
+        "chat_id": chat_id,
+    }
 
 
 def _insert_checkin(
@@ -292,3 +439,229 @@ def test_send_unchecked_telegram_reminders_calls_sender(client):
     ]
     assert sent_messages[0][0] == "10006"
     assert "Reminder Send Challenge" in sent_messages[0][1]
+
+
+def test_due_mission_reminder_is_selected_and_sent(client):
+    from services.reminder_service import (
+        find_due_mission_reminders,
+        send_due_mission_telegram_reminders,
+    )
+
+    fixture = _mission_reminder_fixture("MissionDueUser", chat_id="20002")
+    sent_messages = []
+
+    def fake_sender(chat_id, text):
+        sent_messages.append((chat_id, text))
+        return {"ok": True}
+
+    due_items = find_due_mission_reminders()
+    assert fixture["mission_log_id"] in {item["mission_log_id"] for item in due_items}
+
+    result = send_due_mission_telegram_reminders(sender=fake_sender)
+
+    assert result["ok"] is True
+    assert result["due"] == 1
+    assert result["sent"] == 1
+    assert result["failed"] == 0
+    assert result["items"][0]["status"] == "sent"
+    assert sent_messages[0][0] == "20002"
+    assert "MissionDueUser mission" in sent_messages[0][1]
+    assert "~5 min" in sent_messages[0][1]
+
+
+def test_future_mission_reminder_is_not_selected(client):
+    from services.reminder_service import find_due_mission_reminders
+
+    fixture = _mission_reminder_fixture(
+        "MissionFutureUser",
+        reminder_at=utc_iso_z(datetime.now(timezone.utc) + timedelta(hours=1)),
+    )
+
+    due_items = find_due_mission_reminders()
+
+    assert fixture["mission_log_id"] not in {item["mission_log_id"] for item in due_items}
+
+
+def test_done_and_skipped_mission_reminders_are_not_sent(client):
+    from services.reminder_service import send_due_mission_telegram_reminders
+
+    done = _mission_reminder_fixture("MissionDoneUser", log_status="done", chat_id="20003")
+    skipped = _mission_reminder_fixture("MissionSkippedUser", log_status="skipped", chat_id="20004")
+
+    def fail_sender(chat_id, text):
+        raise AssertionError("done/skipped mission reminders should not send")
+
+    result = send_due_mission_telegram_reminders(sender=fail_sender)
+    sent_ids = {item["mission_log_id"] for item in result["items"]}
+
+    assert result["due"] == 0
+    assert done["mission_log_id"] not in sent_ids
+    assert skipped["mission_log_id"] not in sent_ids
+
+
+def test_due_mission_reminder_is_not_sent_twice(client):
+    from services.reminder_service import send_due_mission_telegram_reminders
+
+    fixture = _mission_reminder_fixture("MissionOnceUser", chat_id="20005")
+    sends = []
+
+    def fake_sender(chat_id, text):
+        sends.append(chat_id)
+        return {"ok": True}
+
+    first = send_due_mission_telegram_reminders(sender=fake_sender)
+    second = send_due_mission_telegram_reminders(sender=fake_sender)
+
+    assert first["sent"] == 1
+    assert second["due"] == 0
+    assert sends == ["20005"]
+
+    import database
+
+    conn = database.get_db_connection()
+    try:
+        row = conn.execute(
+            "SELECT reminder_sent_at FROM mission_logs WHERE id = ?",
+            (fixture["mission_log_id"],),
+        ).fetchone()
+    finally:
+        conn.close()
+
+    assert row["reminder_sent_at"]
+
+
+def test_due_mission_reminder_marks_sent_only_after_success(client):
+    from services.reminder_service import send_due_mission_telegram_reminders
+
+    fixture = _mission_reminder_fixture("MissionFailedUser", chat_id="20006")
+
+    def failing_sender(chat_id, text):
+        return {"ok": False, "error": "telegram_test_failure"}
+
+    result = send_due_mission_telegram_reminders(sender=failing_sender)
+
+    assert result["sent"] == 0
+    assert result["failed"] == 1
+
+    import database
+
+    conn = database.get_db_connection()
+    try:
+        row = conn.execute(
+            "SELECT reminder_sent_at FROM mission_logs WHERE id = ?",
+            (fixture["mission_log_id"],),
+        ).fetchone()
+    finally:
+        conn.close()
+
+    assert row["reminder_sent_at"] is None
+
+
+def test_due_mission_reminder_dry_run_does_not_mark_sent(client):
+    from services.reminder_service import send_due_mission_telegram_reminders
+
+    fixture = _mission_reminder_fixture("MissionDryRunUser", chat_id="20007")
+
+    def fail_sender(chat_id, text):
+        raise AssertionError("dry-run should not send mission reminders")
+
+    result = send_due_mission_telegram_reminders(dry_run=True, sender=fail_sender)
+
+    assert result["dry_run"] is True
+    assert result["due"] == 1
+    assert result["sent"] == 0
+    assert result["items"][0]["status"] == "dry_run"
+
+    import database
+
+    conn = database.get_db_connection()
+    try:
+        row = conn.execute(
+            "SELECT reminder_sent_at FROM mission_logs WHERE id = ?",
+            (fixture["mission_log_id"],),
+        ).fetchone()
+    finally:
+        conn.close()
+
+    assert row["reminder_sent_at"] is None
+
+
+def test_due_mission_reminder_marker_resets_when_reminder_changes(client):
+    from services.mission_service import remind_mission_later
+
+    future = utc_iso_z(datetime.now(timezone.utc) + timedelta(minutes=30))
+    fixture = _mission_reminder_fixture(
+        "MissionResetUser",
+        chat_id="20008",
+        reminder_sent_at=utc_iso_z(datetime.now(timezone.utc) - timedelta(minutes=1)),
+    )
+
+    payload, code = remind_mission_later(
+        fixture["user_id"],
+        fixture["mission_id"],
+        future,
+    )
+
+    assert code == 200
+    assert payload["ok"] is True
+
+    import database
+
+    conn = database.get_db_connection()
+    try:
+        row = conn.execute(
+            "SELECT reminder_at, reminder_sent_at FROM mission_logs WHERE id = ?",
+            (fixture["mission_log_id"],),
+        ).fetchone()
+    finally:
+        conn.close()
+
+    assert row["reminder_at"] == future
+    assert row["reminder_sent_at"] is None
+
+
+def test_due_mission_reminder_user_without_telegram_is_skipped(client):
+    from services.reminder_service import send_due_mission_telegram_reminders
+
+    fixture = _mission_reminder_fixture("MissionNoTelegramUser", chat_id=None)
+
+    def fail_sender(chat_id, text):
+        raise AssertionError("sender should not be called without Telegram")
+
+    result = send_due_mission_telegram_reminders(sender=fail_sender)
+
+    assert result["due"] == 1
+    assert result["sent"] == 0
+    assert result["skipped"] == 1
+    assert result["items"] == [
+        {
+            "mission_log_id": fixture["mission_log_id"],
+            "user_id": fixture["user_id"],
+            "mission_id": fixture["mission_id"],
+            "title": "MissionNoTelegramUser mission",
+            "has_telegram_chat_id": False,
+            "status": "skipped",
+            "reason": "telegram_chat_id_missing",
+        }
+    ]
+
+
+def test_due_mission_reminder_disabled_user_is_skipped(client):
+    from services.reminder_service import send_due_mission_telegram_reminders
+
+    fixture = _mission_reminder_fixture(
+        "MissionDisabledUser",
+        chat_id="20009",
+        reminders_enabled=0,
+    )
+
+    def fail_sender(chat_id, text):
+        raise AssertionError("sender should not be called when reminders are disabled")
+
+    result = send_due_mission_telegram_reminders(sender=fail_sender)
+
+    assert result["due"] == 1
+    assert result["sent"] == 0
+    assert result["skipped"] == 1
+    assert result["items"][0]["mission_log_id"] == fixture["mission_log_id"]
+    assert result["items"][0]["reason"] == "reminders_disabled"

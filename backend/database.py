@@ -168,6 +168,7 @@ def init_db():
         date TEXT NOT NULL,
         status TEXT CHECK(status IN ('pending', 'done', 'skipped', 'remind_later')) DEFAULT 'pending',
         reminder_at TEXT,
+        reminder_sent_at TEXT,
         skip_reason TEXT,
         notes TEXT,
         xp_earned INTEGER NOT NULL DEFAULT 0,
@@ -181,6 +182,7 @@ def init_db():
     )
     """)
 
+    _add_column_if_missing(c, "mission_logs", "reminder_sent_at", "reminder_sent_at TEXT")
     _add_column_if_missing(c, "mission_logs", "skip_reason", "skip_reason TEXT")
 
     c.execute("""
@@ -204,6 +206,7 @@ def init_db():
     c.execute("CREATE INDEX IF NOT EXISTS idx_missions_intensity ON missions(challenge_id, mission_intensity, status)")
     c.execute("CREATE INDEX IF NOT EXISTS idx_mission_logs_user_date ON mission_logs(user_id, date)")
     c.execute("CREATE INDEX IF NOT EXISTS idx_mission_logs_enrollment_date ON mission_logs(enrollment_id, date)")
+    c.execute("CREATE INDEX IF NOT EXISTS idx_mission_logs_due_reminders ON mission_logs(status, reminder_at, reminder_sent_at)")
     c.execute("CREATE INDEX IF NOT EXISTS idx_user_paths_user_status ON user_paths(user_id, status)")
 
 

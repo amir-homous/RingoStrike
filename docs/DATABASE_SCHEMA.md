@@ -218,6 +218,7 @@ CREATE TABLE IF NOT EXISTS mission_logs (
   date TEXT NOT NULL,
   status TEXT CHECK(status IN ('pending', 'done', 'skipped', 'remind_later')) DEFAULT 'pending',
   reminder_at TEXT,
+  reminder_sent_at TEXT,
   skip_reason TEXT,
   notes TEXT,
   xp_earned INTEGER NOT NULL DEFAULT 0,
@@ -239,6 +240,8 @@ Status values:
 - `remind_later`
 
 `skip_reason` is optional metadata for skipped missions. Supported stable reason keys are `too_tired`, `no_time`, `too_hard`, `not_relevant`, `disliked`, and `other`. Skip reasons are future Ringo Brain context only; they do not affect XP, streak, achievements, or check-in logic.
+
+`reminder_sent_at` is nullable UTC delivery metadata for mission-level Telegram reminders. It is set only after a due reminder is successfully sent and is cleared when a mission reminder is changed/replanned so the new reminder can be delivered later.
 
 Indexes:
 

@@ -63,6 +63,7 @@ def _mission_payload(row):
         "ringo_message": row["ringo_message"] or "",
         "status": status,
         "reminder_at": row["reminder_at"],
+        "reminder_sent_at": row["reminder_sent_at"],
         "done_at": status_updated_at if status == "done" else None,
         "skipped_at": status_updated_at if status == "skipped" else None,
         "reminder_set_at": status_updated_at if status == "remind_later" else None,
@@ -136,6 +137,7 @@ def _today_mission_rows(conn, user_id, today):
             e.id AS enrollment_id,
             ml.status AS log_status,
             ml.reminder_at,
+            ml.reminder_sent_at,
             ml.skip_reason,
             ml.xp_earned,
             ml.updated_at AS log_updated_at
@@ -422,15 +424,17 @@ def _upsert_mission_log(
                 date,
                 status,
                 reminder_at,
+                reminder_sent_at,
                 skip_reason,
                 notes,
                 xp_earned,
                 updated_at
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, ?)
             ON CONFLICT(user_id, mission_id, date) DO UPDATE SET
                 status = excluded.status,
                 reminder_at = excluded.reminder_at,
+                reminder_sent_at = NULL,
                 skip_reason = excluded.skip_reason,
                 notes = COALESCE(excluded.notes, mission_logs.notes),
                 xp_earned = excluded.xp_earned,
@@ -472,6 +476,7 @@ def _upsert_mission_log(
                 "path_id": mission["path_id"],
                 "path_title": mission["path_title"],
                 "reminder_at": reminder_at,
+                "reminder_sent_at": None,
                 "skip_reason": skip_reason,
                 "today_done_before_you": done_before_you,
                 "today_done_count": done_before_you + 1 if status == "done" else None,

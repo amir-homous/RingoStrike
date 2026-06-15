@@ -995,6 +995,54 @@ Request:
 }
 ```
 
+### `POST /api/telegram/remind-due-missions`
+
+Auth: protected by `X-Reminder-Token`; intended for n8n, cron, or similar automation. The frontend must not call this endpoint.
+
+The backend finds due mission-level reminders, sends Telegram messages through the configured Telegram bot, and marks each reminder as delivered only after a successful send.
+
+Request:
+
+```json
+{
+  "dry_run": true,
+  "limit": 20
+}
+```
+
+Response:
+
+```json
+{
+  "ok": true,
+  "dry_run": true,
+  "checked": 3,
+  "due": 3,
+  "sent": 0,
+  "skipped": 0,
+  "failed": 0,
+  "errors": [],
+  "items": [
+    {
+      "mission_log_id": 1,
+      "user_id": 1,
+      "mission_id": 12,
+      "title": "Send one signal",
+      "has_telegram_chat_id": true,
+      "status": "dry_run"
+    }
+  ]
+}
+```
+
+Rules:
+
+- selects `mission_logs.status = "remind_later"` with `reminder_at <= now`
+- ignores already delivered reminders via `mission_logs.reminder_sent_at`
+- requires active enrollment, active challenge, and active mission records
+- skips users without a connected Telegram chat or with reminders disabled
+- dry-run does not send messages and does not set `reminder_sent_at`
+
 ### `PATCH /api/profile/visibility`
 
 Auth: required.

@@ -59,6 +59,7 @@ Optional / integration values:
 
 - [ ] `TELEGRAM_BOT_TOKEN`
 - [ ] `TELEGRAM_BOT_USERNAME`
+- [ ] `REMINDER_ADMIN_TOKEN`
 - [ ] `NOTION_TOKEN`
 - [ ] `NOTION_USERS_DB_ID`
 - [ ] `NOTION_ENROLLMENTS_DB_ID`
@@ -122,6 +123,7 @@ Only omit `VITE_API_BASE` when backend API routes can safely live at the same ro
 - [ ] Confirm protected endpoints reject unauthenticated requests.
 - [ ] Confirm cookie settings for production HTTPS.
 - [ ] Confirm CORS/frontend origin behavior.
+- [ ] Confirm n8n/cron can call `POST /api/telegram/remind-due-missions` with `X-Reminder-Token`.
 
 Health check:
 
