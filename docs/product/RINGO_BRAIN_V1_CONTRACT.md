@@ -55,6 +55,11 @@ Successful response:
     "parent_mission_id": null,
     "xp_reward": 10,
     "status": "pending",
+    "reminder_at": null,
+    "done_at": null,
+    "skipped_at": null,
+    "reminder_set_at": null,
+    "status_updated_at": null,
     "challenge_id": 1,
     "challenge_name": "Move Your Body",
     "enrollment_id": 10,
@@ -114,6 +119,15 @@ Successful response:
 ```
 
 If no mission is available, `mission` may be `null`, but `ringo`, `actions`, `progress`, and `fallback` should still be present.
+
+Mission event timestamp fields are additive and nullable. They come from current Ringo day mission logs only:
+
+- `done_at`: current-day completion event time.
+- `skipped_at`: current-day skip event time.
+- `reminder_set_at`: current-day reminder creation/update event time.
+- `status_updated_at`: current-day mission log update time.
+
+Use `reminder_at`, not `reminder_set_at`, when placing reminder-set missions on a daily timeline. If no reliable timestamp is present, the frontend should keep the mission untimed.
 
 ## Supported `user_state` Values
 

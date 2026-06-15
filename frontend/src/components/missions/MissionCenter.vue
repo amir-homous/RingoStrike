@@ -1,37 +1,15 @@
 <template>
   <section class="missionCenter">
-    <RingoRewardSequence
-      :steps="rewardSequenceSteps"
-      :sprite="rewardSequenceSprite"
-      @finish="finishRewardSequence"
-    />
+    <RingoRewardSequence :steps="rewardSequenceSteps" :sprite="rewardSequenceSprite" @finish="finishRewardSequence" />
 
-    <BaseCard
-      v-if="coachActionPanel"
-      class="coachActionPanel"
-      :class="{ complete: !!todaySavedLabel }"
-    >
-      <RingoCoach
-        v-if="showCoach"
-        embedded
-        :message="coachMessage"
-        :sprite="coachSprite"
-        :primary-action="coachPrimaryAction"
-        :secondary-action="coachSecondaryAction"
-        @action="handleCoachAction"
-      />
+    <BaseCard v-if="coachActionPanel" class="coachActionPanel" :class="{ complete: !!todaySavedLabel }">
+      <RingoCoach v-if="showCoach" embedded :message="coachMessage" :sprite="coachSprite"
+        :primary-action="coachPrimaryAction" :secondary-action="coachSecondaryAction" @action="handleCoachAction" />
 
-      <div
-        v-if="showFocusMissionCard"
-        :id="`mission-${focusMission.mission_id}`"
-        class="focusMission coachFocusMission"
-      >
+      <div v-if="showFocusMissionCard" :id="`mission-${focusMission.mission_id}`"
+        class="focusMission coachFocusMission">
         <span>{{ t("missions.ringoSuggestedMission") }}</span>
-        <div
-          v-if="focusMissionIntensity"
-          class="missionIntensity"
-          :class="focusMissionIntensity.intensity"
-        >
+        <div v-if="focusMissionIntensity" class="missionIntensity" :class="focusMissionIntensity.intensity">
           <span>{{ focusMissionIntensity.label }}</span>
           <small v-if="focusMissionIntensity.detail">{{ focusMissionIntensity.detail }}</small>
         </div>
@@ -41,54 +19,34 @@
           {{ missionStatusCopy(focusMission) }}
         </small>
         <div v-if="showFocusMissionActions" class="missionActions primaryMissionActions">
-          <BaseButton
-            variant="primary"
-            :loading="busyId === focusMission.mission_id && busyAction === 'done'"
-            :disabled="missionHasStatus(focusMission, 'done')"
-            @click="markDone(focusMission)"
-          >
+          <BaseButton variant="primary" :loading="busyId === focusMission.mission_id && busyAction === 'done'"
+            :disabled="missionHasStatus(focusMission, 'done')" @click="markDone(focusMission)">
             {{ t("missions.doneCta") }}
           </BaseButton>
 
-          <BaseButton
-            variant="secondary"
-            :loading="busyId === focusMission.mission_id && busyAction === 'remind'"
-            :disabled="missionHasStatus(focusMission, 'done')"
-            @click="remindLater(focusMission)"
-          >
-            {{ missionHasStatus(focusMission, "remind_later") ? t("missions.editReminder") : t("missions.remindLater") }}
+          <BaseButton variant="secondary" :loading="busyId === focusMission.mission_id && busyAction === 'remind'"
+            :disabled="missionHasStatus(focusMission, 'done')" @click="remindLater(focusMission)">
+            {{ missionHasStatus(focusMission, "remind_later") ? t("missions.editReminder") : t("missions.remindLater")
+            }}
           </BaseButton>
 
-          <BaseButton
-            v-if="shouldShowFocusSupportAction('make_smaller', focusMission)"
-            variant="secondary"
-            @click="handleFocusSupportAction('make_smaller', focusMission)"
-          >
+          <BaseButton v-if="shouldShowFocusSupportAction('make_smaller', focusMission)" variant="secondary"
+            @click="handleFocusSupportAction('make_smaller', focusMission)">
             {{ t("missions.ringoActions.make_smaller") }}
           </BaseButton>
 
-          <BaseButton
-            v-if="shouldShowFocusSupportAction('too_tired', focusMission)"
-            variant="secondary"
-            @click="handleFocusSupportAction('too_tired', focusMission)"
-          >
+          <BaseButton v-if="shouldShowFocusSupportAction('too_tired', focusMission)" variant="secondary"
+            @click="handleFocusSupportAction('too_tired', focusMission)">
             {{ t("missions.ringoActions.too_tired") }}
           </BaseButton>
 
-          <BaseButton
-            v-if="shouldShowFullVersionAction(focusMission)"
-            variant="secondary"
-            @click="focusMainMissionVariant(focusMission)"
-          >
+          <BaseButton v-if="shouldShowFullVersionAction(focusMission)" variant="secondary"
+            @click="focusMainMissionVariant(focusMission)">
             {{ t("missions.ringoActions.useFullVersion") }}
           </BaseButton>
 
-          <BaseButton
-            variant="secondary"
-            :loading="busyId === focusMission.mission_id && busyAction === 'skip'"
-            :disabled="missionHasStatus(focusMission, 'done', 'skipped')"
-            @click="skipMission(focusMission)"
-          >
+          <BaseButton variant="secondary" :loading="busyId === focusMission.mission_id && busyAction === 'skip'"
+            :disabled="missionHasStatus(focusMission, 'done', 'skipped')" @click="skipMission(focusMission)">
             {{ missionHasStatus(focusMission, "skipped") ? t("missions.skipped") : t("missions.skip") }}
           </BaseButton>
         </div>
@@ -96,21 +54,14 @@
         <div v-if="isReminderPanelOpen(focusMission)" class="remindOptionsPanel">
           <p>{{ t("missions.remindOptions.prompt") }}</p>
           <div class="remindOptions">
-            <BaseButton
-              v-for="option in reminderOptions"
-              :key="option.key"
-              variant="secondary"
+            <BaseButton v-for="option in reminderOptions" :key="option.key" variant="secondary"
               :loading="isReminderOptionLoading(focusMission, option.key)"
               :disabled="busyAction === 'remind' && busyId === focusMission.mission_id"
-              @click="selectReminderOption(focusMission, option)"
-            >
+              @click="selectReminderOption(focusMission, option)">
               {{ option.label }}
             </BaseButton>
-            <BaseButton
-              variant="secondary"
-              :disabled="busyAction === 'remind' && busyId === focusMission.mission_id"
-              @click="openCustomReminderTime(focusMission)"
-            >
+            <BaseButton variant="secondary" :disabled="busyAction === 'remind' && busyId === focusMission.mission_id"
+              @click="openCustomReminderTime(focusMission)">
               {{ t("missions.remindOptions.customTime") }}
             </BaseButton>
             <BaseButton variant="secondary" @click="closeReminderPanel">
@@ -122,17 +73,10 @@
               {{ t("missions.remindOptions.customPrompt") }}
             </label>
             <div class="customReminderControls">
-              <input
-                :id="`custom-reminder-${focusMission.mission_id}`"
-                v-model="customReminderTime"
-                type="time"
-              />
-              <BaseButton
-                variant="primary"
-                :loading="isReminderOptionLoading(focusMission, 'custom')"
+              <input :id="`custom-reminder-${focusMission.mission_id}`" v-model="customReminderTime" type="time" />
+              <BaseButton variant="primary" :loading="isReminderOptionLoading(focusMission, 'custom')"
                 :disabled="busyAction === 'remind' && busyId === focusMission.mission_id"
-                @click="selectCustomReminderTime(focusMission)"
-              >
+                @click="selectCustomReminderTime(focusMission)">
                 {{ t("missions.remindOptions.setCustom") }}
               </BaseButton>
             </div>
@@ -143,14 +87,10 @@
         <div v-if="isSkipReasonPanelOpen(focusMission)" class="skipReasonPanel">
           <p>{{ t("missions.skipReasons.prompt") }}</p>
           <div class="skipReasons">
-            <BaseButton
-              v-for="reason in skipReasonOptions"
-              :key="reason.key"
-              variant="secondary"
+            <BaseButton v-for="reason in skipReasonOptions" :key="reason.key" variant="secondary"
               :loading="isSkipReasonLoading(focusMission, reason.key)"
               :disabled="busyAction === 'skip' && busyId === focusMission.mission_id"
-              @click="selectSkipReason(focusMission, reason)"
-            >
+              @click="selectSkipReason(focusMission, reason)">
               {{ reason.label }}
             </BaseButton>
             <BaseButton variant="secondary" @click="closeSkipReasonPanel">
@@ -173,11 +113,8 @@
         </div>
 
         <div class="optionalNextMission">
-          <div
-            v-if="optionalNextMissionIntensity"
-            class="missionIntensity"
-            :class="optionalNextMissionIntensity.intensity"
-          >
+          <div v-if="optionalNextMissionIntensity" class="missionIntensity"
+            :class="optionalNextMissionIntensity.intensity">
             <span>{{ optionalNextMissionIntensity.label }}</span>
             <small v-if="optionalNextMissionIntensity.detail">
               {{ optionalNextMissionIntensity.detail }}
@@ -191,42 +128,28 @@
         </div>
 
         <div class="optionalNextActions">
-          <BaseButton
-            variant="primary"
-            :loading="busyId === optionalNextMission.mission_id && busyAction === 'done'"
-            :disabled="missionHasStatus(optionalNextMission, 'done')"
-            @click="markDone(optionalNextMission)"
-          >
+          <BaseButton variant="primary" :loading="busyId === optionalNextMission.mission_id && busyAction === 'done'"
+            :disabled="missionHasStatus(optionalNextMission, 'done')" @click="markDone(optionalNextMission)">
             {{ t("missions.doneCta") }}
           </BaseButton>
-          <BaseButton
-            variant="secondary"
+          <BaseButton variant="secondary"
             :loading="busyId === optionalNextMission.mission_id && busyAction === 'remind'"
             :disabled="missionHasStatus(optionalNextMission, 'done')"
-            @click="remindOptionalNextMission(optionalNextMission)"
-          >
-            {{ missionHasStatus(optionalNextMission, "remind_later") ? t("missions.editReminder") : t("missions.remindLater") }}
+            @click="remindOptionalNextMission(optionalNextMission)">
+            {{ missionHasStatus(optionalNextMission, "remind_later") ? t("missions.editReminder") :
+              t("missions.remindLater") }}
           </BaseButton>
-          <BaseButton
-            v-if="shouldShowOptionalNextSupportAction('make_smaller', optionalNextMission)"
-            variant="secondary"
-            @click="handleOptionalNextSupportAction('make_smaller', optionalNextMission)"
-          >
+          <BaseButton v-if="shouldShowOptionalNextSupportAction('make_smaller', optionalNextMission)"
+            variant="secondary" @click="handleOptionalNextSupportAction('make_smaller', optionalNextMission)">
             {{ t("missions.ringoActions.make_smaller") }}
           </BaseButton>
-          <BaseButton
-            v-if="shouldShowOptionalNextSupportAction('too_tired', optionalNextMission)"
-            variant="secondary"
-            @click="handleOptionalNextSupportAction('too_tired', optionalNextMission)"
-          >
+          <BaseButton v-if="shouldShowOptionalNextSupportAction('too_tired', optionalNextMission)" variant="secondary"
+            @click="handleOptionalNextSupportAction('too_tired', optionalNextMission)">
             {{ t("missions.ringoActions.too_tired") }}
           </BaseButton>
-          <BaseButton
-            variant="secondary"
-            :loading="busyId === optionalNextMission.mission_id && busyAction === 'skip'"
+          <BaseButton variant="secondary" :loading="busyId === optionalNextMission.mission_id && busyAction === 'skip'"
             :disabled="missionHasStatus(optionalNextMission, 'skipped')"
-            @click="skipOptionalNextMission(optionalNextMission)"
-          >
+            @click="skipOptionalNextMission(optionalNextMission)">
             {{ t("missions.skip") }}
           </BaseButton>
           <BaseButton variant="secondary" @click="finishForToday">
@@ -236,19 +159,13 @@
       </section>
 
       <div v-if="isTodaySaved" class="completedChoices">
-        <RouterLink
-          v-if="detailsMission?.enrollment_id"
-          class="missionGuideLink"
-          :to="`/enrollment/${detailsMission.enrollment_id}`"
-        >
+        <RouterLink v-if="detailsMission?.enrollment_id" class="missionGuideLink"
+          :to="`/enrollment/${detailsMission.enrollment_id}`">
           {{ t("missions.detailsCta") }}
         </RouterLink>
 
-        <BaseButton
-          v-if="otherMissions.length && !optionalNextSuppressed"
-          variant="secondary"
-          @click="showOtherMissions = true"
-        >
+        <BaseButton v-if="otherMissions.length && !optionalNextSuppressed && !showOtherMissions" variant="secondary"
+          @click="showOtherMissions = true">
           {{ t("missions.showOtherMissions", { count: otherMissions.length }) }}
         </BaseButton>
 
@@ -259,32 +176,19 @@
 
     </BaseCard>
 
-    <UiState
-      :loading="loading"
-      :error="!!error"
-      :empty="false"
-      :loading-title="t('missions.loadingTitle')"
-      :loading-text="t('missions.loadingText')"
-      :error-title="t('missions.errorTitle')"
-      :error-text="error || t('common.pleaseTryAgain')"
-      @retry="loadMissions"
-    />
+    <UiState :loading="loading" :error="!!error" :empty="false" :loading-title="t('missions.loadingTitle')"
+      :loading-text="t('missions.loadingText')" :error-title="t('missions.errorTitle')"
+      :error-text="error || t('common.pleaseTryAgain')" @retry="loadMissions" />
 
     <p v-if="showMissionNotice" class="missionNotice" :class="noticeType">
       {{ notice }}
     </p>
 
-    <PathSelection
-      v-if="!loading && !error && showPathSelection"
-      :allow-active-start="ringo?.state === 'path_selected_no_challenge'"
-      @started="loadMissions"
-    />
+    <PathSelection v-if="!loading && !error && showPathSelection"
+      :allow-active-start="ringo?.state === 'path_selected_no_challenge'" @started="loadMissions" />
 
-    <BaseCard
-      v-if="missionGuide && !coachActionPanel"
-      class="missionGuide"
-      :class="[missionGuide.state, { complete: missionGuide.complete }]"
-    >
+    <BaseCard v-if="missionGuide && !coachActionPanel" class="missionGuide"
+      :class="[missionGuide.state, { complete: missionGuide.complete }]">
       <div class="missionGuideCopy">
         <p class="eyebrow compact">{{ t("missions.guideEyebrow") }}</p>
         <h2>{{ missionGuide.title }}</h2>
@@ -301,17 +205,9 @@
         </span>
       </div>
 
-      <div
-        v-if="focusMission && !coachActionPanel"
-        :id="`mission-${focusMission.mission_id}`"
-        class="focusMission"
-      >
+      <div v-if="focusMission && !coachActionPanel" :id="`mission-${focusMission.mission_id}`" class="focusMission">
         <span>{{ guidanceMission ? t("missions.ringoSuggestedMission") : t("missions.nextMission") }}</span>
-        <div
-          v-if="focusMissionIntensity"
-          class="missionIntensity"
-          :class="focusMissionIntensity.intensity"
-        >
+        <div v-if="focusMissionIntensity" class="missionIntensity" :class="focusMissionIntensity.intensity">
           <span>{{ focusMissionIntensity.label }}</span>
           <small v-if="focusMissionIntensity.detail">{{ focusMissionIntensity.detail }}</small>
         </div>
@@ -321,54 +217,34 @@
           {{ missionStatusCopy(focusMission) }}
         </small>
         <div v-if="showFocusMissionActions" class="missionActions primaryMissionActions">
-          <BaseButton
-            variant="primary"
-            :loading="busyId === focusMission.mission_id && busyAction === 'done'"
-            :disabled="missionHasStatus(focusMission, 'done')"
-            @click="markDone(focusMission)"
-          >
+          <BaseButton variant="primary" :loading="busyId === focusMission.mission_id && busyAction === 'done'"
+            :disabled="missionHasStatus(focusMission, 'done')" @click="markDone(focusMission)">
             {{ t("missions.doneCta") }}
           </BaseButton>
 
-          <BaseButton
-            variant="secondary"
-            :loading="busyId === focusMission.mission_id && busyAction === 'remind'"
-            :disabled="missionHasStatus(focusMission, 'done')"
-            @click="remindLater(focusMission)"
-          >
-            {{ missionHasStatus(focusMission, "remind_later") ? t("missions.editReminder") : t("missions.remindLater") }}
+          <BaseButton variant="secondary" :loading="busyId === focusMission.mission_id && busyAction === 'remind'"
+            :disabled="missionHasStatus(focusMission, 'done')" @click="remindLater(focusMission)">
+            {{ missionHasStatus(focusMission, "remind_later") ? t("missions.editReminder") : t("missions.remindLater")
+            }}
           </BaseButton>
 
-          <BaseButton
-            v-if="shouldShowFocusSupportAction('make_smaller', focusMission)"
-            variant="secondary"
-            @click="handleFocusSupportAction('make_smaller', focusMission)"
-          >
+          <BaseButton v-if="shouldShowFocusSupportAction('make_smaller', focusMission)" variant="secondary"
+            @click="handleFocusSupportAction('make_smaller', focusMission)">
             {{ t("missions.ringoActions.make_smaller") }}
           </BaseButton>
 
-          <BaseButton
-            v-if="shouldShowFocusSupportAction('too_tired', focusMission)"
-            variant="secondary"
-            @click="handleFocusSupportAction('too_tired', focusMission)"
-          >
+          <BaseButton v-if="shouldShowFocusSupportAction('too_tired', focusMission)" variant="secondary"
+            @click="handleFocusSupportAction('too_tired', focusMission)">
             {{ t("missions.ringoActions.too_tired") }}
           </BaseButton>
 
-          <BaseButton
-            v-if="shouldShowFullVersionAction(focusMission)"
-            variant="secondary"
-            @click="focusMainMissionVariant(focusMission)"
-          >
+          <BaseButton v-if="shouldShowFullVersionAction(focusMission)" variant="secondary"
+            @click="focusMainMissionVariant(focusMission)">
             {{ t("missions.ringoActions.useFullVersion") }}
           </BaseButton>
 
-          <BaseButton
-            variant="secondary"
-            :loading="busyId === focusMission.mission_id && busyAction === 'skip'"
-            :disabled="missionHasStatus(focusMission, 'done', 'skipped')"
-            @click="skipMission(focusMission)"
-          >
+          <BaseButton variant="secondary" :loading="busyId === focusMission.mission_id && busyAction === 'skip'"
+            :disabled="missionHasStatus(focusMission, 'done', 'skipped')" @click="skipMission(focusMission)">
             {{ missionHasStatus(focusMission, "skipped") ? t("missions.skipped") : t("missions.skip") }}
           </BaseButton>
         </div>
@@ -376,21 +252,14 @@
         <div v-if="isReminderPanelOpen(focusMission)" class="remindOptionsPanel">
           <p>{{ t("missions.remindOptions.prompt") }}</p>
           <div class="remindOptions">
-            <BaseButton
-              v-for="option in reminderOptions"
-              :key="option.key"
-              variant="secondary"
+            <BaseButton v-for="option in reminderOptions" :key="option.key" variant="secondary"
               :loading="isReminderOptionLoading(focusMission, option.key)"
               :disabled="busyAction === 'remind' && busyId === focusMission.mission_id"
-              @click="selectReminderOption(focusMission, option)"
-            >
+              @click="selectReminderOption(focusMission, option)">
               {{ option.label }}
             </BaseButton>
-            <BaseButton
-              variant="secondary"
-              :disabled="busyAction === 'remind' && busyId === focusMission.mission_id"
-              @click="openCustomReminderTime(focusMission)"
-            >
+            <BaseButton variant="secondary" :disabled="busyAction === 'remind' && busyId === focusMission.mission_id"
+              @click="openCustomReminderTime(focusMission)">
               {{ t("missions.remindOptions.customTime") }}
             </BaseButton>
             <BaseButton variant="secondary" @click="closeReminderPanel">
@@ -402,17 +271,10 @@
               {{ t("missions.remindOptions.customPrompt") }}
             </label>
             <div class="customReminderControls">
-              <input
-                :id="`custom-reminder-${focusMission.mission_id}`"
-                v-model="customReminderTime"
-                type="time"
-              />
-              <BaseButton
-                variant="primary"
-                :loading="isReminderOptionLoading(focusMission, 'custom')"
+              <input :id="`custom-reminder-${focusMission.mission_id}`" v-model="customReminderTime" type="time" />
+              <BaseButton variant="primary" :loading="isReminderOptionLoading(focusMission, 'custom')"
                 :disabled="busyAction === 'remind' && busyId === focusMission.mission_id"
-                @click="selectCustomReminderTime(focusMission)"
-              >
+                @click="selectCustomReminderTime(focusMission)">
                 {{ t("missions.remindOptions.setCustom") }}
               </BaseButton>
             </div>
@@ -423,14 +285,10 @@
         <div v-if="isSkipReasonPanelOpen(focusMission)" class="skipReasonPanel">
           <p>{{ t("missions.skipReasons.prompt") }}</p>
           <div class="skipReasons">
-            <BaseButton
-              v-for="reason in skipReasonOptions"
-              :key="reason.key"
-              variant="secondary"
+            <BaseButton v-for="reason in skipReasonOptions" :key="reason.key" variant="secondary"
               :loading="isSkipReasonLoading(focusMission, reason.key)"
               :disabled="busyAction === 'skip' && busyId === focusMission.mission_id"
-              @click="selectSkipReason(focusMission, reason)"
-            >
+              @click="selectSkipReason(focusMission, reason)">
               {{ reason.label }}
             </BaseButton>
             <BaseButton variant="secondary" @click="closeSkipReasonPanel">
@@ -441,414 +299,300 @@
       </div>
 
       <div class="missionGuideActions">
-        <BaseButton
-          v-if="!missionGuide.complete && !isTodaySaved && focusMission && !guidanceActions.length"
-          variant="primary"
-          @click="focusMissionCard(focusMission)"
-        >
+        <BaseButton v-if="!missionGuide.complete && !isTodaySaved && focusMission && !guidanceActions.length"
+          variant="primary" @click="focusMissionCard(focusMission)">
           {{ t("missions.focusCta") }}
         </BaseButton>
 
-        <RouterLink
-          v-if="focusMission?.enrollment_id"
-          class="missionGuideLink"
-          :to="`/enrollment/${focusMission.enrollment_id}`"
-        >
+        <RouterLink v-if="focusMission?.enrollment_id" class="missionGuideLink"
+          :to="`/enrollment/${focusMission.enrollment_id}`">
           {{ t("missions.detailsCta") }}
         </RouterLink>
 
-        <RouterLink
-          v-if="missionGuide.complete"
-          class="missionGuideLink"
-          to="/paths"
-        >
+        <RouterLink v-if="missionGuide.complete" class="missionGuideLink" to="/paths">
           {{ t("missions.nextPathCta") }}
         </RouterLink>
       </div>
     </BaseCard>
 
     <BaseCard v-if="showOtherMissionList" class="missionList secondaryMissionList">
-      <div class="missionListHead">
-        <div>
-          <p class="eyebrow compact">{{ t("missions.otherEyebrow") }}</p>
-          <h2>{{ t("missions.otherTitle") }}</h2>
-          <p v-if="isTodaySaved" class="otherMissionContext">
-            {{ t("missions.optionalOtherContext") }}
-          </p>
-        </div>
-        <BaseButton
-          variant="secondary"
-          @click="showOtherMissions = !showOtherMissions"
-        >
-          {{ showOtherMissions ? t("missions.hideOtherMissions") : t("missions.showOtherMissions", { count: otherMissions.length }) }}
-        </BaseButton>
-      </div>
-
       <div v-if="showOtherMissions" class="missionItems">
         <div class="missionTimeline">
-          <div class="timelineHeader">
-            <div>
-              <p class="eyebrow compact">{{ t("missions.timeline.eyebrow") }}</p>
-              <h3>{{ t("missions.timeline.title") }}</h3>
-            </div>
-            <BaseButton
-              variant="secondary"
-              @click="showMissionStatusList = !showMissionStatusList"
-            >
-              {{ showMissionStatusList ? t("missions.timeline.hideList") : t("missions.timeline.showList") }}
-            </BaseButton>
-          </div>
-
-          <div
-            class="timelineRail"
-            :class="{ compact: timelineIsSparse }"
-            :aria-label="t('missions.timeline.title')"
-          >
-            <div class="timelineResetLabels">
-              <span>{{ t("missions.timeline.startLabel", { time: timelineBounds.startLabel }) }}</span>
-              <span>{{ t("missions.timeline.resetLabel", { time: timelineBounds.endLabel }) }}</span>
-            </div>
-            <div
-              class="timelineNow"
-              :style="{ top: `${timelineNowPosition}%` }"
-            >
-              <span>{{ timelineNowLabel }}</span>
-            </div>
-            <div v-if="!timelineTimedItems.length" class="timelineEmptyState">
-              <strong>{{ t("missions.timeline.emptyTitle") }}</strong>
-              <small>{{ t("missions.timeline.emptyBody") }}</small>
-            </div>
-            <button
-              v-for="item in timelineTimedItems"
-              :key="item.key"
-              type="button"
-              class="timelineItem"
-              :class="[item.type, item.status, { active: isTimelineMissionSelected(item.mission) }]"
-              :style="{ top: `${item.position}%` }"
-              @click="selectTimelineMission(item.mission)"
-            >
-              <span class="timelineItemTime">{{ item.timeLabel }}</span>
-              <strong>{{ item.mission.title }}</strong>
-              <small>{{ item.meta }}</small>
-            </button>
-          </div>
-
           <div v-if="timelineUntimedItems.length" class="timelineUntimed">
             <p>{{ t("missions.timeline.untimedTitle") }}</p>
             <div class="timelineUntimedItems">
-              <button
-                v-for="mission in timelineUntimedItems"
-                :key="mission.mission_id"
-                type="button"
+              <button v-for="mission in timelineUntimedItems" :key="mission.mission_id" type="button"
                 class="timelineUntimedItem"
                 :class="[normalizedMissionIntensity(mission), normalizedMissionStatus(mission.status), { active: isTimelineMissionSelected(mission) }]"
-                @click="selectTimelineMission(mission)"
-              >
-                <span>{{ missionTypeLabel(mission) }}</span>
+                @click="selectTimelineMission(mission)">
+                <span class="timelineMiniMarker timelineMarkerButton" :class="missionMarkerClasses(mission)"
+                  aria-hidden="true">
+                  <span class="timelineMarkerShape"></span>
+                </span>
                 <strong>{{ mission.title }}</strong>
-                <small>{{ missionStatusLabel(mission) }}</small>
+                <span v-if="missionXpMeta(mission)" class="timelineMarkerXp" :class="missionXpMeta(mission).state">
+                  {{ missionXpMeta(mission).label }}
+                </span>
               </button>
             </div>
           </div>
 
-          <article
-            v-if="selectedTimelineMission"
-            :id="`timeline-mission-${selectedTimelineMission.mission_id}`"
-            class="timelineDetail missionItem"
-            :class="[normalizedMissionStatus(selectedTimelineMission.status)]"
-          >
-            <div>
-              <div class="missionChips" :aria-label="t('missions.statusChipsLabel')">
-                <span
-                  v-for="chip in missionChips(selectedTimelineMission)"
-                  :key="chip.key"
-                  class="missionChip"
-                  :class="chip.type"
-                >
-                  {{ chip.label }}
-                </span>
+          <div class="timelineStage">
+            <div class="timelineColumn">
+              <div class="timelineRail" :class="{ compact: timelineIsSparse }"
+                :aria-label="t('missions.timeline.title')">
+                <div class="timelineResetLabels">
+                  <span>{{ t("missions.timeline.startLabel", { time: timelineBounds.startLabel }) }}</span>
+                  <span>{{ t("missions.timeline.resetLabel", { time: timelineBounds.endLabel }) }}</span>
+                </div>
+                <div class="timelineTrack">
+                  <div v-for="guide in timelineGuides" :key="guide.key" class="timelineGuide"
+                    :style="{ top: `${guide.position}%` }">
+                    <span class="timelineGuideLine"></span>
+                    <span class="timelineGuideLabel">{{ guide.label }}</span>
+                  </div>
+                  <div class="timelineNow" :style="{ top: `${timelineNowPosition}%` }">
+                    <span>{{ timelineNowLabel }}</span>
+                  </div>
+                  <div v-for="cluster in timelineClusters" :key="cluster.key" class="timelineCluster"
+                    :class="{ multi: cluster.items.length > 1 }" :style="{ top: `${cluster.position}%` }">
+
+
+
+
+
+                    <button type="button" class="timelineMarkerButton" :class="[
+                      cluster.markerTypeClass,
+                      cluster.markerStatusClass,
+                      {
+                        active: cluster.items.some((item) => isTimelineMissionSelected(item.mission)),
+                        multi: cluster.items.length > 1,
+                        nearReset: cluster.nearReset,
+                      },
+                    ]" :aria-label="cluster.ariaLabel" @click="selectTimelineCluster(cluster)">
+                      <span class="timelineMarkerShape" aria-hidden="true">
+                        <span v-if="cluster.items.length > 1" class="timelineMarkerCount">
+                          {{ cluster.items.length }}
+                        </span>
+                      </span>
+                    </button>
+
+
+                    <span v-if="cluster.items.length > 1" class="timelineClusterTypes" aria-hidden="true">
+                      <span v-for="item in cluster.items" :key="item.key"
+                        class="timelineClusterMiniMarker timelineMarkerButton"
+                        :class="missionMarkerClasses(item.mission)">
+                        <span class="timelineMarkerShape"></span>
+                      </span>
+                    </span>
+
+
+                    <span v-if="cluster.xp" class="timelineMarkerXp"
+                      :class="[cluster.xp.state, { nearReset: cluster.nearReset }]">
+                      {{ cluster.xp.label }}
+                    </span>
+                  </div>
+                </div>
               </div>
-              <p class="missionMeta">
-                {{ selectedTimelineMission.challenge_name }} · {{ missionStatusLabel(selectedTimelineMission) }}
-              </p>
-              <h3>{{ selectedTimelineMission.title }}</h3>
-              <small v-if="missionParentCopy(selectedTimelineMission)" class="missionRelationCopy">
-                {{ missionParentCopy(selectedTimelineMission) }}
-              </small>
-              <p>{{ selectedTimelineMission.description }}</p>
-              <small v-if="missionStatusCopy(selectedTimelineMission)" class="missionStatusCopy">
-                {{ missionStatusCopy(selectedTimelineMission) }}
-              </small>
             </div>
 
-            <div v-if="showMissionItemActions(selectedTimelineMission)" class="missionActions">
-              <BaseButton
-                variant="primary"
-                :loading="busyId === selectedTimelineMission.mission_id && busyAction === 'done'"
-                :disabled="missionHasStatus(selectedTimelineMission, 'done')"
-                @click="markDone(selectedTimelineMission)"
-              >
-                {{ t("missions.doneCta") }}
-              </BaseButton>
-
-              <BaseButton
-                variant="secondary"
-                :loading="busyId === selectedTimelineMission.mission_id && busyAction === 'remind'"
-                :disabled="missionHasStatus(selectedTimelineMission, 'done')"
-                @click="remindLater(selectedTimelineMission)"
-              >
-                {{ missionHasStatus(selectedTimelineMission, "remind_later") ? t("missions.editReminder") : t("missions.remindLater") }}
-              </BaseButton>
-
-              <BaseButton
-                variant="secondary"
-                :loading="busyId === selectedTimelineMission.mission_id && busyAction === 'skip'"
-                :disabled="missionHasStatus(selectedTimelineMission, 'done', 'skipped')"
-                @click="skipMission(selectedTimelineMission)"
-              >
-                {{ missionHasStatus(selectedTimelineMission, "skipped") ? t("missions.skipped") : t("missions.skip") }}
-              </BaseButton>
-
-              <BaseButton
-                v-if="shouldShowMissionItemTinyAction(selectedTimelineMission)"
-                variant="secondary"
-                @click="focusTinyMissionVariant(selectedTimelineMission)"
-              >
-                {{ t("missions.ringoActions.tryTinyVersion") }}
-              </BaseButton>
-
-              <BaseButton
-                v-if="shouldShowFullVersionAction(selectedTimelineMission)"
-                variant="secondary"
-                @click="focusMainMissionVariant(selectedTimelineMission)"
-              >
-                {{ t("missions.ringoActions.useFullVersion") }}
-              </BaseButton>
-            </div>
-
-            <div v-if="isReminderPanelOpen(selectedTimelineMission)" class="remindOptionsPanel">
-              <p>{{ t("missions.remindOptions.prompt") }}</p>
-              <div class="remindOptions">
-                <BaseButton
-                  v-for="option in reminderOptions"
-                  :key="option.key"
-                  variant="secondary"
-                  :loading="isReminderOptionLoading(selectedTimelineMission, option.key)"
-                  :disabled="busyAction === 'remind' && busyId === selectedTimelineMission.mission_id"
-                  @click="selectReminderOption(selectedTimelineMission, option)"
-                >
-                  {{ option.label }}
-                </BaseButton>
-                <BaseButton
-                  variant="secondary"
-                  :disabled="busyAction === 'remind' && busyId === selectedTimelineMission.mission_id"
-                  @click="openCustomReminderTime(selectedTimelineMission)"
-                >
-                  {{ t("missions.remindOptions.customTime") }}
-                </BaseButton>
-                <BaseButton variant="secondary" @click="closeReminderPanel">
-                  {{ t("missions.backToMissionActions") }}
-                </BaseButton>
-              </div>
-              <div v-if="isCustomReminderPanelOpen(selectedTimelineMission)" class="customReminderPanel">
-                <label :for="`custom-reminder-${selectedTimelineMission.mission_id}`">
-                  {{ t("missions.remindOptions.customPrompt") }}
-                </label>
-                <div class="customReminderControls">
-                  <input
-                    :id="`custom-reminder-${selectedTimelineMission.mission_id}`"
-                    v-model="customReminderTime"
-                    type="time"
-                  />
-                  <BaseButton
-                    variant="primary"
-                    :loading="isReminderOptionLoading(selectedTimelineMission, 'custom')"
-                    :disabled="busyAction === 'remind' && busyId === selectedTimelineMission.mission_id"
-                    @click="selectCustomReminderTime(selectedTimelineMission)"
-                  >
-                    {{ t("missions.remindOptions.setCustom") }}
+            <aside class="timelineSidePanel">
+              <div class="timelineSupport">
+                <div class="timelineSupportHead">
+                  <div>
+                    <p class="eyebrow compact">{{ t("missions.otherEyebrow") }}</p>
+                    <h2>{{ t("missions.otherTitle") }}</h2>
+                    <p v-if="isTodaySaved" class="otherMissionContext">
+                      {{ t("missions.optionalOtherContext") }}
+                    </p>
+                  </div>
+                  <BaseButton variant="secondary" @click="showOtherMissions = false">
+                    {{ t("missions.hideOtherMissions") }}
                   </BaseButton>
                 </div>
-                <small>{{ t("missions.remindOptions.customHelp") }}</small>
+                <div class="timelineLegend" :aria-label="t('missions.statusChipsLabel')">
+                  <span class="timelineLegendItem main">
+                    <i></i>{{ t("missions.typeChips.main") }}
+                  </span>
+                  <span class="timelineLegendItem tiny">
+                    <i></i>{{ t("missions.typeChips.tiny") }}
+                  </span>
+                  <span class="timelineLegendItem bonus">
+                    <i></i>{{ t("missions.typeChips.bonus") }}
+                  </span>
+                  <span class="timelineLegendStatus pending">
+                    <i></i>{{ t("missions.status.pending") }}
+                  </span>
+                  <span class="timelineLegendStatus done">
+                    <i></i>{{ t("missions.status.done") }}
+                  </span>
+                  <span class="timelineLegendStatus remind_later">
+                    <i></i>{{ t("missions.status.remind_later") }}
+                  </span>
+                  <span class="timelineLegendStatus skipped">
+                    <i></i>{{ t("missions.status.skipped") }}
+                  </span>
+                </div>
               </div>
-            </div>
 
-            <div v-if="isSkipReasonPanelOpen(selectedTimelineMission)" class="skipReasonPanel">
-              <p>{{ t("missions.skipReasons.prompt") }}</p>
-              <div class="skipReasons">
-                <BaseButton
-                  v-for="reason in skipReasonOptions"
-                  :key="reason.key"
-                  variant="secondary"
-                  :loading="isSkipReasonLoading(selectedTimelineMission, reason.key)"
-                  :disabled="busyAction === 'skip' && busyId === selectedTimelineMission.mission_id"
-                  @click="selectSkipReason(selectedTimelineMission, reason)"
-                >
-                  {{ reason.label }}
-                </BaseButton>
-                <BaseButton variant="secondary" @click="closeSkipReasonPanel">
-                  {{ t("missions.backToMissionActions") }}
-                </BaseButton>
+              <div class="timelineMissionRows">
+                <template v-for="mission in timelineDetailMissions" :key="mission.mission_id">
+                  <button type="button" class="timelineMissionRow"
+                    :class="[normalizedMissionStatus(mission.status), { active: isTimelineMissionSelected(mission) }]"
+                    @click="selectTimelineMission(mission)">
+                    <span class="timelineMiniMarker timelineMarkerButton" :class="missionMarkerClasses(mission)"
+                      aria-hidden="true">
+                      <span class="timelineMarkerShape"></span>
+                    </span>
+                    <strong>{{ mission.title }}</strong>
+                    <span v-if="missionXpMeta(mission)" class="timelineMarkerXp" :class="missionXpMeta(mission).state">
+                      {{ missionXpMeta(mission).label }}
+                    </span>
+                    <span v-if="timelineMissionTimeLabel(mission)" class="timelineMissionTime">
+                      {{ timelineMissionTimeLabel(mission) }}
+                    </span>
+                  </button>
+
+                  <article v-if="isTimelineMissionSelected(mission)" :id="`timeline-mission-${mission.mission_id}`"
+                    class="timelineDetail missionItem" :class="[normalizedMissionStatus(mission.status)]">
+                    <div>
+                      <div class="timelineDetailHero">
+                        <span class="timelineDetailMarker timelineMarkerButton" :class="missionMarkerClasses(mission)"
+                          aria-hidden="true">
+                          <span class="timelineMarkerShape"></span>
+                        </span>
+                        <div>
+                          <div class="missionChips" :aria-label="t('missions.statusChipsLabel')">
+                            <span v-for="chip in missionChips(mission)" :key="chip.key" class="missionChip"
+                              :class="chip.type">
+                              {{ chip.label }}
+                            </span>
+                            <span v-if="missionXpMeta(mission)" class="missionChip xp"
+                              :class="missionXpMeta(mission).state">
+                              {{ missionXpMeta(mission).label }}
+                            </span>
+                          </div>
+                          <p class="missionMeta">
+                            {{ mission.challenge_name }} · {{ missionStatusLabel(mission) }}
+                          </p>
+                        </div>
+                      </div>
+                      <h3>{{ mission.title }}</h3>
+                      <small v-if="missionParentCopy(mission)" class="missionRelationCopy">
+                        {{ missionParentCopy(mission) }}
+                      </small>
+                      <p>{{ mission.description }}</p>
+                      <small v-if="missionStatusCopy(mission)" class="missionStatusCopy">
+                        {{ missionStatusCopy(mission) }}
+                      </small>
+                    </div>
+
+                    <div v-if="showMissionItemActions(mission)" class="missionActions">
+                      <BaseButton variant="primary" :loading="busyId === mission.mission_id && busyAction === 'done'"
+                        :disabled="missionHasStatus(mission, 'done')" @click="markDone(mission)">
+                        {{ t("missions.doneCta") }}
+                      </BaseButton>
+
+                      <BaseButton variant="secondary"
+                        :loading="busyId === mission.mission_id && busyAction === 'remind'"
+                        :disabled="missionHasStatus(mission, 'done')" @click="remindLater(mission)">
+                        {{ missionHasStatus(mission, "remind_later") ? t("missions.editReminder") :
+                          t("missions.remindLater") }}
+                      </BaseButton>
+
+                      <BaseButton variant="secondary" :loading="busyId === mission.mission_id && busyAction === 'skip'"
+                        :disabled="missionHasStatus(mission, 'done', 'skipped')" @click="skipMission(mission)">
+                        {{ missionHasStatus(mission, "skipped") ? t("missions.skipped") : t("missions.skip") }}
+                      </BaseButton>
+
+                      <BaseButton v-if="shouldShowMissionItemTinyAction(mission)" variant="secondary"
+                        @click="focusTinyMissionVariant(mission)">
+                        {{ t("missions.ringoActions.tryTinyVersion") }}
+                      </BaseButton>
+
+                      <BaseButton v-if="shouldShowFullVersionAction(mission)" variant="secondary"
+                        @click="focusMainMissionVariant(mission)">
+                        {{ t("missions.ringoActions.useFullVersion") }}
+                      </BaseButton>
+                    </div>
+
+                    <div v-if="isReminderPanelOpen(mission)" class="remindOptionsPanel">
+                      <p>{{ t("missions.remindOptions.prompt") }}</p>
+                      <div class="remindOptions">
+                        <BaseButton v-for="option in reminderOptions" :key="option.key" variant="secondary"
+                          :loading="isReminderOptionLoading(mission, option.key)"
+                          :disabled="busyAction === 'remind' && busyId === mission.mission_id"
+                          @click="selectReminderOption(mission, option)">
+                          {{ option.label }}
+                        </BaseButton>
+                        <BaseButton variant="secondary"
+                          :disabled="busyAction === 'remind' && busyId === mission.mission_id"
+                          @click="openCustomReminderTime(mission)">
+                          {{ t("missions.remindOptions.customTime") }}
+                        </BaseButton>
+                        <BaseButton variant="secondary" @click="closeReminderPanel">
+                          {{ t("missions.backToMissionActions") }}
+                        </BaseButton>
+                      </div>
+                      <div v-if="isCustomReminderPanelOpen(mission)" class="customReminderPanel">
+                        <label :for="`custom-reminder-${mission.mission_id}`">
+                          {{ t("missions.remindOptions.customPrompt") }}
+                        </label>
+                        <div class="customReminderControls">
+                          <input :id="`custom-reminder-${mission.mission_id}`" v-model="customReminderTime"
+                            type="time" />
+                          <BaseButton variant="primary" :loading="isReminderOptionLoading(mission, 'custom')"
+                            :disabled="busyAction === 'remind' && busyId === mission.mission_id"
+                            @click="selectCustomReminderTime(mission)">
+                            {{ t("missions.remindOptions.setCustom") }}
+                          </BaseButton>
+                        </div>
+                        <small>{{ t("missions.remindOptions.customHelp") }}</small>
+                      </div>
+                    </div>
+
+                    <div v-if="isSkipReasonPanelOpen(mission)" class="skipReasonPanel">
+                      <p>{{ t("missions.skipReasons.prompt") }}</p>
+                      <div class="skipReasons">
+                        <BaseButton v-for="reason in skipReasonOptions" :key="reason.key" variant="secondary"
+                          :loading="isSkipReasonLoading(mission, reason.key)"
+                          :disabled="busyAction === 'skip' && busyId === mission.mission_id"
+                          @click="selectSkipReason(mission, reason)">
+                          {{ reason.label }}
+                        </BaseButton>
+                        <BaseButton variant="secondary" @click="closeSkipReasonPanel">
+                          {{ t("missions.backToMissionActions") }}
+                        </BaseButton>
+                      </div>
+                    </div>
+                  </article>
+                </template>
+
+                <div v-if="!timelineDetailMissions.length" class="timelineDetailPlaceholder">
+                  <p class="eyebrow compact">{{ t("missions.timeline.eyebrow") }}</p>
+                  <h3>{{ t("missions.timeline.selectTitle") }}</h3>
+                  <p>{{ t("missions.timeline.selectBody") }}</p>
+                </div>
               </div>
-            </div>
-          </article>
+            </aside>
+          </div>
+
         </div>
 
-        <template v-if="showMissionStatusList">
-        <article
-          v-for="mission in otherMissions"
-          :key="mission.mission_id"
-          :id="`mission-${mission.mission_id}`"
-          class="missionItem"
-          :class="[
-            normalizedMissionStatus(mission.status),
-            {
-              focus: focusMission?.mission_id === mission.mission_id,
-              optionalNext: optionalNextMission && sameMissionId(optionalNextMission.mission_id, mission.mission_id),
-            },
-          ]"
-        >
-          <div>
-            <div class="missionChips" :aria-label="t('missions.statusChipsLabel')">
-              <span
-                v-for="chip in missionChips(mission)"
-                :key="chip.key"
-                class="missionChip"
-                :class="chip.type"
-              >
-                {{ chip.label }}
-              </span>
-            </div>
-            <p class="missionMeta">
-              {{ mission.challenge_name }} · {{ missionStatusLabel(mission) }}
-            </p>
-            <h3>{{ mission.title }}</h3>
-            <small v-if="missionParentCopy(mission)" class="missionRelationCopy">
-              {{ missionParentCopy(mission) }}
-            </small>
-            <p>{{ mission.description }}</p>
-            <small v-if="missionStatusCopy(mission)" class="missionStatusCopy">
-              {{ missionStatusCopy(mission) }}
-            </small>
-          </div>
-
-          <div v-if="showMissionItemActions(mission)" class="missionActions">
-            <BaseButton
-              variant="primary"
-              :loading="busyId === mission.mission_id && busyAction === 'done'"
-              :disabled="missionHasStatus(mission, 'done')"
-              @click="markDone(mission)"
-            >
-              {{ t("missions.doneCta") }}
-            </BaseButton>
-
-            <BaseButton
-              variant="secondary"
-              :loading="busyId === mission.mission_id && busyAction === 'remind'"
-              :disabled="missionHasStatus(mission, 'done')"
-              @click="remindLater(mission)"
-            >
-              {{ missionHasStatus(mission, "remind_later") ? t("missions.editReminder") : t("missions.remindLater") }}
-            </BaseButton>
-
-            <BaseButton
-              variant="secondary"
-              :loading="busyId === mission.mission_id && busyAction === 'skip'"
-              :disabled="missionHasStatus(mission, 'done', 'skipped')"
-              @click="skipMission(mission)"
-            >
-              {{ missionHasStatus(mission, "skipped") ? t("missions.skipped") : t("missions.skip") }}
-            </BaseButton>
-
-            <BaseButton
-              v-if="shouldShowMissionItemTinyAction(mission)"
-              variant="secondary"
-              @click="focusTinyMissionVariant(mission)"
-            >
-              {{ t("missions.ringoActions.tryTinyVersion") }}
-            </BaseButton>
-
-            <BaseButton
-              v-if="shouldShowFullVersionAction(mission)"
-              variant="secondary"
-              @click="focusMainMissionVariant(mission)"
-            >
-              {{ t("missions.ringoActions.useFullVersion") }}
-            </BaseButton>
-          </div>
-
-          <div v-if="isReminderPanelOpen(mission)" class="remindOptionsPanel">
-            <p>{{ t("missions.remindOptions.prompt") }}</p>
-            <div class="remindOptions">
-              <BaseButton
-                v-for="option in reminderOptions"
-                :key="option.key"
-                variant="secondary"
-                :loading="isReminderOptionLoading(mission, option.key)"
-                :disabled="busyAction === 'remind' && busyId === mission.mission_id"
-                @click="selectReminderOption(mission, option)"
-              >
-                {{ option.label }}
-              </BaseButton>
-              <BaseButton
-                variant="secondary"
-                :disabled="busyAction === 'remind' && busyId === mission.mission_id"
-                @click="openCustomReminderTime(mission)"
-              >
-                {{ t("missions.remindOptions.customTime") }}
-              </BaseButton>
-              <BaseButton variant="secondary" @click="closeReminderPanel">
-                {{ t("missions.backToMissionActions") }}
-              </BaseButton>
-            </div>
-            <div v-if="isCustomReminderPanelOpen(mission)" class="customReminderPanel">
-              <label :for="`custom-reminder-${mission.mission_id}`">
-                {{ t("missions.remindOptions.customPrompt") }}
-              </label>
-              <div class="customReminderControls">
-                <input
-                  :id="`custom-reminder-${mission.mission_id}`"
-                  v-model="customReminderTime"
-                  type="time"
-                />
-                <BaseButton
-                  variant="primary"
-                  :loading="isReminderOptionLoading(mission, 'custom')"
-                  :disabled="busyAction === 'remind' && busyId === mission.mission_id"
-                  @click="selectCustomReminderTime(mission)"
-                >
-                  {{ t("missions.remindOptions.setCustom") }}
-                </BaseButton>
-              </div>
-              <small>{{ t("missions.remindOptions.customHelp") }}</small>
-            </div>
-          </div>
-
-          <div v-if="isSkipReasonPanelOpen(mission)" class="skipReasonPanel">
-            <p>{{ t("missions.skipReasons.prompt") }}</p>
-            <div class="skipReasons">
-              <BaseButton
-                v-for="reason in skipReasonOptions"
-                :key="reason.key"
-                variant="secondary"
-                :loading="isSkipReasonLoading(mission, reason.key)"
-                :disabled="busyAction === 'skip' && busyId === mission.mission_id"
-                @click="selectSkipReason(mission, reason)"
-              >
-                {{ reason.label }}
-              </BaseButton>
-              <BaseButton variant="secondary" @click="closeSkipReasonPanel">
-                {{ t("missions.backToMissionActions") }}
-              </BaseButton>
-            </div>
-          </div>
-        </article>
-        </template>
       </div>
 
-      <p v-else class="otherMissionHint">
-        {{ t(isTodaySaved ? "missions.optionalOtherHint" : "missions.otherHint", { count: otherMissions.length }) }}
-      </p>
+      <div v-else class="missionListHead collapsedMissionStatus">
+        <div>
+          <p class="eyebrow compact">{{ t("missions.otherEyebrow") }}</p>
+          <h2>{{ t("missions.otherTitle") }}</h2>
+          <p class="otherMissionHint">
+            {{ t(isTodaySaved ? "missions.optionalOtherHint" : "missions.otherHint", { count: otherMissions.length }) }}
+          </p>
+        </div>
+        <BaseButton variant="secondary" @click="showOtherMissions = true">
+          {{ t("missions.showOtherMissions", { count: otherMissions.length }) }}
+        </BaseButton>
+      </div>
     </BaseCard>
   </section>
 </template>
@@ -885,8 +629,7 @@ const dismissedCoachState = ref("");
 const interactionNarrative = ref(null);
 const completionNarrative = ref(null);
 const manualFocusMissionId = ref(null);
-const showOtherMissions = ref(false);
-const showMissionStatusList = ref(false);
+const showOtherMissions = ref(true);
 const selectedTimelineMissionId = ref(null);
 const reminderPanelMissionId = ref(null);
 const busyReminderOption = ref("");
@@ -1196,9 +939,9 @@ const coachNarrative = computed(() => {
     || optionalNextNarrative.value
     || backendCoachNarrative.value
     || {
-      message: t("ringoCoach.fallbackMessage"),
-      mood: "idle",
-    };
+    message: t("ringoCoach.fallbackMessage"),
+    mood: "idle",
+  };
 });
 
 const coachMessage = computed(() => {
@@ -1281,11 +1024,7 @@ const focusMissionIntensity = computed(() => buildMissionIntensityMeta(focusMiss
 }));
 
 const rawOtherMissions = computed(() => {
-  if (!focusMission.value?.mission_id || !isFocusMissionRendered()) return localizedMissions.value;
-
-  return localizedMissions.value.filter((mission) => {
-    return !sameMissionId(mission.mission_id, focusMission.value.mission_id);
-  });
+  return localizedMissions.value;
 });
 
 const effectiveMissionRepresentatives = computed(() => {
@@ -1304,12 +1043,8 @@ const effectiveMissionRepresentatives = computed(() => {
     const mainMission = items.find((mission) => normalizedMissionIntensity(mission) === "main") || null;
     const tinyMissions = items.filter((mission) => normalizedMissionIntensity(mission) === "tiny");
     const bonusMissions = items.filter((mission) => normalizedMissionIntensity(mission) === "bonus");
-    const doneTiny = tinyMissions.find((mission) => {
-      return missionHasStatus(mission, "done");
-    }) || null;
-    const mainOverridesDoneTiny = !!(
+    const mainHasExplicitRepresentativeState = !!(
       mainMission
-      && doneTiny
       && (
         missionHasStatus(mainMission, "remind_later", "done", "skipped")
         || sameMissionId(mainMission.mission_id, manualFocusMissionId.value)
@@ -1321,7 +1056,7 @@ const effectiveMissionRepresentatives = computed(() => {
       return isTinyMissionRevealed(mission) && missionHasStatus(mission, "pending", "skipped");
     }) || null;
 
-    if (mainOverridesDoneTiny) {
+    if (effectiveTiny && mainHasExplicitRepresentativeState) {
       representatives.push(mainMission);
       if (missionHasStatus(mainMission, "done")) {
         bonusMissions
@@ -1332,8 +1067,8 @@ const effectiveMissionRepresentatives = computed(() => {
     }
 
     if (mainMission && missionHasStatus(mainMission, "done")) {
-      if (doneTiny) {
-        representatives.push(doneTiny);
+      if (effectiveTiny && missionHasStatus(effectiveTiny, "done", "remind_later", "skipped")) {
+        representatives.push(effectiveTiny);
       } else {
         representatives.push(mainMission);
         bonusMissions
@@ -1379,7 +1114,7 @@ const curatedOtherMissions = computed(() => {
 const showOtherMissionList = computed(() => {
   if (loading.value || error.value || !otherMissions.value.length) return false;
 
-  return !isTodaySaved.value || !optionalNextSuppressed.value;
+  return true;
 });
 
 const safeOptionalMissions = computed(() => {
@@ -1422,8 +1157,7 @@ const timelineBounds = computed(() => {
   const now = new Date();
 
   if (nextReset) {
-    const start = new Date(nextReset);
-    start.setDate(start.getDate() - 1);
+    const start = new Date(nextReset.getTime() - (24 * 60 * 60 * 1000));
 
     return {
       start,
@@ -1454,8 +1188,25 @@ const timelineNowLabel = computed(() => {
   return t("missions.timeline.nowWithTime", { time: formattedTimelineTime(new Date()) });
 });
 
+const timelineGuides = computed(() => {
+  const { start, end } = timelineBounds.value;
+  const span = Math.max(end.getTime() - start.getTime(), 1);
+  const guideCount = 8;
+
+  return Array.from({ length: guideCount - 1 }, (_, index) => {
+    const ratio = (index + 1) / guideCount;
+    const timestamp = new Date(start.getTime() + (span * ratio));
+
+    return {
+      key: timestamp.toISOString(),
+      position: ratio * 100,
+      label: formattedTimelineTime(timestamp),
+    };
+  });
+});
+
 const timelineIsSparse = computed(() => {
-  return timelineTimedItems.value.length <= 1;
+  return timelineClusters.value.length <= 1;
 });
 
 const timelineTimedItems = computed(() => {
@@ -1477,6 +1228,44 @@ const timelineTimedItems = computed(() => {
     })
     .filter(Boolean)
     .sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+});
+
+const timelineClusters = computed(() => {
+  const threshold = 5;
+
+  return timelineTimedItems.value.reduce((clusters, item) => {
+    const previous = clusters[clusters.length - 1];
+
+    if (previous && Math.abs(item.position - previous.position) <= threshold) {
+      const nextCluster = timelineClusterFromItems([...previous.items, item]);
+      clusters.splice(clusters.length - 1, 1, nextCluster);
+      return clusters;
+    }
+
+    clusters.push(timelineClusterFromItems([item]));
+
+    return clusters;
+  }, []);
+});
+
+const selectedTimelineClusterItems = computed(() => {
+  if (!selectedTimelineMissionId.value) return [];
+
+  const cluster = timelineClusters.value.find((item) => {
+    return item.items.some((clusterItem) => {
+      return sameMissionId(clusterItem.mission.mission_id, selectedTimelineMissionId.value);
+    });
+  });
+
+  return cluster?.items || [];
+});
+
+const timelineDetailMissions = computed(() => {
+  if (selectedTimelineClusterItems.value.length) {
+    return selectedTimelineClusterItems.value.map((item) => item.mission);
+  }
+
+  return selectedTimelineMission.value ? [selectedTimelineMission.value] : [];
 });
 
 const timelineUntimedItems = computed(() => {
@@ -1717,8 +1506,7 @@ async function loadMissions() {
   error.value = "";
   clearNarrativeState();
   manualFocusMissionId.value = null;
-  showOtherMissions.value = false;
-  showMissionStatusList.value = false;
+  showOtherMissions.value = true;
   selectedTimelineMissionId.value = null;
   reminderPanelMissionId.value = null;
   customReminderPanelMissionId.value = null;
@@ -1807,7 +1595,9 @@ async function runMissionAction(mission, action, request, options = {}) {
     applyMissionResponse(data, mission);
     await loadMissions();
     if (action === "remind") {
+      preferMainMissionAfterReminder(mission);
       manualFocusMissionId.value = mission.mission_id;
+      selectedTimelineMissionId.value = mission.mission_id;
     }
     if (options.narrative) {
       setNarrative(options.narrative);
@@ -1949,17 +1739,17 @@ function selectReminderOption(mission, option) {
   const confirmationKey = afterNextReset
     ? "missions.remindOptions.confirmationAfterReset"
     : option?.key === "evening" && tomorrowSlot === "evening"
-    ? "missions.remindOptions.confirmationTomorrowEvening"
-    : option?.key === "tonight" && tomorrowSlot === "night"
-      ? "missions.remindOptions.confirmationTomorrowNight"
-      : "missions.remindOptions.confirmation";
+      ? "missions.remindOptions.confirmationTomorrowEvening"
+      : option?.key === "tonight" && tomorrowSlot === "night"
+        ? "missions.remindOptions.confirmationTomorrowNight"
+        : "missions.remindOptions.confirmation";
   const narrativeKey = afterNextReset
     ? "missions.narrative.remindConfirmedAfterReset"
     : option?.key === "evening" && tomorrowSlot === "evening"
-    ? "missions.narrative.remindConfirmedTomorrowEvening"
-    : option?.key === "tonight" && tomorrowSlot === "night"
-      ? "missions.narrative.remindConfirmedTomorrowNight"
-      : "missions.narrative.remindConfirmed";
+      ? "missions.narrative.remindConfirmedTomorrowEvening"
+      : option?.key === "tonight" && tomorrowSlot === "night"
+        ? "missions.narrative.remindConfirmedTomorrowNight"
+        : "missions.narrative.remindConfirmed";
   const successNotice = option?.label
     ? t(confirmationKey, { time: option.label, exactTime: timeLabel })
     : t("missions.remindOptions.fallbackConfirmation");
@@ -2283,13 +2073,13 @@ function buildRewardSequence(data, mission) {
 
 function finishRewardSequence() {
   rewardSequenceSteps.value = [];
-  showOtherMissions.value = false;
+  showOtherMissions.value = true;
 }
 
 function finishForToday() {
   optionalNextSuppressed.value = true;
   manualFocusMissionId.value = null;
-  showOtherMissions.value = false;
+  showOtherMissions.value = true;
   setInteractionNarrative("missions.finishedForTodayMessage", "sleeping");
 }
 
@@ -2297,7 +2087,7 @@ function focusOptionalNextMission(mission) {
   if (!mission) return null;
 
   manualFocusMissionId.value = mission.mission_id;
-  showOtherMissions.value = false;
+  showOtherMissions.value = true;
   return focusMissionCard(mission);
 }
 
@@ -2305,7 +2095,7 @@ function remindOptionalNextMission(mission) {
   if (!mission) return null;
 
   manualFocusMissionId.value = mission.mission_id;
-  showOtherMissions.value = false;
+  showOtherMissions.value = true;
   return remindLater(mission);
 }
 
@@ -2313,7 +2103,7 @@ function skipOptionalNextMission(mission) {
   if (!mission) return null;
 
   manualFocusMissionId.value = mission.mission_id;
-  showOtherMissions.value = false;
+  showOtherMissions.value = true;
   return skipMission(mission);
 }
 
@@ -2458,6 +2248,22 @@ function isTinyMissionRevealed(mission) {
   );
 }
 
+function preferMainMissionAfterReminder(mission) {
+  if (!mission?.mission_id || normalizedMissionIntensity(mission) !== "main") return;
+
+  const childTinyMissionIds = childMissionsFor(mission)
+    .filter(isTinyMission)
+    .map((item) => String(item.mission_id));
+
+  if (!childTinyMissionIds.length) return;
+
+  revealedTinyMissionIds.value = new Set(
+    [...revealedTinyMissionIds.value].filter((missionId) => {
+      return !childTinyMissionIds.includes(String(missionId));
+    }),
+  );
+}
+
 function missionGroupRootId(mission) {
   if (!mission?.mission_id) return "";
 
@@ -2490,7 +2296,7 @@ function shouldShowOtherMission(mission) {
   }
 
   if (intensity === "tiny") {
-    if (missionHasStatus(mission, "done")) return true;
+    if (missionHasStatus(mission, "done", "remind_later")) return true;
     if (!isTinyMissionRevealed(mission)) return false;
     if (parentMission && missionHasStatus(parentMission, "done") && missionHasStatus(mission, "pending")) {
       return false;
@@ -2507,16 +2313,6 @@ function shouldShowOtherMission(mission) {
 
 function shouldShowOtherMissionItem(mission) {
   if (!mission?.mission_id) return false;
-
-  if (optionalNextMission.value) {
-    if (sameMissionId(mission.mission_id, optionalNextMission.value.mission_id)) return false;
-    if (sameMissionGroup(mission, optionalNextMission.value)) return false;
-  }
-
-  if (showFocusMissionCard.value && focusMission.value) {
-    if (sameMissionId(mission.mission_id, focusMission.value.mission_id)) return false;
-    if (sameMissionGroup(mission, focusMission.value)) return false;
-  }
 
   return true;
 }
@@ -2675,6 +2471,104 @@ function timelinePositionForDate(value) {
   return Math.min(100, Math.max(0, raw));
 }
 
+function timelineClusterFromItems(items) {
+  const primary = items[0];
+  const statuses = [...new Set(items.map((item) => item.status))];
+  const types = [...new Set(items.map((item) => item.type))];
+  const totalPosition = items.reduce((sum, item) => sum + item.position, 0);
+  const position = totalPosition / Math.max(items.length, 1);
+  const markerStatus = statuses.length === 1 ? statuses[0] : "mixed";
+  const markerType = types.length === 1 ? types[0] : "mixed";
+  const title = items.length > 1
+    ? t("missions.timeline.clusterTitle", { count: items.length })
+    : primary.mission.title;
+  const meta = items.length > 1
+    ? items.map((item) => item.mission.title).slice(0, 2).join(" · ")
+    : primary.meta;
+  const ariaLabel = items.length > 1
+    ? `${title}: ${meta}`
+    : `${primary.timeLabel}: ${primary.mission.title}, ${primary.meta}`;
+  const xp = timelineClusterXp(items, position, markerStatus);
+
+  return {
+    key: items.map((item) => item.key).join("|"),
+    position,
+    timeLabel: primary.timeLabel,
+    title,
+    meta,
+    primary,
+    markerStatus,
+    markerType,
+    markerStatusClass: `status-${markerStatus}`,
+    markerTypeClass: `type-${markerType}`,
+    nearReset: position >= 92 && !["done", "skipped"].includes(markerStatus),
+    ariaLabel,
+    typeSummary: types.slice(0, 3),
+    xp,
+    items,
+  };
+}
+
+function missionXpMeta(mission, options = {}) {
+  if (!mission) return null;
+
+  const earned = Number(mission.xp_earned || 0);
+  const reward = Number(mission.xp_reward || 0);
+  const amount = Math.max(earned, reward);
+
+  if (!Number.isFinite(amount) || amount <= 0) return null;
+
+  let state = "available";
+  if (missionHasStatus(mission, "done")) state = "earned";
+  if (missionHasStatus(mission, "skipped")) state = "inactive";
+  if (missionHasStatus(mission, "remind_later")) state = "reminder";
+  if (options.nearReset && !missionHasStatus(mission, "done", "skipped")) state = "danger";
+
+  return {
+    label: t("common.xp", { count: amount }),
+    state,
+  };
+}
+
+function timelineClusterXp(items, position, markerStatus) {
+  const total = items.reduce((sum, item) => {
+    const earned = Number(item.mission.xp_earned || 0);
+    const reward = Number(item.mission.xp_reward || 0);
+    const amount = Math.max(earned, reward);
+
+    return Number.isFinite(amount) ? sum + amount : sum;
+  }, 0);
+
+  if (total <= 0) return null;
+
+  let state = "available";
+  if (markerStatus === "done") state = "earned";
+  if (markerStatus === "skipped") state = "inactive";
+  if (markerStatus === "remind_later") state = "reminder";
+  if (position >= 92 && !["done", "skipped"].includes(markerStatus)) state = "danger";
+
+  return {
+    label: t("common.xp", { count: total }),
+    state,
+  };
+}
+
+function missionMarkerClasses(mission, options = {}) {
+  const type = normalizedMissionIntensity(mission);
+  const status = normalizedMissionStatus(mission?.status);
+  const markerStatus = ["pending", "done", "skipped", "remind_later"].includes(status)
+    ? status
+    : "pending";
+
+  return [
+    `type-${type}`,
+    `status-${markerStatus}`,
+    {
+      nearReset: options.nearReset,
+    },
+  ];
+}
+
 function missionTimelineTimestamp(mission) {
   const status = normalizedMissionStatus(mission?.status);
   const candidates = [];
@@ -2689,7 +2583,7 @@ function missionTimelineTimestamp(mission) {
       mission?.completed_at,
       mission?.secured_at,
       mission?.status_at,
-      mission?.updated_at,
+      mission?.status_updated_at,
     );
   }
 
@@ -2697,7 +2591,7 @@ function missionTimelineTimestamp(mission) {
     candidates.push(
       mission?.skipped_at,
       mission?.status_at,
-      mission?.updated_at,
+      mission?.status_updated_at,
     );
   }
 
@@ -2708,10 +2602,25 @@ function missionTimelineTimestamp(mission) {
   return timestamp || null;
 }
 
+function timelineMissionTimeLabel(mission) {
+  const timestamp = missionTimelineTimestamp(mission);
+  return timestamp ? formattedTimelineTime(timestamp) : "";
+}
+
 function selectTimelineMission(mission) {
   if (!mission?.mission_id) return;
 
   selectedTimelineMissionId.value = mission.mission_id;
+}
+
+function selectTimelineCluster(cluster) {
+  const selectedItem = cluster?.items?.find((item) => {
+    return isTimelineMissionSelected(item.mission);
+  }) || cluster?.items?.[0];
+
+  if (selectedItem?.mission) {
+    selectTimelineMission(selectedItem.mission);
+  }
 }
 
 function isTimelineMissionSelected(mission) {
@@ -3542,7 +3451,7 @@ onMounted(loadMissions);
   margin: 0;
 }
 
-.missionListHead > span {
+.missionListHead>span {
   color: var(--muted2);
   font-size: var(--cap);
 }
@@ -3576,83 +3485,138 @@ onMounted(loadMissions);
 
 .missionTimeline {
   display: grid;
-  gap: var(--s-12);
+  gap: var(--s-14);
   padding: 12px;
   border: 1px solid rgba(255, 255, 255, 0.10);
-  border-radius: 18px;
-  background: rgba(5, 10, 18, 0.18);
+  border-radius: 20px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.018)),
+    rgba(5, 10, 18, 0.18);
 }
 
-.timelineHeader {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
+.timelineStage {
+  display: grid;
+  grid-template-columns: minmax(260px, 28%) minmax(0, 1fr);
+  gap: var(--s-16);
+  align-items: stretch;
+}
+
+.timelineColumn {
+  display: grid;
+  align-content: start;
   gap: var(--s-12);
-}
-
-.timelineHeader h3,
-.timelineHeader p {
-  margin: 0;
-}
-
-.timelineHeader h3 {
-  color: rgba(255, 255, 255, 0.94);
-  font-size: 1rem;
+  min-width: 0;
 }
 
 .timelineRail {
   position: relative;
-  min-height: 360px;
-  padding: 28px 0 28px 92px;
+  width: 100%;
+  max-width: 360px;
+  height: clamp(520px, 72vh, 760px);
+  min-height: 520px;
+  margin-inline: auto;
+  padding: 34px 112px 34px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at 44px 12%, rgba(167, 139, 250, 0.10), transparent 32%),
+    rgba(2, 6, 14, 0.28);
+  overflow: hidden;
 }
 
 .timelineRail.compact {
-  min-height: 178px;
+  height: clamp(460px, 62vh, 640px);
+  min-height: 460px;
 }
 
 .timelineRail::before {
   content: "";
   position: absolute;
-  top: 28px;
-  bottom: 28px;
-  left: 44px;
-  width: 2px;
+  top: 34px;
+  bottom: 34px;
+  left: 63px;
+  width: 3px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.12);
+  background: linear-gradient(180deg,
+      rgba(167, 139, 250, 0.48),
+      rgba(110, 229, 255, 0.22),
+      rgba(247, 215, 116, 0.34));
+  box-shadow: 0 0 22px rgba(110, 229, 255, 0.08);
 }
 
 .timelineResetLabels {
   position: absolute;
-  inset: 0 auto 0 0;
+  inset-block: 14px;
+  right: 14px;
+  left: auto;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  width: 78px;
+  width: 104px;
   color: rgba(255, 255, 255, 0.48);
   font-size: var(--cap);
   font-weight: 820;
+  line-height: 1.35;
+  text-align: right;
+}
+
+.timelineTrack {
+  position: absolute;
+  inset: 34px 15px 34px 0;
+}
+
+.timelineGuide {
+  position: absolute;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  direction: ltr;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.timelineGuideLine {
+  flex: 1;
+  height: 1px;
+  margin-left: 74px;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.10), rgba(255, 255, 255, 0.025));
+}
+
+.timelineGuideLabel {
+  width: 76px;
+  color: rgba(255, 255, 255, 0.38);
+  font-size: var(--cap);
+  font-weight: 820;
+  text-align: right;
 }
 
 .timelineNow {
   position: absolute;
-  left: 0;
+  left: -10px;
   right: 0;
-  z-index: 2;
+  z-index: 0;
   display: flex;
   align-items: center;
   gap: 8px;
+  direction: ltr;
   transform: translateY(-50%);
   pointer-events: none;
 }
 
 .timelineNow::before {
   content: "";
-  width: 88px;
+  flex: 1;
+  margin-left: 74px;
   height: 1px;
-  background: rgba(110, 229, 255, 0.58);
+  background: rgba(133, 147, 150, 0.7);
 }
 
 .timelineNow span {
+  width: auto;
+  margin-left: 0px;
+  margin-right: -8px;
   padding: 3px 7px;
   border: 1px solid rgba(110, 229, 255, 0.24);
   border-radius: 999px;
@@ -3660,97 +3624,180 @@ onMounted(loadMissions);
   background: rgba(5, 10, 18, 0.80);
   font-size: var(--cap);
   font-weight: 900;
+  text-align: right;
+  white-space: nowrap;
 }
 
-.timelineEmptyState {
+.timelineCluster {
   position: absolute;
+  left: 47px;
+  z-index: 3;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  direction: ltr;
+  transform: translateY(-50%);
+  white-space: nowrap;
+}
+
+.timelineCluster.multi {
+  padding-left: 40px;
+}
+
+.timelineClusterTypes {
+  position: absolute;
+  left: 0;
   top: 50%;
-  left: 92px;
-  right: 0;
-  display: grid;
-  gap: 3px;
-  padding: 10px 11px;
-  border: 1px dashed rgba(255, 255, 255, 0.13);
-  border-radius: 14px;
-  background: rgba(255, 255, 255, 0.035);
+  z-index: 2;
+  display: block;
+  width: 34px;
+  height: 34px;
   transform: translateY(-50%);
+  pointer-events: none;
 }
 
-.timelineEmptyState strong {
-  color: rgba(255, 255, 255, 0.82);
-  font-size: 0.92rem;
-}
-
-.timelineEmptyState small {
-  color: rgba(255, 255, 255, 0.56);
-  font-size: var(--cap);
-  font-weight: 760;
-}
-
-.timelineItem {
-  position: absolute;
-  left: 92px;
-  right: 0;
+.timelineMarkerButton {
+  --type-color: rgba(167, 139, 250, 0.96);
+  --ring-color: rgba(110, 229, 255, 0.95);
+  position: relative;
   display: grid;
-  gap: 3px;
-  min-height: 62px;
-  padding: 9px 11px;
-  border: 1px solid rgba(255, 255, 255, 0.11);
-  border-radius: 14px;
-  color: rgba(255, 255, 255, 0.84);
-  background: rgba(255, 255, 255, 0.045);
-  text-align: left;
-  transform: translateY(-50%);
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 3px solid var(--ring-color);
+  border-radius: 999px;
+  background: rgba(5, 10, 18, 0.90);
+  box-shadow: 0 0 0 4px rgba(5, 10, 18, 0.74), 0 12px 26px rgba(0, 0, 0, 0.28);
   cursor: pointer;
 }
 
-.timelineItem::before {
-  content: "";
-  position: absolute;
-  top: 50%;
-  left: -55px;
-  width: 12px;
-  height: 12px;
-  border: 2px solid rgba(5, 10, 18, 0.92);
+.timelineMarkerButton.type-main {
+  --type-color: rgba(167, 139, 250, 0.98);
+}
+
+.timelineMarkerButton.type-tiny {
+  --type-color: rgba(217, 70, 239, 0.96);
+  border-radius: 10px;
+}
+
+.timelineMarkerButton.type-bonus {
+  --type-color: rgba(247, 215, 116, 0.98);
+}
+
+.timelineMarkerButton.type-mixed {
+  --type-color: conic-gradient(rgba(167, 139, 250, 0.98),
+      rgba(247, 215, 116, 0.98),
+      rgba(217, 70, 239, 0.96),
+      rgba(167, 139, 250, 0.98));
+}
+
+.timelineMarkerButton.status-pending {
+  --ring-color: rgba(110, 229, 255, 0.95);
+}
+
+.timelineMarkerButton.status-done {
+  --ring-color: rgba(74, 222, 128, 0.96);
+  box-shadow: 0 0 0 4px rgba(5, 10, 18, 0.74), 0 0 20px rgba(74, 222, 128, 0.16);
+}
+
+.timelineMarkerButton.status-remind_later {
+  --ring-color: rgba(247, 215, 116, 0.98);
+  box-shadow: 0 0 0 4px rgba(5, 10, 18, 0.74), 0 0 20px rgba(247, 215, 116, 0.14);
+}
+
+.timelineMarkerButton.status-skipped {
+  --ring-color: rgba(148, 163, 184, 0.82);
+  opacity: 0.84;
+}
+
+.timelineMarkerButton.status-mixed {
+  --ring-color: rgba(226, 232, 240, 0.90);
+}
+
+.timelineMarkerButton.nearReset {
+  --ring-color: rgba(248, 113, 113, 0.98);
+  box-shadow: 0 0 0 4px rgba(5, 10, 18, 0.74), 0 0 22px rgba(248, 113, 113, 0.18);
+}
+
+.timelineMarkerButton.active {
+  transform: scale(1.08);
+  box-shadow: 0 0 0 4px rgba(5, 10, 18, 0.74), 0 0 0 7px rgba(110, 229, 255, 0.12), 0 16px 32px rgba(0, 0, 0, 0.30);
+}
+
+.timelineMarkerShape {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 14px;
+  height: 14px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.70);
-  transform: translateY(-50%);
+  background: var(--type-color);
 }
 
-.timelineItem.main::before {
-  background: rgba(110, 229, 255, 0.92);
+.timelineMarkerButton.type-tiny .timelineMarkerShape {
+  border-radius: 4px;
 }
 
-.timelineItem.tiny::before {
-  background: rgba(74, 222, 128, 0.92);
+.timelineMarkerButton.type-bonus .timelineMarkerShape {
+  width: 17px;
+  height: 17px;
+  border-radius: 0;
+  clip-path: polygon(50% 0, 62% 34%, 98% 35%, 69% 56%, 80% 92%, 50% 70%, 20% 92%, 31% 56%, 2% 35%, 38% 34%);
 }
 
-.timelineItem.bonus::before {
-  background: rgba(247, 215, 116, 0.95);
+.timelineMarkerButton.type-mixed .timelineMarkerShape {
+  border-radius: 999px;
 }
 
-.timelineItem.done {
+.timelineMarkerCount {
+  color: rgba(5, 10, 18, 0.94);
+  font-size: 0.58rem;
+  font-weight: 950;
+  line-height: 1;
+}
+
+.timelineMarkerXp {
+  padding: 3px 6px;
+  border: 1px solid rgba(110, 229, 255, 0.18);
+  border-radius: 999px;
+  color: rgba(219, 244, 255, 0.88);
+  background: rgba(110, 229, 255, 0.07);
+  font-size: var(--cap);
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.timelineMarkerXp.earned {
   border-color: rgba(74, 222, 128, 0.22);
-  background: rgba(74, 222, 128, 0.055);
+  color: rgba(187, 247, 208, 0.92);
+  background: rgba(74, 222, 128, 0.07);
 }
 
-.timelineItem.remind_later {
+.timelineMarkerXp.reminder {
   border-color: rgba(247, 215, 116, 0.24);
-  background: rgba(247, 215, 116, 0.06);
+  color: rgba(253, 230, 138, 0.92);
+  background: rgba(247, 215, 116, 0.07);
 }
 
-.timelineItem.skipped {
-  opacity: 0.74;
+.timelineMarkerXp.inactive {
+  border-color: rgba(148, 163, 184, 0.18);
+  color: rgba(203, 213, 225, 0.72);
+  background: rgba(148, 163, 184, 0.055);
 }
 
-.timelineItem.active,
+.timelineMarkerXp.danger,
+.timelineMarkerXp.nearReset {
+  border-color: rgba(248, 113, 113, 0.24);
+  color: rgba(254, 202, 202, 0.92);
+  background: rgba(248, 113, 113, 0.07);
+}
+
 .timelineUntimedItem.active {
   border-color: rgba(110, 229, 255, 0.32);
   box-shadow: 0 0 0 1px rgba(110, 229, 255, 0.07);
 }
 
-.timelineItemTime,
-.timelineItem small,
 .timelineUntimedItem span,
 .timelineUntimedItem small {
   color: rgba(255, 255, 255, 0.58);
@@ -3758,16 +3805,9 @@ onMounted(loadMissions);
   font-weight: 820;
 }
 
-.timelineItem strong,
-.timelineUntimedItem strong {
-  min-width: 0;
-  overflow-wrap: anywhere;
-  color: rgba(255, 255, 255, 0.92);
-}
-
 .timelineUntimed {
   display: grid;
-  gap: var(--s-8);
+  gap: var(--s-10);
   padding-top: 2px;
 }
 
@@ -3781,22 +3821,35 @@ onMounted(loadMissions);
 .timelineUntimedItems {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--s-8);
+  gap: 10px;
+  margin-top: 15px;
+  margin-bottom: 15px;
 }
 
 .timelineUntimedItem {
   display: inline-grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
-  gap: 7px;
+  gap: 10px;
   align-items: center;
   min-width: 0;
-  max-width: 100%;
-  padding: 7px 9px;
+  max-width: min(100%, 320px);
+  padding: 10px 12px;
   border: 1px solid rgba(255, 255, 255, 0.10);
-  border-radius: 999px;
+  border-radius: 16px;
   background: rgba(255, 255, 255, 0.04);
   text-align: left;
   cursor: pointer;
+}
+
+.timelineUntimedItem.pending {
+  border-color: rgba(110, 229, 255, 0.24);
+  background: rgba(110, 229, 255, 0.055);
+  box-shadow: inset 0 0 0 1px rgba(110, 229, 255, 0.025);
+}
+
+.timelineUntimedItem.pending:hover {
+  border-color: rgba(110, 229, 255, 0.34);
+  background: rgba(110, 229, 255, 0.075);
 }
 
 .timelineUntimedItem.done {
@@ -3808,8 +3861,384 @@ onMounted(loadMissions);
   border-color: rgba(247, 215, 116, 0.22);
 }
 
+.timelineUntimedItem strong {
+  min-width: 0;
+  overflow: hidden;
+  color: rgba(255, 255, 255, 0.91);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.timelineSupport {
+  display: grid;
+  gap: var(--s-10);
+  align-items: start;
+  padding: 2px 2px 4px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  margin-bottom: 15px;
+}
+
+.timelineSupport h2,
+.timelineSupport p {
+  margin: 0;
+}
+
+.timelineSupport h2 {
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 1.05rem;
+}
+
+.timelineLegend {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  gap: 6px;
+  margin-top: 15px;
+  margin-bottom: 15px;
+}
+
+.timelineLegendItem,
+.timelineLegendStatus {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 24px;
+  padding: 3px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 999px;
+  color: rgba(255, 255, 255, 0.68);
+  background: rgba(255, 255, 255, 0.035);
+  font-size: var(--cap);
+  font-weight: 840;
+}
+
+.timelineLegendItem i,
+.timelineLegendStatus i {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: rgba(167, 139, 250, 0.95);
+}
+
+.timelineLegendItem.tiny i {
+  border-radius: 3px;
+  background: rgba(217, 70, 239, 0.95);
+}
+
+.timelineLegendItem.bonus i {
+  width: 12px;
+  height: 12px;
+  border-radius: 0;
+  clip-path: polygon(50% 0, 62% 34%, 98% 35%, 69% 56%, 80% 92%, 50% 70%, 20% 92%, 31% 56%, 2% 35%, 38% 34%);
+  background: rgba(247, 215, 116, 0.95);
+}
+
+.timelineLegendStatus i {
+  width: 13px;
+  height: 13px;
+  border: 2px solid rgba(110, 229, 255, 0.95);
+  background: transparent;
+}
+
+.timelineLegendStatus.pending i {
+  border-color: rgba(110, 229, 255, 0.95);
+}
+
+.timelineLegendStatus.done i {
+  border-color: rgba(74, 222, 128, 0.95);
+}
+
+.timelineLegendStatus.remind_later i {
+  border-color: rgba(247, 215, 116, 0.95);
+}
+
+.timelineLegendStatus.skipped i {
+  border-color: rgba(148, 163, 184, 0.82);
+}
+
+.timelineSidePanel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-14);
+  min-width: 0;
+}
+
+.timelineMissionRows {
+  display: grid;
+  gap: 12px;
+}
+
+.timelineMissionRow {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  gap: 10px;
+  align-items: center;
+  width: 100%;
+  padding: 11px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  border-radius: 16px;
+  color: rgba(255, 255, 255, 0.88);
+  background: rgba(255, 255, 255, 0.04);
+  text-align: start;
+  cursor: pointer;
+}
+
+.timelineMissionRow.active {
+  border-color: rgba(110, 229, 255, 0.34);
+  background: rgba(110, 229, 255, 0.065);
+  box-shadow: 0 0 0 1px rgba(110, 229, 255, 0.06);
+}
+
+.timelineMissionRow.done {
+  border-color: rgba(74, 222, 128, 0.20);
+}
+
+.timelineMissionRow.remind_later {
+  border-color: rgba(247, 215, 116, 0.22);
+}
+
+.timelineMissionRow.skipped {
+  border-color: rgba(148, 163, 184, 0.16);
+  opacity: 0.82;
+}
+
+.timelineMissionRow strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.timelineMissionTime {
+  color: rgba(255, 255, 255, 0.55);
+  font-size: var(--cap);
+  font-weight: 850;
+  white-space: nowrap;
+}
+
+.timelineClusterDetails {
+  display: grid;
+  gap: var(--s-8);
+  padding: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.timelineClusterDetails p {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.62);
+  font-size: var(--cap);
+  font-weight: 850;
+}
+
+.timelineClusterList {
+  display: grid;
+  gap: 7px;
+}
+
+.timelineClusterChoice {
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  padding: 8px 9px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 12px;
+  color: rgba(255, 255, 255, 0.82);
+  background: rgba(255, 255, 255, 0.035);
+  text-align: left;
+  cursor: pointer;
+}
+
+.timelineMiniMarker {
+  width: 24px;
+  height: 24px;
+  border-width: 2px;
+  box-shadow: 0 0 0 3px rgba(5, 10, 18, 0.56);
+  cursor: inherit;
+}
+
+.timelineMiniMarker.type-tiny {
+  border-radius: 8px;
+}
+
+.timelineMiniMarker.type-bonus {
+  border-radius: 999px;
+}
+
+.timelineMiniMarker .timelineMarkerShape {
+  width: 10px;
+  height: 10px;
+}
+
+.timelineMiniMarker.type-bonus .timelineMarkerShape {
+  width: 12px;
+  height: 12px;
+  border-radius: 0;
+  clip-path: polygon(50% 0, 62% 34%, 98% 35%, 69% 56%, 80% 92%, 50% 70%, 20% 92%, 31% 56%, 2% 35%, 38% 34%);
+}
+
+.timelineClusterMiniMarker {
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  border-width: 2px;
+  box-shadow: 0 0 0 2px rgba(5, 10, 18, 0.56);
+  pointer-events: none;
+}
+
+.timelineClusterMiniMarker:nth-child(1) {
+  inset-inline-start: 0;
+  top: 0;
+}
+
+.timelineClusterMiniMarker:nth-child(2) {
+  inset-inline-start: 15px;
+  top: 0;
+}
+
+.timelineClusterMiniMarker:nth-child(3) {
+  inset-inline-start: 0;
+  bottom: 0;
+}
+
+.timelineClusterMiniMarker:nth-child(4) {
+  inset-inline-start: 15px;
+  bottom: 0;
+}
+
+.timelineClusterMiniMarker:nth-child(n + 5) {
+  inset-inline-start: 7px;
+  top: 8px;
+}
+
+.timelineClusterMiniMarker.type-tiny {
+  border-radius: 6px;
+}
+
+.timelineClusterMiniMarker.type-bonus {
+  border-radius: 999px;
+}
+
+.timelineClusterMiniMarker .timelineMarkerShape {
+  width: 7px;
+  height: 7px;
+}
+
+.timelineClusterMiniMarker.type-bonus .timelineMarkerShape {
+  width: 9px;
+  height: 9px;
+  border-radius: 0;
+  clip-path: polygon(50% 0, 62% 34%, 98% 35%, 69% 56%, 80% 92%, 50% 70%, 20% 92%, 31% 56%, 2% 35%, 38% 34%);
+}
+
+.timelineClusterChoice.active {
+  border-color: rgba(110, 229, 255, 0.30);
+  background: rgba(110, 229, 255, 0.07);
+}
+
+.timelineClusterChoice span,
+.timelineClusterChoice small {
+  color: rgba(255, 255, 255, 0.56);
+  font-size: var(--cap);
+  font-weight: 820;
+  white-space: nowrap;
+}
+
+.timelineClusterChoice strong {
+  min-width: 0;
+  overflow: hidden;
+  color: rgba(255, 255, 255, 0.90);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .timelineDetail {
-  margin-top: 2px;
+  margin-top: 0;
+  margin-bottom: 4px;
+}
+
+.timelineDetailPlaceholder {
+  display: grid;
+  align-content: center;
+  min-height: 100px;
+  padding: 18px;
+  border: 1px dashed rgba(255, 255, 255, 0.13);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.timelineDetailPlaceholder h3,
+.timelineDetailPlaceholder p {
+  margin: 0;
+}
+
+.timelineDetailPlaceholder h3 {
+  color: rgba(255, 255, 255, 0.90);
+  font-size: 1.05rem;
+}
+
+.timelineDetailPlaceholder p:not(.eyebrow) {
+  margin-top: 6px;
+  color: rgba(255, 255, 255, 0.62);
+  line-height: 1.55;
+}
+
+.timelineSidePanel .missionItem {
+  grid-template-columns: 1fr;
+  align-content: start;
+}
+
+.timelineSidePanel .missionActions {
+  justify-content: flex-start;
+}
+
+.timelineDetailHero {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--s-12);
+  align-items: start;
+}
+
+.timelineDetailMarker {
+  cursor: default;
+  pointer-events: none;
+}
+
+.missionChip.xp {
+  border-color: rgba(110, 229, 255, 0.18);
+  color: rgba(219, 244, 255, 0.90);
+  background: rgba(110, 229, 255, 0.07);
+}
+
+.missionChip.xp.earned {
+  border-color: rgba(74, 222, 128, 0.22);
+  color: rgba(187, 247, 208, 0.94);
+  background: rgba(74, 222, 128, 0.075);
+}
+
+.missionChip.xp.reminder {
+  border-color: rgba(247, 215, 116, 0.24);
+  color: rgba(253, 230, 138, 0.94);
+  background: rgba(247, 215, 116, 0.075);
+}
+
+.missionChip.xp.inactive {
+  border-color: rgba(148, 163, 184, 0.18);
+  color: rgba(203, 213, 225, 0.74);
+  background: rgba(148, 163, 184, 0.055);
+}
+
+.missionChip.xp.danger {
+  border-color: rgba(248, 113, 113, 0.24);
+  color: rgba(254, 202, 202, 0.92);
+  background: rgba(248, 113, 113, 0.07);
+}
+
+.collapsedMissionStatus {
+  align-items: center;
 }
 
 .missionItem {
@@ -3941,41 +4370,74 @@ onMounted(loadMissions);
     grid-template-columns: 1fr;
   }
 
-  .timelineHeader {
-    display: grid;
+  .timelineStage {
+    grid-template-columns: 1fr;
+    gap: var(--s-14);
   }
 
   .timelineRail {
-    min-height: 320px;
-    padding-left: 70px;
+    max-width: none;
+    height: min(78vh, 720px);
+    min-height: 520px;
+    padding: 34px 86px 34px 10px;
   }
 
   .timelineRail.compact {
-    min-height: 168px;
+    height: min(72vh, 640px);
+    min-height: 460px;
   }
 
   .timelineRail::before {
-    left: 32px;
+    left: 45px;
   }
 
   .timelineResetLabels {
-    width: 58px;
+    width: 72px;
   }
 
   .timelineNow::before {
-    width: 62px;
+    margin-left: 56px;
   }
 
-  .timelineItem {
-    left: 70px;
+  .timelineCluster {
+    left: 31px;
   }
 
-  .timelineItem::before {
-    left: -43px;
+  .timelineGuideLine {
+    margin-left: 56px;
   }
 
-  .timelineEmptyState {
-    left: 70px;
+  .timelineGuideLabel {
+    width: 60px;
+  }
+
+  .timelineSupport {
+    grid-template-columns: 1fr;
+
+  }
+
+  .timelineLegend {
+    justify-content: flex-start;
+  }
+
+  .timelineClusterChoice {
+    grid-template-columns: auto auto minmax(0, 1fr);
+  }
+
+  .timelineClusterChoice small {
+    grid-column: 3;
+  }
+
+  .timelineUntimedItems {
+    display: grid;
+  }
+
+  .timelineUntimedItem {
+    max-width: 100%;
+  }
+
+  .timelineMissionRows {
+    gap: 12px;
   }
 
   .missionGuideActions :deep(.btn),
@@ -4007,5 +4469,23 @@ onMounted(loadMissions);
   .missionActions :deep(.btn) {
     flex: 1 1 100%;
   }
+}
+
+:global([dir="rtl"]) .timelineSupport,
+:global([dir="rtl"]) .timelineClusterChoice,
+:global([dir="rtl"]) .timelineUntimedItem,
+:global([dir="rtl"]) .timelineMissionRow,
+:global([dir="rtl"]) .timelineDetailPlaceholder,
+:global([dir="rtl"]) .timelineSidePanel .missionItem {
+  text-align: right;
+}
+
+:global([dir="rtl"]) .timelineUntimedItems {
+  direction: rtl;
+}
+
+:global([dir="rtl"]) .timelineLegend,
+:global([dir="rtl"]) .timelineSidePanel .missionActions {
+  justify-content: flex-start;
 }
 </style>

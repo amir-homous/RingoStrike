@@ -426,6 +426,10 @@ Returns daily missions available for active enrollments and a RingoCoach decisio
       "ringo_message": "...",
       "status": "pending",
       "reminder_at": null,
+      "done_at": null,
+      "skipped_at": null,
+      "reminder_set_at": null,
+      "status_updated_at": null,
       "xp_earned": 0,
       "challenge_id": 1,
       "challenge_name": "Move Your Body",
@@ -440,6 +444,15 @@ Returns daily missions available for active enrollments and a RingoCoach decisio
 Current `ringo.state` values include `new_user_no_path`, `path_selected_no_challenge`, `no_mission_today`, `today_completed`, `today_reminded`, `today_skipped`, `today_in_progress`, `returning_after_break`, `streak_at_risk`, and `today_not_started`.
 
 Current action types include `route`, `mission`, `mission_reminder`, and `dismiss`.
+
+Mission event timestamp fields are additive and nullable. They are derived from the current Ringo day mission log only:
+
+- `done_at`: UTC timestamp when the current-day log was last written as `done`.
+- `skipped_at`: UTC timestamp when the current-day log was last written as `skipped`.
+- `reminder_set_at`: UTC timestamp when the current-day log was last written as `remind_later`.
+- `status_updated_at`: UTC timestamp for the current-day mission log update, regardless of status.
+
+For timeline placement, use `reminder_at` for reminder-set missions because it is the scheduled reminder time. Use `done_at` for completed missions and `skipped_at` for skipped missions. If a timestamp is missing, keep the mission in an untimed UI state rather than inventing a time.
 
 ### `GET /me/ringo/today`
 
@@ -468,6 +481,11 @@ Returns Ringo Brain v1 guidance for the Ringo-first dashboard. This endpoint is 
     "parent_mission_id": null,
     "xp_reward": 10,
     "status": "pending",
+    "reminder_at": null,
+    "done_at": null,
+    "skipped_at": null,
+    "reminder_set_at": null,
+    "status_updated_at": null,
     "challenge_id": 1,
     "challenge_name": "Move Your Body",
     "enrollment_id": 10,

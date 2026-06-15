@@ -356,6 +356,28 @@ def test_today_missions_trigger_checkin_safely(client):
     assert skip_data["mission"]["xp_earned"] == 0
     assert skip_data["mission"]["skip_reason"] is None
 
+    updated_missions = client.get("/me/today-missions", headers=headers).get_json()["missions"]
+    completed_mission = next(
+        item for item in updated_missions
+        if item["mission_id"] == first["mission_id"]
+    )
+    reminded_mission = next(
+        item for item in updated_missions
+        if item["mission_id"] == second["mission_id"]
+    )
+    skipped_mission = next(
+        item for item in updated_missions
+        if item["mission_id"] == third["mission_id"]
+    )
+
+    assert completed_mission["done_at"].endswith("Z")
+    assert completed_mission["status_updated_at"] == completed_mission["done_at"]
+    assert reminded_mission["reminder_at"] == reminder_at
+    assert reminded_mission["reminder_set_at"].endswith("Z")
+    assert reminded_mission["status_updated_at"] == reminded_mission["reminder_set_at"]
+    assert skipped_mission["skipped_at"].endswith("Z")
+    assert skipped_mission["status_updated_at"] == skipped_mission["skipped_at"]
+
     stats_res = client.get("/me/stats", headers=headers)
 
     assert stats_res.status_code == 200
@@ -402,6 +424,71 @@ def test_mission_reminder_rejects_time_after_next_daily_reset(client):
 
     assert unchanged_mission["status"] == "pending"
     assert unchanged_mission["reminder_at"] is None
+
+
+def test_today_missions_ignore_previous_day_event_timestamps(client):
+    import database
+
+    user = register_user(client, username="YesterdayLog")
+    headers = auth_headers(user["access_token"])
+
+    paths_data = client.get("/paths", headers=headers).get_json()
+    fitness_path = next(item for item in paths_data["items"] if item["key"] == "fitness")
+
+    client.post(f"/paths/{fitness_path['path_id']}/start", headers=headers)
+    challenge_id = client.get(
+        f"/paths/{fitness_path['path_id']}/challenges",
+        headers=headers,
+    ).get_json()["items"][0]["challenge_id"]
+    client.post(
+        f"/challenges/{challenge_id}/join",
+        json={},
+        headers=headers,
+    )
+
+    mission = client.get("/me/today-missions", headers=headers).get_json()["missions"][0]
+    yesterday = (datetime.now(timezone.utc) - timedelta(days=1)).date().isoformat()
+    conn = database.get_db_connection()
+    try:
+        conn.execute(
+            """
+            INSERT INTO mission_logs (
+                user_id,
+                enrollment_id,
+                challenge_id,
+                mission_id,
+                date,
+                status,
+                xp_earned,
+                updated_at
+            )
+            VALUES (?, ?, ?, ?, ?, 'done', ?, ?)
+            """,
+            (
+                user["user_id"],
+                mission["enrollment_id"],
+                mission["challenge_id"],
+                mission["mission_id"],
+                yesterday,
+                mission["xp_reward"],
+                f"{yesterday} 12:00:00",
+            ),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+    missions = client.get("/me/today-missions", headers=headers).get_json()["missions"]
+    today_mission = next(
+        item for item in missions
+        if item["mission_id"] == mission["mission_id"]
+    )
+
+    assert today_mission["status"] == "pending"
+    assert today_mission["done_at"] is None
+    assert today_mission["skipped_at"] is None
+    assert today_mission["reminder_set_at"] is None
+    assert today_mission["status_updated_at"] is None
 
 
 def test_mission_skip_reason_is_optional_and_persisted(client):
