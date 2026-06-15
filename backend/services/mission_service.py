@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from database import get_db_connection
 from services.enrollment_service import checkin
@@ -539,6 +539,205 @@ def remind_mission_later(user_id, mission_id, reminder_at):
         return {"ok": False, "error": "reminder_after_next_reset"}, 400
 
     return _upsert_mission_log(user_id, mission_id, "remind_later", reminder_at=value)
+
+
+def _parse_suggested_time(value, now):
+    raw_value = str(value or "").strip().lower()
+    if not raw_value:
+        return None
+
+    named_slots = {
+        "morning": (9, 0),
+        "midday": (12, 0),
+        "noon": (12, 0),
+        "afternoon": (15, 0),
+        "evening": (18, 0),
+        "night": (21, 0),
+        "tonight": (21, 0),
+    }
+
+    hour = None
+    minute = 0
+    if raw_value in named_slots:
+        hour, minute = named_slots[raw_value]
+    else:
+        parts = raw_value.split(":")
+        if len(parts) >= 2 and parts[0].isdigit() and parts[1][:2].isdigit():
+            hour = int(parts[0])
+            minute = int(parts[1][:2])
+
+    if hour is None or hour < 0 or hour > 23 or minute < 0 or minute > 59:
+        return None
+
+    candidate = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
+    return candidate if candidate > now else None
+
+
+def _mission_plan_rank(mission):
+    intensity = mission.get("mission_intensity") or "main"
+    intensity_rank = {
+        "main": 0,
+        "tiny": 1,
+        "bonus": 2,
+    }.get(intensity, 1)
+
+    return (
+        intensity_rank,
+        int(mission.get("order_index") or 0),
+        int(mission.get("challenge_id") or 0),
+        int(mission.get("mission_id") or 0),
+    )
+
+
+def _planner_interval_minutes(mission):
+    estimated = mission.get("estimated_minutes")
+    minutes = int(estimated) if isinstance(estimated, int) and estimated > 0 else 10
+    return max(25, min(60, minutes + 15))
+
+
+def _planned_reminder_time(mission, earliest, next_reset_at):
+    suggested = _parse_suggested_time(mission.get("suggested_time"), earliest)
+    candidate = max(earliest, suggested) if suggested else earliest
+    if candidate >= next_reset_at:
+        return None
+
+    return candidate
+
+
+def _planner_bounds():
+    ringo_day = ringo_day_metadata()
+    now = datetime.now(timezone.utc).replace(microsecond=0)
+    next_reset_at = datetime.fromisoformat(
+        ringo_day["next_reset_at"].replace("Z", "+00:00"),
+    )
+
+    return ringo_day, now, next_reset_at
+
+
+def _eligible_planner_missions(missions, *, include_reminded=False):
+    allowed_statuses = {"pending", "remind_later"} if include_reminded else {"pending"}
+
+    return sorted(
+        (
+            mission for mission in missions
+            if mission.get("status") in allowed_statuses
+            and (include_reminded or not mission.get("reminder_at"))
+        ),
+        key=_mission_plan_rank,
+    )
+
+
+def plan_today_reminders(user_id):
+    today_payload, _ = get_today_missions(user_id)
+    if not today_payload.get("ok"):
+        return today_payload, 400
+
+    missions = today_payload.get("missions") or []
+    ringo_day, now, next_reset_at = _planner_bounds()
+    earliest = now + timedelta(minutes=15)
+    scheduled = []
+    unscheduled = []
+
+    eligible = _eligible_planner_missions(missions)
+
+    for mission in eligible:
+        planned_at = _planned_reminder_time(mission, earliest, next_reset_at)
+        if not planned_at:
+            unscheduled.append({
+                "mission_id": mission.get("mission_id"),
+                "title": mission.get("title"),
+                "reason": "not_enough_time_before_reset",
+            })
+            continue
+
+        reminder_at = utc_iso_z(planned_at)
+        payload, code = _upsert_mission_log(
+            user_id,
+            mission.get("mission_id"),
+            "remind_later",
+            reminder_at=reminder_at,
+        )
+        if code != 200 or not payload.get("ok"):
+            unscheduled.append({
+                "mission_id": mission.get("mission_id"),
+                "title": mission.get("title"),
+                "reason": payload.get("error") or "could_not_schedule",
+            })
+            continue
+
+        scheduled.append({
+            "mission_id": mission.get("mission_id"),
+            "title": mission.get("title"),
+            "reminder_at": reminder_at,
+            "reason": "suggested_time" if mission.get("suggested_time") else "gentle_spacing",
+        })
+        earliest = planned_at + timedelta(minutes=_planner_interval_minutes(mission))
+
+    return {
+        "ok": True,
+        "scheduled": scheduled,
+        "unscheduled": unscheduled,
+        "summary": {
+            "scheduled_count": len(scheduled),
+            "unscheduled_count": len(unscheduled),
+        },
+        "ringo_day": ringo_day,
+    }, 200
+
+
+def plan_single_mission_reminder(user_id, mission_id):
+    today_payload, _ = get_today_missions(user_id)
+    if not today_payload.get("ok"):
+        return today_payload, 400
+
+    missions = today_payload.get("missions") or []
+    mission = next(
+        (
+            item for item in missions
+            if str(item.get("mission_id")) == str(mission_id)
+        ),
+        None,
+    )
+    if not mission:
+        return {"ok": False, "error": "mission_not_found"}, 404
+
+    if mission.get("status") not in {"pending", "remind_later"}:
+        return {"ok": False, "error": "mission_not_plannable"}, 400
+
+    ringo_day, now, next_reset_at = _planner_bounds()
+    planned_at = _planned_reminder_time(
+        mission,
+        now + timedelta(minutes=15),
+        next_reset_at,
+    )
+    if not planned_at:
+        return {
+            "ok": False,
+            "error": "no_safe_reminder_time",
+            "ringo_day": ringo_day,
+        }, 400
+
+    reminder_at = utc_iso_z(planned_at)
+    payload, code = _upsert_mission_log(
+        user_id,
+        mission_id,
+        "remind_later",
+        reminder_at=reminder_at,
+    )
+    if code != 200 or not payload.get("ok"):
+        return payload, code
+
+    return {
+        "ok": True,
+        "scheduled": {
+            "mission_id": mission.get("mission_id"),
+            "title": mission.get("title"),
+            "reminder_at": reminder_at,
+            "reason": "suggested_time" if mission.get("suggested_time") else "gentle_spacing",
+        },
+        "mission": payload.get("mission"),
+        "ringo_day": ringo_day,
+    }, 200
 
 
 def _normalize_skip_reason(reason):

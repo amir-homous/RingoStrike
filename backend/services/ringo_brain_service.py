@@ -255,9 +255,9 @@ def _agenda_payload(missions, today_saved):
 
     choices = [
         ("due_reminder", due_reminder),
-        ("upcoming_reminder", upcoming_reminder),
         ("primary_mission", pending_required[0] if pending_required and not today_saved else None),
         ("optional_mission", optional_candidates[0] if optional_candidates else None),
+        ("upcoming_reminder", upcoming_reminder),
         ("skipped_optional", skipped_optional[0] if skipped_optional else None),
     ]
 

@@ -372,9 +372,13 @@ Existing mission APIs remain canonical for mission state and completion:
 - `GET /me/today-missions`
 - `POST /me/missions/:mission_id/done`
 - `POST /me/missions/:mission_id/remind-later`
+- `POST /me/missions/plan-reminders`
+- `POST /me/missions/:mission_id/plan-reminder`
 - `POST /me/missions/:mission_id/skip`
 
 Ringo Brain v1 should not duplicate mission logs, check-ins, XP, streaks, achievements, or activity writes.
+
+Reminder planning is additive. `POST /me/missions/plan-reminders` applies gentle reminder times to eligible pending current-day missions that do not already have reminders. `POST /me/missions/:mission_id/plan-reminder` applies one suggested reminder time for a pending or reminder-set mission. Both planner paths must schedule after server now and before `ringo_day.next_reset_at`, preserve done/skipped missions, and avoid changing completion, streak, check-in, or reward behavior.
 
 Mission completion may return an additive `reward_sequence` array for frontend Ringo Moment rendering. Existing completion fields remain valid and should not be removed or renamed. Initial completion step types are:
 
