@@ -293,6 +293,14 @@ export default {
       bonusDetail: "Optional extra",
       minutes: "{count} min",
     },
+    metadata: {
+      minutes: "~{count} min",
+      difficulty: {
+        easy: "Easy",
+        medium: "Medium",
+        hard: "Hard",
+      },
+    },
     ringoActions: {
       label: "Ringo mission choices",
       start: "Start",
