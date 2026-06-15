@@ -112,6 +112,49 @@ def test_seeded_missions_include_linked_intensity_variants(client):
     assert bonus_links >= 5
 
 
+def test_seeded_missions_have_planner_metadata(client):
+    import database
+
+    valid_suggested_times = {"morning", "midday", "afternoon", "evening", "night", "anytime"}
+    valid_difficulties = {"easy", "medium", "hard"}
+
+    conn = database.get_db_connection()
+    try:
+        rows = conn.execute(
+            """
+            SELECT
+                key,
+                title,
+                difficulty,
+                suggested_time,
+                COALESCE(mission_intensity, 'main') AS mission_intensity,
+                estimated_minutes
+            FROM missions
+            WHERE status = 'Active'
+            """
+        ).fetchall()
+    finally:
+        conn.close()
+
+    assert rows
+    assert all(row["estimated_minutes"] is not None for row in rows)
+    assert all(int(row["estimated_minutes"]) > 0 for row in rows)
+    assert all(row["suggested_time"] in valid_suggested_times for row in rows)
+    assert all(row["suggested_time"] != "Anytime today" for row in rows)
+    assert all(row["difficulty"] in valid_difficulties for row in rows)
+
+    tiny_rows = [row for row in rows if row["mission_intensity"] == "tiny"]
+    main_rows = [row for row in rows if row["mission_intensity"] == "main"]
+    bonus_rows = [row for row in rows if row["mission_intensity"] == "bonus"]
+
+    assert tiny_rows
+    assert main_rows
+    assert bonus_rows
+    assert all(1 <= int(row["estimated_minutes"]) <= 5 for row in tiny_rows)
+    assert all(1 <= int(row["estimated_minutes"]) <= 25 for row in main_rows)
+    assert all(1 <= int(row["estimated_minutes"]) <= 15 for row in bonus_rows)
+
+
 def test_paths_seed_and_start_user_path(client):
     user = register_user(client, username="PathStarter")
     headers = auth_headers(user["access_token"])

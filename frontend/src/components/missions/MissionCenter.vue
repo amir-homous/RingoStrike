@@ -351,6 +351,10 @@
                 <span v-if="missionXpMeta(mission)" class="timelineMarkerXp" :class="missionXpMeta(mission).state">
                   {{ missionXpMeta(mission).label }}
                 </span>
+                <span v-for="chip in missionMetadataChips(mission)" :key="chip.key" class="timelineMetaPill"
+                  :class="chip.type">
+                  {{ chip.label }}
+                </span>
               </button>
             </div>
           </div>
@@ -466,6 +470,10 @@
                     <span v-if="missionXpMeta(mission)" class="timelineMarkerXp" :class="missionXpMeta(mission).state">
                       {{ missionXpMeta(mission).label }}
                     </span>
+                    <span v-for="chip in missionMetadataChips(mission)" :key="chip.key" class="timelineMetaPill"
+                      :class="chip.type">
+                      {{ chip.label }}
+                    </span>
                     <span v-if="timelineMissionTimeLabel(mission)" class="timelineMissionTime">
                       {{ timelineMissionTimeLabel(mission) }}
                     </span>
@@ -488,6 +496,10 @@
                             <span v-if="missionXpMeta(mission)" class="missionChip xp"
                               :class="missionXpMeta(mission).state">
                               {{ missionXpMeta(mission).label }}
+                            </span>
+                            <span v-for="chip in missionMetadataChips(mission)" :key="chip.key" class="missionChip"
+                              :class="chip.type">
+                              {{ chip.label }}
                             </span>
                           </div>
                           <p class="missionMeta">
@@ -2283,6 +2295,35 @@ function missionEstimatedMinutes(mission) {
   return Number.isFinite(minutes) && minutes > 0 ? Math.round(minutes) : null;
 }
 
+function normalizedMissionDifficulty(mission) {
+  const difficulty = String(mission?.difficulty || "easy").trim().toLowerCase();
+
+  return ["easy", "medium", "hard"].includes(difficulty) ? difficulty : "easy";
+}
+
+function missionMetadataChips(mission) {
+  if (!mission) return [];
+
+  const chips = [];
+  const minutes = missionEstimatedMinutes(mission);
+
+  if (minutes) {
+    chips.push({
+      key: "minutes",
+      type: "minutes",
+      label: t("missions.metadata.minutes", { count: minutes }),
+    });
+  }
+
+  chips.push({
+    key: "difficulty",
+    type: `difficulty ${normalizedMissionDifficulty(mission)}`,
+    label: t(`missions.metadata.difficulty.${normalizedMissionDifficulty(mission)}`),
+  });
+
+  return chips;
+}
+
 function buildMissionIntensityMeta(mission, options = {}) {
   if (!mission) return null;
 
@@ -3882,12 +3923,12 @@ onMounted(loadMissions);
 }
 
 .timelineMarkerXp {
-  padding: 3px 6px;
+  padding: 7px 8px 0px;
   border: 1px solid rgba(110, 229, 255, 0.18);
   border-radius: 999px;
   color: rgba(219, 244, 255, 0.88);
   background: rgba(110, 229, 255, 0.07);
-  font-size: var(--cap);
+  font-size: var(--cl-16);
   font-weight: 900;
   white-space: nowrap;
 }
@@ -3952,7 +3993,7 @@ onMounted(loadMissions);
 
 .timelineUntimedItem {
   display: inline-grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr) repeat(3, auto);
   gap: 10px;
   align-items: center;
   min-width: 0;
@@ -4102,7 +4143,7 @@ onMounted(loadMissions);
 
 .timelineMissionRow {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  grid-template-columns: auto minmax(0, 1fr) repeat(4, auto);
   gap: 10px;
   align-items: center;
   width: 100%;
@@ -4146,6 +4187,41 @@ onMounted(loadMissions);
   font-size: var(--cap);
   font-weight: 850;
   white-space: nowrap;
+}
+
+.timelineMetaPill {
+  padding: 5px 7px;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  border-radius: 999px;
+  color: rgba(255, 255, 255, 0.66);
+  background: rgba(255, 255, 255, 0.035);
+  font-size: var(--cap);
+  font-weight: 850;
+  white-space: nowrap;
+}
+
+.timelineMetaPill.minutes {
+  border-color: rgba(110, 229, 255, 0.16);
+  color: rgba(219, 244, 255, 0.78);
+  background: rgba(110, 229, 255, 0.055);
+}
+
+.timelineMetaPill.easy {
+  border-color: rgba(74, 222, 128, 0.16);
+  color: rgba(187, 247, 208, 0.78);
+  background: rgba(74, 222, 128, 0.045);
+}
+
+.timelineMetaPill.medium {
+  border-color: rgba(247, 215, 116, 0.18);
+  color: rgba(253, 230, 138, 0.82);
+  background: rgba(247, 215, 116, 0.055);
+}
+
+.timelineMetaPill.hard {
+  border-color: rgba(248, 113, 113, 0.18);
+  color: rgba(254, 202, 202, 0.82);
+  background: rgba(248, 113, 113, 0.05);
 }
 
 .timelineClusterDetails {
@@ -4366,6 +4442,30 @@ onMounted(loadMissions);
   border-color: rgba(248, 113, 113, 0.24);
   color: rgba(254, 202, 202, 0.92);
   background: rgba(248, 113, 113, 0.07);
+}
+
+.missionChip.minutes {
+  border-color: rgba(110, 229, 255, 0.16);
+  color: rgba(219, 244, 255, 0.84);
+  background: rgba(110, 229, 255, 0.055);
+}
+
+.missionChip.difficulty.easy {
+  border-color: rgba(74, 222, 128, 0.15);
+  color: rgba(187, 247, 208, 0.82);
+  background: rgba(74, 222, 128, 0.045);
+}
+
+.missionChip.difficulty.medium {
+  border-color: rgba(247, 215, 116, 0.18);
+  color: rgba(253, 230, 138, 0.84);
+  background: rgba(247, 215, 116, 0.055);
+}
+
+.missionChip.difficulty.hard {
+  border-color: rgba(248, 113, 113, 0.18);
+  color: rgba(254, 202, 202, 0.84);
+  background: rgba(248, 113, 113, 0.05);
 }
 
 .collapsedMissionStatus {

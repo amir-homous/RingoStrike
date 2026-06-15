@@ -293,6 +293,14 @@ export default {
       bonusDetail: "اختیاریه",
       minutes: "{count} دقیقه",
     },
+    metadata: {
+      minutes: "حدود {count} دقیقه",
+      difficulty: {
+        easy: "آسان",
+        medium: "متوسط",
+        hard: "سخت",
+      },
+    },
     ringoActions: {
       label: "انتخاب‌های مأموریت رینگو",
       start: "شروع",
