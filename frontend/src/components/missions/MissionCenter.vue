@@ -3882,12 +3882,12 @@ onMounted(loadMissions);
 }
 
 .timelineMarkerXp {
-  padding: 3px 6px;
+  padding: 7px 8px 0px;
   border: 1px solid rgba(110, 229, 255, 0.18);
   border-radius: 999px;
   color: rgba(219, 244, 255, 0.88);
   background: rgba(110, 229, 255, 0.07);
-  font-size: var(--cap);
+  font-size: var(--cl-16);
   font-weight: 900;
   white-space: nowrap;
 }
