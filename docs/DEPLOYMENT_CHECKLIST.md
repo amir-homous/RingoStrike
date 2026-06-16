@@ -248,6 +248,20 @@ Switch `JWT_COOKIE_SECURE=1` when the deployment moves to HTTPS.
 
 ## Post-Deployment Smoke Test
 
+Run the operator smoke script after pulling code, restarting the backend, or changing nginx/backend env:
+
+```bash
+bash scripts/vps_smoke_test.sh
+```
+
+Override the public base URL when testing another host:
+
+```bash
+PUBLIC_BASE_URL=http://example.com bash scripts/vps_smoke_test.sh
+```
+
+The script is read-only. It checks `systemd`, direct backend health, local/public `/api-proxy` health, backend bind address, `REMINDER_ADMIN_TOKEN` presence, reminder dry-run, and reminder diagnostics. The backend binding check is a warning if it cannot confirm `127.0.0.1:5005`; critical health/token/reminder failures exit non-zero.
+
 Check these routes manually:
 
 - [ ] `/login`

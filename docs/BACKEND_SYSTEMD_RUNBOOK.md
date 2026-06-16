@@ -82,6 +82,33 @@ Public proxy health check:
 curl http://82.115.24.10/api-proxy/health
 ```
 
+## Full VPS smoke test
+
+Run this after deployments, backend restarts, nginx changes, or backend `.env` changes:
+
+```bash id="he5ew3"
+bash scripts/vps_smoke_test.sh
+```
+
+Override defaults when testing another host or service name:
+
+```bash id="gv2ps9"
+PUBLIC_BASE_URL=http://example.com bash scripts/vps_smoke_test.sh
+```
+
+The script checks:
+
+- `systemctl is-active ringostrike-backend`
+- direct backend `/health`
+- local nginx `/api-proxy/health`
+- public nginx `/api-proxy/health`
+- whether port `5005` appears bound to localhost or a public interface
+- `REMINDER_ADMIN_TOKEN` presence without printing it
+- reminder dry-run
+- reminder diagnostics
+
+The backend binding check is a warning when it cannot confirm localhost-only binding. Critical service, health, token, and reminder endpoint failures exit non-zero.
+
 ## Reminder dry-run test
 
 ```bash id="yngmzb"
