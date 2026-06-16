@@ -44,6 +44,22 @@ Generated/dependency directories such as `backend/venv`, `backend/.venv`, `front
 
 `backend/app.py` creates the Flask application, loads config, enables credentialed CORS for local frontend origins plus env-driven `CORS_ORIGINS` / `FRONTEND_ORIGIN` / `FRONTEND_BASE_URL`, initializes SQLite tables, registers auth routes, registers blueprints, and exposes `/health`.
 
+When run directly, `backend/app.py` reads runtime binding from:
+
+- `FLASK_HOST` (default `127.0.0.1`)
+- `PORT` (default `5005`)
+- `FLASK_DEBUG` (`1` enables Flask debug/reloader)
+
+The current VPS production-like runtime uses `systemd` service `ringostrike-backend`, working directory `/home/ringo/RingoStrike/backend`, virtualenv `/home/ringo/RingoStrike/backend/venv`, and:
+
+```env
+FLASK_HOST=127.0.0.1
+PORT=5005
+FLASK_DEBUG=0
+```
+
+Public access to the backend is through nginx `/api-proxy`, not a public Flask bind.
+
 Registered route sources:
 
 - `backend/auth.py` through `routes/auth_routes.py`
@@ -98,6 +114,9 @@ Routes are mostly thin and defer to services. The main exception is `backend/aut
 - `history_service.py`: enrollment check-in history.
 - `debug_service.py`: SQLite schema/count debug responses.
 - `username_service.py`: username normalization and reserved-name validation.
+- `telegram_connection_service.py`: Telegram connect codes, connected chat state, and reminder preference settings.
+- `telegram_service.py`: shared Telegram Bot API message sender.
+- `reminder_service.py`: unchecked enrollment reminders, due mission-level Telegram reminder selection/delivery, duplicate-prevention marking, and protected reminder diagnostics.
 
 ## Text Architecture Diagram
 
@@ -121,7 +140,7 @@ Service layer
 SQLite tables
   users, user_stats, challenges, enrollments,
   checkins, paths, user_paths, missions, mission_logs,
-  achievements, user_achievements
+  achievements, user_achievements, telegram_connections
 ```
 
 ## Authentication Flow
@@ -208,6 +227,72 @@ Router guard behavior:
 
 - `requiresAuth: false` routes pass.
 - All other routes call `GET /me`; failures redirect to `/login?next=...`.
+
+## VPS Nginx/API Proxy Architecture
+
+The current VPS deployment at `http://82.115.24.10` uses same-origin frontend/backend access:
+
+```txt
+Browser
+  -> nginx at http://82.115.24.10
+      -> frontend/dist for Vue routes
+      -> /api-proxy/* to Flask on 127.0.0.1:5005
+```
+
+Production frontend builds for this deployment use:
+
+```env
+VITE_API_BASE=/api-proxy
+VITE_BASE=/
+```
+
+Do not build the production frontend with `VITE_API_BASE=http://localhost:5005`; browser `localhost` would point at the user's machine.
+
+The nginx API proxy should not use rewrite rules. A trailing slash on `proxy_pass` strips the `/api-proxy/` location prefix:
+
+```nginx
+location /api-proxy/ {
+    proxy_pass http://127.0.0.1:5005/;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+}
+```
+
+This maps:
+
+- `/api-proxy/health` -> Flask `/health`
+- `/api-proxy/api/telegram/remind-due-missions` -> Flask `/api/telegram/remind-due-missions`
+- `/api-proxy/me` -> Flask `/me`
+
+Vue routes stay on the SPA fallback:
+
+```nginx
+location / {
+    try_files $uri $uri/ /index.html;
+}
+```
+
+## Reminder Automation Architecture
+
+Mission-level Telegram reminder delivery is backend-owned:
+
+```txt
+n8n/cron
+  -> POST /api-proxy/api/telegram/remind-due-missions
+  -> routes/telegram_routes.py
+  -> services/reminder_service.py
+  -> services/telegram_service.py
+  -> Telegram Bot API
+  -> mission_logs.reminder_sent_at
+```
+
+The endpoint is protected by `X-Reminder-Token`. n8n should trigger the backend endpoint; it should not send user Telegram messages directly.
+
+Duplicate prevention uses `mission_logs.reminder_sent_at`: due reminders are selected only when `status = 'remind_later'`, `reminder_at <= now`, and `reminder_sent_at IS NULL`; the marker is set only after successful send.
+
+Protected diagnostics live at `GET /api/telegram/reminder-diagnostics` and expose safe operational state only. They do not send messages and must not expose tokens, raw chat IDs, cookies, JWT secrets, or bot credentials.
 
 ## Frontend State Flow
 
