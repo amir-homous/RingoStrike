@@ -89,3 +89,17 @@ app = create_app()
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5005, debug=True)
+
+
+
+if __name__ == "__main__":
+    host = os.getenv("FLASK_HOST", "127.0.0.1")
+    port = int(os.getenv("PORT", "5005"))
+    debug = os.getenv("FLASK_DEBUG", "0") == "1"
+
+    app.run(
+        host=host,
+        port=port,
+        debug=debug,
+        use_reloader=debug,
+    )
