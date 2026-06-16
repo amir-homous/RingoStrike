@@ -609,6 +609,15 @@ def _planned_reminder_time(mission, earliest, next_reset_at):
     return candidate
 
 
+def _clamped_single_planner_time(mission, earliest, next_reset_at):
+    suggested = _parse_suggested_time(mission.get("suggested_time"), earliest)
+    candidate = max(earliest, suggested) if suggested else earliest
+    if candidate < next_reset_at:
+        return candidate
+
+    return next_reset_at - timedelta(seconds=1)
+
+
 def _planner_bounds():
     ringo_day = ringo_day_metadata()
     now = datetime.now(timezone.utc).replace(microsecond=0)
@@ -707,20 +716,14 @@ def plan_single_mission_reminder(user_id, mission_id):
         return {"ok": False, "error": "mission_not_found"}, 404
 
     if mission.get("status") not in {"pending", "remind_later"}:
-        return {"ok": False, "error": "mission_not_plannable"}, 400
+        return {"ok": False, "error": "mission_not_found"}, 404
 
     ringo_day, now, next_reset_at = _planner_bounds()
-    planned_at = _planned_reminder_time(
+    planned_at = _clamped_single_planner_time(
         mission,
         now + timedelta(minutes=15),
         next_reset_at,
     )
-    if not planned_at:
-        return {
-            "ok": False,
-            "error": "no_safe_reminder_time",
-            "ringo_day": ringo_day,
-        }, 400
 
     reminder_at = utc_iso_z(planned_at)
     payload, code = _upsert_mission_log(
