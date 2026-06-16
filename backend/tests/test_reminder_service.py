@@ -674,3 +674,78 @@ def test_due_mission_reminder_disabled_user_is_skipped(client):
     assert result["skipped"] == 1
     assert result["items"][0]["mission_log_id"] == fixture["mission_log_id"]
     assert result["items"][0]["reason"] == "reminders_disabled"
+
+
+def test_reminder_diagnostics_requires_admin_token(client):
+    res = client.get("/api/telegram/reminder-diagnostics")
+
+    assert res.status_code == 401
+    assert res.get_json()["error"] == "unauthorized"
+
+
+def test_reminder_diagnostics_returns_safe_operational_state(client, monkeypatch):
+    from routes import telegram_routes
+
+    monkeypatch.setattr(telegram_routes.Config, "REMINDER_ADMIN_TOKEN", "test-reminder-token")
+    due = _mission_reminder_fixture("DiagDueUser", chat_id="30001")
+    future = _mission_reminder_fixture(
+        "DiagFutureUser",
+        chat_id="30002",
+        reminder_at=utc_iso_z(datetime.now(timezone.utc) + timedelta(hours=1)),
+    )
+    sent = _mission_reminder_fixture(
+        "DiagSentUser",
+        chat_id="30003",
+        reminder_sent_at=utc_iso_z(datetime.now(timezone.utc) - timedelta(minutes=2)),
+    )
+    missing = _mission_reminder_fixture("DiagNoTelegramUser", chat_id=None)
+
+    res = client.get(
+        "/api/telegram/reminder-diagnostics",
+        headers={"X-Reminder-Token": "test-reminder-token"},
+    )
+
+    assert res.status_code == 200
+    data = res.get_json()
+    assert data["ok"] is True
+    assert data["server_now"]
+    assert data["summary"]["due_count"] == 1
+    assert data["summary"]["scheduled_future_count"] == 1
+    assert data["summary"]["already_sent_count"] == 1
+    assert data["summary"]["missing_telegram_count"] == 1
+
+    assert [item["mission_log_id"] for item in data["due_reminders"]] == [due["mission_log_id"]]
+    assert [item["mission_log_id"] for item in data["scheduled_future_reminders"]] == [future["mission_log_id"]]
+    assert [item["mission_log_id"] for item in data["already_sent_reminders"]] == [sent["mission_log_id"]]
+    assert [item["mission_log_id"] for item in data["missing_telegram_reminders"]] == [missing["mission_log_id"]]
+
+    sent_item = data["already_sent_reminders"][0]
+    assert sent_item["delivery_state"] == "sent"
+    assert sent_item["reminder_sent_at"]
+    assert sent_item not in data["due_reminders"]
+
+    missing_item = data["missing_telegram_reminders"][0]
+    assert missing_item["has_telegram_chat_id"] is False
+    assert missing_item["delivery_state"] == "missing_telegram"
+
+    serialized = repr(data)
+    assert "test-reminder-token" not in serialized
+    assert "30001" not in serialized
+    assert "'telegram_chat_id':" not in serialized
+
+
+def test_reminder_diagnostics_recent_limit(client, monkeypatch):
+    from routes import telegram_routes
+
+    monkeypatch.setattr(telegram_routes.Config, "REMINDER_ADMIN_TOKEN", "test-reminder-token")
+    _mission_reminder_fixture("DiagLimitOne", chat_id="30004")
+    _mission_reminder_fixture("DiagLimitTwo", chat_id="30005")
+
+    res = client.get(
+        "/api/telegram/reminder-diagnostics?recent_limit=1",
+        headers={"X-Reminder-Token": "test-reminder-token"},
+    )
+
+    assert res.status_code == 200
+    data = res.get_json()
+    assert len(data["recent_reminder_logs"]) == 1

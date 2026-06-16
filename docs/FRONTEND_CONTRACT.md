@@ -1043,6 +1043,52 @@ Rules:
 - skips users without a connected Telegram chat or with reminders disabled
 - dry-run does not send messages and does not set `reminder_sent_at`
 
+### `GET /api/telegram/reminder-diagnostics`
+
+Auth: protected by `X-Reminder-Token`; intended for admin/n8n operational checks. The frontend must not call this endpoint.
+
+Returns safe reminder observability data without sending Telegram messages. It does not expose Telegram chat IDs, bot tokens, admin tokens, JWT secrets, cookies, or other secret values.
+
+Response:
+
+```json
+{
+  "ok": true,
+  "server_now": "2026-06-16T12:00:00Z",
+  "summary": {
+    "total_reminders": 4,
+    "due_count": 1,
+    "scheduled_future_count": 1,
+    "already_sent_count": 1,
+    "missing_telegram_count": 1,
+    "reminders_disabled_count": 0
+  },
+  "due_reminders": [
+    {
+      "mission_log_id": 1,
+      "user_id": 1,
+      "mission_id": 12,
+      "mission_title": "Send one signal",
+      "status": "remind_later",
+      "reminder_at": "2026-06-16T11:55:00Z",
+      "reminder_sent_at": null,
+      "has_telegram_chat_id": true,
+      "reminders_enabled": true,
+      "delivery_state": "due"
+    }
+  ],
+  "scheduled_future_reminders": [],
+  "already_sent_reminders": [],
+  "missing_telegram_reminders": [],
+  "reminders_disabled_reminders": [],
+  "recent_reminder_logs": []
+}
+```
+
+Optional query:
+
+- `recent_limit`: number of recent reminder logs to include in `recent_reminder_logs`
+
 ### `PATCH /api/profile/visibility`
 
 Auth: required.

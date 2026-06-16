@@ -4,6 +4,7 @@ from auth import require_auth
 from services.telegram_service import send_telegram_message
 from config import Config
 from services.reminder_service import (
+    build_mission_reminder_diagnostics,
     send_due_mission_telegram_reminders,
     send_unchecked_test_reminder,
 )
@@ -86,6 +87,22 @@ def remind_due_missions():
         limit=payload.get("limit"),
     )
     return jsonify(result)
+
+
+@telegram_bp.get("/api/telegram/reminder-diagnostics")
+def reminder_diagnostics():
+    token = request.headers.get("X-Reminder-Token")
+
+    if not Config.REMINDER_ADMIN_TOKEN or token != Config.REMINDER_ADMIN_TOKEN:
+        return jsonify({
+            "ok": False,
+            "error": "unauthorized",
+        }), 401
+
+    payload = build_mission_reminder_diagnostics(
+        recent_limit=request.args.get("recent_limit", 20),
+    )
+    return jsonify(payload)
 
 
 @telegram_bp.get("/api/me/telegram/settings")

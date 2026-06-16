@@ -212,6 +212,133 @@ def _mission_item_for_log(item):
     }
 
 
+def _safe_mission_reminder_diagnostic_item(item, current):
+    reminder_at = _parse_utc_datetime(item.get("reminder_at"))
+    reminder_sent_at = _parse_utc_datetime(item.get("reminder_sent_at"))
+    has_chat = bool(item.get("telegram_chat_id"))
+    reminders_enabled = int(item.get("reminders_enabled") or 0) == 1
+    is_due = bool(reminder_at and reminder_at <= current)
+
+    if reminder_sent_at:
+        delivery_state = "sent"
+    elif is_due and not has_chat:
+        delivery_state = "missing_telegram"
+    elif is_due and not reminders_enabled:
+        delivery_state = "reminders_disabled"
+    elif is_due:
+        delivery_state = "due"
+    else:
+        delivery_state = "scheduled"
+
+    return {
+        "mission_log_id": item.get("mission_log_id"),
+        "user_id": item.get("user_id"),
+        "mission_id": item.get("mission_id"),
+        "mission_title": item.get("title"),
+        "status": item.get("status"),
+        "reminder_at": item.get("reminder_at"),
+        "reminder_sent_at": item.get("reminder_sent_at"),
+        "has_telegram_chat_id": has_chat,
+        "reminders_enabled": reminders_enabled,
+        "delivery_state": delivery_state,
+    }
+
+
+def _mission_reminder_diagnostic_rows():
+    conn = get_db_connection()
+    try:
+        rows = conn.execute(
+            """
+            SELECT
+                ml.id AS mission_log_id,
+                ml.user_id,
+                ml.enrollment_id,
+                ml.challenge_id,
+                ml.mission_id,
+                ml.date,
+                ml.status,
+                ml.reminder_at,
+                ml.reminder_sent_at,
+                ml.updated_at,
+                m.title,
+                c.name AS challenge_name,
+                tc.telegram_chat_id,
+                tc.reminders_enabled
+            FROM mission_logs ml
+            JOIN users u ON u.id = ml.user_id
+            JOIN enrollments e ON e.id = ml.enrollment_id
+            JOIN challenges c ON c.id = ml.challenge_id
+            JOIN missions m ON m.id = ml.mission_id
+            LEFT JOIN telegram_connections tc
+              ON tc.id = (
+                SELECT latest_tc.id
+                FROM telegram_connections latest_tc
+                WHERE latest_tc.user_id = ml.user_id
+                  AND latest_tc.status = 'connected'
+                ORDER BY
+                    COALESCE(
+                        latest_tc.connected_at,
+                        latest_tc.updated_at,
+                        latest_tc.created_at
+                    ) DESC,
+                    latest_tc.id DESC
+                LIMIT 1
+              )
+            WHERE ml.reminder_at IS NOT NULL
+              AND e.status = 'Active'
+              AND c.status = 'Active'
+              AND m.status = 'Active'
+            ORDER BY
+                COALESCE(ml.updated_at, ml.created_at) DESC,
+                ml.id DESC
+            """
+        ).fetchall()
+    finally:
+        conn.close()
+
+    return [dict(row) for row in rows]
+
+
+def build_mission_reminder_diagnostics(*, now=None, recent_limit=20):
+    current = (now or datetime.now(timezone.utc)).astimezone(timezone.utc)
+    server_now = utc_iso_z(current)
+    rows = _mission_reminder_diagnostic_rows()
+    items = [
+        _safe_mission_reminder_diagnostic_item(row, current)
+        for row in rows
+    ]
+
+    due = [item for item in items if item["delivery_state"] == "due"]
+    scheduled = [item for item in items if item["delivery_state"] == "scheduled"]
+    sent = [item for item in items if item["delivery_state"] == "sent"]
+    missing_telegram = [item for item in items if item["delivery_state"] == "missing_telegram"]
+    reminders_disabled = [item for item in items if item["delivery_state"] == "reminders_disabled"]
+
+    try:
+        recent_limit = max(0, int(recent_limit))
+    except (TypeError, ValueError):
+        recent_limit = 20
+
+    return {
+        "ok": True,
+        "server_now": server_now,
+        "summary": {
+            "total_reminders": len(items),
+            "due_count": len(due),
+            "scheduled_future_count": len(scheduled),
+            "already_sent_count": len(sent),
+            "missing_telegram_count": len(missing_telegram),
+            "reminders_disabled_count": len(reminders_disabled),
+        },
+        "due_reminders": due,
+        "scheduled_future_reminders": scheduled,
+        "already_sent_reminders": sent,
+        "missing_telegram_reminders": missing_telegram,
+        "reminders_disabled_reminders": reminders_disabled,
+        "recent_reminder_logs": items[:recent_limit],
+    }
+
+
 def _mark_mission_reminder_sent(mission_log_id, sent_at):
     conn = get_db_connection()
     try:
@@ -246,6 +373,9 @@ def send_due_mission_telegram_reminders(
 
     result = {
         "ok": True,
+        "server_now": utc_iso_z(current),
+        "checked_at": utc_iso_z(current),
+        "run_mode": "dry_run" if dry_run else "send",
         "dry_run": bool(dry_run),
         "checked": len(items),
         "due": len(items),
