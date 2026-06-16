@@ -30,6 +30,28 @@ ringostrike-backend
 /home/ringo/RingoStrike/backend/venv
 ```
 
+## Runtime environment
+
+`backend/app.py` reads its runtime binding from environment variables:
+
+```env
+FLASK_HOST=127.0.0.1
+PORT=5005
+FLASK_DEBUG=0
+```
+
+Use those values for production-like VPS usage so Flask is bound only to localhost and public access goes through nginx `/api-proxy`.
+
+Local development may use:
+
+```env
+FLASK_HOST=0.0.0.0
+PORT=5005
+FLASK_DEBUG=1
+```
+
+Never commit a real `backend/.env`; keep secrets such as `SECRET_KEY`, `JWT_SECRET`, `TELEGRAM_BOT_TOKEN`, and `REMINDER_ADMIN_TOKEN` only on the server or local developer machine.
+
 ## Start backend
 
 ```bash id="joa50a"
@@ -91,6 +113,15 @@ curl -X POST http://82.115.24.10/api-proxy/api/telegram/remind-due-missions \
   -H "Content-Type: application/json" \
   -H "X-Reminder-Token: $TOKEN" \
   -d '{"dry_run": true}'
+```
+
+## Reminder diagnostics
+
+Use this to inspect due, future, sent, missing-Telegram, and reminders-disabled mission reminder state without sending anything:
+
+```bash id="kq9reu"
+curl -H "X-Reminder-Token: $TOKEN" \
+  "http://82.115.24.10/api-proxy/api/telegram/reminder-diagnostics"
 ```
 
 ## Important rule

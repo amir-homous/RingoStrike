@@ -18,6 +18,8 @@ The product combines:
 * achievement engines
 * activity timelines
 * progression identity
+* Ringo-led daily missions
+* Telegram reminder automation
 * social momentum architecture
 
 into a premium and future-scalable experience.
@@ -63,6 +65,8 @@ The long-term goal is to create a platform where:
 * Longest streak tracking
 * Progress percentage calculation
 * Reward feedback loops
+* Ringo-led paths and daily missions
+* Mission reminders, skips, and completion state
 
 ---
 
@@ -115,6 +119,18 @@ The long-term goal is to create a platform where:
 * Reward-driven interactions
 * Responsive layouts
 * Emotionally intelligent UX
+* English/Persian i18n with RTL support
+
+---
+
+## Operations
+
+* Flask backend runs from `backend/app.py`
+* Production-like VPS runtime uses `systemd` service `ringostrike-backend`
+* Current VPS backend bind: `127.0.0.1:5005`
+* Current VPS frontend is served by nginx from `frontend/dist`
+* Public backend access uses nginx `/api-proxy`
+* n8n can trigger due mission Telegram reminders through the protected backend endpoint
 
 ---
 
@@ -204,6 +220,8 @@ Important files:
 | DESIGN_SYSTEM.md     | UI/UX philosophy              |
 | ROADMAP.md           | Product roadmap               |
 | CHANGELOG.md         | Feature evolution             |
+| BACKEND_SYSTEMD_RUNBOOK.md | VPS backend service operations |
+| REMINDER_AUTOMATION_RUNBOOK.md | Telegram reminder/n8n operations |
 
 ---
 
@@ -254,11 +272,21 @@ cd backend
 python app.py
 ```
 
-Server runs on:
+Default server:
 
 ```txt
 http://localhost:5005
 ```
+
+`backend/app.py` reads:
+
+```env
+FLASK_HOST=127.0.0.1
+PORT=5005
+FLASK_DEBUG=0
+```
+
+For the current VPS production-like runtime, use `FLASK_HOST=127.0.0.1`, `PORT=5005`, and `FLASK_DEBUG=0`; public access should go through nginx `/api-proxy`.
 
 ---
 
@@ -279,16 +307,37 @@ http://localhost:5173
 
 # Environment Variables
 
-Example:
+Backend examples:
 
 ```env
 FLASK_ENV=development
+FLASK_HOST=0.0.0.0
+PORT=5005
+FLASK_DEBUG=1
 SECRET_KEY=change-this
+JWT_SECRET=change-this-too
 DB_PATH=users.db
 AUTH_MODE=both
 LOCAL_LOGIN_ENABLED=true
-LOCAL_LOGIN_SECRET=123
 ```
+
+Frontend VPS example:
+
+```env
+VITE_API_BASE=/api-proxy
+VITE_BASE=/
+```
+
+Do not use `VITE_API_BASE=http://localhost:5005` in production browser builds. Browser `localhost` points at the user's device, not the VPS.
+
+Reminder automation uses:
+
+```env
+TELEGRAM_BOT_TOKEN=<server-only-secret>
+REMINDER_ADMIN_TOKEN=<server-only-secret>
+```
+
+Never commit real `.env` secrets.
 
 ---
 

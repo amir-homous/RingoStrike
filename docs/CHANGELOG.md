@@ -16,6 +16,23 @@ The project has moved beyond raw MVP. Core progression identity is implemented. 
 
 ## Latest Launch-Hardening Updates
 
+### Production Runtime And Reminder Automation Hardening
+
+Documented and stabilized the current VPS launch pattern:
+
+- Backend runs under `systemd` as `ringostrike-backend`.
+- Production-like backend runtime uses env-driven `backend/app.py` values: `FLASK_HOST=127.0.0.1`, `PORT=5005`, and `FLASK_DEBUG=0`.
+- Nginx serves the Vue production build from `frontend/dist`.
+- Public backend access uses `/api-proxy`, with Flask bound to `127.0.0.1:5005`.
+- Production frontend builds for the current VPS use `VITE_API_BASE=/api-proxy` and `VITE_BASE=/`.
+- Production browser builds must not use `VITE_API_BASE=http://localhost:5005`.
+- Added mission-level Telegram reminder delivery for due `mission_logs.status = 'remind_later'` rows.
+- Added n8n/cron-compatible protected endpoint `POST /api/telegram/remind-due-missions`.
+- Added protected operational diagnostics endpoint `GET /api/telegram/reminder-diagnostics`.
+- Added duplicate-send prevention through `mission_logs.reminder_sent_at`.
+- Reminder delivery sends through the existing Telegram service and marks `reminder_sent_at` only after successful send.
+- Reminder diagnostics report due, scheduled future, already sent, missing Telegram, reminders-disabled, recent logs, and server time without exposing secrets.
+
 ### Backend-Backed Path And Mission System
 
 Added the first backend-backed guided progression layer:
