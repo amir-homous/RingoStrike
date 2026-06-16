@@ -139,6 +139,11 @@ The detailed product direction lives in:
 - Added premium check-in RewardMoment and frontend-only unlock hints for Activity, Achievements, and Public Profile using existing check-in/stat data.
 - Added frontend-only progressive disclosure on the dashboard using existing check-in counts instead of new backend fields.
 - Added backend-backed path/mission system, MissionCenter, `/paths`, and RingoCoach on top of the existing challenge/check-in progression model.
+- Added mission-level Telegram reminder delivery for due `remind_later` mission logs.
+- Added duplicate-prevention for delivered mission reminders through `mission_logs.reminder_sent_at`.
+- Added protected due reminder endpoint for n8n/cron automation: `POST /api/telegram/remind-due-missions`.
+- Added protected reminder diagnostics endpoint: `GET /api/telegram/reminder-diagnostics`.
+- Hardened VPS runtime around `systemd`, env-driven Flask binding, `FLASK_DEBUG=0`, and nginx `/api-proxy` routing to a localhost-only backend.
 
 
 ### Backend Test Coverage Added
@@ -215,6 +220,8 @@ These items should happen before expanding product scope:
 - Run full `docs/LAUNCH_QA_CHECKLIST.md` before release candidate.
 - Expand shared API response helper usage across existing routes.
 - Keep service-level leaderboard ordering coverage aligned if tie-breaker behavior changes.
+- Keep reminder automation monitored through diagnostics and n8n admin summaries.
+- Add a real migration strategy instead of relying on startup-time additive schema changes for future production database evolution.
 
 
 ---

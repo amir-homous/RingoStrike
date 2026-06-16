@@ -80,7 +80,7 @@ Implementation guidance:
 - Vue 3 + Vite application in `frontend/`.
 - Vue Router routes for login, auth callback, dashboard, paths, challenges, profile, enrollment, leaderboard, public profile, API docs, and redirects.
 - Axios API client in `frontend/src/lib/api.js` using `VITE_API_BASE` when provided, `http://localhost:5005` only in Vite dev mode, and same-origin relative API paths in production by default. Credentials are enabled and callback-token Bearer fallback support remains.
-- The current VPS same-origin deployment at `http://82.115.24.10` uses `VITE_API_BASE=/api-proxy` and Nginx rewrites `/api-proxy/*` to Flask on `http://127.0.0.1:5005`. Do not use `VITE_API_BASE=http://localhost:5005` in production browser builds.
+- The current VPS same-origin deployment at `http://82.115.24.10` uses `VITE_API_BASE=/api-proxy`. Nginx serves `frontend/dist`, proxies `/api-proxy/` to Flask on `http://127.0.0.1:5005/` without rewrite rules, and keeps Vue routes on the SPA fallback. Do not use `VITE_API_BASE=http://localhost:5005` in production browser builds.
 - Active local auth UI is `frontend/src/components/AuthForm.vue`; it uses the shared API client and honors the `next` redirect query.
 - Shared CSS tokens in `frontend/src/styles/tokens.css` and base styles in `frontend/src/styles/base.css`.
 - Frontend i18n is implemented with `vue-i18n` in `frontend/src/i18n/`, currently supporting English (`en`) and Persian (`fa`).
@@ -138,6 +138,9 @@ Implementation guidance:
 - Private challenge detail/member endpoints and `/me/enrollments/:id/leaderboard` enforce privacy/ownership checks.
 - For VPS same-origin deployment, use `/api-proxy` to avoid frontend/backend route collisions. Do not proxy backend root paths like `/challenges` directly because `/challenges` is also a Vue route and should render the SPA page.
 - `backend/users.db`, Python caches, `backend/venv`, `backend/.venv`, and `frontend/node_modules` are present in the working tree and should not be treated as application source.
+- Production-like VPS runtime uses `systemd` service `ringostrike-backend`, working directory `/home/ringo/RingoStrike/backend`, Python venv `/home/ringo/RingoStrike/backend/venv`, and `backend/app.py` with env-driven `FLASK_HOST`, `PORT`, and `FLASK_DEBUG`. Use `FLASK_HOST=127.0.0.1`, `PORT=5005`, and `FLASK_DEBUG=0` on the VPS.
+- Mission-level Telegram reminders are delivered by `POST /api/telegram/remind-due-missions`, normally reached publicly as `/api-proxy/api/telegram/remind-due-missions` with `X-Reminder-Token`. The backend selects due reminders, sends through `telegram_service.py`, and sets `mission_logs.reminder_sent_at` only after successful send.
+- Reminder diagnostics are available through protected `GET /api/telegram/reminder-diagnostics`, normally reached publicly as `/api-proxy/api/telegram/reminder-diagnostics`. It is visibility-only and must not expose bot tokens, admin tokens, JWT secrets, cookies, raw chat IDs, or private credentials.
 
 ## Current Roadmap Position
 
@@ -149,4 +152,4 @@ The project has moved beyond the older v0.3 dashboard/profile milestone. Public 
 - profile settings and avatar/bio fields
 - public consistency and public achievements endpoints
 
-The next highest-value work is launch hardening: fix the missing Ringo sprite imports, verify frontend production build, finalize production environment values, run the launch QA checklist, add mission/path smoke coverage, add a migration/backup plan, and continue reducing profile/API contract overlap.
+The next highest-value work is launch hardening and operations polish: keep reminder automation monitored, verify frontend production builds use `/api-proxy`, run the launch QA checklist, add/maintain mission-path-reminder smoke coverage, add a migration/backup plan, and continue reducing profile/API contract overlap.

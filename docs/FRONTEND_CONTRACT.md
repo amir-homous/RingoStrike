@@ -19,17 +19,23 @@ VITE_API_BASE=/api-proxy
 VITE_BASE=/
 ```
 
-Nginx should proxy `/api-proxy/` to Flask and rewrite the prefix away:
+Nginx serves the Vue production build from `frontend/dist` and proxies `/api-proxy/` to the local Flask backend. Do not use an nginx `rewrite` rule for this deployment. Use a trailing slash on `proxy_pass` so nginx strips the `/api-proxy/` location prefix and forwards the remaining backend path:
 
 ```nginx
 location /api-proxy/ {
-    rewrite ^/api-proxy/(.*)$ /$1 break;
-    proxy_pass http://127.0.0.1:5005;
+    proxy_pass http://127.0.0.1:5005/;
     proxy_set_header Host $host;
     proxy_set_header X-Real-IP $remote_addr;
     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
 }
 ```
+
+Examples:
+
+- `/api-proxy/health` forwards to Flask `/health`
+- `/api-proxy/api/telegram/remind-due-missions` forwards to Flask `/api/telegram/remind-due-missions`
+- `/api-proxy/me` forwards to Flask `/me`
 
 Vue routes should continue to use the SPA fallback:
 
@@ -999,6 +1005,12 @@ Request:
 
 Auth: protected by `X-Reminder-Token`; intended for n8n, cron, or similar automation. The frontend must not call this endpoint.
 
+Current VPS public URL:
+
+```http
+POST /api-proxy/api/telegram/remind-due-missions
+```
+
 The backend finds due mission-level reminders, sends Telegram messages through the configured Telegram bot, and marks each reminder as delivered only after a successful send.
 
 Request:
@@ -1015,6 +1027,9 @@ Response:
 ```json
 {
   "ok": true,
+  "server_now": "2026-06-16T12:00:00Z",
+  "checked_at": "2026-06-16T12:00:00Z",
+  "run_mode": "dry_run",
   "dry_run": true,
   "checked": 3,
   "due": 3,
@@ -1046,6 +1061,12 @@ Rules:
 ### `GET /api/telegram/reminder-diagnostics`
 
 Auth: protected by `X-Reminder-Token`; intended for admin/n8n operational checks. The frontend must not call this endpoint.
+
+Current VPS public URL:
+
+```http
+GET /api-proxy/api/telegram/reminder-diagnostics
+```
 
 Returns safe reminder observability data without sending Telegram messages. It does not expose Telegram chat IDs, bot tokens, admin tokens, JWT secrets, cookies, or other secret values.
 

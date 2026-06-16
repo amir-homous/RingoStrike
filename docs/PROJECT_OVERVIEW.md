@@ -39,6 +39,7 @@ Product direction source:
 - Profile visibility controls: public/private.
 - Frontend Persian/English language switching with persisted locale and automatic `lang`/`dir` updates.
 - Persian UI typography uses the local Vazirmatn variable WOFF2 font while English keeps the existing system font stack.
+- Telegram reminder connection settings, mission-level reminder scheduling, n8n-triggered due reminder delivery, and protected reminder diagnostics.
 - API docs page in the frontend.
 - SQLite debug endpoints gated to development mode.
 - Safe `/health/config` readiness endpoint.
@@ -86,7 +87,15 @@ Default Vite URL: `http://localhost:5173`.
 
 Frontend API base uses `VITE_API_BASE` when set. Without it, Vite dev mode falls back to `http://localhost:5005`; production builds use same-origin relative API paths for Nginx deployments.
 
-The current VPS test deployment at `http://82.115.24.10` uses `VITE_API_BASE=/api-proxy` because backend routes such as `/challenges` conflict with Vue frontend routes when proxied at the root. Nginx rewrites `/api-proxy/*` to the local Flask backend on `http://127.0.0.1:5005`.
+The current VPS test deployment at `http://82.115.24.10` uses `VITE_API_BASE=/api-proxy` because backend routes such as `/challenges` conflict with Vue frontend routes when proxied at the root. Nginx serves `frontend/dist` and proxies `/api-proxy/` to the local Flask backend on `http://127.0.0.1:5005/` without rewrite rules.
+
+Production-like VPS backend runtime is managed by `systemd` service `ringostrike-backend` from `/home/ringo/RingoStrike/backend`, using `/home/ringo/RingoStrike/backend/venv` and env-driven `backend/app.py` values:
+
+```env
+FLASK_HOST=127.0.0.1
+PORT=5005
+FLASK_DEBUG=0
+```
 
 Selected frontend language is stored in `localStorage.ringostrike_locale`.
 
@@ -160,3 +169,5 @@ Based on git history, the project has progressed through:
 - Achievement XP rewards are included in persisted stats.
 - Backend smoke coverage currently reports `41 passed` in the local `backend/venv` environment.
 - MVP paths and missions are seeded by `path_seed_service.py`, with legacy unlinked challenges archived when they have no active mission linkage.
+- Mission-level Telegram reminder delivery is protected by `X-Reminder-Token`, safe for n8n/cron triggering, and prevents duplicate sends with `mission_logs.reminder_sent_at`.
+- Protected reminder diagnostics expose due/scheduled/sent/missing-Telegram/reminders-disabled operational state without sending messages or exposing secrets.

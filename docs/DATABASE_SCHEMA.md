@@ -241,12 +241,15 @@ Status values:
 
 `skip_reason` is optional metadata for skipped missions. Supported stable reason keys are `too_tired`, `no_time`, `too_hard`, `not_relevant`, `disliked`, and `other`. Skip reasons are future Ringo Brain context only; they do not affect XP, streak, achievements, or check-in logic.
 
-`reminder_sent_at` is nullable UTC delivery metadata for mission-level Telegram reminders. It is set only after a due reminder is successfully sent and is cleared when a mission reminder is changed/replanned so the new reminder can be delivered later.
+`reminder_at` is the scheduled mission reminder time. `reminder_sent_at` is nullable UTC delivery metadata for mission-level Telegram reminders. It is set only after a due reminder is successfully sent and is cleared when a mission reminder is changed/replanned so the new reminder can be delivered later.
+
+Protected reminder diagnostics read this existing reminder state and do not require an additional schema change.
 
 Indexes:
 
 - `idx_mission_logs_user_date` on `(user_id, date)`
 - `idx_mission_logs_enrollment_date` on `(enrollment_id, date)`
+- `idx_mission_logs_due_reminders` on `(status, reminder_at, reminder_sent_at)`
 
 ## `enrollments`
 

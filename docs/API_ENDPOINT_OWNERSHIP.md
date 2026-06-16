@@ -15,6 +15,7 @@ Current convention:
 - Services own database reads/writes and response payload assembly.
 - `backend/utils/api_response.py` owns shared success/error response helpers.
 - Active frontend route usage is documented in `docs/FRONTEND_CONTRACT.md`.
+- On the current VPS, public backend calls are reached through nginx `/api-proxy`. Endpoint ownership below lists the Flask route paths after nginx forwards them.
 
 ## Public Endpoints
 
