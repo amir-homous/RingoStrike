@@ -10,7 +10,7 @@ def _before_next_reset_at():
     )
     target = min(
         datetime.now(timezone.utc) + timedelta(hours=2),
-        next_reset - timedelta(minutes=1),
+        next_reset - timedelta(seconds=1),
     )
     return target.isoformat()
 
@@ -629,7 +629,7 @@ def test_plan_single_mission_reminder_can_replace_existing_reminder(client):
     assert plan_data["mission"]["reminder_at"] != existing_reminder_at
 
 
-def test_plan_single_mission_reminder_rejects_when_no_safe_time(monkeypatch, client):
+def test_plan_single_mission_reminder_clamps_when_planned_time_crosses_reset(monkeypatch, client):
     from services import mission_service
 
     user = register_user(client, username="SinglePlannerNoTime")
@@ -668,8 +668,14 @@ def test_plan_single_mission_reminder_rejects_when_no_safe_time(monkeypatch, cli
         headers=headers,
     )
 
-    assert plan_res.status_code == 400
-    assert plan_res.get_json()["error"] == "no_safe_reminder_time"
+    assert plan_res.status_code == 200
+    plan_data = plan_res.get_json()
+    assert plan_data["ok"] is True
+    reminder_at = datetime.fromisoformat(
+        plan_data["scheduled"]["reminder_at"].replace("Z", "+00:00"),
+    )
+    assert current < reminder_at < next_reset
+    assert reminder_at == next_reset - timedelta(seconds=1)
 
 
 def test_today_missions_ignore_previous_day_event_timestamps(client):

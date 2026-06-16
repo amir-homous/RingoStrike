@@ -95,7 +95,7 @@ def _reminder_at():
     )
     target = min(
         datetime.now(timezone.utc) + timedelta(hours=2),
-        next_reset - timedelta(minutes=1),
+        next_reset - timedelta(seconds=1),
     )
     return target.isoformat()
 
