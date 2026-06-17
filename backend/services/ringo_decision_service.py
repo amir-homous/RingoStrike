@@ -1,3 +1,6 @@
+from datetime import datetime, timezone
+
+
 VALID_SPRITES = {
     "idle",
     "welcome",
@@ -81,6 +84,70 @@ def _completed_satisfying_mission(missions):
     )
 
 
+def _parse_reminder_at(value):
+    if not value:
+        return None
+
+    try:
+        parsed = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    except ValueError:
+        return None
+
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=timezone.utc)
+
+    return parsed.astimezone(timezone.utc)
+
+
+def _due_reminder_mission(deferred):
+    now = datetime.now(timezone.utc)
+    due = [
+        mission for mission in deferred
+        if (_parse_reminder_at(mission.get("reminder_at")) or datetime.max.replace(tzinfo=timezone.utc)) <= now
+    ]
+
+    if not due:
+        return None
+
+    return sorted(
+        due,
+        key=lambda mission: (
+            _parse_reminder_at(mission.get("reminder_at")) or datetime.max.replace(tzinfo=timezone.utc),
+            int(mission.get("order_index") or 0),
+            int(mission.get("mission_id") or 0),
+        ),
+    )[0]
+
+
+def _is_due_reminder(mission, now=None):
+    now = now or datetime.now(timezone.utc)
+    reminder_at = _parse_reminder_at(mission.get("reminder_at"))
+
+    return bool(reminder_at and reminder_at <= now)
+
+
+def _covered_main_ids(missions):
+    now = datetime.now(timezone.utc)
+    return {
+        mission.get("parent_mission_id")
+        for mission in missions
+        if mission.get("status") == "remind_later"
+        and mission.get("parent_mission_id") is not None
+        and (mission.get("mission_intensity") or "main") in {"tiny", "bonus"}
+        and not _is_due_reminder(mission, now)
+    }
+
+
+def _preferred_pending_mission(pending, preferred_intensity="main"):
+    return next(
+        (
+            mission for mission in pending
+            if (mission.get("mission_intensity") or "main") == preferred_intensity
+        ),
+        None,
+    ) or (pending[0] if pending else None)
+
+
 def _decision(state, sprite, message, primary_action=None, secondary_action=None):
     sprite_key = sprite if sprite in VALID_SPRITES else "idle"
 
@@ -132,9 +199,15 @@ def decide_ringo_state(
         )
 
     done_count = sum(1 for mission in missions if mission.get("status") == "done")
-    pending = [mission for mission in missions if mission.get("status") == "pending"]
+    covered_main_ids = _covered_main_ids(missions)
+    pending = [
+        mission for mission in missions
+        if mission.get("status") == "pending"
+        and not any(_same_mission_id(mission.get("mission_id"), covered_id) for covered_id in covered_main_ids)
+    ]
     deferred = [mission for mission in missions if mission.get("status") == "remind_later"]
     skipped = [mission for mission in missions if mission.get("status") == "skipped"]
+    due_reminder = _due_reminder_mission(deferred)
 
     if _completed_satisfying_mission(missions) and not pending and not deferred and not skipped:
         return _decision(
@@ -166,7 +239,7 @@ def decide_ringo_state(
         )
 
     if done_count > 0:
-        next_mission = pending[0] if pending else deferred[0] if deferred else missions[0]
+        next_mission = due_reminder or (pending[0] if pending else deferred[0] if deferred else missions[0])
         return _decision(
             "today_in_progress",
             "encouraging",
@@ -176,27 +249,35 @@ def decide_ringo_state(
         )
 
     if checkins_total > 0 and current_streak == 0:
+        next_mission = due_reminder or _preferred_pending_mission(pending, "tiny") or missions[0]
         return _decision(
             "returning_after_break",
             "concerned",
-            f"You are back after a break. Start gently with {missions[0].get('title') or 'one small mission'} and rebuild the rhythm.",
-            _action(_mission_label("Start", missions[0]), "mission", mission_id=missions[0].get("mission_id")),
+            f"You are back after a break. Start gently with {next_mission.get('title') or 'one small mission'} and rebuild the rhythm.",
+            _action(_mission_label("Start", next_mission), "mission", mission_id=next_mission.get("mission_id")),
             _action("Choose another path", "route", "/challenges"),
         )
 
     if checkins_total > 0 and current_streak <= 1:
+        next_mission = due_reminder or _preferred_pending_mission(pending, "tiny") or missions[0]
         return _decision(
             "streak_at_risk",
             "warning",
-            f"Your rhythm is still young. Protect it with {missions[0].get('title') or 'one small mission'} today.",
-            _action(_mission_label("Secure", missions[0]), "mission", mission_id=missions[0].get("mission_id")),
-            _action("Remind me later", "mission_reminder", mission_id=missions[0].get("mission_id")),
+            f"Your rhythm is still young. Protect it with {next_mission.get('title') or 'one small mission'} today.",
+            _action(_mission_label("Secure", next_mission), "mission", mission_id=next_mission.get("mission_id")),
+            _action("Remind me later", "mission_reminder", mission_id=next_mission.get("mission_id")),
         )
 
+    next_mission = due_reminder or _preferred_pending_mission(pending, "main") or missions[0]
+    reminder_context = (
+        "I saved that reminder. While we wait, "
+        if deferred and pending and not due_reminder
+        else ""
+    )
     return _decision(
         "today_not_started",
         "focus",
-        f"Today's mission is ready: {missions[0].get('title') or 'one small action'}. Complete it, then mark it done.",
-        _action(_mission_label("Start", missions[0]), "mission", mission_id=missions[0].get("mission_id")),
-        _action("View path details", "route", f"/enrollment/{missions[0].get('enrollment_id')}"),
+        f"{reminder_context}Today's mission is ready: {next_mission.get('title') or 'one small action'}. Complete it, then mark it done.",
+        _action(_mission_label("Start", next_mission), "mission", mission_id=next_mission.get("mission_id")),
+        _action("View path details", "route", f"/enrollment/{next_mission.get('enrollment_id')}"),
     )
