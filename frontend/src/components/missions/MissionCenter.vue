@@ -1022,6 +1022,17 @@ const ringoPrimaryActionMission = computed(() => {
   }) || null;
 });
 
+const dueReminderMission = computed(() => {
+  if (guidanceAgenda.value?.next_action_type === "due_reminder") {
+    const agendaMission = missionForAgenda(guidanceAgenda.value);
+    if (agendaMission) return agendaMission;
+  }
+
+  return sortReminderMissions(
+    deferredMissions.value.filter((mission) => isReminderDue(mission)),
+  )[0] || null;
+});
+
 const pendingMissions = computed(() => {
   return localizedMissions.value.filter((mission) => missionHasStatus(mission, "pending"));
 });
@@ -1057,6 +1068,7 @@ const activeInteractionMission = computed(() => {
 
 const focusMission = computed(() => {
   return activeInteractionMission.value
+    || dueReminderMission.value
     || guidanceMission.value
     || ringoPrimaryActionMission.value
     || primaryReminderMission()
