@@ -286,18 +286,26 @@ onMounted(() => {
 
         <label class="toggle-row">
           <input
-            v-model="telegramSettings.streak_risk_enabled"
+            :checked="false"
             type="checkbox"
+            disabled
           />
-          <span>{{ t("profileComponents.telegramStreakRiskEnabled") }}</span>
+          <span>
+            {{ t("profileComponents.telegramStreakRiskEnabled") }}
+            <small>{{ t("profileComponents.telegramComingSoon") }}</small>
+          </span>
         </label>
 
         <label class="toggle-row">
           <input
-            v-model="telegramSettings.weekly_summary_enabled"
+            :checked="false"
             type="checkbox"
+            disabled
           />
-          <span>{{ t("profileComponents.telegramWeeklySummaryEnabled") }}</span>
+          <span>
+            {{ t("profileComponents.telegramWeeklySummaryEnabled") }}
+            <small>{{ t("profileComponents.telegramComingSoon") }}</small>
+          </span>
         </label>
       </div>
 
@@ -598,7 +606,16 @@ select option{
 }
 
 .toggle-row span{
+  display:flex;
+  flex-direction:column;
+  gap:3px;
   font-size:.9rem;
+}
+
+.toggle-row small{
+  color:rgba(255,255,255,.48);
+  font-size:.76rem;
+  font-weight:600;
 }
 
 .connect-code{

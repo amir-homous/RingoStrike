@@ -432,6 +432,7 @@ Returns daily missions available for active enrollments and a RingoCoach decisio
       "ringo_message": "...",
       "status": "pending",
       "reminder_at": null,
+      "reminder_sent_at": null,
       "done_at": null,
       "skipped_at": null,
       "reminder_set_at": null,
@@ -457,8 +458,11 @@ Mission event timestamp fields are additive and nullable. They are derived from 
 - `skipped_at`: UTC timestamp when the current-day log was last written as `skipped`.
 - `reminder_set_at`: UTC timestamp when the current-day log was last written as `remind_later`.
 - `status_updated_at`: UTC timestamp for the current-day mission log update, regardless of status.
+- `reminder_sent_at`: UTC timestamp set after the backend Telegram delivery job successfully sends the scheduled mission reminder.
 
 For timeline placement, use `reminder_at` for reminder-set missions because it is the scheduled reminder time. Use `done_at` for completed missions and `skipped_at` for skipped missions. If a timestamp is missing, keep the mission in an untimed UI state rather than inventing a time.
+
+MissionCenter may combine `reminder_at`, `reminder_sent_at`, and authenticated Telegram settings to display frontend-only reminder delivery states such as scheduled, due, sent, Telegram not connected, or Telegram reminders off. The frontend must not call protected automation endpoints or receive `X-Reminder-Token`.
 
 ### `GET /me/ringo/today`
 
@@ -940,6 +944,8 @@ Visibility values: `public`, `private`.
 
 The frontend does not use Telegram Login and never sends or stores a bot token.
 
+Active frontend reminder settings should only promise delivery paths that exist. `reminders_enabled` controls mission-level Telegram reminder delivery and `daily_checkin_enabled` controls the existing daily unchecked reminder flow. Streak-risk reminders and weekly summaries may remain in the settings response for compatibility, but the current UI treats them as coming soon until a delivery pipeline exists.
+
 ### `GET /api/me/telegram/settings`
 
 Auth: required.
@@ -977,9 +983,7 @@ Request fields:
 ```json
 {
   "reminders_enabled": true,
-  "daily_checkin_enabled": true,
-  "streak_risk_enabled": true,
-  "weekly_summary_enabled": false
+  "daily_checkin_enabled": true
 }
 ```
 
