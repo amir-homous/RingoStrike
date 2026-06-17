@@ -417,6 +417,83 @@ def test_ringo_brain_agenda_not_saved_future_reminder_does_not_block_pending(cli
     assert payload["agenda"]["next_mission_id"] == other_pending["mission_id"]
     assert payload["agenda"]["next_reminder_at"] is None
     assert payload["agenda"]["reminded_count"] == 1
+    assert payload["mission"]["mission_id"] == other_pending["mission_id"]
+    assert "I saved that reminder" in payload["ringo"]["message"]
+    assert other_pending["title"] in payload["ringo"]["message"]
+
+
+def test_ringo_brain_linked_tiny_reminder_covers_parent_main(client):
+    user = register_user(client, username="BrainAgendaTinyCovered")
+    headers = auth_headers(user["access_token"])
+    context = _start_path_and_join_first_challenge(client, headers)
+    path_id = context["path"]["path_id"]
+    challenges = client.get(
+        f"/paths/{path_id}/challenges",
+        headers=headers,
+    ).get_json()["items"]
+    second_challenge = next(
+        challenge for challenge in challenges
+        if challenge["challenge_id"] != context["challenge"]["challenge_id"]
+    )
+    client.post(
+        f"/challenges/{second_challenge['challenge_id']}/join",
+        json={},
+        headers=headers,
+    )
+    _set_challenge_missions_available(context["challenge"]["challenge_id"])
+    _set_challenge_missions_available(second_challenge["challenge_id"])
+    missions = _today_missions(client, headers)
+    first_main = _main_mission([
+        mission for mission in missions
+        if mission["challenge_id"] == context["challenge"]["challenge_id"]
+    ])
+    first_tiny = _linked_tiny_mission(missions, first_main)
+    second_main = _main_mission([
+        mission for mission in missions
+        if mission["challenge_id"] == second_challenge["challenge_id"]
+    ])
+
+    remind_res = client.post(
+        f"/me/missions/{first_tiny['mission_id']}/remind-later",
+        json={"reminder_at": _reminder_at()},
+        headers=headers,
+    )
+    assert remind_res.status_code == 200
+
+    payload, code = get_today_ringo_guidance(user["user_id"])
+
+    assert code == 200
+    assert payload["progress"]["today_saved"] is False
+    assert payload["agenda"]["next_action_type"] == "primary_mission"
+    assert payload["agenda"]["next_mission_id"] == second_main["mission_id"]
+    assert payload["mission"]["mission_id"] == second_main["mission_id"]
+    assert second_main["title"] in payload["ringo"]["message"]
+    assert first_main["title"] not in payload["ringo"]["message"]
+
+
+def test_ringo_brain_due_linked_tiny_reminder_beats_parent_and_pending(client):
+    user = register_user(client, username="BrainAgendaTinyDue")
+    headers = auth_headers(user["access_token"])
+    context = _start_path_and_join_first_challenge(client, headers)
+    _set_challenge_missions_available(context["challenge"]["challenge_id"])
+    missions = _today_missions(client, headers)
+    main_mission = _main_mission(missions)
+    tiny_mission = _linked_tiny_mission(missions, main_mission)
+    reminder_at = _due_reminder_at()
+
+    remind_res = client.post(
+        f"/me/missions/{tiny_mission['mission_id']}/remind-later",
+        json={"reminder_at": reminder_at},
+        headers=headers,
+    )
+    assert remind_res.status_code == 200
+
+    payload, code = get_today_ringo_guidance(user["user_id"])
+
+    assert code == 200
+    assert payload["agenda"]["next_action_type"] == "due_reminder"
+    assert payload["agenda"]["next_mission_id"] == tiny_mission["mission_id"]
+    assert payload["mission"]["mission_id"] == tiny_mission["mission_id"]
 
 
 def test_ringo_brain_agenda_not_saved_due_reminder_beats_pending(client):
@@ -442,6 +519,7 @@ def test_ringo_brain_agenda_not_saved_due_reminder_beats_pending(client):
     assert payload["agenda"]["next_action_type"] == "due_reminder"
     assert payload["agenda"]["next_mission_id"] == main_mission["mission_id"]
     assert payload["agenda"]["next_reminder_at"] == reminder_at
+    assert payload["mission"]["mission_id"] == main_mission["mission_id"]
 
 
 def test_ringo_brain_agenda_not_saved_future_reminder_when_no_pending(client):

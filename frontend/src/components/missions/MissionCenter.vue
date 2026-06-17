@@ -1006,9 +1006,20 @@ const guidanceMission = computed(() => {
   const mission = ringoGuidance.value?.mission;
   if (!mission?.mission_id) return mission || null;
 
-  const currentMission = localizedMissions.value.find((item) => item.mission_id === mission.mission_id);
+  const currentMission = localizedMissions.value.find((item) => {
+    return sameMissionId(item.mission_id, mission.mission_id);
+  });
 
   return currentMission ? { ...mission, ...currentMission } : mission;
+});
+
+const ringoPrimaryActionMission = computed(() => {
+  const action = localizedRingo.value?.primary_action;
+  if (action?.type !== "mission" || !action.mission_id) return null;
+
+  return localizedMissions.value.find((mission) => {
+    return sameMissionId(mission.mission_id, action.mission_id);
+  }) || null;
 });
 
 const pendingMissions = computed(() => {
@@ -1046,8 +1057,9 @@ const activeInteractionMission = computed(() => {
 
 const focusMission = computed(() => {
   return activeInteractionMission.value
-    || primaryReminderMission()
     || guidanceMission.value
+    || ringoPrimaryActionMission.value
+    || primaryReminderMission()
     || pendingMissions.value[0]
     || skippedMissions.value[0]
     || deferredMissions.value[0]
@@ -1637,7 +1649,6 @@ async function runMissionAction(mission, action, request, options = {}) {
     await loadMissions();
     if (action === "remind") {
       preferMainMissionAfterReminder(mission);
-      manualFocusMissionId.value = mission.mission_id;
       selectedTimelineMissionId.value = mission.mission_id;
     }
     if (options.narrative) {
@@ -1813,7 +1824,6 @@ async function planMissionReminder(mission) {
     const reminderTime = formattedReminderTime(data?.scheduled?.reminder_at || data?.mission?.reminder_at);
     applyMissionResponse(data, mission);
     await loadMissions();
-    manualFocusMissionId.value = mission.mission_id;
     selectedTimelineMissionId.value = mission.mission_id;
     showOtherMissions.value = true;
     notice.value = t("missions.remindOptions.ringoConfirmation", { time: reminderTime });
