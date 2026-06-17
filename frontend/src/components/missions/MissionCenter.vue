@@ -18,6 +18,10 @@
         <small v-if="missionStatusCopy(focusMission)" class="missionStatusCopy">
           {{ missionStatusCopy(focusMission) }}
         </small>
+        <small v-if="reminderDeliveryMeta(focusMission)" class="reminderDeliveryChip"
+          :class="reminderDeliveryMeta(focusMission).state">
+          {{ reminderDeliveryMeta(focusMission).label }}
+        </small>
         <div v-if="showFocusMissionActions" class="missionActions primaryMissionActions">
           <BaseButton variant="primary" :loading="busyId === focusMission.mission_id && busyAction === 'done'"
             :disabled="missionHasStatus(focusMission, 'done')" @click="markDone(focusMission)">
@@ -189,6 +193,45 @@
       {{ notice }}
     </p>
 
+    <BaseCard v-if="telegramReminderPrompt" class="telegramReminderPrompt" :class="telegramReminderPrompt.mode">
+      <div>
+        <p class="eyebrow compact">{{ t("missions.telegramPrompt.eyebrow") }}</p>
+        <h3>{{ t(`missions.telegramPrompt.${telegramReminderPrompt.mode}Title`) }}</h3>
+        <p>{{ t(`missions.telegramPrompt.${telegramReminderPrompt.mode}Body`) }}</p>
+      </div>
+
+      <div v-if="telegramConnectCode" class="telegramConnectCode">
+        <span>{{ t("missions.telegramPrompt.connectCode") }}</span>
+        <strong>{{ telegramConnectCode.code }}</strong>
+        <small>{{ t("missions.telegramPrompt.manualFallback") }}</small>
+      </div>
+
+      <p v-if="telegramPromptError" class="telegramPromptError">
+        {{ telegramPromptError }}
+      </p>
+
+      <div class="telegramPromptActions">
+        <BaseButton v-if="telegramReminderPrompt.mode === 'connect'" variant="primary" :loading="telegramPromptBusy"
+          @click="connectTelegramFromReminder">
+          {{ t("missions.telegramPrompt.connectCta") }}
+        </BaseButton>
+        <BaseButton v-if="telegramReminderPrompt.mode === 'disabled'" variant="primary" :loading="telegramPromptBusy"
+          @click="enableTelegramRemindersFromPrompt">
+          {{ t("missions.telegramPrompt.enableCta") }}
+        </BaseButton>
+        <a v-if="telegramConnectLink" class="telegramBotLink" :href="telegramConnectLink" target="_blank"
+          rel="noreferrer">
+          {{ t("missions.telegramPrompt.openBot") }}
+        </a>
+        <RouterLink class="telegramBotLink" to="/profile">
+          {{ t("missions.telegramPrompt.settingsCta") }}
+        </RouterLink>
+        <BaseButton variant="secondary" @click="dismissTelegramReminderPrompt">
+          {{ t("missions.telegramPrompt.laterCta") }}
+        </BaseButton>
+      </div>
+    </BaseCard>
+
     <PathSelection v-if="!loading && !error && showPathSelection"
       :allow-active-start="ringo?.state === 'path_selected_no_challenge'" @started="loadMissions" />
 
@@ -220,6 +263,10 @@
         <p>{{ focusMission.description }}</p>
         <small v-if="missionStatusCopy(focusMission)" class="missionStatusCopy">
           {{ missionStatusCopy(focusMission) }}
+        </small>
+        <small v-if="reminderDeliveryMeta(focusMission)" class="reminderDeliveryChip"
+          :class="reminderDeliveryMeta(focusMission).state">
+          {{ reminderDeliveryMeta(focusMission).label }}
         </small>
         <div v-if="showFocusMissionActions" class="missionActions primaryMissionActions">
           <BaseButton variant="primary" :loading="busyId === focusMission.mission_id && busyAction === 'done'"
@@ -515,6 +562,10 @@
                       <small v-if="missionStatusCopy(mission)" class="missionStatusCopy">
                         {{ missionStatusCopy(mission) }}
                       </small>
+                      <small v-if="reminderDeliveryMeta(mission)" class="reminderDeliveryChip"
+                        :class="reminderDeliveryMeta(mission).state">
+                        {{ reminderDeliveryMeta(mission).label }}
+                      </small>
                     </div>
 
                     <div v-if="showMissionItemActions(mission)" class="missionActions">
@@ -677,6 +728,16 @@ const rewardSequenceSteps = ref([]);
 const rewardSequenceSprite = ref("celebration");
 const optionalNextSuppressed = ref(false);
 const revealedTinyMissionIds = ref(new Set());
+const telegramSettings = ref({
+  connected: false,
+  reminders_enabled: false,
+  bot_username: "",
+  bot_link: "",
+});
+const telegramReminderPrompt = ref(null);
+const telegramConnectCode = ref(null);
+const telegramPromptBusy = ref(false);
+const telegramPromptError = ref("");
 
 const SUPPORTED_GUIDANCE_ACTIONS = new Set([
   "start",
@@ -765,6 +826,27 @@ const guidanceAgenda = computed(() => {
 const guidanceRingoDay = computed(() => {
   const ringoDay = ringoGuidance.value?.ringo_day;
   return ringoDay && typeof ringoDay === "object" ? ringoDay : null;
+});
+
+const telegramConnected = computed(() => Boolean(telegramSettings.value?.connected));
+
+const telegramRemindersEnabled = computed(() => Boolean(telegramSettings.value?.reminders_enabled));
+
+const telegramConnectLink = computed(() => {
+  const code = telegramConnectCode.value?.code;
+  if (!code) return telegramConnectCode.value?.bot_link || "";
+
+  const providedLink = telegramConnectCode.value?.bot_link;
+  if (providedLink && providedLink.includes("?start=")) return providedLink;
+
+  const baseLink = providedLink || telegramSettings.value?.bot_link;
+  if (!baseLink) {
+    const username = telegramConnectCode.value?.bot_username || telegramSettings.value?.bot_username;
+    return username ? `https://t.me/${String(username).replace(/^@/, "")}?start=${encodeURIComponent(code)}` : "";
+  }
+
+  const separator = baseLink.includes("?") ? "&" : "?";
+  return `${baseLink}${separator}start=${encodeURIComponent(code)}`;
 });
 
 const preferLocalizedRingo = computed(() => {
@@ -1566,6 +1648,72 @@ function setInteractionNarrative(messageKey, mood, params = {}) {
   });
 }
 
+function refreshTelegramSettingsFromPayload(settings) {
+  if (!settings) return;
+
+  telegramSettings.value = {
+    ...telegramSettings.value,
+    ...settings,
+  };
+}
+
+function dismissTelegramReminderPrompt() {
+  telegramReminderPrompt.value = null;
+  telegramPromptError.value = "";
+}
+
+function showTelegramPromptAfterReminder() {
+  telegramConnectCode.value = null;
+  telegramPromptError.value = "";
+
+  if (!telegramConnected.value) {
+    telegramReminderPrompt.value = { mode: "connect" };
+    return;
+  }
+
+  if (!telegramRemindersEnabled.value) {
+    telegramReminderPrompt.value = { mode: "disabled" };
+    return;
+  }
+
+  telegramReminderPrompt.value = { mode: "active" };
+}
+
+async function connectTelegramFromReminder() {
+  telegramPromptBusy.value = true;
+  telegramPromptError.value = "";
+
+  try {
+    const { data } = await api.post("/api/me/telegram/connect-code", {});
+    telegramConnectCode.value = data?.connect_code || null;
+    const link = telegramConnectLink.value;
+    if (link) {
+      window.open(link, "_blank", "noopener,noreferrer");
+    }
+  } catch (err) {
+    telegramPromptError.value = err?.response?.data?.error || t("missions.telegramPrompt.connectError");
+  } finally {
+    telegramPromptBusy.value = false;
+  }
+}
+
+async function enableTelegramRemindersFromPrompt() {
+  telegramPromptBusy.value = true;
+  telegramPromptError.value = "";
+
+  try {
+    const { data } = await api.patch("/api/me/telegram/settings", {
+      reminders_enabled: true,
+    });
+    refreshTelegramSettingsFromPayload(data?.settings);
+    telegramReminderPrompt.value = { mode: "active" };
+  } catch (err) {
+    telegramPromptError.value = err?.response?.data?.error || t("missions.telegramPrompt.enableError");
+  } finally {
+    telegramPromptBusy.value = false;
+  }
+}
+
 async function loadMissions() {
   loading.value = true;
   error.value = "";
@@ -1579,9 +1727,10 @@ async function loadMissions() {
   skipReasonPanelMissionId.value = null;
 
   try {
-    const [missionsResult, guidanceResult] = await Promise.allSettled([
+    const [missionsResult, guidanceResult, telegramResult] = await Promise.allSettled([
       api.get("/me/today-missions"),
       api.get("/me/ringo/today"),
+      api.get("/api/me/telegram/settings"),
     ]);
 
     if (missionsResult.status === "rejected") {
@@ -1592,6 +1741,12 @@ async function loadMissions() {
     ringoGuidance.value = guidanceResult.status === "fulfilled"
       ? guidanceResult.value?.data || null
       : null;
+    if (telegramResult.status === "fulfilled") {
+      telegramSettings.value = {
+        ...telegramSettings.value,
+        ...(telegramResult.value?.data?.settings || {}),
+      };
+    }
     date.value = data?.date || "";
     ringo.value = data?.ringo || null;
     if (ringo.value?.state !== dismissedCoachState.value) {
@@ -1662,6 +1817,7 @@ async function runMissionAction(mission, action, request, options = {}) {
     if (action === "remind") {
       preferMainMissionAfterReminder(mission);
       selectedTimelineMissionId.value = mission.mission_id;
+      showTelegramPromptAfterReminder();
     }
     if (options.narrative) {
       setNarrative(options.narrative);
@@ -1838,6 +1994,7 @@ async function planMissionReminder(mission) {
     await loadMissions();
     selectedTimelineMissionId.value = mission.mission_id;
     showOtherMissions.value = true;
+    showTelegramPromptAfterReminder();
     notice.value = t("missions.remindOptions.ringoConfirmation", { time: reminderTime });
     noticeType.value = "reminder";
     setNarrative({
@@ -2909,6 +3066,43 @@ function sortReminderMissions(items) {
   });
 }
 
+function reminderDeliveryMeta(mission) {
+  if (!mission || normalizedMissionStatus(mission.status) !== "remind_later") return null;
+
+  if (mission.reminder_sent_at) {
+    return {
+      state: "sent",
+      label: t("missions.reminderDelivery.sent"),
+    };
+  }
+
+  if (isReminderDue(mission)) {
+    return {
+      state: "due",
+      label: t("missions.reminderDelivery.due"),
+    };
+  }
+
+  if (!telegramConnected.value) {
+    return {
+      state: "needsConnection",
+      label: t("missions.reminderDelivery.telegramNotConnected"),
+    };
+  }
+
+  if (!telegramRemindersEnabled.value) {
+    return {
+      state: "disabled",
+      label: t("missions.reminderDelivery.telegramDisabled"),
+    };
+  }
+
+  return {
+    state: "scheduled",
+    label: t("missions.reminderDelivery.scheduled"),
+  };
+}
+
 function missionStatusCopy(mission) {
   if (!mission) return "";
 
@@ -3376,6 +3570,39 @@ onMounted(loadMissions);
   line-height: 1.5;
 }
 
+.reminderDeliveryChip {
+  display: inline-flex;
+  width: fit-content;
+  margin-top: 6px;
+  padding: 5px 8px;
+  border: 1px solid rgba(247, 215, 116, 0.22);
+  border-radius: 999px;
+  color: rgba(253, 230, 138, 0.92);
+  background: rgba(247, 215, 116, 0.075);
+  font-size: 0.76rem;
+  font-weight: 850;
+  line-height: 1.2;
+}
+
+.reminderDeliveryChip.sent {
+  border-color: rgba(74, 222, 128, 0.24);
+  color: rgba(187, 247, 208, 0.96);
+  background: rgba(74, 222, 128, 0.075);
+}
+
+.reminderDeliveryChip.due {
+  border-color: rgba(110, 229, 255, 0.24);
+  color: rgba(219, 244, 255, 0.96);
+  background: rgba(110, 229, 255, 0.075);
+}
+
+.reminderDeliveryChip.needsConnection,
+.reminderDeliveryChip.disabled {
+  border-color: rgba(251, 146, 60, 0.24);
+  color: rgba(254, 215, 170, 0.96);
+  background: rgba(251, 146, 60, 0.075);
+}
+
 .todaySaved {
   display: grid;
   gap: 4px;
@@ -3605,6 +3832,94 @@ onMounted(loadMissions);
   border-color: rgba(255, 255, 255, 0.12);
   color: rgba(255, 255, 255, 0.72);
   background: rgba(255, 255, 255, 0.045);
+}
+
+.telegramReminderPrompt {
+  display: grid;
+  gap: var(--s-12);
+  padding: 14px;
+  border-color: rgba(110, 229, 255, 0.16);
+  background: rgba(110, 229, 255, 0.055);
+}
+
+.telegramReminderPrompt.disabled {
+  border-color: rgba(247, 215, 116, 0.18);
+  background: rgba(247, 215, 116, 0.055);
+}
+
+.telegramReminderPrompt.active {
+  border-color: rgba(74, 222, 128, 0.20);
+  background: rgba(74, 222, 128, 0.055);
+}
+
+.telegramReminderPrompt h3,
+.telegramReminderPrompt p {
+  margin: 0;
+}
+
+.telegramReminderPrompt h3 {
+  color: rgba(255, 255, 255, 0.94);
+  font-size: 1rem;
+}
+
+.telegramReminderPrompt p:not(.eyebrow) {
+  margin-top: 5px;
+  color: rgba(255, 255, 255, 0.70);
+  line-height: 1.55;
+}
+
+.telegramConnectCode {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  padding: 10px 11px;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  border-radius: 14px;
+  background: rgba(0, 0, 0, 0.16);
+}
+
+.telegramConnectCode span,
+.telegramConnectCode small {
+  color: rgba(255, 255, 255, 0.66);
+  font-size: var(--cap);
+  font-weight: 780;
+}
+
+.telegramConnectCode strong {
+  color: rgba(255, 255, 255, 0.94);
+  letter-spacing: 0.04em;
+}
+
+.telegramPromptActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-8);
+  align-items: center;
+}
+
+.telegramBotLink {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
+  padding: 9px 13px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 15px;
+  color: rgba(219, 244, 255, 0.92);
+  background: rgba(255, 255, 255, 0.055);
+  font-size: 0.9rem;
+  font-weight: 850;
+  text-decoration: none;
+}
+
+.telegramPromptError {
+  padding: 9px 10px;
+  border: 1px solid rgba(248, 113, 113, 0.24);
+  border-radius: 12px;
+  color: rgba(254, 202, 202, 0.95);
+  background: rgba(248, 113, 113, 0.08);
+  font-weight: 760;
 }
 
 .missionListHead {
