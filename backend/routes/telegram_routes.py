@@ -31,6 +31,40 @@ def _service_response(payload: dict, code: int):
         fallback_error="telegram_error",
     )
 
+def _parse_bool(value, default=False):
+    if value is None:
+        return default
+
+    if isinstance(value, bool):
+        return value
+
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+
+        if normalized in {"1", "true", "yes", "on"}:
+            return True
+
+        if normalized in {"0", "false", "no", "off", ""}:
+            return False
+
+    return bool(value)
+
+
+def _parse_limit(value, default=None, max_limit=500):
+    if value is None or value == "":
+        return default
+
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError):
+        raise ValueError("invalid_limit")
+
+    if parsed < 0:
+        return 0
+
+    return min(parsed, max_limit)
+
+
 @telegram_bp.route(
     "/api/telegram/test-reminder",
     methods=["POST"],
@@ -82,9 +116,21 @@ def remind_due_missions():
             400,
         )
 
+
+    try:
+        limit = _parse_limit(payload.get("limit"))
+    except ValueError:
+        return _service_response(
+            {
+                "ok": False,
+                "error": "invalid_limit",
+            },
+            400,
+        )
+    
     result = send_due_mission_telegram_reminders(
-        dry_run=bool(payload.get("dry_run", False)),
-        limit=payload.get("limit"),
+        dry_run=_parse_bool(payload.get("dry_run", False)),
+        limit=limit,
     )
     return jsonify(result)
 

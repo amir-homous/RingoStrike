@@ -16,6 +16,53 @@ ALLOWED_SKIP_REASONS = {
 }
 
 
+# def _get_telegram_reminder_availability(conn, user_id):
+#     row = conn.execute(
+#         """
+#         SELECT
+#             telegram_chat_id,
+#             reminders_enabled
+#         FROM telegram_connections
+#         WHERE user_id = ?
+#           AND status = 'connected'
+#         ORDER BY
+#             COALESCE(connected_at, updated_at, created_at) DESC,
+#             id DESC
+#         LIMIT 1
+#         """,
+#         (user_id,),
+#     ).fetchone()
+
+#     if not row or not row["telegram_chat_id"]:
+#         return {
+#             "ok": False,
+#             "error": "telegram_not_connected",
+#             "message": "Connect Telegram to receive reminders.",
+#             "action": {
+#                 "type": "connect_telegram",
+#             },
+#         }
+
+#     try:
+#         reminders_enabled = int(row["reminders_enabled"] or 0)
+#     except (TypeError, ValueError):
+#         reminders_enabled = 0
+
+#     if reminders_enabled != 1:
+#         return {
+#             "ok": False,
+#             "error": "telegram_reminders_disabled",
+#             "message": "Enable Telegram reminders to schedule this.",
+#             "action": {
+#                 "type": "enable_telegram_reminders",
+#             },
+#         }
+
+#     return {
+#         "ok": True,
+#     }
+
+
 def _row_status(row):
     return row["log_status"] or "pending"
 
@@ -397,6 +444,7 @@ def _upsert_mission_log(
             return {"ok": False, "error": "mission_not_found"}, 404
 
         xp_earned = int(mission["xp_reward"] or 0) if status == "done" else 0
+
         event_at = utc_iso_z(datetime.now(timezone.utc))
         secured_at = datetime.now(timezone.utc).isoformat() if status == "done" else None
         done_before_you = 0
