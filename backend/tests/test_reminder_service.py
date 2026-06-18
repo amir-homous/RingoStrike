@@ -756,6 +756,169 @@ def test_stale_due_mission_reminder_is_not_sent(client):
     ]
 
 
+def test_due_tiny_mission_reminder_is_not_sent_after_parent_main_done(client):
+    from services.reminder_service import send_due_mission_telegram_reminders
+
+    user_id = _create_user("MissionFamilyCoveredUser")
+    _connect_telegram(user_id, "20012")
+    challenge_id = insert_challenge(
+        name="Mission Family Covered Challenge",
+        description="Mission family reminder suppression test",
+    )
+    enrollment_id = _create_enrollment(user_id, challenge_id)
+    main_mission_id = _create_mission(
+        challenge_id,
+        key="family-covered-main",
+        title="Family covered main",
+        mission_intensity="main",
+    )
+    tiny_mission_id = _create_mission(
+        challenge_id,
+        key="family-covered-tiny",
+        title="Family covered tiny",
+        mission_intensity="tiny",
+    )
+
+    import database
+
+    conn = database.get_db_connection()
+    try:
+        conn.execute(
+            "UPDATE missions SET parent_mission_id = ? WHERE id = ?",
+            (main_mission_id, tiny_mission_id),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+    _insert_mission_log(
+        user_id=user_id,
+        enrollment_id=enrollment_id,
+        challenge_id=challenge_id,
+        mission_id=main_mission_id,
+        status="done",
+    )
+    tiny_log_id = _insert_mission_log(
+        user_id=user_id,
+        enrollment_id=enrollment_id,
+        challenge_id=challenge_id,
+        mission_id=tiny_mission_id,
+        status="remind_later",
+        reminder_at=utc_iso_z(datetime.now(timezone.utc) - timedelta(minutes=5)),
+    )
+
+    def fail_sender(chat_id, text):
+        raise AssertionError("covered tiny reminders should not send")
+
+    result = send_due_mission_telegram_reminders(sender=fail_sender)
+
+    assert result["total_due"] == 1
+    assert result["deliverable_due_count"] == 0
+    assert result["family_satisfied_count"] == 1
+    assert result["sent"] == 0
+    assert result["skipped"] == 1
+    assert result["items"] == [
+        {
+            "mission_log_id": tiny_log_id,
+            "user_id": user_id,
+            "mission_id": tiny_mission_id,
+            "title": "Family covered tiny",
+            "has_telegram_chat_id": True,
+            "status": "skipped",
+            "reason": "mission_family_satisfied",
+        }
+    ]
+
+
+def test_main_done_suppresses_tiny_reminder_but_not_bonus_reminder(client):
+    from services.reminder_service import send_due_mission_telegram_reminders
+
+    user_id = _create_user("MissionFamilyBonusReminderUser")
+    _connect_telegram(user_id, "20013")
+    challenge_id = insert_challenge(
+        name="Mission Family Bonus Reminder Challenge",
+        description="Mission family bonus reminder delivery test",
+    )
+    enrollment_id = _create_enrollment(user_id, challenge_id)
+    main_mission_id = _create_mission(
+        challenge_id,
+        key="family-bonus-main",
+        title="Family bonus main",
+        mission_intensity="main",
+    )
+    tiny_mission_id = _create_mission(
+        challenge_id,
+        key="family-bonus-tiny",
+        title="Family bonus tiny",
+        mission_intensity="tiny",
+    )
+    bonus_mission_id = _create_mission(
+        challenge_id,
+        key="family-bonus-extra",
+        title="Family bonus extra",
+        mission_intensity="bonus",
+    )
+
+    import database
+
+    conn = database.get_db_connection()
+    try:
+        conn.execute(
+            "UPDATE missions SET parent_mission_id = ? WHERE id IN (?, ?)",
+            (main_mission_id, tiny_mission_id, bonus_mission_id),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+    _insert_mission_log(
+        user_id=user_id,
+        enrollment_id=enrollment_id,
+        challenge_id=challenge_id,
+        mission_id=main_mission_id,
+        status="done",
+    )
+    _insert_mission_log(
+        user_id=user_id,
+        enrollment_id=enrollment_id,
+        challenge_id=challenge_id,
+        mission_id=tiny_mission_id,
+        status="remind_later",
+        reminder_at=utc_iso_z(datetime.now(timezone.utc) - timedelta(minutes=5)),
+    )
+    bonus_log_id = _insert_mission_log(
+        user_id=user_id,
+        enrollment_id=enrollment_id,
+        challenge_id=challenge_id,
+        mission_id=bonus_mission_id,
+        status="remind_later",
+        reminder_at=utc_iso_z(datetime.now(timezone.utc) - timedelta(minutes=4)),
+    )
+
+    def fail_sender(chat_id, text):
+        raise AssertionError("dry-run should not send mission reminders")
+
+    result = send_due_mission_telegram_reminders(
+        dry_run=True,
+        sender=fail_sender,
+    )
+
+    assert result["total_due"] == 2
+    assert result["family_satisfied_count"] == 1
+    assert result["deliverable_due_count"] == 1
+    assert result["checked"] == 1
+    assert result["items"] == [
+        {
+            "mission_log_id": bonus_log_id,
+            "user_id": user_id,
+            "mission_id": bonus_mission_id,
+            "title": "Family bonus extra",
+            "has_telegram_chat_id": True,
+            "status": "dry_run",
+        }
+    ]
+
+
 def test_reminder_diagnostics_requires_admin_token(client):
     res = client.get("/api/telegram/reminder-diagnostics")
 

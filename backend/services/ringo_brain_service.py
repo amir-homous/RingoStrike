@@ -124,6 +124,21 @@ def _same_mission_id(a, b):
     return str(a) == str(b)
 
 
+def _mission_intensity_value(mission):
+    return mission.get("mission_intensity") or "main"
+
+
+def _mission_family_key(mission):
+    if not mission:
+        return ""
+
+    intensity = _mission_intensity_value(mission)
+    if intensity in {"tiny", "bonus"} and mission.get("parent_mission_id") is not None:
+        return str(mission.get("parent_mission_id"))
+
+    return str(mission.get("mission_id") or "")
+
+
 def _completed_linked_tiny_mission(missions):
     main_mission_ids = {
         mission.get("mission_id")
@@ -186,24 +201,68 @@ def _is_due_reminder(mission, now=None):
     return bool(reminder_at and reminder_at <= now)
 
 
-def _covered_main_ids(missions):
+def _family_done_keys(missions):
+    main_mission_keys = {
+        _mission_family_key(mission)
+        for mission in missions
+        if _mission_intensity_value(mission) == "main"
+    }
+
+    return {
+        _mission_family_key(mission)
+        for mission in missions
+        if mission.get("status") == "done"
+        and _mission_intensity_value(mission) in {"main", "tiny"}
+        and _mission_family_key(mission) in main_mission_keys
+    }
+
+
+def _main_done_family_keys(missions):
+    return {
+        _mission_family_key(mission)
+        for mission in missions
+        if mission.get("status") == "done"
+        and _mission_intensity_value(mission) == "main"
+    }
+
+
+def _family_deferred_keys(missions):
     now = datetime.now(timezone.utc)
     return {
-        mission.get("parent_mission_id")
+        _mission_family_key(mission)
         for mission in missions
         if mission.get("status") == "remind_later"
-        and mission.get("parent_mission_id") is not None
-        and (mission.get("mission_intensity") or "main") in {"tiny", "bonus"}
+        and _mission_intensity_value(mission) in {"main", "tiny"}
         and not _is_due_reminder(mission, now)
     }
 
 
+def _mission_family_is_satisfied(mission, done_keys):
+    return _mission_family_key(mission) in done_keys
+
+
+def _mission_family_is_deferred(mission, deferred_keys):
+    return _mission_family_key(mission) in deferred_keys
+
+
 def _is_required_mission(mission):
-    return (mission.get("mission_intensity") or "main") in {"main", "tiny"}
+    return _mission_intensity_value(mission) in {"main", "tiny"}
 
 
 def _is_optional_mission(mission):
     return not _is_required_mission(mission)
+
+
+def _active_reminder_missions(missions, done_keys):
+    return [
+        mission
+        for mission in missions
+        if mission.get("status") == "remind_later"
+        and not (
+            _mission_intensity_value(mission) in {"main", "tiny"}
+            and _mission_family_is_satisfied(mission, done_keys)
+        )
+    ]
 
 
 def _agenda_payload(missions, today_saved):
@@ -221,11 +280,11 @@ def _agenda_payload(missions, today_saved):
         return agenda
 
     now = datetime.now(timezone.utc)
+    done_family_keys = _family_done_keys(missions)
+    main_done_family_keys = _main_done_family_keys(missions)
+    deferred_family_keys = _family_deferred_keys(missions)
     reminded = sorted(
-        (
-            mission for mission in missions
-            if mission.get("status") == "remind_later"
-        ),
+        _active_reminder_missions(missions, done_family_keys),
         key=lambda mission: (
             _parse_reminder_at(mission.get("reminder_at")) or datetime.max.replace(tzinfo=timezone.utc),
             *_mission_sort_key(mission),
@@ -239,12 +298,12 @@ def _agenda_payload(missions, today_saved):
         None,
     )
     upcoming_reminder = reminded[0] if reminded else None
-    covered_main_ids = _covered_main_ids(missions)
     pending_required = sorted(
         (
             mission for mission in missions
             if mission.get("status") == "pending" and _is_required_mission(mission)
-            and not any(_same_mission_id(mission.get("mission_id"), covered_id) for covered_id in covered_main_ids)
+            and not _mission_family_is_deferred(mission, deferred_family_keys)
+            and not _mission_family_is_satisfied(mission, done_family_keys)
         ),
         key=_mission_sort_key,
     )
@@ -252,11 +311,15 @@ def _agenda_payload(missions, today_saved):
         (
             mission for mission in missions
             if mission.get("status") == "pending" and _is_optional_mission(mission)
+            and (
+                mission.get("parent_mission_id") is None
+                or str(mission.get("parent_mission_id")) in main_done_family_keys
+            )
         ),
         key=_mission_sort_key,
     )
     optional_candidates = sorted(
-        [*pending_optional, *(pending_required if today_saved else [])],
+        pending_optional,
         key=_mission_sort_key,
     )
     skipped_optional = sorted(
@@ -271,7 +334,6 @@ def _agenda_payload(missions, today_saved):
         pending_optional
         or reminded
         or skipped_optional
-        or (today_saved and pending_required)
     )
 
     if today_saved:
@@ -335,12 +397,20 @@ def _select_mission(missions, user_state=None, agenda=None):
         return agenda_mission
 
     preferred_intensity = "tiny" if user_state in {"returning_after_absence", "streak_risk"} else "main"
-    covered_main_ids = _covered_main_ids(missions)
+    done_family_keys = _family_done_keys(missions)
+    deferred_family_keys = _family_deferred_keys(missions)
 
     def is_available(item):
-        return item.get("status") != "pending" or not any(
-            _same_mission_id(item.get("mission_id"), covered_id)
-            for covered_id in covered_main_ids
+        if item.get("status") != "pending":
+            return not (
+                item.get("status") == "remind_later"
+                and _mission_intensity_value(item) in {"main", "tiny"}
+                and _mission_family_key(item) in done_family_keys
+            )
+
+        return (
+            _mission_family_key(item) not in done_family_keys
+            and _mission_family_key(item) not in deferred_family_keys
         )
 
     for status in ("pending", "remind_later", "skipped"):

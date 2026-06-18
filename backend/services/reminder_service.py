@@ -115,6 +115,31 @@ def find_due_mission_reminders(now=None):
                 m.estimated_minutes,
                 m.difficulty,
                 COALESCE(m.mission_intensity, 'main') AS mission_intensity,
+                m.parent_mission_id,
+                CASE
+                    WHEN COALESCE(m.mission_intensity, 'main') IN ('main', 'tiny')
+                     AND EXISTS (
+                        SELECT 1
+                        FROM mission_logs done_ml
+                        JOIN missions done_m ON done_m.id = done_ml.mission_id
+                        WHERE done_ml.user_id = ml.user_id
+                          AND done_ml.date = ml.date
+                          AND done_ml.status = 'done'
+                          AND (
+                            done_m.id = m.id
+                            OR (
+                                COALESCE(m.mission_intensity, 'main') = 'main'
+                                AND done_m.parent_mission_id = m.id
+                                AND COALESCE(done_m.mission_intensity, 'main') = 'tiny'
+                            )
+                            OR (
+                                COALESCE(m.mission_intensity, 'main') = 'tiny'
+                                AND done_m.id = m.parent_mission_id
+                            )
+                          )
+                     )
+                    THEN 1 ELSE 0
+                END AS family_satisfied,
                 c.name AS challenge_name,
                 p.title AS path_title,
                 u.username,
@@ -186,6 +211,13 @@ def _mission_reminder_is_stale(item, current):
     )
 
 
+def _mission_reminder_family_is_satisfied(item):
+    try:
+        return int(item.get("family_satisfied") or 0) == 1
+    except (TypeError, ValueError):
+        return False
+
+
 def find_deliverable_due_mission_reminders(now=None):
     current = (now or datetime.now(timezone.utc)).astimezone(timezone.utc)
     return [
@@ -193,6 +225,7 @@ def find_deliverable_due_mission_reminders(now=None):
         for item in find_due_mission_reminders(current)
         if _mission_reminder_is_deliverable(item)
         and not _mission_reminder_is_stale(item, current)
+        and not _mission_reminder_family_is_satisfied(item)
     ]
 
 
@@ -253,9 +286,12 @@ def _safe_mission_reminder_diagnostic_item(item, current):
     reminders_enabled = int(item.get("reminders_enabled") or 0) == 1
     is_due = bool(reminder_at and reminder_at <= current)
     is_stale = _mission_reminder_is_stale(item, current)
+    family_satisfied = _mission_reminder_family_is_satisfied(item)
 
     if reminder_sent_at:
         delivery_state = "sent"
+    elif is_due and family_satisfied:
+        delivery_state = "family_satisfied"
     elif is_stale:
         delivery_state = "stale"
     elif is_due and not has_chat:
@@ -298,6 +334,32 @@ def _mission_reminder_diagnostic_rows():
                 ml.reminder_sent_at,
                 ml.updated_at,
                 m.title,
+                COALESCE(m.mission_intensity, 'main') AS mission_intensity,
+                m.parent_mission_id,
+                CASE
+                    WHEN COALESCE(m.mission_intensity, 'main') IN ('main', 'tiny')
+                     AND EXISTS (
+                        SELECT 1
+                        FROM mission_logs done_ml
+                        JOIN missions done_m ON done_m.id = done_ml.mission_id
+                        WHERE done_ml.user_id = ml.user_id
+                          AND done_ml.date = ml.date
+                          AND done_ml.status = 'done'
+                          AND (
+                            done_m.id = m.id
+                            OR (
+                                COALESCE(m.mission_intensity, 'main') = 'main'
+                                AND done_m.parent_mission_id = m.id
+                                AND COALESCE(done_m.mission_intensity, 'main') = 'tiny'
+                            )
+                            OR (
+                                COALESCE(m.mission_intensity, 'main') = 'tiny'
+                                AND done_m.id = m.parent_mission_id
+                            )
+                          )
+                     )
+                    THEN 1 ELSE 0
+                END AS family_satisfied,
                 c.name AS challenge_name,
                 tc.telegram_chat_id,
                 tc.reminders_enabled
@@ -351,6 +413,7 @@ def build_mission_reminder_diagnostics(*, now=None, recent_limit=20):
     missing_telegram = [item for item in items if item["delivery_state"] == "missing_telegram"]
     reminders_disabled = [item for item in items if item["delivery_state"] == "reminders_disabled"]
     stale = [item for item in items if item["delivery_state"] == "stale"]
+    family_satisfied = [item for item in items if item["delivery_state"] == "family_satisfied"]
 
     try:
         recent_limit = max(0, int(recent_limit))
@@ -367,6 +430,7 @@ def build_mission_reminder_diagnostics(*, now=None, recent_limit=20):
             "blocked_missing_telegram_count": len(missing_telegram),
             "blocked_reminders_disabled_count": len(reminders_disabled),
             "stale_due_count": len(stale),
+            "family_satisfied_count": len(family_satisfied),
             "scheduled_future_count": len(scheduled),
             "already_sent_count": len(sent),
             "missing_telegram_count": len(missing_telegram),
@@ -378,6 +442,7 @@ def build_mission_reminder_diagnostics(*, now=None, recent_limit=20):
         "missing_telegram_reminders": missing_telegram,
         "reminders_disabled_reminders": reminders_disabled,
         "stale_due_reminders": stale,
+        "family_satisfied_reminders": family_satisfied,
         "recent_reminder_logs": items[:recent_limit],
     }
 
@@ -415,10 +480,16 @@ def send_due_mission_telegram_reminders(
         for item in all_due_items
         if _mission_reminder_is_stale(item, current)
     ]
+    family_satisfied_items = [
+        item
+        for item in all_due_items
+        if _mission_reminder_family_is_satisfied(item)
+    ]
     active_due_items = [
         item
         for item in all_due_items
         if not _mission_reminder_is_stale(item, current)
+        and not _mission_reminder_family_is_satisfied(item)
     ]
     deliverable_items = [
         item
@@ -455,6 +526,7 @@ def send_due_mission_telegram_reminders(
         "blocked_missing_telegram_count": len(missing_telegram_items),
         "blocked_reminders_disabled_count": len(reminders_disabled_items),
         "stale_due_count": len(stale_items),
+        "family_satisfied_count": len(family_satisfied_items),
         "sent": 0,
         "skipped": 0,
         "failed": 0,
@@ -471,6 +543,15 @@ def send_due_mission_telegram_reminders(
                 **log_item,
                 "status": "skipped",
                 "reason": "stale_reminder",
+            })
+            continue
+
+        if _mission_reminder_family_is_satisfied(item):
+            result["skipped"] += 1
+            result["items"].append({
+                **log_item,
+                "status": "skipped",
+                "reason": "mission_family_satisfied",
             })
             continue
 
