@@ -2,7 +2,31 @@
   <section class="missionCenter">
     <RingoRewardSequence :steps="rewardSequenceSteps" :sprite="rewardSequenceSprite" @finish="finishRewardSequence" />
 
-    <BaseCard v-if="coachActionPanel" class="coachActionPanel"
+    <BaseCard v-if="restModeActive" class="restModeCard">
+      <div class="restModeSprite" aria-hidden="true">
+        <img v-if="restModeSprite.src" :src="restModeSprite.src" :alt="restModeSprite.key" />
+      </div>
+
+      <div class="restModeCopy">
+        <p class="eyebrow compact">{{ t("missions.restMode.eyebrow") }}</p>
+        <h2>{{ t("missions.restMode.title") }}</h2>
+        <p>{{ t("missions.restMode.body") }}</p>
+        <p v-if="nearestFutureReminderLabel" class="restModeReminder">
+          {{ t("missions.restMode.nextReminder", { time: nearestFutureReminderLabel }) }}
+        </p>
+      </div>
+
+      <div class="restModeActions">
+        <BaseButton variant="primary" @click="restForNow">
+          {{ t("missions.restMode.restCta") }}
+        </BaseButton>
+        <BaseButton variant="secondary" @click="showDashboardFromRest">
+          {{ t("missions.restMode.dashboardCta") }}
+        </BaseButton>
+      </div>
+    </BaseCard>
+
+    <BaseCard v-else-if="coachActionPanel" class="coachActionPanel"
       :class="{ complete: !!todaySavedLabel, firstRunRevealPanel: props.firstRunFocus }">
       <RingoCoach v-if="showCoach" embedded :message="coachMessage" :sprite="coachSprite"
         :primary-action="coachPrimaryAction" :secondary-action="coachSecondaryAction"
@@ -142,10 +166,10 @@
         </div>
       </div>
 
-      <p v-if="todaySavedLabel" class="todaySaved">
+      <!-- <p v-if="todaySavedLabel" class="todaySaved">
         <strong>{{ todaySavedLabel }}</strong>
         <span v-if="showTodaySavedBody">{{ t("missions.todaySavedBody") }}</span>
-      </p>
+      </p> -->
 
       <section v-if="isTodaySaved && optionalNextMission" class="optionalNextStep">
         <div class="optionalNextCopy">
@@ -226,9 +250,9 @@
       :loading-text="t('missions.loadingText')" :error-title="t('missions.errorTitle')"
       :error-text="error || t('common.pleaseTryAgain')" @retry="loadMissions" />
 
-    <p v-if="showMissionNotice" class="missionNotice" :class="noticeType">
+    <!-- <p v-if="showMissionNotice" class="missionNotice" :class="noticeType">
       {{ notice }}
-    </p>
+    </p> -->
 
     <BaseCard v-if="telegramReminderPrompt" ref="telegramPromptRef" class="telegramReminderPrompt"
       :class="telegramReminderPrompt.mode">
@@ -536,7 +560,7 @@
                       {{ t("missions.optionalOtherContext") }}
                     </p>
                   </div>
-                  <BaseButton variant="secondary" @click="showOtherMissions = false">
+                  <BaseButton variant="secondary" @click="hideMissionStatusDetails">
                     {{ t("missions.hideOtherMissions") }}
                   </BaseButton>
                 </div>
@@ -741,11 +765,17 @@
         </BaseButton>
       </div>
     </BaseCard>
+
+    <div v-else-if="showMissionStatusToggle" class="missionStatusToggle">
+      <BaseButton variant="secondary" @click="missionStatusExpanded = true">
+        {{ t("missions.showMissionStatus") }}
+      </BaseButton>
+    </div>
   </section>
 </template>
 
 <script setup>
-import { computed, nextTick, onMounted, ref } from "vue";
+import { computed, nextTick, onMounted, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import api from "@/lib/api";
 import BaseButton from "@/components/ui/BaseButton.vue";
@@ -754,6 +784,7 @@ import UiState from "@/components/ui/UiState.vue";
 import RingoCoach from "@/components/ringo/RingoCoach.vue";
 import RingoRewardSequence from "@/components/ringo/RingoRewardSequence.vue";
 import PathSelection from "@/components/missions/PathSelection.vue";
+import { resolveRingoSprite } from "@/constants/ringoSprites";
 import {
   localizeMissionList,
   localizeRingoState,
@@ -762,9 +793,10 @@ import {
 const { locale, t } = useI18n();
 const props = defineProps({
   firstRunFocus: { type: Boolean, default: false },
+  focusModeActive: { type: Boolean, default: false },
 });
 
-const emit = defineEmits(["checked-in", "loaded", "first-run-complete"]);
+const emit = defineEmits(["checked-in", "loaded", "first-run-complete", "focus-state-change", "show-dashboard"]);
 
 const loading = ref(true);
 const error = ref("");
@@ -782,6 +814,8 @@ const interactionNarrative = ref(null);
 const completionNarrative = ref(null);
 const manualFocusMissionId = ref(null);
 const showOtherMissions = ref(true);
+const missionStatusExpanded = ref(false);
+const restModeActive = ref(false);
 const selectedTimelineMissionId = ref(null);
 const reminderPanelMissionId = ref(null);
 const busyReminderOption = ref("");
@@ -1683,6 +1717,70 @@ const showTodaySavedBody = computed(() => {
   return guidanceAgenda.value?.next_action_type !== "done_for_today";
 });
 
+const missionFocusState = computed(() => {
+  if (loading.value) {
+    return {
+      active: true,
+      reason: "loading",
+      todaySafe: false,
+      hasActionableSuggestion: false,
+    };
+  }
+
+  if (restModeActive.value) {
+    return {
+      active: true,
+      reason: "rest_mode",
+      todaySafe: isTodaySaved.value,
+      hasActionableSuggestion: false,
+    };
+  }
+
+  const agendaType = guidanceAgenda.value?.next_action_type || "";
+  const hasDueReminder = Boolean(dueReminderMission.value);
+  const hasPendingPrimary = pendingMissions.value.some((mission) => {
+    return normalizedMissionIntensity(mission) !== "bonus";
+  });
+  const hasActiveTinyFlow = Boolean(
+    focusMission.value &&
+    normalizedMissionIntensity(focusMission.value) === "tiny" &&
+    !missionHasStatus(focusMission.value, "done", "skipped"),
+  );
+  const hasOptionalBonusFocus = Boolean(optionalNextMission.value || agendaType === "optional_mission");
+  const isCompletionUnacknowledged = Boolean(isTodaySaved.value && !optionalNextSuppressed.value);
+  const isFutureReminderOnly = Boolean(
+    !hasPendingPrimary &&
+    !hasDueReminder &&
+    deferredMissions.value.length &&
+    deferredMissions.value.every((mission) => !isReminderDue(mission)),
+  );
+
+  let reason = "";
+  if (props.firstRunFocus) reason = "first_run";
+  else if (hasDueReminder) reason = "due_reminder";
+  else if (hasActiveTinyFlow) reason = "tiny_flow";
+  else if (hasOptionalBonusFocus) reason = "optional_bonus";
+  else if (hasPendingPrimary || agendaType === "primary_mission") reason = "primary_mission";
+  else if (isCompletionUnacknowledged) reason = "completion_unacknowledged";
+  else if (isFutureReminderOnly) reason = "future_reminder_only";
+  else reason = "done_for_today";
+
+  const active = !["future_reminder_only", "done_for_today"].includes(reason);
+
+  return {
+    active,
+    reason,
+    todaySafe: isTodaySaved.value,
+    hasActionableSuggestion: Boolean(
+      hasDueReminder ||
+      hasPendingPrimary ||
+      hasActiveTinyFlow ||
+      hasOptionalBonusFocus ||
+      guidanceActions.value.length,
+    ),
+  };
+});
+
 const guidanceActions = computed(() => {
   const actions = Array.isArray(ringoGuidance.value?.actions)
     ? ringoGuidance.value.actions
@@ -1765,11 +1863,52 @@ const showFirstRunMissionIntro = computed(() => {
   );
 });
 
+const showMissionStatusToggle = computed(() => {
+  return Boolean(
+    props.focusModeActive &&
+    !missionStatusExpanded.value &&
+    !restModeActive.value &&
+    showOtherMissionList.value
+  );
+});
+
 const showSecondaryMissionStatus = computed(() => {
   return Boolean(
     showOtherMissionList.value &&
-    !props.firstRunFocus
+    (
+      (!props.focusModeActive && !props.firstRunFocus) ||
+      missionStatusExpanded.value
+    )
   );
+});
+
+const restModeSprite = computed(() => resolveRingoSprite("sleeping"));
+
+const nearestFutureReminder = computed(() => {
+  return sortReminderMissions(
+    deferredMissions.value.filter((mission) => !isReminderDue(mission)),
+  )[0] || null;
+});
+
+const nearestFutureReminderLabel = computed(() => {
+  const timestamp = reminderTimestamp(nearestFutureReminder.value);
+  if (!Number.isFinite(timestamp)) return "";
+
+  const minutes = Math.max(1, Math.round((timestamp - Date.now()) / 60000));
+  if (minutes < 60) {
+    return t("missions.restMode.minutes", { count: minutes });
+  }
+
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = minutes % 60;
+  if (!remainingMinutes) {
+    return t("missions.restMode.hours", { count: hours });
+  }
+
+  return t("missions.restMode.hoursMinutes", {
+    hours,
+    minutes: remainingMinutes,
+  });
 });
 
 function clearNarrativeState() {
@@ -1889,6 +2028,7 @@ async function loadMissions() {
   error.value = "";
   clearNarrativeState();
   manualFocusMissionId.value = null;
+  restModeActive.value = false;
   showOtherMissions.value = true;
   selectedTimelineMissionId.value = null;
   reminderPanelMissionId.value = null;
@@ -2561,8 +2701,28 @@ function finishRewardSequence() {
 function finishForToday() {
   optionalNextSuppressed.value = true;
   manualFocusMissionId.value = null;
+  restModeActive.value = true;
+  missionStatusExpanded.value = false;
   showOtherMissions.value = true;
   setInteractionNarrative("missions.finishedForTodayMessage", "sleeping");
+}
+
+function restForNow() {
+  missionStatusExpanded.value = false;
+}
+
+function showDashboardFromRest() {
+  restModeActive.value = false;
+  emit("show-dashboard");
+}
+
+function hideMissionStatusDetails() {
+  if (props.focusModeActive) {
+    missionStatusExpanded.value = false;
+    return;
+  }
+
+  showOtherMissions.value = false;
 }
 
 function focusOptionalNextMission(mission) {
@@ -3573,6 +3733,23 @@ function handleCoachAction(action) {
   markDone(mission);
 }
 
+watch(
+  missionFocusState,
+  (state) => {
+    emit("focus-state-change", state);
+  },
+  { immediate: true },
+);
+
+watch(
+  () => props.focusModeActive,
+  (active) => {
+    if (active) {
+      missionStatusExpanded.value = false;
+    }
+  },
+);
+
 onMounted(loadMissions);
 </script>
 
@@ -3585,6 +3762,98 @@ onMounted(loadMissions);
 .missionList {
   display: grid;
   gap: var(--s-16);
+}
+
+.restModeCard {
+  position: relative;
+  overflow: hidden;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--s-20);
+  align-items: center;
+  min-height: 360px;
+  padding: 28px;
+  border-color: rgba(110, 229, 255, 0.13);
+  background:
+    radial-gradient(circle at 16% 18%, rgba(110, 229, 255, 0.12), transparent 30%),
+    radial-gradient(circle at 84% 0%, rgba(74, 222, 128, 0.08), transparent 32%),
+    rgba(255, 255, 255, 0.028);
+}
+
+.restModeCard::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, transparent, rgba(255, 255, 255, 0.035), transparent);
+  pointer-events: none;
+}
+
+.restModeSprite,
+.restModeCopy,
+.restModeActions {
+  position: relative;
+  z-index: 1;
+}
+
+.restModeSprite {
+  display: grid;
+  place-items: center;
+  width: clamp(128px, 20vw, 210px);
+  aspect-ratio: 1;
+  border-radius: 32px;
+  background: rgba(0, 0, 0, 0.16);
+}
+
+.restModeSprite img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.restModeCopy {
+  display: grid;
+  gap: 10px;
+}
+
+.restModeCopy h2,
+.restModeCopy p {
+  margin: 0;
+}
+
+.restModeCopy h2 {
+  color: rgba(255, 255, 255, 0.96);
+  font-size: clamp(1.8rem, 4vw, 3.2rem);
+  line-height: 1;
+  letter-spacing: -0.045em;
+}
+
+.restModeCopy p:not(.eyebrow) {
+  max-width: 560px;
+  color: rgba(255, 255, 255, 0.68);
+  line-height: 1.7;
+}
+
+.restModeReminder {
+  width: fit-content;
+  padding: 9px 12px;
+  border-radius: 999px;
+  color: rgba(187, 247, 208, 0.94);
+  background: rgba(74, 222, 128, 0.08);
+  border: 1px solid rgba(74, 222, 128, 0.16);
+  font-size: 0.84rem;
+  font-weight: 800;
+}
+
+.restModeActions {
+  grid-column: 2;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-8);
+}
+
+.missionStatusToggle {
+  display: flex;
+  justify-content: center;
 }
 
 .secondaryMissionList {
@@ -5219,6 +5488,25 @@ onMounted(loadMissions);
 }
 
 @media (max-width: 760px) {
+  .restModeCard {
+    grid-template-columns: 1fr;
+    min-height: 0;
+    padding: 20px;
+  }
+
+  .restModeSprite {
+    width: min(160px, 55vw);
+  }
+
+  .restModeActions {
+    grid-column: auto;
+  }
+
+  .restModeActions :deep(.btn),
+  .missionStatusToggle :deep(.btn) {
+    width: 100%;
+  }
+
   .missionStepper {
     grid-template-columns: 1fr;
   }

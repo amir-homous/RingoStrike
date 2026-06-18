@@ -16,6 +16,19 @@ The project has moved beyond raw MVP. Core progression identity is implemented. 
 
 ## Latest Launch-Hardening Updates
 
+### Mission Focus Mode
+
+Added frontend mission focus gating so the dashboard stays calm while the daily loop still has a meaningful next state:
+
+- Dashboard now listens to MissionCenter focus state instead of relying only on `firstRun=1` to hide secondary sections.
+- Full dashboard sections stay hidden during actionable mission, tiny-flow, due-reminder, optional-bonus, and unacknowledged completion states.
+- Mission Status/timeline details are collapsed by default during focus mode and require an explicit `Show mission status` action.
+- `Finish for today` now lands on a calm Rest Mode card with sleeping Ringo, safe-day copy, and future reminder timing when available.
+- Explicit dashboard reveal uses a restrained stagger/fade and respects reduced-motion preferences.
+- Added a compact premium progress strip for focus mode with level, XP progress, streak, and today-safe context.
+- Added an explicit `Show dashboard` escape hatch while keeping `Finish for today` as the successful completion path.
+- Kept the change frontend-only with no backend, schema, XP, streak, achievement, or check-in ownership changes.
+
 ### First-Run Mission Reveal Polish
 
 Added a restrained staged reveal for the first-run dashboard mission focus:
