@@ -16,6 +16,15 @@ The project has moved beyond raw MVP. Core progression identity is implemented. 
 
 ## Latest Launch-Hardening Updates
 
+### Post-First-Win Completion UX Polish
+
+Polished the mission-center finish states after the first meaningful daily action:
+
+- Main completion with an available bonus now frames the bonus as optional extra momentum and keeps `Finish for today` visible.
+- Tiny completion with an available bonus now settles into a calm today-is-safe message instead of pushing the bonus as the next focus.
+- Bonus completion, reminder-saved, optional-skip, and done-for-today copy now reinforce that stopping is a valid success.
+- Added matching English and Persian mission copy without changing progression, check-in, XP, streak, achievement, or schema behavior.
+
 ### Mission Family Agenda State Hardening
 
 Hardened main/tiny mission family behavior before wider pre-launch testing:

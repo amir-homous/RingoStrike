@@ -168,7 +168,14 @@
         <div class="optionalNextActions">
           <BaseButton variant="primary" :loading="busyId === optionalNextMission.mission_id && busyAction === 'done'"
             :disabled="missionHasStatus(optionalNextMission, 'done')" @click="markDone(optionalNextMission)">
-            {{ t("missions.doneCta") }}
+            {{
+              normalizedMissionIntensity(optionalNextMission) === "bonus"
+                ? t("missions.bonusDoneCta")
+                : t("missions.doneCta")
+            }}
+          </BaseButton>
+          <BaseButton variant="secondary" @click="finishForToday">
+            {{ t("missions.finishForToday") }}
           </BaseButton>
           <BaseButton variant="secondary"
             :loading="busyId === optionalNextMission.mission_id && busyAction === 'remind'"
@@ -190,13 +197,14 @@
             @click="skipOptionalNextMission(optionalNextMission)">
             {{ t("missions.skip") }}
           </BaseButton>
-          <BaseButton variant="secondary" @click="finishForToday">
-            {{ t("missions.finishForToday") }}
-          </BaseButton>
         </div>
       </section>
 
       <div v-if="isTodaySaved" class="completedChoices">
+        <BaseButton v-if="!optionalNextMission" variant="primary" @click="finishForToday">
+          {{ t("missions.finishForToday") }}
+        </BaseButton>
+
         <RouterLink v-if="detailsMission?.enrollment_id" class="missionGuideLink"
           :to="`/enrollment/${detailsMission.enrollment_id}`">
           {{ t("missions.detailsCta") }}
@@ -205,10 +213,6 @@
         <BaseButton v-if="otherMissions.length && !optionalNextSuppressed && !showOtherMissions" variant="secondary"
           @click="showOtherMissions = true">
           {{ t("missions.showOtherMissions", { count: otherMissions.length }) }}
-        </BaseButton>
-
-        <BaseButton v-if="!optionalNextMission" variant="secondary" @click="finishForToday">
-          {{ t("missions.finishForToday") }}
         </BaseButton>
       </div>
 
@@ -993,6 +997,13 @@ const dailySummaryNarrative = computed(() => {
   }
 
   if (summary.bonusAvailable.length) {
+    if (summary.tinyDone.length && !summary.mainDone.length) {
+      return {
+        message: t("missions.dailySummary.tinySafeWithBonusAvailable", params),
+        mood: "sleeping",
+      };
+    }
+
     return {
       message: t("missions.dailySummary.bonusAvailable", params),
       mood: "happy",
@@ -1532,6 +1543,12 @@ const plannableReminderCount = computed(() => {
 const dailySummary = computed(() => {
   const effectiveMissions = effectiveMissionRepresentatives.value;
   const done = effectiveMissions.filter((mission) => missionHasStatus(mission, "done"));
+  const mainDone = localizedMissions.value.filter((mission) => {
+    return normalizedMissionIntensity(mission) === "main" && missionHasStatus(mission, "done");
+  });
+  const tinyDone = localizedMissions.value.filter((mission) => {
+    return normalizedMissionIntensity(mission) === "tiny" && missionHasStatus(mission, "done");
+  });
   const reminded = sortReminderMissions(
     effectiveMissions.filter((mission) => missionHasStatus(mission, "remind_later")),
   );
@@ -1545,6 +1562,8 @@ const dailySummary = computed(() => {
 
   return {
     done,
+    mainDone,
+    tinyDone,
     reminded,
     skipped,
     bonusAvailable,
@@ -2352,9 +2371,18 @@ function selectSkipReason(mission, reason) {
   if (!mission) return null;
 
   busySkipReason.value = reason?.key || "";
-  const successNotice = reason?.key && reason.key !== "withoutReason"
-    ? t("missions.skipReasons.confirmationWithReason", { reason: reason.label })
-    : t("missions.skipReasons.confirmationWithoutReason");
+  const isOptionalSkip = isTodaySaved.value || normalizedMissionIntensity(mission) === "bonus";
+  const hasSkipReason = reason?.key && reason.key !== "withoutReason";
+  const successNotice = isOptionalSkip
+    ? t("missions.optionalSkipNotice")
+    : hasSkipReason
+      ? t("missions.skipReasons.confirmationWithReason", { reason: reason.label })
+      : t("missions.skipReasons.confirmationWithoutReason");
+  const narrativeMessage = isOptionalSkip
+    ? t("missions.narrative.skipOptionalConfirmed")
+    : hasSkipReason
+      ? t("missions.narrative.skipConfirmedWithReason", { reason: reason.label })
+      : t("missions.narrative.skipConfirmedWithoutReason");
   const requestBody = reason?.reason ? { reason: reason.reason } : {};
 
   return runMissionAction(
@@ -2364,10 +2392,8 @@ function selectSkipReason(mission, reason) {
     {
       successNotice,
       narrative: {
-        message: reason?.key && reason.key !== "withoutReason"
-          ? t("missions.narrative.skipConfirmedWithReason", { reason: reason.label })
-          : t("missions.narrative.skipConfirmedWithoutReason"),
-        mood: "concerned",
+        message: narrativeMessage,
+        mood: isOptionalSkip ? "calm" : "concerned",
         type: "interaction",
       },
     },
