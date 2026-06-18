@@ -10,6 +10,7 @@ The previous flow map defined the required mission states, mental model, and con
 Mission Context = origin + purpose + action + progress impact + reward impact
 ```
 
+.
 This document answers:
 
 ```txt
