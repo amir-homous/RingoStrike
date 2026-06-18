@@ -386,7 +386,14 @@ def send_due_mission_telegram_reminders(
     sender=send_telegram_message,
 ):
     current = (now or datetime.now(timezone.utc)).astimezone(timezone.utc)
-    items = find_deliverable_due_mission_reminders(current)
+    all_due_items = find_due_mission_reminders(current)
+    deliverable_items = [
+        item
+        for item in all_due_items
+        if _mission_reminder_is_deliverable(item)
+    ]
+
+    items = deliverable_items if deliverable_items else all_due_items
 
     if limit is not None:
         items = items[: max(0, int(limit))]
