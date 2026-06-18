@@ -33,6 +33,7 @@ Documented and stabilized the current VPS launch pattern:
 - Reminder delivery sends through the existing Telegram service and marks `reminder_sent_at` only after successful send.
 - Reminder diagnostics report due, scheduled future, already sent, missing Telegram, reminders-disabled, recent logs, and server time without exposing secrets.
 - MissionCenter now prompts users to connect or enable Telegram after saving a mission reminder, uses the authenticated connect-code deep link, and shows compact reminder delivery status without exposing automation tokens.
+- Stabilized first-run onboarding so incomplete users are routed back to the guided start, interrupted onboarding resumes from the safest useful step, path/challenge choice is intentionally one clear direction, and existing mission data leads to an explicit final handoff instead of silent completion.
 
 ### Backend-Backed Path And Mission System
 

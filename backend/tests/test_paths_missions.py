@@ -232,17 +232,26 @@ def test_today_missions_trigger_checkin_safely(client):
         if item["challenge_id"] == challenge_id
     )
 
-    assert day_one_challenge["today_missions_total"] == 2
+    assert day_one_challenge["today_missions_total"] == 3
     assert day_one_challenge["missions"][0]["available_today"] is True
     assert day_one_challenge["missions"][0]["today_status"] == "pending"
     assert day_one_challenge["missions"][0]["mission_intensity"] == "main"
     assert "estimated_minutes" in day_one_challenge["missions"][0]
     assert "parent_mission_id" in day_one_challenge["missions"][0]
+
     available_day_one = [
         mission for mission in day_one_challenge["missions"]
         if mission["available_today"]
     ]
-    assert {mission["mission_intensity"] for mission in available_day_one} == {"main", "tiny"}
+
+    assert {mission["mission_intensity"] for mission in available_day_one} == {"main", "tiny", "bonus"}
+
+    bonus_mission = next(
+        mission for mission in available_day_one
+        if mission["mission_intensity"] == "bonus"
+    )
+    assert bonus_mission["parent_mission_id"] is not None
+    assert bonus_mission["parent_mission_id"] is not None
     tiny_mission = next(
         mission for mission in available_day_one
         if mission["mission_intensity"] == "tiny"
@@ -258,7 +267,7 @@ def test_today_missions_trigger_checkin_safely(client):
         headers=headers,
     ).get_json()
 
-    assert enrollment_detail["mission_summary"]["today_missions_total"] == 2
+    assert enrollment_detail["mission_summary"]["today_missions_total"] == 3
     assert enrollment_detail["mission_summary"]["future_missions_total"] >= 1
     assert enrollment_detail["missions"][0]["available_today"] is True
     assert enrollment_detail["missions"][1]["today_status"] == "locked"

@@ -1,10 +1,13 @@
 <template>
   <router-view />
-  <AppFooter />
+  <AppFooter v-if="!route.meta?.hideFooter" />
 </template>
 
 <script setup>
-import AppFooter from '@/components/ui/AppFooter.vue'
+import { useRoute } from "vue-router";
+import AppFooter from "@/components/ui/AppFooter.vue";
+
+const route = useRoute();
 </script>
 
 <style>
