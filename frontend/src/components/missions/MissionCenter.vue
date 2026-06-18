@@ -2,18 +2,21 @@
   <section class="missionCenter">
     <RingoRewardSequence :steps="rewardSequenceSteps" :sprite="rewardSequenceSprite" @finish="finishRewardSequence" />
 
-    <BaseCard v-if="coachActionPanel" class="coachActionPanel" :class="{ complete: !!todaySavedLabel }">
+    <BaseCard v-if="coachActionPanel" class="coachActionPanel"
+      :class="{ complete: !!todaySavedLabel, firstRunRevealPanel: props.firstRunFocus }">
       <RingoCoach v-if="showCoach" embedded :message="coachMessage" :sprite="coachSprite"
-        :primary-action="coachPrimaryAction" :secondary-action="coachSecondaryAction" @action="handleCoachAction" />
+        :primary-action="coachPrimaryAction" :secondary-action="coachSecondaryAction"
+        :class="{ firstRunRevealStep: props.firstRunFocus, firstRunRevealCoach: props.firstRunFocus }"
+        @action="handleCoachAction" />
 
-      <div v-if="showFirstRunMissionIntro" class="firstRunMissionIntro">
+      <div v-if="showFirstRunMissionIntro" class="firstRunMissionIntro firstRunRevealStep firstRunRevealIntro">
         <p class="eyebrow compact">{{ t("missions.firstRunFocus.eyebrow") }}</p>
         <h3>{{ t("missions.firstRunFocus.title") }}</h3>
         <p>{{ t("missions.firstRunFocus.text") }}</p>
       </div>
 
-      <div v-if="showFocusMissionCard" :id="`mission-${focusMission.mission_id}`"
-        class="focusMission coachFocusMission">
+      <div v-if="showFocusMissionCard" :id="`mission-${focusMission.mission_id}`" class="focusMission coachFocusMission"
+        :class="{ firstRunRevealStep: props.firstRunFocus, firstRunRevealMission: props.firstRunFocus }">
         <span>{{ t("missions.ringoSuggestedMission") }}</span>
         <div v-if="focusMissionIntensity" class="missionIntensity" :class="focusMissionIntensity.intensity">
           <span>{{ focusMissionIntensity.label }}</span>
@@ -61,7 +64,8 @@
           </BaseButton>
         </div>
 
-        <div v-if="showFirstRunActionEducation" class="missionActionEducation"
+        <div v-if="showFirstRunActionEducation"
+          class="missionActionEducation firstRunRevealStep firstRunRevealEducation"
           :aria-label="t('missions.firstRunEducation.label')">
           <div class="educationItem">
             <strong>{{ t("missions.firstRunEducation.done.title") }}</strong>
@@ -3605,6 +3609,40 @@ onMounted(loadMissions);
     rgba(255, 255, 255, 0.035);
 }
 
+.firstRunRevealPanel .firstRunRevealStep {
+  opacity: 0;
+  transform: translateY(8px);
+  animation: firstRunRevealStep 420ms cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+}
+
+.firstRunRevealPanel .firstRunRevealCoach {
+  animation-delay: 200ms;
+}
+
+.firstRunRevealPanel .firstRunRevealIntro {
+  animation-delay: 3000ms;
+}
+
+.firstRunRevealPanel .firstRunRevealMission {
+  animation-delay: 7000ms;
+}
+
+.firstRunRevealPanel .firstRunRevealEducation {
+  animation-delay: 8500ms;
+}
+
+@keyframes firstRunRevealStep {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 .missionGuide {
   display: grid;
   gap: var(--s-16);
@@ -5303,6 +5341,14 @@ onMounted(loadMissions);
 
   .missionActionEducation {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .firstRunRevealPanel .firstRunRevealStep {
+    opacity: 1;
+    transform: none;
+    animation: none;
   }
 }
 
