@@ -410,6 +410,7 @@ export default {
       pending: "Ringo says this small step is enough for today.",
       done: "Done for today. You can stop here or keep going only if you want to.",
       skipped: "Skipped for today. No shame; this just helps Ringo keep the pressure low.",
+      bonusPending: "Optional bonus. Open it only if you want extra momentum.",
       bonusSkipped: "Skipped for now. This bonus can stay optional, or you can come back to it later.",
       reminder: "Paused for later today. Ringo will keep this step gentle.",
       reminderWithTime: "Paused until {time}. Ringo will keep this step gentle.",

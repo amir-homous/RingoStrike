@@ -16,6 +16,19 @@ The project has moved beyond raw MVP. Core progression identity is implemented. 
 
 ## Latest Launch-Hardening Updates
 
+### Mission Family Agenda State Hardening
+
+Hardened main/tiny mission family behavior before wider pre-launch testing:
+
+- Treat linked `main` and `tiny` missions as one mission family in Ringo agenda selection.
+- A reminded main mission now defers its linked tiny mission instead of immediately suggesting it.
+- A reminded tiny mission now defers the parent main mission instead of suggesting the full version again.
+- Completing a linked tiny mission keeps today safe without promoting the parent main as another active task.
+- Completing a parent main mission suppresses linked tiny reminders from Ringo agenda, MissionCenter family display, and Telegram reminder delivery.
+- Kept `bonus` missions separate from substitute-family suppression so bonus reminders/done states remain visible and deliverable.
+- Bonus can be offered after completing the parent main mission, but completing the tiny substitute now lands on a calm done-for-today state instead of pushing bonus work.
+- Kept raw `mission_logs` statuses intact and avoided schema changes; family state is computed in service/UI selection layers.
+
 ### Production Runtime And Reminder Automation Hardening
 
 Documented and stabilized the current VPS launch pattern:

@@ -52,6 +52,21 @@ def _same_mission_id(a, b):
     return str(a) == str(b)
 
 
+def _mission_intensity_value(mission):
+    return mission.get("mission_intensity") or "main"
+
+
+def _mission_family_key(mission):
+    if not mission:
+        return ""
+
+    intensity = _mission_intensity_value(mission)
+    if intensity == "tiny" and mission.get("parent_mission_id") is not None:
+        return str(mission.get("parent_mission_id"))
+
+    return str(mission.get("mission_id") or "")
+
+
 def _completed_satisfying_mission(missions):
     main_mission_ids = {
         mission.get("mission_id")
@@ -126,16 +141,52 @@ def _is_due_reminder(mission, now=None):
     return bool(reminder_at and reminder_at <= now)
 
 
-def _covered_main_ids(missions):
+def _family_done_keys(missions):
+    main_mission_keys = {
+        _mission_family_key(mission)
+        for mission in missions
+        if _mission_intensity_value(mission) == "main"
+    }
+
+    return {
+        _mission_family_key(mission)
+        for mission in missions
+        if mission.get("status") == "done"
+        and _mission_intensity_value(mission) in {"main", "tiny"}
+        and _mission_family_key(mission) in main_mission_keys
+    }
+
+
+def _main_done_family_keys(missions):
+    return {
+        _mission_family_key(mission)
+        for mission in missions
+        if mission.get("status") == "done"
+        and _mission_intensity_value(mission) == "main"
+    }
+
+
+def _family_deferred_keys(missions):
     now = datetime.now(timezone.utc)
     return {
-        mission.get("parent_mission_id")
+        _mission_family_key(mission)
         for mission in missions
         if mission.get("status") == "remind_later"
-        and mission.get("parent_mission_id") is not None
-        and (mission.get("mission_intensity") or "main") in {"tiny", "bonus"}
+        and _mission_intensity_value(mission) in {"main", "tiny"}
         and not _is_due_reminder(mission, now)
     }
+
+
+def _active_deferred_missions(missions, done_keys):
+    return [
+        mission
+        for mission in missions
+        if mission.get("status") == "remind_later"
+        and not (
+            _mission_intensity_value(mission) in {"main", "tiny"}
+            and _mission_family_key(mission) in done_keys
+        )
+    ]
 
 
 def _preferred_pending_mission(pending, preferred_intensity="main"):
@@ -199,13 +250,28 @@ def decide_ringo_state(
         )
 
     done_count = sum(1 for mission in missions if mission.get("status") == "done")
-    covered_main_ids = _covered_main_ids(missions)
+    done_family_keys = _family_done_keys(missions)
+    main_done_family_keys = _main_done_family_keys(missions)
+    deferred_family_keys = _family_deferred_keys(missions)
     pending = [
         mission for mission in missions
         if mission.get("status") == "pending"
-        and not any(_same_mission_id(mission.get("mission_id"), covered_id) for covered_id in covered_main_ids)
+        and (
+            (
+                _mission_intensity_value(mission) in {"main", "tiny"}
+                and _mission_family_key(mission) not in done_family_keys
+                and _mission_family_key(mission) not in deferred_family_keys
+            )
+            or (
+                _mission_intensity_value(mission) == "bonus"
+                and (
+                    mission.get("parent_mission_id") is None
+                    or str(mission.get("parent_mission_id")) in main_done_family_keys
+                )
+            )
+        )
     ]
-    deferred = [mission for mission in missions if mission.get("status") == "remind_later"]
+    deferred = _active_deferred_missions(missions, done_family_keys)
     skipped = [mission for mission in missions if mission.get("status") == "skipped"]
     due_reminder = _due_reminder_mission(deferred)
 

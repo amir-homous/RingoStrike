@@ -1174,15 +1174,15 @@ const dueReminderMission = computed(() => {
 });
 
 const pendingMissions = computed(() => {
-  return localizedMissions.value.filter((mission) => missionHasStatus(mission, "pending"));
+  return autoFocusableMissionRepresentatives.value.filter((mission) => missionHasStatus(mission, "pending"));
 });
 
 const deferredMissions = computed(() => {
-  return localizedMissions.value.filter((mission) => missionHasStatus(mission, "remind_later"));
+  return autoFocusableMissionRepresentatives.value.filter((mission) => missionHasStatus(mission, "remind_later"));
 });
 
 const skippedMissions = computed(() => {
-  return localizedMissions.value.filter((mission) => missionHasStatus(mission, "skipped"));
+  return autoFocusableMissionRepresentatives.value.filter((mission) => missionHasStatus(mission, "skipped"));
 });
 
 const manualFocusMission = computed(() => {
@@ -1227,6 +1227,23 @@ const rawOtherMissions = computed(() => {
   return localizedMissions.value;
 });
 
+const mainDoneMissionIds = computed(() => {
+  return new Set(
+    localizedMissions.value
+      .filter((mission) => normalizedMissionIntensity(mission) === "main" && missionHasStatus(mission, "done"))
+      .map((mission) => String(mission.mission_id)),
+  );
+});
+
+const tinyDoneParentMissionIds = computed(() => {
+  return new Set(
+    localizedMissions.value
+      .filter((mission) => normalizedMissionIntensity(mission) === "tiny" && missionHasStatus(mission, "done"))
+      .map((mission) => String(mission.parent_mission_id || ""))
+      .filter(Boolean),
+  );
+});
+
 const effectiveMissionRepresentatives = computed(() => {
   const representatives = [];
   const groups = new Map();
@@ -1267,8 +1284,21 @@ const effectiveMissionRepresentatives = computed(() => {
       }
     }
 
+    if (mainMission && missionHasStatus(mainMission, "done")) {
+      representatives.push(mainMission);
+      bonusMissions
+        .filter((mission) => missionHasStatus(mission, "pending", "done", "remind_later", "skipped"))
+        .forEach((mission) => representatives.push(mission));
+      return;
+    }
+
     if (meaningfulTiny) {
       representatives.push(meaningfulTiny);
+      if (missionHasStatus(meaningfulTiny, "done")) {
+        bonusMissions
+          .filter((mission) => missionHasStatus(mission, "pending", "done", "remind_later", "skipped"))
+          .forEach((mission) => representatives.push(mission));
+      }
       return;
     }
 
@@ -1302,6 +1332,20 @@ const effectiveMissionRepresentatives = computed(() => {
   return representatives;
 });
 
+const autoFocusableMissionRepresentatives = computed(() => {
+  return effectiveMissionRepresentatives.value.filter((mission) => {
+    if (normalizedMissionIntensity(mission) !== "bonus") return true;
+    if (!missionHasStatus(mission, "pending")) return true;
+    if (!isTodaySaved.value) return true;
+
+    const parentId = String(mission.parent_mission_id || "");
+    if (!parentId) return true;
+    if (mainDoneMissionIds.value.has(parentId)) return true;
+
+    return !tinyDoneParentMissionIds.value.has(parentId);
+  });
+});
+
 const curatedOtherMissions = computed(() => {
   const visibleMissionIds = new Set(effectiveMissionRepresentatives.value.map((mission) => String(mission.mission_id)));
 
@@ -1320,6 +1364,10 @@ const safeOptionalMissions = computed(() => {
   const candidates = effectiveMissionRepresentatives.value.filter((mission) => {
     if (!missionHasStatus(mission, "pending")) return false;
     if (isFocusMissionRendered() && sameMissionId(mission.mission_id, focusMission.value?.mission_id)) return false;
+    if (isTodaySaved.value) {
+      if (normalizedMissionIntensity(mission) !== "bonus") return false;
+      if (mission.parent_mission_id && !mainDoneMissionIds.value.has(String(mission.parent_mission_id))) return false;
+    }
 
     return true;
   });
@@ -2700,6 +2748,10 @@ function preferMainMissionAfterReminder(mission) {
 function missionGroupRootId(mission) {
   if (!mission?.mission_id) return "";
 
+  if (normalizedMissionIntensity(mission) === "bonus") {
+    return String(mission.mission_id);
+  }
+
   return String(mission.parent_mission_id || mission.mission_id);
 }
 
@@ -2737,7 +2789,7 @@ function shouldShowOtherMission(mission) {
     return true;
   }
 
-  if (intensity === "bonus" && parentMission && !missionHasStatus(parentMission, "done")) {
+  if (intensity === "bonus" && !isTodaySaved.value && missionHasStatus(mission, "pending")) {
     return false;
   }
 
@@ -3239,6 +3291,10 @@ function missionStatusCopy(mission) {
 
   if (status === "done") {
     return t("missions.statusCopy.done");
+  }
+
+  if (status === "pending" && normalizedMissionIntensity(mission) === "bonus") {
+    return t("missions.statusCopy.bonusPending");
   }
 
   if (

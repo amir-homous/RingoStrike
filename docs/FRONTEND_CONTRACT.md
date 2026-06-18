@@ -568,14 +568,25 @@ Frontend clients should remain compatible when `ringo_day` is missing. When pres
 
 Current daily mission reminders should be scheduled before `ringo_day.next_reset_at`. The frontend should block reminder options that cross this boundary when metadata is available, and the backend rejects cross-reset reminder writes with `reminder_after_next_reset`.
 
-The `agenda` object is additive and summarizes the user's daily mission situation. Existing frontend consumers can ignore it safely. `next_action_type` is selected with this priority order:
+The `agenda` object is additive and summarizes the user's daily mission situation. Existing frontend consumers can ignore it safely. `next_action_type` is selected with family-aware priority. Linked `main` and `tiny` missions are one substitute family: a future reminder on either defers the family, a completed tiny satisfies the parent main for today, and a completed main suppresses linked tiny reminder actions. `bonus` missions are not substitute variants; they remain independently visible/actionable optional work after the required family is safe.
+
+When today is not saved, priority is:
+
+1. `due_reminder`
+2. `primary_mission`
+3. `upcoming_reminder`
+4. `skipped_optional`
+5. `optional_mission`
+
+When today is saved, priority is:
 
 1. `due_reminder`
 2. `upcoming_reminder`
-3. `primary_mission`
+3. `skipped_optional`
 4. `optional_mission`
-5. `skipped_optional`
-6. `done_for_today`
+5. `done_for_today`
+
+Pending bonus missions are auto-suggested as `optional_mission` after the parent `main` mission is completed. If the user completed the `tiny` substitute instead, the agenda should prefer a calm `done_for_today` state unless a bonus reminder, skipped optional state, or other higher-priority item already exists.
 
 Agenda fields:
 
@@ -587,7 +598,7 @@ Agenda fields:
 - `pending_count`, `reminded_count`, `skipped_count`, `done_count`: counts from today's mission list.
 - `has_optional_work`: `true` when remaining work exists but should be treated as optional/paused/no-pressure context.
 
-When `today_saved` is `true`, reminders and skipped missions may still appear in `agenda` as optional context. This does not make them required and does not change mission mutation behavior.
+When `today_saved` is `true`, unresolved reminders and skipped missions may still appear in `agenda` as optional context unless they belong to an already satisfied main/tiny family. This does not make them required and does not change mission mutation behavior.
 
 Frontend guidance:
 
