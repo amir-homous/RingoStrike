@@ -222,7 +222,8 @@
       {{ notice }}
     </p>
 
-    <BaseCard v-if="telegramReminderPrompt" class="telegramReminderPrompt" :class="telegramReminderPrompt.mode">
+    <BaseCard v-if="telegramReminderPrompt" ref="telegramPromptRef" class="telegramReminderPrompt"
+      :class="telegramReminderPrompt.mode">
       <div>
         <p class="eyebrow compact">{{ t("missions.telegramPrompt.eyebrow") }}</p>
         <h3>{{ t(`missions.telegramPrompt.${telegramReminderPrompt.mode}Title`) }}</h3>
@@ -252,9 +253,9 @@
           rel="noreferrer">
           {{ t("missions.telegramPrompt.openBot") }}
         </a>
-        <RouterLink class="telegramBotLink" to="/profile">
+        <!-- <RouterLink class="telegramBotLink" to="/profile">
           {{ t("missions.telegramPrompt.settingsCta") }}
-        </RouterLink>
+        </RouterLink> -->
         <BaseButton variant="secondary" @click="dismissTelegramReminderPrompt">
           {{ t("missions.telegramPrompt.laterCta") }}
         </BaseButton>
@@ -767,6 +768,7 @@ const busyId = ref(null);
 const busyAction = ref("");
 const notice = ref("");
 const noticeType = ref("success");
+const telegramPromptRef = ref(null);
 const dismissedCoachState = ref("");
 const interactionNarrative = ref(null);
 const completionNarrative = ref(null);
@@ -1727,6 +1729,19 @@ function setInteractionNarrative(messageKey, mood, params = {}) {
   });
 }
 
+async function scrollTelegramPromptIntoView() {
+  await nextTick();
+
+  const target = telegramPromptRef.value?.$el || telegramPromptRef.value;
+
+  if (target?.scrollIntoView) {
+    target.scrollIntoView({
+      behavior: "smooth",
+      block: "center",
+    });
+  }
+}
+
 function refreshTelegramSettingsFromPayload(settings) {
   if (!settings) return;
 
@@ -1742,20 +1757,25 @@ function dismissTelegramReminderPrompt() {
 }
 
 function showTelegramPromptAfterReminder() {
-  telegramConnectCode.value = null;
   telegramPromptError.value = "";
 
   if (!telegramConnected.value) {
-    telegramReminderPrompt.value = { mode: "connect" };
+    telegramReminderPrompt.value = {
+      mode: "connect",
+    };
+    scrollTelegramPromptIntoView();
     return;
   }
 
   if (!telegramRemindersEnabled.value) {
-    telegramReminderPrompt.value = { mode: "disabled" };
+    telegramReminderPrompt.value = {
+      mode: "disabled",
+    };
+    scrollTelegramPromptIntoView();
     return;
   }
 
-  telegramReminderPrompt.value = { mode: "active" };
+  telegramReminderPrompt.value = null;
 }
 
 async function connectTelegramFromReminder() {
@@ -1785,7 +1805,7 @@ async function enableTelegramRemindersFromPrompt() {
       reminders_enabled: true,
     });
     refreshTelegramSettingsFromPayload(data?.settings);
-    telegramReminderPrompt.value = { mode: "active" };
+    telegramReminderPrompt.value = null;
   } catch (err) {
     telegramPromptError.value = err?.response?.data?.error || t("missions.telegramPrompt.enableError");
   } finally {
