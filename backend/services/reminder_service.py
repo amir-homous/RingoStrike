@@ -162,6 +162,26 @@ def find_due_mission_reminders(now=None):
     return due_items
 
 
+def _mission_reminder_is_deliverable(item):
+    if not item.get("telegram_chat_id"):
+        return False
+
+    try:
+        reminders_enabled = int(item.get("reminders_enabled") or 0)
+    except (TypeError, ValueError):
+        reminders_enabled = 0
+
+    return reminders_enabled == 1
+
+
+def find_deliverable_due_mission_reminders(now=None):
+    return [
+        item
+        for item in find_due_mission_reminders(now)
+        if _mission_reminder_is_deliverable(item)
+    ]
+
+
 def _difficulty_label(value):
     difficulty = str(value or "easy").strip().lower()
     return {
@@ -366,7 +386,7 @@ def send_due_mission_telegram_reminders(
     sender=send_telegram_message,
 ):
     current = (now or datetime.now(timezone.utc)).astimezone(timezone.utc)
-    items = find_due_mission_reminders(current)
+    items = find_deliverable_due_mission_reminders(current)
 
     if limit is not None:
         items = items[: max(0, int(limit))]
