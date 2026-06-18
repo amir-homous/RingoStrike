@@ -2,7 +2,7 @@
   <AppContainer>
     <AppHeader />
 
-    <div class="dashboardStack">
+    <div class="dashboardStack" :class="{ dashboardRevealActive }">
       <UiState :loading="loading" :error="!!error" :empty="false" :loading-title="t('dashboard.loadingTitle')"
         :loading-text="t('dashboard.loadingText')" :error-title="t('dashboard.errorTitle')"
         :error-text="error || t('common.pleaseTryAgain')" @retry="loadDashboard" />
@@ -45,24 +45,35 @@
             </button>
           </BaseCard> -->
 
-          <MissionCenter :key="missionCenterKey" :first-run-focus="showFirstRunFocus" @checked-in="handleMissionCheckin"
-            @loaded="handleMissionCenterLoaded" @first-run-complete="dismissFirstRunFocus" />
+          <div v-if="showMissionFocusMode && stats" class="missionFocusProgress">
+            <CompactProgressStrip :stats="stats" :today-safe="missionFocusState.todaySafe" />
+
+            <BaseButton variant="secondary" @click="showDashboardFromFocus">
+              {{ t("dashboard.showDashboard") }}
+            </BaseButton>
+          </div>
+
+          <MissionCenter :key="missionCenterKey" :first-run-focus="showFirstRunFocus"
+            :focus-mode-active="showMissionFocusMode" @checked-in="handleMissionCheckin"
+            @loaded="handleMissionCenterLoaded" @first-run-complete="dismissFirstRunFocus"
+            @focus-state-change="handleMissionFocusState" @show-dashboard="showDashboardFromFocus" />
 
           <!-- Legacy Today Mission is now a fallback when Mission Center has no actionable mission. -->
-          <div v-if="!showFirstRunFocus && showLegacyTodayMission" id="today-mission" class="scrollAnchor">
+          <div v-if="showFullDashboard && showLegacyTodayMission" id="today-mission"
+            class="scrollAnchor dashboardRevealItem">
             <TodayMission :challenges="challenges" :stats="stats" :loading="checkingId === missionEnrollmentId"
               @checkin="checkin" />
           </div>
 
-          <PostCheckinNextAction v-if="!showFirstRunFocus && showPostCheckinAction" :enrollment-id="missionEnrollmentId"
-            :all-done="allActiveMissionsDone" />
+          <PostCheckinNextAction v-if="showFullDashboard && showPostCheckinAction" class="dashboardRevealItem"
+            :enrollment-id="missionEnrollmentId" :all-done="allActiveMissionsDone" />
 
           <!-- 2. First progress layer: appears after the user has meaningful progress -->
-          <HeroProgressCard v-if="!showFirstRunFocus && stats && guidedState.hasProgress" :user-name="user?.name"
-            :stats="stats" :animate-pulse="xpPulse" />
+          <HeroProgressCard v-if="showFullDashboard && stats && guidedState.hasProgress" class="dashboardRevealItem"
+            :user-name="user?.name" :stats="stats" :animate-pulse="xpPulse" />
 
           <!-- 3. Progress details: XP, stats, next goal, recent progress -->
-          <div v-if="!showFirstRunFocus && stats && guidedState.hasProgress" class="progressGrid">
+          <div v-if="showFullDashboard && stats && guidedState.hasProgress" class="progressGrid dashboardRevealItem">
             <StatsGrid :stats="stats" />
 
             <div class="sideCol">
@@ -72,7 +83,7 @@
           </div>
 
           <!-- 4. Active paths: secondary daily management surface -->
-          <BaseCard v-if="!showFirstRunFocus && challenges.length" class="challengePanel">
+          <BaseCard v-if="showFullDashboard && challenges.length" class="challengePanel dashboardRevealItem">
             <div class="panelHead">
               <div>
                 <p class="sectionKicker">{{ t("dashboard.activePaths") }}</p>
@@ -112,7 +123,8 @@
           </BaseCard>
 
           <!-- 5. Next unlock hint: helps the user understand what comes next -->
-          <BaseCard v-if="!showFirstRunFocus && guidedState.hasProgress && nextLockedFeature" class="guidedLockCard">
+          <BaseCard v-if="showFullDashboard && guidedState.hasProgress && nextLockedFeature"
+            class="guidedLockCard dashboardRevealItem">
             <span class="lockDot" aria-hidden="true"></span>
 
             <div>
@@ -122,17 +134,19 @@
           </BaseCard>
 
           <!-- 6. Activity: unlocked after early progress -->
-          <div v-if="!showFirstRunFocus && guidedState.features.activity.unlocked" id="activity-feed"
-            class="scrollAnchor">
+          <div v-if="showFullDashboard && guidedState.features.activity.unlocked" id="activity-feed"
+            class="scrollAnchor dashboardRevealItem">
             <ActivityTimeline :events="activityEvents" :loading="loading" />
           </div>
 
           <!-- 7. Achievements: after activity has enough meaning -->
-          <AchievementPreview v-if="!showFirstRunFocus && guidedState.features.achievements.unlocked"
+          <AchievementPreview v-if="showFullDashboard && guidedState.features.achievements.unlocked"
+            class="dashboardRevealItem"
             :achievements="achievements" />
 
           <!-- 8. Leaderboard: lower priority because it is enrollment-scoped for now -->
-          <BaseCard v-if="!showFirstRunFocus && showLeaderboardPreview" id="leaderboard" class="guidedFeatureCard">
+          <BaseCard v-if="showFullDashboard && showLeaderboardPreview" id="leaderboard"
+            class="guidedFeatureCard dashboardRevealItem">
             <div>
               <p class="sectionKicker">{{ t("guidedFeatures.leaderboard.kicker") }}</p>
               <h2 class="panelTitle">{{ t("guidedFeatures.leaderboard.title") }}</h2>
@@ -147,7 +161,7 @@
           </BaseCard>
 
           <!-- 9. Support / account context: useful, but not the main daily action -->
-          <section v-if="!showFirstRunFocus" class="dashboardHead supportHead">
+          <section v-if="showFullDashboard" class="dashboardHead supportHead dashboardRevealItem">
             <div class="headCopy">
               <div class="eyebrow">
                 <span class="pulseDot"></span>
@@ -211,6 +225,7 @@ import UiState from "@/components/ui/UiState.vue";
 import MissionCenter from "@/components/missions/MissionCenter.vue";
 import TodayMission from "@/components/dashboard/TodayMission.vue";
 import PostCheckinNextAction from "@/components/guided/PostCheckinNextAction.vue";
+import CompactProgressStrip from "@/components/progress/CompactProgressStrip.vue";
 import HeroProgressCard from "@/components/progress/HeroProgressCard.vue";
 import StatsGrid from "@/components/progress/StatsGrid.vue";
 import NextGoalCard from "@/components/progress/NextGoalCard.vue";
@@ -259,6 +274,14 @@ const xpPulse = ref(false);
 const activityEvents = ref([]);
 const achievements = ref([]);
 const showAllChallenges = ref(false);
+const missionFocusDismissed = ref(false);
+const dashboardRevealActive = ref(false);
+const missionFocusState = ref({
+  active: true,
+  reason: "loading",
+  todaySafe: false,
+  hasActionableSuggestion: false,
+});
 const missionCenterStatus = ref({
   loaded: false,
   state: "",
@@ -311,6 +334,15 @@ const showLegacyTodayMission = computed(() => {
 
   return ["error", "no_mission_today"].includes(missionCenterStatus.value.state);
 });
+
+const showMissionFocusMode = computed(() => {
+  return Boolean(
+    !missionFocusDismissed.value &&
+    (showFirstRunFocus.value || missionFocusState.value.active),
+  );
+});
+
+const showFullDashboard = computed(() => !showMissionFocusMode.value);
 
 const orderedChallenges = computed(() => {
   return orderDashboardChallenges(challenges.value);
@@ -422,7 +454,6 @@ function buildRewardMomentPayload(rewards, oldStats, challenge, context = {}) {
 }
 
 function dismissFirstRunFocus() {
-  console.log("first-run compelete recived")
   showFirstRunFocus.value = false;
 
   const { firstRun, ...restQuery } = route.query;
@@ -431,6 +462,15 @@ function dismissFirstRunFocus() {
     path: "/dashboard",
     query: restQuery,
   });
+}
+
+function showDashboardFromFocus() {
+  missionFocusDismissed.value = true;
+  dashboardRevealActive.value = true;
+
+  if (showFirstRunFocus.value) {
+    dismissFirstRunFocus();
+  }
 }
 
 async function loadDashboard() {
@@ -565,6 +605,19 @@ function handleMissionCenterLoaded(payload) {
   };
 }
 
+function handleMissionFocusState(payload) {
+  missionFocusState.value = {
+    active: Boolean(payload?.active),
+    reason: payload?.reason || "",
+    todaySafe: Boolean(payload?.todaySafe),
+    hasActionableSuggestion: Boolean(payload?.hasActionableSuggestion),
+  };
+
+  if (missionFocusState.value.active && !missionFocusDismissed.value) {
+    dashboardRevealActive.value = false;
+  }
+}
+
 async function doLogout() {
   try {
     loggingOut.value = true;
@@ -586,6 +639,43 @@ onMounted(loadDashboard);
 
 .scrollAnchor {
   scroll-margin-top: 110px;
+}
+
+.missionFocusProgress {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--s-12);
+  align-items: center;
+}
+
+.dashboardRevealActive .dashboardRevealItem {
+  opacity: 0;
+  transform: translateY(10px);
+  animation: dashboardReveal 420ms cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+}
+
+.dashboardRevealActive .dashboardRevealItem:nth-of-type(2) {
+  animation-delay: 70ms;
+}
+
+.dashboardRevealActive .dashboardRevealItem:nth-of-type(3) {
+  animation-delay: 140ms;
+}
+
+.dashboardRevealActive .dashboardRevealItem:nth-of-type(n + 4) {
+  animation-delay: 210ms;
+}
+
+@keyframes dashboardReveal {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .dashboardHead {
@@ -890,6 +980,7 @@ onMounted(loadDashboard);
 @media (max-width: 980px) {
 
   .dashboardHead,
+  .missionFocusProgress,
   .progressGrid {
     grid-template-columns: 1fr;
   }
@@ -921,7 +1012,8 @@ onMounted(loadDashboard);
   }
 
   .primaryLink,
-  .ghostLink {
+  .ghostLink,
+  .missionFocusProgress :deep(.btn) {
     width: 100%;
     white-space: normal;
     text-align: center;
@@ -929,5 +1021,13 @@ onMounted(loadDashboard);
 
 
 
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dashboardRevealActive .dashboardRevealItem {
+    opacity: 1;
+    transform: none;
+    animation: none;
+  }
 }
 </style>
