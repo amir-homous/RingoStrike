@@ -6,6 +6,12 @@
       <RingoCoach v-if="showCoach" embedded :message="coachMessage" :sprite="coachSprite"
         :primary-action="coachPrimaryAction" :secondary-action="coachSecondaryAction" @action="handleCoachAction" />
 
+      <div v-if="showFirstRunMissionIntro" class="firstRunMissionIntro">
+        <p class="eyebrow compact">{{ t("missions.firstRunFocus.eyebrow") }}</p>
+        <h3>{{ t("missions.firstRunFocus.title") }}</h3>
+        <p>{{ t("missions.firstRunFocus.text") }}</p>
+      </div>
+
       <div v-if="showFocusMissionCard" :id="`mission-${focusMission.mission_id}`"
         class="focusMission coachFocusMission">
         <span>{{ t("missions.ringoSuggestedMission") }}</span>
@@ -53,6 +59,29 @@
             :disabled="missionHasStatus(focusMission, 'done', 'skipped')" @click="skipMission(focusMission)">
             {{ missionHasStatus(focusMission, "skipped") ? t("missions.skipped") : t("missions.skip") }}
           </BaseButton>
+        </div>
+
+        <div v-if="showFirstRunActionEducation" class="missionActionEducation"
+          :aria-label="t('missions.firstRunEducation.label')">
+          <div class="educationItem">
+            <strong>{{ t("missions.firstRunEducation.done.title") }}</strong>
+            <span>{{ t("missions.firstRunEducation.done.text") }}</span>
+          </div>
+
+          <div class="educationItem">
+            <strong>{{ t("missions.firstRunEducation.smaller.title") }}</strong>
+            <span>{{ t("missions.firstRunEducation.smaller.text") }}</span>
+          </div>
+
+          <div class="educationItem">
+            <strong>{{ t("missions.firstRunEducation.remind.title") }}</strong>
+            <span>{{ t("missions.firstRunEducation.remind.text") }}</span>
+          </div>
+
+          <div class="educationItem">
+            <strong>{{ t("missions.firstRunEducation.skip.title") }}</strong>
+            <span>{{ t("missions.firstRunEducation.skip.text") }}</span>
+          </div>
         </div>
 
         <div v-if="isReminderPanelOpen(focusMission)" class="remindOptionsPanel">
@@ -301,6 +330,29 @@
           </BaseButton>
         </div>
 
+        <div v-if="showFirstRunActionEducation" class="missionActionEducation"
+          :aria-label="t('missions.firstRunEducation.label')">
+          <div class="educationItem">
+            <strong>{{ t("missions.firstRunEducation.done.title") }}</strong>
+            <span>{{ t("missions.firstRunEducation.done.text") }}</span>
+          </div>
+
+          <div class="educationItem">
+            <strong>{{ t("missions.firstRunEducation.smaller.title") }}</strong>
+            <span>{{ t("missions.firstRunEducation.smaller.text") }}</span>
+          </div>
+
+          <div class="educationItem">
+            <strong>{{ t("missions.firstRunEducation.remind.title") }}</strong>
+            <span>{{ t("missions.firstRunEducation.remind.text") }}</span>
+          </div>
+
+          <div class="educationItem">
+            <strong>{{ t("missions.firstRunEducation.skip.title") }}</strong>
+            <span>{{ t("missions.firstRunEducation.skip.text") }}</span>
+          </div>
+        </div>
+
         <div v-if="isReminderPanelOpen(focusMission)" class="remindOptionsPanel">
           <p>{{ t("missions.remindOptions.prompt") }}</p>
           <div class="remindOptions">
@@ -372,7 +424,7 @@
       </div>
     </BaseCard>
 
-    <BaseCard v-if="showOtherMissionList" class="missionList secondaryMissionList">
+    <BaseCard v-if="showSecondaryMissionStatus" class="missionList secondaryMissionList">
       <div v-if="showOtherMissions" class="missionItems">
         <div class="missionTimeline">
           <div v-if="plannableReminderCount" class="plannerCallout">
@@ -699,7 +751,11 @@ import {
 } from "@/lib/ringoContentLocalization";
 
 const { locale, t } = useI18n();
-const emit = defineEmits(["checked-in", "loaded"]);
+const props = defineProps({
+  firstRunFocus: { type: Boolean, default: false },
+});
+
+const emit = defineEmits(["checked-in", "loaded", "first-run-complete"]);
 
 const loading = ref(true);
 const error = ref("");
@@ -1620,6 +1676,29 @@ const skipReasonOptions = computed(() => {
   }));
 });
 
+const showFirstRunActionEducation = computed(() => {
+  return Boolean(
+    props.firstRunFocus &&
+    focusMission.value &&
+    !missionGuide.value?.complete
+  );
+});
+
+const showFirstRunMissionIntro = computed(() => {
+  return Boolean(
+    props.firstRunFocus &&
+    focusMission.value &&
+    !missionGuide.value?.complete
+  );
+});
+
+const showSecondaryMissionStatus = computed(() => {
+  return Boolean(
+    showOtherMissionList.value &&
+    !props.firstRunFocus
+  );
+});
+
 function clearNarrativeState() {
   interactionNarrative.value = null;
   completionNarrative.value = null;
@@ -1773,6 +1852,12 @@ async function loadMissions() {
   }
 }
 
+function completeFirstRunFocus() {
+  if (props.firstRunFocus) {
+    emit("first-run-complete");
+  }
+}
+
 async function runMissionAction(mission, action, request, options = {}) {
   busyId.value = mission.mission_id;
   busyAction.value = action;
@@ -1813,6 +1898,7 @@ async function runMissionAction(mission, action, request, options = {}) {
     }
 
     applyMissionResponse(data, mission);
+    completeFirstRunFocus();
     await loadMissions();
     if (action === "remind") {
       preferMainMissionAfterReminder(mission);
@@ -1844,6 +1930,8 @@ async function runMissionAction(mission, action, request, options = {}) {
     busySkipReason.value = "";
   }
 }
+
+
 
 function markDone(mission) {
   return runMissionAction(
@@ -3313,6 +3401,7 @@ function focusTinyMissionFromAction(action, messageKey, fallbackMessageKey) {
     mission: tinyMission.title,
   });
   focusMissionCard(tinyMission);
+  completeFirstRunFocus();
 }
 
 function handleGuidanceAction(action) {
@@ -4933,6 +5022,62 @@ onMounted(loadMissions);
   margin-top: 4px;
 }
 
+.missionActionEducation {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: var(--s-12);
+}
+
+.educationItem {
+  display: grid;
+  gap: 4px;
+  padding: 10px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.045);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.educationItem strong {
+  color: rgba(255, 255, 255, 0.88);
+  font-size: 0.76rem;
+  font-weight: 820;
+}
+
+.educationItem span {
+  color: rgba(255, 255, 255, 0.56);
+  font-size: 0.72rem;
+  line-height: 1.45;
+}
+
+.firstRunMissionIntro {
+  display: grid;
+  gap: 6px;
+  padding: 14px;
+  margin-bottom: var(--s-12);
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at 0% 0%, rgba(110, 229, 255, 0.10), transparent 34%),
+    rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(110, 229, 255, 0.14);
+}
+
+.firstRunMissionIntro h3 {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.94);
+  font-size: 1.05rem;
+  line-height: 1.35;
+}
+
+.firstRunMissionIntro p {
+  margin: 0;
+}
+
+.firstRunMissionIntro p:not(.eyebrow) {
+  color: rgba(255, 255, 255, 0.64);
+  line-height: 1.65;
+}
+
 @media (max-width: 760px) {
   .missionStepper {
     grid-template-columns: 1fr;
@@ -5052,6 +5197,10 @@ onMounted(loadMissions);
 
   .missionActions :deep(.btn) {
     flex: 1 1 100%;
+  }
+
+  .missionActionEducation {
+    grid-template-columns: 1fr;
   }
 }
 

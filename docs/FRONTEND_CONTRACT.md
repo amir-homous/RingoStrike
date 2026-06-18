@@ -256,6 +256,12 @@ Success:
 
 Frontend join UX currently consumes this same response to show JoinSuccessMoment before routing users to the dashboard or enrollment detail. Do not add a separate onboarding/recommendation endpoint for the v1 guided start flow; onboarding and challenge discovery both reuse this join contract.
 
+## First-Run Onboarding
+
+Onboarding is a frontend-guided flow that reuses existing authenticated APIs instead of introducing a separate onboarding backend contract. Authenticated users without a local onboarding completion or skip decision are routed to `/onboarding` before the dashboard. Backend path, joined-challenge, and today-mission data may move the user to the final handoff step, but they must not silently mark onboarding complete.
+
+The onboarding flow stores the selected identity path in `localStorage.ringostrike_identity_path`, resumes at welcome/path selection when no path is stored, resumes at the recommended challenge step when a path is stored, and shows a final handoff when a first challenge or mission already exists. Completion is written only after the final handoff CTA. Skip remains local and intentional through `localStorage.ringostrike_onboarding_skipped`.
+
 ## Paths And Missions
 
 Path and mission APIs are the current backend-backed guided progression contract. They sit above the existing challenge/enrollment/check-in system and should not duplicate XP, streak, achievement, or activity calculations.

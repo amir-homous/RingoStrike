@@ -46,57 +46,68 @@ export const REWARD_MOMENT_UNLOCK_KEYS = Object.freeze([
   "publicProfile",
 ]);
 
-function readStorage(key) {
+function readStorage(key, userKey = "") {
   if (typeof window === "undefined") return null;
 
   try {
-    return window.localStorage.getItem(key);
+    return window.localStorage.getItem(scopedStorageKey(key, userKey));
   } catch {
     return null;
   }
 }
 
-function writeStorage(key, value) {
+function writeStorage(key, value, userKey = "") {
   if (typeof window === "undefined") return;
 
   try {
-    window.localStorage.setItem(key, value);
+    window.localStorage.setItem(scopedStorageKey(key, userKey), value);
   } catch {
     // Local storage can be unavailable in privacy modes; onboarding remains usable.
   }
 }
 
-export function isOnboardingDone() {
-  return readStorage(ONBOARDING_DONE_KEY) === "1";
+export function isOnboardingDone(userKey = "") {
+  return readStorage(ONBOARDING_DONE_KEY, userKey) === "1";
 }
 
-export function isOnboardingSkipped() {
-  return readStorage(ONBOARDING_SKIPPED_KEY) === "1";
+
+export function isOnboardingSkipped(userKey = "") {
+  return readStorage(ONBOARDING_SKIPPED_KEY, userKey) === "1";
 }
 
-export function setIdentityPath(path) {
+export function hasOnboardingDecision(userKey = "") {
+  return isOnboardingDone(userKey) || isOnboardingSkipped(userKey);
+}
+
+export function setIdentityPath(path, userKey = "") {
   if (!IDENTITY_PATHS.includes(path)) return;
-  writeStorage(IDENTITY_PATH_KEY, path);
+  writeStorage(IDENTITY_PATH_KEY, path, userKey);
 }
 
-export function getIdentityPath() {
-  const path = readStorage(IDENTITY_PATH_KEY);
+export function getIdentityPath(userKey = "") {
+  const path = readStorage(IDENTITY_PATH_KEY, userKey);
   return IDENTITY_PATHS.includes(path) ? path : "";
 }
 
-export function markOnboardingDone(path = "") {
-  if (path) setIdentityPath(path);
-  writeStorage(ONBOARDING_DONE_KEY, "1");
-  writeStorage(ONBOARDING_SKIPPED_KEY, "0");
+export function markOnboardingDone(path = "", userKey = "") {
+  if (path) setIdentityPath(path, userKey);
+  writeStorage(ONBOARDING_DONE_KEY, "1", userKey);
+  writeStorage(ONBOARDING_SKIPPED_KEY, "0", userKey);
 }
 
-export function markOnboardingSkipped(path = "") {
-  if (path) setIdentityPath(path);
-  writeStorage(ONBOARDING_SKIPPED_KEY, "1");
+export function markOnboardingSkipped(path = "", userKey = "") {
+  if (path) setIdentityPath(path, userKey);
+  writeStorage(ONBOARDING_SKIPPED_KEY, "1", userKey);
+  writeStorage(ONBOARDING_DONE_KEY, "0", userKey);
 }
 
-export function shouldShowOnboardingPrompt() {
-  return !isOnboardingDone() && !isOnboardingSkipped();
+export function shouldShowOnboardingPrompt(userKey = "") {
+  return !hasOnboardingDecision(userKey);
+}
+
+export function hasTodayMissionPayload(payload) {
+  const missions = payload?.missions;
+  return Array.isArray(missions) && missions.length > 0;
 }
 
 export function getSuggestedChallengeName(path) {
@@ -188,4 +199,24 @@ export function getNewlyUnlockedGuidedFeatures({ oldStats, newStats } = {}) {
     const threshold = GUIDED_FEATURE_THRESHOLDS[featureKey];
     return oldCount < threshold && newCount >= threshold;
   });
+}
+
+export function getOnboardingUserKey(user = {}) {
+  const userId = user?.user_id ?? user?.id;
+
+  if (userId !== undefined && userId !== null && String(userId).trim()) {
+    return `user:${userId}`;
+  }
+
+  const username = String(user?.username || "").trim().toLowerCase();
+
+  if (username) {
+    return `username:${username}`;
+  }
+
+  return "";
+}
+
+function scopedStorageKey(baseKey, userKey = "") {
+  return userKey ? `${baseKey}:${userKey}` : baseKey;
 }

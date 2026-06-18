@@ -13,7 +13,7 @@ def _tiny_mission(parent_key, key, title, description, *, minutes=2, xp_reward=3
     )
 
 
-def _bonus_mission(parent_key, key, title, description, *, minutes=5, xp_reward=5):
+def _bonus_mission(parent_key, key, title, description, *, minutes=5, xp_reward=5, unlock_after_days=0):
     return (
         key,
         title,
@@ -23,7 +23,7 @@ def _bonus_mission(parent_key, key, title, description, *, minutes=5, xp_reward=
             "mission_intensity": "bonus",
             "estimated_minutes": minutes,
             "parent_mission_key": parent_key,
-            "unlock_after_days": 1,
+            "unlock_after_days": unlock_after_days,
         },
     )
 
@@ -117,6 +117,13 @@ MVP_PATHS = [
                     ("warm-up", "Warm up gently", "Spend two minutes preparing your body before the set.", 5),
                     ("cool-down", "Cool down", "Take one calm minute to breathe and reset.", 5),
                     _tiny_mission("bodyweight-set", "bodyweight-set-tiny", "Do three honest reps", "Do three calm reps of any bodyweight movement.", minutes=2),
+                    _bonus_mission(
+                        "bodyweight-set",
+                        "bodyweight-set-bonus",
+                        "Add one steady set",
+                        "If the first set felt okay, add one extra calm set or hold.",
+                        minutes=3,
+                    ),
                 ],
             },
             {
@@ -132,6 +139,13 @@ MVP_PATHS = [
                     ("posture-check", "Check your posture", "Reset your posture once during the day.", 5),
                     ("mobility-note", "Log a mobility note", "Record one sentence about what improved.", 5),
                     _tiny_mission("stretch-focus", "stretch-focus-tiny", "Stretch for one minute", "Pick one tight area and give it one calm minute.", minutes=1),
+                    _bonus_mission(
+                        "stretch-focus",
+                        "stretch-focus-bonus",
+                        "Stretch one more area",
+                        "If your body wants more room, choose one more tight area and stretch it gently.",
+                        minutes=3,
+                    ),
                 ],
             },
         ],
@@ -172,6 +186,13 @@ MVP_PATHS = [
                     ("highlight-one", "Highlight one idea", "Choose one sentence or idea worth keeping.", 5),
                     ("share-insight", "Explain the insight", "Explain the idea briefly to yourself or someone else.", 5),
                     _tiny_mission("read-five-pages", "read-five-pages-tiny", "Read one page", "Read one page or one short section. That still keeps the thread alive.", minutes=3),
+                    _bonus_mission(
+                        "read-five-pages",
+                        "read-five-pages-bonus",
+                        "Save one extra idea",
+                        "If the reading has momentum, save one more useful idea before you stop.",
+                        minutes=4,
+                    ),
                 ],
             },
             {
@@ -187,6 +208,13 @@ MVP_PATHS = [
                     ("choose-drill", "Choose one drill", "Pick one small drill instead of practicing everything.", 5),
                     ("review-progress", "Review one improvement", "Name one thing that felt better than before.", 5),
                     _tiny_mission("practice-15", "practice-15-tiny", "Practice for three minutes", "Do one tiny drill for three focused minutes.", minutes=3),
+                    _bonus_mission(
+                        "practice-15",
+                        "practice-15-bonus",
+                        "Repeat one small drill",
+                        "If practice feels alive, repeat one tiny drill once more with attention.",
+                        minutes=5,
+                    ),
                 ],
             },
         ],
@@ -227,6 +255,13 @@ MVP_PATHS = [
                     ("collect-proof", "Collect proof", "Save one screenshot, metric, note, or example.", 5),
                     ("next-edit", "Name the next edit", "Write the next small improvement to make.", 5),
                     _tiny_mission("improve-asset", "improve-asset-tiny", "Make one tiny edit", "Change one line, one word, one image, or one detail on a career asset.", minutes=3),
+                    _bonus_mission(
+                        "improve-asset",
+                        "improve-asset-bonus",
+                        "Save one proof",
+                        "If the asset moved forward, save one screenshot, note, or before-after proof.",
+                        minutes=4,
+                    ),
                 ],
             },
             {
@@ -242,6 +277,13 @@ MVP_PATHS = [
                     ("update-context", "Update context", "Write one note about the relationship or opportunity.", 5),
                     ("next-contact", "Choose next contact", "Pick who you might reach out to next.", 5),
                     _tiny_mission("send-signal", "send-signal-tiny", "Draft one sentence", "Write one sentence you could send later, even if you do not send it now.", minutes=2),
+                    _bonus_mission(
+                        "improve-asset",
+                        "improve-asset-bonus",
+                        "Save one proof",
+                        "If the asset moved forward, save one screenshot, note, or before-after proof.",
+                        minutes=4,
+                    ),
                 ],
             },
         ],
@@ -282,6 +324,13 @@ MVP_PATHS = [
                     ("polish-one-pass", "Polish once", "Make one improvement pass, then stop.", 5),
                     ("share-or-save", "Share or save it", "Publish it or save it to a ready folder.", 10),
                     _tiny_mission("draft-small", "draft-small-tiny", "Write one rough line", "Create one rough line, beat, frame, or sentence for the draft.", minutes=2),
+                    _bonus_mission(
+                        "draft-small",
+                        "draft-small-bonus",
+                        "Create one extra version",
+                        "If the draft has energy, make one small alternate version before you stop.",
+                        minutes=5,
+                    ),
                 ],
             },
             {
@@ -297,6 +346,13 @@ MVP_PATHS = [
                     ("remix-it", "Remix it", "Change the format, audience, mood, or constraint.", 10),
                     ("save-version", "Save the version", "Keep the remix as proof of practice.", 5),
                     _tiny_mission("choose-source", "choose-source-tiny", "Pick one reference", "Choose one reference or prompt and stop there if that is enough.", minutes=1),
+                    _bonus_mission(
+                        "choose-source",
+                        "choose-source-bonus",
+                        "Try one alternate angle",
+                        "If the source feels interesting, write one different angle, mood, or constraint for the remix.",
+                        minutes=4,
+                    ),
                 ],
             },
         ],
@@ -337,6 +393,13 @@ MVP_PATHS = [
                     ("prepare-room", "Prepare the room", "Make one small change that helps sleep feel easier.", 5),
                     ("sleep-note", "Write a sleep note", "Record what helped or got in the way tonight.", 5),
                     _tiny_mission("dim-inputs", "dim-inputs-tiny", "Dim one input", "Lower one light, one sound, or one screen for a minute.", minutes=1),
+                    _bonus_mission(
+                        "dim-inputs",
+                        "dim-inputs-bonus",
+                        "Add one calm cue",
+                        "If the night still feels noisy, add one small cue that tells your body it can slow down.",
+                        minutes=3,
+                    ),
                 ],
             },
             {
@@ -352,6 +415,13 @@ MVP_PATHS = [
                     ("no-rush-start", "Start without rushing", "Take one calm minute before diving into tasks.", 5),
                     ("energy-check", "Check energy", "Notice your energy level without judging it.", 5),
                     _tiny_mission("morning-light", "morning-light-tiny", "Find light for one minute", "Stand near a window or step outside for one minute.", minutes=1),
+                    _bonus_mission(
+                        "morning-light",
+                        "morning-light-bonus",
+                        "Add one calm breath",
+                        "If the morning feels okay, take one slow breath after finding light.",
+                        minutes=2,
+                    ),
                 ],
             },
         ],
@@ -522,6 +592,7 @@ def ensure_mvp_paths_and_missions(conn):
                         xp_reward = excluded.xp_reward,
                         order_index = excluded.order_index,
                         suggested_time = excluded.suggested_time,
+                        unlock_after_days = excluded.unlock_after_days,
                         mission_intensity = COALESCE(excluded.mission_intensity, missions.mission_intensity, 'main'),
                         estimated_minutes = excluded.estimated_minutes,
                         ringo_message = excluded.ringo_message,
