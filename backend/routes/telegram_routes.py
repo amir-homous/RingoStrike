@@ -3,7 +3,11 @@ from flask import Blueprint, jsonify, request
 from auth import require_auth
 from services.telegram_service import send_telegram_message
 from config import Config
-from services.reminder_service import send_unchecked_test_reminder
+from services.reminder_service import (
+    build_mission_reminder_diagnostics,
+    send_due_mission_telegram_reminders,
+    send_unchecked_test_reminder,
+)
 from services.telegram_connection_service import (
     connect_telegram_code,
     create_connect_code,
@@ -26,6 +30,40 @@ def _service_response(payload: dict, code: int):
         code,
         fallback_error="telegram_error",
     )
+
+def _parse_bool(value, default=False):
+    if value is None:
+        return default
+
+    if isinstance(value, bool):
+        return value
+
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+
+        if normalized in {"1", "true", "yes", "on"}:
+            return True
+
+        if normalized in {"0", "false", "no", "off", ""}:
+            return False
+
+    return bool(value)
+
+
+def _parse_limit(value, default=None, max_limit=500):
+    if value is None or value == "":
+        return default
+
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError):
+        raise ValueError("invalid_limit")
+
+    if parsed < 0:
+        return 0
+
+    return min(parsed, max_limit)
+
 
 @telegram_bp.route(
     "/api/telegram/test-reminder",
@@ -55,6 +93,62 @@ def remind_unchecked_test():
 
     result = send_unchecked_test_reminder()
     return jsonify(result)
+
+
+@telegram_bp.post("/api/telegram/remind-due-missions")
+def remind_due_missions():
+    token = request.headers.get("X-Reminder-Token")
+
+    if not Config.REMINDER_ADMIN_TOKEN or token != Config.REMINDER_ADMIN_TOKEN:
+        return jsonify({
+            "ok": False,
+            "error": "unauthorized",
+        }), 401
+
+    payload, payload_error = parse_json_object_payload(request)
+
+    if payload_error:
+        return _service_response(
+            {
+                "ok": False,
+                "error": payload_error,
+            },
+            400,
+        )
+
+
+    try:
+        limit = _parse_limit(payload.get("limit"))
+    except ValueError:
+        return _service_response(
+            {
+                "ok": False,
+                "error": "invalid_limit",
+            },
+            400,
+        )
+    
+    result = send_due_mission_telegram_reminders(
+        dry_run=_parse_bool(payload.get("dry_run", False)),
+        limit=limit,
+    )
+    return jsonify(result)
+
+
+@telegram_bp.get("/api/telegram/reminder-diagnostics")
+def reminder_diagnostics():
+    token = request.headers.get("X-Reminder-Token")
+
+    if not Config.REMINDER_ADMIN_TOKEN or token != Config.REMINDER_ADMIN_TOKEN:
+        return jsonify({
+            "ok": False,
+            "error": "unauthorized",
+        }), 401
+
+    payload = build_mission_reminder_diagnostics(
+        recent_limit=request.args.get("recent_limit", 20),
+    )
+    return jsonify(payload)
 
 
 @telegram_bp.get("/api/me/telegram/settings")

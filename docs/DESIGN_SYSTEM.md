@@ -105,12 +105,12 @@ Feature components:
 - achievements: cards, grids, previews, toasts
 - activity: timeline, timeline items, day grouping, empty state
 - challenges: challenge card
-- missions: MissionCenter and PathSelection
+- missions: MissionCenter, PathSelection, focus-mode mission surfaces, collapsed mission status details, and Rest Mode
 - feedback: RewardMoment for check-ins and JoinSuccessMoment for softer challenge-start transitions
 - guided: reusable first-path empty state
 - onboarding: welcome, identity path selection, and suggested challenge steps
 - profile: hero card, stats grid, settings card/modal, avatar, consistency heatmap
-- progress: hero progress, next goal, recent feed, stats grid, XP bar
+- progress: hero progress, compact focus strip, next goal, recent feed, stats grid, XP bar
 
 ## Frontend Pages
 
@@ -141,7 +141,7 @@ happy, celebration, achievement, proud, sad, sleeping, focus, victory
 
 `RingoCoach.vue` displays a sprite, message, and one or two actions from backend Ringo decisions. `RewardMoment.vue` no longer carries its own Ringo image; it is a focused reward dialog with XP, streak, achievements, and feature unlock hints.
 
-Current asset consistency note: `talking.png` and `victory.png` are referenced by the sprite map but are not present in the current asset folder. Restore those files or remove the keys/imports before relying on clean production builds.
+Current asset consistency note: the sprite map resolves assets from `frontend/src/assets/ringo/` with fallback aliases. When adding or renaming moods, keep `RINGO_SPRITE_KEYS`, sprite filenames, and backend `sprite_key` values aligned.
 
 ## Design Rules For Future Work
 
@@ -150,6 +150,9 @@ Current asset consistency note: `talking.png` and `victory.png` are referenced b
 - Prefer meaningful reward feedback after check-ins and achievement unlocks.
 - Use JoinSuccessMoment after starting a challenge when a softer transition prevents new users from being dropped directly into dense enrollment details.
 - Use MissionCenter as the first dashboard surface. Keep legacy TodayMission available as a fallback only when the mission API errors or returns no actionable mission.
+- During mission focus mode, keep the visible surface limited to Ringo guidance, the current mission/reminder/completion state, compact progress, and an explicit `Show mission status` detail reveal.
+- Treat `Finish for today` as a successful ending. It should land on the calm Rest Mode screen rather than dumping the user into dense dashboard sections.
+- Reveal the full dashboard only after focus mode is resolved or the user explicitly chooses `Show dashboard`; use subtle stagger/fade motion and honor reduced-motion preferences.
 - Keep `/paths` as the richer path planning surface: path picker, active path status, challenge stage panels, mission previews, and daily path summary.
 - Keep progressive disclosure subtle: reveal deeper sections after existing check-in stats make them meaningful, without blocking direct routes.
 - Make public profile views shareable but privacy-safe.
@@ -162,4 +165,4 @@ Current asset consistency note: `talking.png` and `victory.png` are referenced b
 - Tailwind is listed in dependencies and `assets/main.css` contains Tailwind directives, but that file is not imported by `main.js`.
 - `frontend/src/style.css` is Vite starter styling and appears unused.
 - API docs view may visually and contractually lag behind the actual backend.
-- Ringo sprite map currently references missing `talking.png` and `victory.png`.
+- Full Mission Context UX is not complete yet. Current focus-mode polish improves attention and family-aware display, but future work is still needed for consistent path/challenge/mission context framing everywhere.

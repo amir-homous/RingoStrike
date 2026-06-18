@@ -10,7 +10,7 @@ def _before_next_reset_at():
     )
     target = min(
         datetime.now(timezone.utc) + timedelta(hours=2),
-        next_reset - timedelta(minutes=1),
+        next_reset - timedelta(seconds=1),
     )
     return target.isoformat()
 
@@ -112,6 +112,49 @@ def test_seeded_missions_include_linked_intensity_variants(client):
     assert bonus_links >= 5
 
 
+def test_seeded_missions_have_planner_metadata(client):
+    import database
+
+    valid_suggested_times = {"morning", "midday", "afternoon", "evening", "night", "anytime"}
+    valid_difficulties = {"easy", "medium", "hard"}
+
+    conn = database.get_db_connection()
+    try:
+        rows = conn.execute(
+            """
+            SELECT
+                key,
+                title,
+                difficulty,
+                suggested_time,
+                COALESCE(mission_intensity, 'main') AS mission_intensity,
+                estimated_minutes
+            FROM missions
+            WHERE status = 'Active'
+            """
+        ).fetchall()
+    finally:
+        conn.close()
+
+    assert rows
+    assert all(row["estimated_minutes"] is not None for row in rows)
+    assert all(int(row["estimated_minutes"]) > 0 for row in rows)
+    assert all(row["suggested_time"] in valid_suggested_times for row in rows)
+    assert all(row["suggested_time"] != "Anytime today" for row in rows)
+    assert all(row["difficulty"] in valid_difficulties for row in rows)
+
+    tiny_rows = [row for row in rows if row["mission_intensity"] == "tiny"]
+    main_rows = [row for row in rows if row["mission_intensity"] == "main"]
+    bonus_rows = [row for row in rows if row["mission_intensity"] == "bonus"]
+
+    assert tiny_rows
+    assert main_rows
+    assert bonus_rows
+    assert all(1 <= int(row["estimated_minutes"]) <= 5 for row in tiny_rows)
+    assert all(1 <= int(row["estimated_minutes"]) <= 25 for row in main_rows)
+    assert all(1 <= int(row["estimated_minutes"]) <= 15 for row in bonus_rows)
+
+
 def test_paths_seed_and_start_user_path(client):
     user = register_user(client, username="PathStarter")
     headers = auth_headers(user["access_token"])
@@ -189,17 +232,26 @@ def test_today_missions_trigger_checkin_safely(client):
         if item["challenge_id"] == challenge_id
     )
 
-    assert day_one_challenge["today_missions_total"] == 2
+    assert day_one_challenge["today_missions_total"] == 3
     assert day_one_challenge["missions"][0]["available_today"] is True
     assert day_one_challenge["missions"][0]["today_status"] == "pending"
     assert day_one_challenge["missions"][0]["mission_intensity"] == "main"
     assert "estimated_minutes" in day_one_challenge["missions"][0]
     assert "parent_mission_id" in day_one_challenge["missions"][0]
+
     available_day_one = [
         mission for mission in day_one_challenge["missions"]
         if mission["available_today"]
     ]
-    assert {mission["mission_intensity"] for mission in available_day_one} == {"main", "tiny"}
+
+    assert {mission["mission_intensity"] for mission in available_day_one} == {"main", "tiny", "bonus"}
+
+    bonus_mission = next(
+        mission for mission in available_day_one
+        if mission["mission_intensity"] == "bonus"
+    )
+    assert bonus_mission["parent_mission_id"] is not None
+    assert bonus_mission["parent_mission_id"] is not None
     tiny_mission = next(
         mission for mission in available_day_one
         if mission["mission_intensity"] == "tiny"
@@ -215,7 +267,7 @@ def test_today_missions_trigger_checkin_safely(client):
         headers=headers,
     ).get_json()
 
-    assert enrollment_detail["mission_summary"]["today_missions_total"] == 2
+    assert enrollment_detail["mission_summary"]["today_missions_total"] == 3
     assert enrollment_detail["mission_summary"]["future_missions_total"] >= 1
     assert enrollment_detail["missions"][0]["available_today"] is True
     assert enrollment_detail["missions"][1]["today_status"] == "locked"
@@ -356,6 +408,28 @@ def test_today_missions_trigger_checkin_safely(client):
     assert skip_data["mission"]["xp_earned"] == 0
     assert skip_data["mission"]["skip_reason"] is None
 
+    updated_missions = client.get("/me/today-missions", headers=headers).get_json()["missions"]
+    completed_mission = next(
+        item for item in updated_missions
+        if item["mission_id"] == first["mission_id"]
+    )
+    reminded_mission = next(
+        item for item in updated_missions
+        if item["mission_id"] == second["mission_id"]
+    )
+    skipped_mission = next(
+        item for item in updated_missions
+        if item["mission_id"] == third["mission_id"]
+    )
+
+    assert completed_mission["done_at"].endswith("Z")
+    assert completed_mission["status_updated_at"] == completed_mission["done_at"]
+    assert reminded_mission["reminder_at"] == reminder_at
+    assert reminded_mission["reminder_set_at"].endswith("Z")
+    assert reminded_mission["status_updated_at"] == reminded_mission["reminder_set_at"]
+    assert skipped_mission["skipped_at"].endswith("Z")
+    assert skipped_mission["status_updated_at"] == skipped_mission["skipped_at"]
+
     stats_res = client.get("/me/stats", headers=headers)
 
     assert stats_res.status_code == 200
@@ -402,6 +476,405 @@ def test_mission_reminder_rejects_time_after_next_daily_reset(client):
 
     assert unchanged_mission["status"] == "pending"
     assert unchanged_mission["reminder_at"] is None
+
+
+def test_today_missions_ringo_suggests_pending_after_future_reminder(client):
+    user = register_user(client, username="ReminderNextAction")
+    headers = auth_headers(user["access_token"])
+
+    paths_data = client.get("/paths", headers=headers).get_json()
+    fitness_path = next(item for item in paths_data["items"] if item["key"] == "fitness")
+
+    client.post(f"/paths/{fitness_path['path_id']}/start", headers=headers)
+    challenge_id = client.get(
+        f"/paths/{fitness_path['path_id']}/challenges",
+        headers=headers,
+    ).get_json()["items"][0]["challenge_id"]
+    client.post(
+        f"/challenges/{challenge_id}/join",
+        json={},
+        headers=headers,
+    )
+
+    import database
+
+    conn = database.get_db_connection()
+    try:
+        conn.execute(
+            "UPDATE missions SET unlock_after_days = 0 WHERE challenge_id = ?",
+            (challenge_id,),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+    missions = client.get("/me/today-missions", headers=headers).get_json()["missions"]
+    first = missions[0]
+    next_pending = next(
+        mission for mission in missions
+        if mission["mission_id"] != first["mission_id"]
+        and mission["status"] == "pending"
+    )
+
+    remind_res = client.post(
+        f"/me/missions/{first['mission_id']}/remind-later",
+        json={"reminder_at": _before_next_reset_at()},
+        headers=headers,
+    )
+    assert remind_res.status_code == 200
+
+    payload = client.get("/me/today-missions", headers=headers).get_json()
+
+    assert payload["ok"] is True
+    assert payload["ringo"]["state"] == "today_not_started"
+    assert "I saved that reminder" in payload["ringo"]["message"]
+    assert next_pending["title"] in payload["ringo"]["message"]
+    assert payload["ringo"]["primary_action"]["mission_id"] == next_pending["mission_id"]
+
+
+def test_today_missions_ringo_skips_parent_after_linked_tiny_reminder(client):
+    user = register_user(client, username="TinyReminderNextAction")
+    headers = auth_headers(user["access_token"])
+
+    paths_data = client.get("/paths", headers=headers).get_json()
+    fitness_path = next(item for item in paths_data["items"] if item["key"] == "fitness")
+
+    client.post(f"/paths/{fitness_path['path_id']}/start", headers=headers)
+    challenges = client.get(
+        f"/paths/{fitness_path['path_id']}/challenges",
+        headers=headers,
+    ).get_json()["items"]
+    first_challenge = challenges[0]
+    second_challenge = challenges[1]
+    client.post(
+        f"/challenges/{first_challenge['challenge_id']}/join",
+        json={},
+        headers=headers,
+    )
+    client.post(
+        f"/challenges/{second_challenge['challenge_id']}/join",
+        json={},
+        headers=headers,
+    )
+
+    import database
+
+    conn = database.get_db_connection()
+    try:
+        conn.execute(
+            "UPDATE missions SET unlock_after_days = 0 WHERE challenge_id IN (?, ?)",
+            (first_challenge["challenge_id"], second_challenge["challenge_id"]),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+    missions = client.get("/me/today-missions", headers=headers).get_json()["missions"]
+    first_main = next(
+        mission for mission in missions
+        if mission["challenge_id"] == first_challenge["challenge_id"]
+        and mission["mission_intensity"] == "main"
+    )
+    first_tiny = next(
+        mission for mission in missions
+        if mission["mission_intensity"] == "tiny"
+        and mission["parent_mission_id"] == first_main["mission_id"]
+    )
+    second_main = next(
+        mission for mission in missions
+        if mission["challenge_id"] == second_challenge["challenge_id"]
+        and mission["mission_intensity"] == "main"
+    )
+
+    remind_res = client.post(
+        f"/me/missions/{first_tiny['mission_id']}/remind-later",
+        json={"reminder_at": _before_next_reset_at()},
+        headers=headers,
+    )
+    assert remind_res.status_code == 200
+
+    payload = client.get("/me/today-missions", headers=headers).get_json()
+
+    assert payload["ok"] is True
+    assert payload["ringo"]["state"] == "today_not_started"
+    assert "I saved that reminder" in payload["ringo"]["message"]
+    assert second_main["title"] in payload["ringo"]["message"]
+    assert first_main["title"] not in payload["ringo"]["message"]
+    assert payload["ringo"]["primary_action"]["mission_id"] == second_main["mission_id"]
+
+
+def test_plan_reminders_schedules_pending_only_before_reset(client):
+    user = register_user(client, username="ReminderPlanner")
+    headers = auth_headers(user["access_token"])
+
+    paths_data = client.get("/paths", headers=headers).get_json()
+    learning_path = next(item for item in paths_data["items"] if item["key"] == "learning")
+
+    client.post(f"/paths/{learning_path['path_id']}/start", headers=headers)
+    challenge_id = client.get(
+        f"/paths/{learning_path['path_id']}/challenges",
+        headers=headers,
+    ).get_json()["items"][0]["challenge_id"]
+    client.post(
+        f"/challenges/{challenge_id}/join",
+        json={},
+        headers=headers,
+    )
+
+    import database
+
+    conn = database.get_db_connection()
+    try:
+        conn.execute(
+            "UPDATE missions SET unlock_after_days = 0 WHERE challenge_id = ?",
+            (challenge_id,),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+    missions = client.get("/me/today-missions", headers=headers).get_json()["missions"]
+    first, second, third = missions[:3]
+    existing_reminder_at = _before_next_reset_at()
+
+    client.post(
+        f"/me/missions/{first['mission_id']}/remind-later",
+        json={"reminder_at": existing_reminder_at},
+        headers=headers,
+    )
+    client.post(
+        f"/me/missions/{second['mission_id']}/done",
+        headers=headers,
+    )
+    client.post(
+        f"/me/missions/{third['mission_id']}/skip",
+        headers=headers,
+    )
+
+    plan_res = client.post("/me/missions/plan-reminders", headers=headers)
+
+    assert plan_res.status_code == 200
+    plan_data = plan_res.get_json()
+    assert plan_data["ok"] is True
+    assert "scheduled" in plan_data
+    assert "unscheduled" in plan_data
+    assert plan_data["summary"]["scheduled_count"] == len(plan_data["scheduled"])
+    assert plan_data["summary"]["unscheduled_count"] == len(plan_data["unscheduled"])
+
+    next_reset = datetime.fromisoformat(
+        plan_data["ringo_day"]["next_reset_at"].replace("Z", "+00:00"),
+    )
+    for item in plan_data["scheduled"]:
+        reminder_at = datetime.fromisoformat(item["reminder_at"].replace("Z", "+00:00"))
+        assert datetime.now(timezone.utc) < reminder_at < next_reset
+
+    updated_missions = client.get("/me/today-missions", headers=headers).get_json()["missions"]
+    existing_reminder = next(
+        item for item in updated_missions
+        if item["mission_id"] == first["mission_id"]
+    )
+    done_mission = next(
+        item for item in updated_missions
+        if item["mission_id"] == second["mission_id"]
+    )
+    skipped_mission = next(
+        item for item in updated_missions
+        if item["mission_id"] == third["mission_id"]
+    )
+
+    assert existing_reminder["status"] == "remind_later"
+    assert existing_reminder["reminder_at"] == existing_reminder_at
+    assert done_mission["status"] == "done"
+    assert skipped_mission["status"] == "skipped"
+
+
+def test_plan_single_mission_reminder_applies_safe_future_time(client):
+    user = register_user(client, username="SinglePlanner")
+    headers = auth_headers(user["access_token"])
+
+    paths_data = client.get("/paths", headers=headers).get_json()
+    learning_path = next(item for item in paths_data["items"] if item["key"] == "learning")
+
+    client.post(f"/paths/{learning_path['path_id']}/start", headers=headers)
+    challenge_id = client.get(
+        f"/paths/{learning_path['path_id']}/challenges",
+        headers=headers,
+    ).get_json()["items"][0]["challenge_id"]
+    client.post(
+        f"/challenges/{challenge_id}/join",
+        json={},
+        headers=headers,
+    )
+
+    mission = client.get("/me/today-missions", headers=headers).get_json()["missions"][0]
+    plan_res = client.post(
+        f"/me/missions/{mission['mission_id']}/plan-reminder",
+        headers=headers,
+    )
+
+    assert plan_res.status_code == 200
+    plan_data = plan_res.get_json()
+    assert plan_data["ok"] is True
+    assert plan_data["mission"]["status"] == "remind_later"
+    reminder_at = datetime.fromisoformat(
+        plan_data["scheduled"]["reminder_at"].replace("Z", "+00:00"),
+    )
+    next_reset = datetime.fromisoformat(
+        plan_data["ringo_day"]["next_reset_at"].replace("Z", "+00:00"),
+    )
+    assert datetime.now(timezone.utc) < reminder_at < next_reset
+
+
+def test_plan_single_mission_reminder_can_replace_existing_reminder(client):
+    user = register_user(client, username="SinglePlannerEdit")
+    headers = auth_headers(user["access_token"])
+
+    paths_data = client.get("/paths", headers=headers).get_json()
+    fitness_path = next(item for item in paths_data["items"] if item["key"] == "fitness")
+
+    client.post(f"/paths/{fitness_path['path_id']}/start", headers=headers)
+    challenge_id = client.get(
+        f"/paths/{fitness_path['path_id']}/challenges",
+        headers=headers,
+    ).get_json()["items"][0]["challenge_id"]
+    client.post(
+        f"/challenges/{challenge_id}/join",
+        json={},
+        headers=headers,
+    )
+
+    mission = client.get("/me/today-missions", headers=headers).get_json()["missions"][0]
+    existing_reminder_at = _before_next_reset_at()
+    client.post(
+        f"/me/missions/{mission['mission_id']}/remind-later",
+        json={"reminder_at": existing_reminder_at},
+        headers=headers,
+    )
+
+    plan_res = client.post(
+        f"/me/missions/{mission['mission_id']}/plan-reminder",
+        headers=headers,
+    )
+
+    assert plan_res.status_code == 200
+    plan_data = plan_res.get_json()
+    assert plan_data["ok"] is True
+    assert plan_data["mission"]["status"] == "remind_later"
+    assert plan_data["mission"]["reminder_at"] != existing_reminder_at
+
+
+def test_plan_single_mission_reminder_clamps_when_planned_time_crosses_reset(monkeypatch, client):
+    from services import mission_service
+
+    user = register_user(client, username="SinglePlannerNoTime")
+    headers = auth_headers(user["access_token"])
+
+    paths_data = client.get("/paths", headers=headers).get_json()
+    fitness_path = next(item for item in paths_data["items"] if item["key"] == "fitness")
+
+    client.post(f"/paths/{fitness_path['path_id']}/start", headers=headers)
+    challenge_id = client.get(
+        f"/paths/{fitness_path['path_id']}/challenges",
+        headers=headers,
+    ).get_json()["items"][0]["challenge_id"]
+    client.post(
+        f"/challenges/{challenge_id}/join",
+        json={},
+        headers=headers,
+    )
+
+    current = datetime.now(timezone.utc).replace(microsecond=0)
+    next_reset = current + timedelta(minutes=5)
+    monkeypatch.setattr(
+        mission_service,
+        "ringo_day_metadata",
+        lambda: {
+            "date": current.date().isoformat(),
+            "next_reset_at": next_reset.isoformat().replace("+00:00", "Z"),
+            "reset_basis": "utc",
+            "server_now": current.isoformat().replace("+00:00", "Z"),
+        },
+    )
+
+    mission = client.get("/me/today-missions", headers=headers).get_json()["missions"][0]
+    plan_res = client.post(
+        f"/me/missions/{mission['mission_id']}/plan-reminder",
+        headers=headers,
+    )
+
+    assert plan_res.status_code == 200
+    plan_data = plan_res.get_json()
+    assert plan_data["ok"] is True
+    reminder_at = datetime.fromisoformat(
+        plan_data["scheduled"]["reminder_at"].replace("Z", "+00:00"),
+    )
+    assert current < reminder_at < next_reset
+    assert reminder_at == next_reset - timedelta(seconds=1)
+
+
+def test_today_missions_ignore_previous_day_event_timestamps(client):
+    import database
+
+    user = register_user(client, username="YesterdayLog")
+    headers = auth_headers(user["access_token"])
+
+    paths_data = client.get("/paths", headers=headers).get_json()
+    fitness_path = next(item for item in paths_data["items"] if item["key"] == "fitness")
+
+    client.post(f"/paths/{fitness_path['path_id']}/start", headers=headers)
+    challenge_id = client.get(
+        f"/paths/{fitness_path['path_id']}/challenges",
+        headers=headers,
+    ).get_json()["items"][0]["challenge_id"]
+    client.post(
+        f"/challenges/{challenge_id}/join",
+        json={},
+        headers=headers,
+    )
+
+    mission = client.get("/me/today-missions", headers=headers).get_json()["missions"][0]
+    yesterday = (datetime.now(timezone.utc) - timedelta(days=1)).date().isoformat()
+    conn = database.get_db_connection()
+    try:
+        conn.execute(
+            """
+            INSERT INTO mission_logs (
+                user_id,
+                enrollment_id,
+                challenge_id,
+                mission_id,
+                date,
+                status,
+                xp_earned,
+                updated_at
+            )
+            VALUES (?, ?, ?, ?, ?, 'done', ?, ?)
+            """,
+            (
+                user["user_id"],
+                mission["enrollment_id"],
+                mission["challenge_id"],
+                mission["mission_id"],
+                yesterday,
+                mission["xp_reward"],
+                f"{yesterday} 12:00:00",
+            ),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+    missions = client.get("/me/today-missions", headers=headers).get_json()["missions"]
+    today_mission = next(
+        item for item in missions
+        if item["mission_id"] == mission["mission_id"]
+    )
+
+    assert today_mission["status"] == "pending"
+    assert today_mission["done_at"] is None
+    assert today_mission["skipped_at"] is None
+    assert today_mission["reminder_set_at"] is None
+    assert today_mission["status_updated_at"] is None
 
 
 def test_mission_skip_reason_is_optional_and_persisted(client):

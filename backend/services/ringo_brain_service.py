@@ -124,6 +124,21 @@ def _same_mission_id(a, b):
     return str(a) == str(b)
 
 
+def _mission_intensity_value(mission):
+    return mission.get("mission_intensity") or "main"
+
+
+def _mission_family_key(mission):
+    if not mission:
+        return ""
+
+    intensity = _mission_intensity_value(mission)
+    if intensity in {"tiny", "bonus"} and mission.get("parent_mission_id") is not None:
+        return str(mission.get("parent_mission_id"))
+
+    return str(mission.get("mission_id") or "")
+
+
 def _completed_linked_tiny_mission(missions):
     main_mission_ids = {
         mission.get("mission_id")
@@ -179,12 +194,75 @@ def _parse_reminder_at(value):
     return parsed.astimezone(timezone.utc)
 
 
+def _is_due_reminder(mission, now=None):
+    now = now or datetime.now(timezone.utc)
+    reminder_at = _parse_reminder_at(mission.get("reminder_at"))
+
+    return bool(reminder_at and reminder_at <= now)
+
+
+def _family_done_keys(missions):
+    main_mission_keys = {
+        _mission_family_key(mission)
+        for mission in missions
+        if _mission_intensity_value(mission) == "main"
+    }
+
+    return {
+        _mission_family_key(mission)
+        for mission in missions
+        if mission.get("status") == "done"
+        and _mission_intensity_value(mission) in {"main", "tiny"}
+        and _mission_family_key(mission) in main_mission_keys
+    }
+
+
+def _main_done_family_keys(missions):
+    return {
+        _mission_family_key(mission)
+        for mission in missions
+        if mission.get("status") == "done"
+        and _mission_intensity_value(mission) == "main"
+    }
+
+
+def _family_deferred_keys(missions):
+    now = datetime.now(timezone.utc)
+    return {
+        _mission_family_key(mission)
+        for mission in missions
+        if mission.get("status") == "remind_later"
+        and _mission_intensity_value(mission) in {"main", "tiny"}
+        and not _is_due_reminder(mission, now)
+    }
+
+
+def _mission_family_is_satisfied(mission, done_keys):
+    return _mission_family_key(mission) in done_keys
+
+
+def _mission_family_is_deferred(mission, deferred_keys):
+    return _mission_family_key(mission) in deferred_keys
+
+
 def _is_required_mission(mission):
-    return (mission.get("mission_intensity") or "main") in {"main", "tiny"}
+    return _mission_intensity_value(mission) in {"main", "tiny"}
 
 
 def _is_optional_mission(mission):
     return not _is_required_mission(mission)
+
+
+def _active_reminder_missions(missions, done_keys):
+    return [
+        mission
+        for mission in missions
+        if mission.get("status") == "remind_later"
+        and not (
+            _mission_intensity_value(mission) in {"main", "tiny"}
+            and _mission_family_is_satisfied(mission, done_keys)
+        )
+    ]
 
 
 def _agenda_payload(missions, today_saved):
@@ -202,11 +280,11 @@ def _agenda_payload(missions, today_saved):
         return agenda
 
     now = datetime.now(timezone.utc)
+    done_family_keys = _family_done_keys(missions)
+    main_done_family_keys = _main_done_family_keys(missions)
+    deferred_family_keys = _family_deferred_keys(missions)
     reminded = sorted(
-        (
-            mission for mission in missions
-            if mission.get("status") == "remind_later"
-        ),
+        _active_reminder_missions(missions, done_family_keys),
         key=lambda mission: (
             _parse_reminder_at(mission.get("reminder_at")) or datetime.max.replace(tzinfo=timezone.utc),
             *_mission_sort_key(mission),
@@ -224,6 +302,8 @@ def _agenda_payload(missions, today_saved):
         (
             mission for mission in missions
             if mission.get("status") == "pending" and _is_required_mission(mission)
+            and not _mission_family_is_deferred(mission, deferred_family_keys)
+            and not _mission_family_is_satisfied(mission, done_family_keys)
         ),
         key=_mission_sort_key,
     )
@@ -231,11 +311,15 @@ def _agenda_payload(missions, today_saved):
         (
             mission for mission in missions
             if mission.get("status") == "pending" and _is_optional_mission(mission)
+            and (
+                mission.get("parent_mission_id") is None
+                or str(mission.get("parent_mission_id")) in main_done_family_keys
+            )
         ),
         key=_mission_sort_key,
     )
     optional_candidates = sorted(
-        [*pending_optional, *(pending_required if today_saved else [])],
+        pending_optional,
         key=_mission_sort_key,
     )
     skipped_optional = sorted(
@@ -250,16 +334,23 @@ def _agenda_payload(missions, today_saved):
         pending_optional
         or reminded
         or skipped_optional
-        or (today_saved and pending_required)
     )
 
-    choices = [
-        ("due_reminder", due_reminder),
-        ("upcoming_reminder", upcoming_reminder),
-        ("primary_mission", pending_required[0] if pending_required and not today_saved else None),
-        ("optional_mission", optional_candidates[0] if optional_candidates else None),
-        ("skipped_optional", skipped_optional[0] if skipped_optional else None),
-    ]
+    if today_saved:
+        choices = [
+            ("due_reminder", due_reminder),
+            ("upcoming_reminder", upcoming_reminder),
+            ("skipped_optional", skipped_optional[0] if skipped_optional else None),
+            ("optional_mission", optional_candidates[0] if optional_candidates else None),
+        ]
+    else:
+        choices = [
+            ("due_reminder", due_reminder),
+            ("primary_mission", pending_required[0] if pending_required else None),
+            ("upcoming_reminder", upcoming_reminder),
+            ("skipped_optional", skipped_optional[0] if skipped_optional else None),
+            ("optional_mission", optional_candidates[0] if optional_candidates else None),
+        ]
 
     for action_type, mission in choices:
         if mission:
@@ -275,13 +366,52 @@ def _agenda_payload(missions, today_saved):
     return agenda
 
 
-def _select_mission(missions, user_state=None):
+def _mission_by_id(missions, mission_id):
+    return next(
+        (
+            mission for mission in missions
+            if _same_mission_id(mission.get("mission_id"), mission_id)
+        ),
+        None,
+    )
+
+
+def _select_mission(missions, user_state=None, agenda=None):
     if user_state == "today_completed":
         satisfying_mission = _completed_satisfying_mission(missions)
         if satisfying_mission:
             return satisfying_mission
 
+    agenda_mission = _mission_by_id(missions, (agenda or {}).get("next_mission_id"))
+    agenda_action_type = (agenda or {}).get("next_action_type")
+    low_pressure_state = user_state in {"returning_after_absence", "streak_risk"}
+    should_follow_agenda = agenda_action_type in {
+        "due_reminder",
+        "primary_mission",
+        "optional_mission",
+        "upcoming_reminder",
+        "skipped_optional",
+    } and not (low_pressure_state and agenda_action_type == "primary_mission")
+
+    if agenda_mission and should_follow_agenda:
+        return agenda_mission
+
     preferred_intensity = "tiny" if user_state in {"returning_after_absence", "streak_risk"} else "main"
+    done_family_keys = _family_done_keys(missions)
+    deferred_family_keys = _family_deferred_keys(missions)
+
+    def is_available(item):
+        if item.get("status") != "pending":
+            return not (
+                item.get("status") == "remind_later"
+                and _mission_intensity_value(item) in {"main", "tiny"}
+                and _mission_family_key(item) in done_family_keys
+            )
+
+        return (
+            _mission_family_key(item) not in done_family_keys
+            and _mission_family_key(item) not in deferred_family_keys
+        )
 
     for status in ("pending", "remind_later", "skipped"):
         mission = next(
@@ -289,6 +419,7 @@ def _select_mission(missions, user_state=None):
                 item for item in missions
                 if item.get("status") == status
                 and (item.get("mission_intensity") or "main") == preferred_intensity
+                and is_available(item)
             ),
             None,
         )
@@ -296,7 +427,14 @@ def _select_mission(missions, user_state=None):
             return mission
 
     for status in ("pending", "remind_later", "skipped"):
-        mission = next((item for item in missions if item.get("status") == status), None)
+        mission = next(
+            (
+                item for item in missions
+                if item.get("status") == status
+                and is_available(item)
+            ),
+            None,
+        )
         if mission:
             return mission
 
@@ -317,6 +455,11 @@ def _mission_payload(mission, mission_intensity):
         "parent_mission_id": mission.get("parent_mission_id"),
         "xp_reward": int(mission.get("xp_reward") or 0),
         "status": mission.get("status") or "pending",
+        "reminder_at": mission.get("reminder_at"),
+        "done_at": mission.get("done_at"),
+        "skipped_at": mission.get("skipped_at"),
+        "reminder_set_at": mission.get("reminder_set_at"),
+        "status_updated_at": mission.get("status_updated_at"),
         "challenge_id": mission.get("challenge_id"),
         "challenge_name": mission.get("challenge_name"),
         "enrollment_id": mission.get("enrollment_id"),
@@ -416,6 +559,13 @@ def _mission_intensity(user_state, selected_mission):
 def _message_for_state(user_state, mission, agenda=None):
     mission_title = (mission or {}).get("title") or "one small step"
 
+    if user_state in {"today_not_started", "today_in_progress"} and agenda:
+        if (
+            agenda.get("next_action_type") == "primary_mission"
+            and int(agenda.get("reminded_count") or 0) > 0
+        ):
+            return f"I saved that reminder. While we wait, {mission_title} is one small next step."
+
     messages = {
         "new_user": "Welcome. Pick one path and I will keep today's first step small.",
         "no_active_path": "Let's choose a path again. No rush, just one direction for today.",
@@ -511,11 +661,11 @@ def get_today_ringo_guidance(user_id):
     missions = missions_payload.get("missions") or []
     legacy_state = (missions_payload.get("ringo") or {}).get("state")
     user_state = _map_legacy_state(legacy_state, stats, context, missions)
-    selected_mission = _select_mission(missions, user_state)
-    mission_intensity = _mission_intensity(user_state, selected_mission)
     progress = _progress(stats)
     progress["today_saved"] = user_state == "today_completed"
     agenda = _agenda_payload(missions, progress["today_saved"])
+    selected_mission = _select_mission(missions, user_state, agenda)
+    mission_intensity = _mission_intensity(user_state, selected_mission)
     ringo_day = ringo_day_metadata()
 
     return {

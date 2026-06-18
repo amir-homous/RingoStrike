@@ -43,6 +43,9 @@ backend/.env
 Required values:
 
 - [ ] `FLASK_ENV`
+- [ ] `FLASK_HOST`
+- [ ] `PORT`
+- [ ] `FLASK_DEBUG`
 - [ ] `SECRET_KEY`
 - [ ] `JWT_SECRET`
 - [ ] `JWT_COOKIE_NAME`
@@ -59,6 +62,7 @@ Optional / integration values:
 
 - [ ] `TELEGRAM_BOT_TOKEN`
 - [ ] `TELEGRAM_BOT_USERNAME`
+- [ ] `REMINDER_ADMIN_TOKEN`
 - [ ] `NOTION_TOKEN`
 - [ ] `NOTION_USERS_DB_ID`
 - [ ] `NOTION_ENROLLMENTS_DB_ID`
@@ -117,22 +121,29 @@ Only omit `VITE_API_BASE` when backend API routes can safely live at the same ro
 - [ ] Create virtual environment.
 - [ ] Install `backend/requirements.txt`.
 - [ ] Configure `.env`.
+- [ ] Confirm `FLASK_HOST=127.0.0.1`, `PORT=5005`, and `FLASK_DEBUG=0` for production-like VPS usage.
+- [ ] Pull latest code on the VPS.
+- [ ] Restart the backend through `systemd`.
 - [ ] Run backend health check.
 - [ ] Confirm auth endpoints.
 - [ ] Confirm protected endpoints reject unauthenticated requests.
 - [ ] Confirm cookie settings for production HTTPS.
 - [ ] Confirm CORS/frontend origin behavior.
+- [ ] Confirm n8n/cron can call `POST /api/telegram/remind-due-missions` with `X-Reminder-Token`.
+- [ ] Confirm reminder diagnostics can be read with `GET /api/telegram/reminder-diagnostics` and `X-Reminder-Token`.
 
 Health check:
 
 ```bash
-curl https://api.ringostrike.com/health
+curl http://127.0.0.1:5005/health
 ```
 
-Local fallback:
+Systemd commands:
 
 ```bash
-curl http://localhost:5005/health
+sudo systemctl status ringostrike-backend
+sudo systemctl restart ringostrike-backend
+sudo journalctl -u ringostrike-backend -f
 ```
 
 ---
@@ -144,7 +155,8 @@ curl http://localhost:5005/health
 - [ ] Build frontend.
 - [ ] Confirm generated `dist/`.
 - [ ] Serve frontend from correct root/subpath.
-- [ ] Confirm `VITE_API_BASE` is omitted for same-origin production or points to the separate production API origin.
+- [ ] Confirm the current VPS build uses `VITE_API_BASE=/api-proxy`.
+- [ ] Confirm production builds do not contain `VITE_API_BASE=http://localhost:5005`.
 - [ ] Confirm routes work after refresh.
 
 Build command:
@@ -186,15 +198,15 @@ Flask runs locally on the VPS at:
 http://127.0.0.1:5005
 ```
 
-Use a dedicated API proxy prefix and rewrite it to Flask:
+Use a dedicated API proxy prefix. Do not use nginx `rewrite` rules for this deployment. The trailing slash on `proxy_pass` strips the `/api-proxy/` location prefix and forwards the remaining backend path to Flask:
 
 ```nginx
 location /api-proxy/ {
-    rewrite ^/api-proxy/(.*)$ /$1 break;
-    proxy_pass http://127.0.0.1:5005;
+    proxy_pass http://127.0.0.1:5005/;
     proxy_set_header Host $host;
     proxy_set_header X-Real-IP $remote_addr;
     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
 }
 ```
 
@@ -227,6 +239,9 @@ Backend VPS env for the current HTTP/IP test deployment:
 
 ```env
 FLASK_ENV=production
+FLASK_HOST=127.0.0.1
+PORT=5005
+FLASK_DEBUG=0
 SECRET_KEY=<real_secret>
 JWT_SECRET=<real_jwt_secret>
 JWT_COOKIE_NAME=ringo_token
@@ -238,6 +253,7 @@ PUBLIC_BASE_URL=http://82.115.24.10
 FRONTEND_BASE_URL=http://82.115.24.10
 FRONTEND_ORIGIN=http://82.115.24.10
 CORS_ORIGINS=http://82.115.24.10
+REMINDER_ADMIN_TOKEN=<real_admin_token_for_n8n_and_bot_bridge>
 ```
 
 Switch `JWT_COOKIE_SECURE=1` when the deployment moves to HTTPS.
@@ -245,6 +261,20 @@ Switch `JWT_COOKIE_SECURE=1` when the deployment moves to HTTPS.
 ---
 
 ## Post-Deployment Smoke Test
+
+Run the operator smoke script after pulling code, restarting the backend, or changing nginx/backend env:
+
+```bash
+bash scripts/vps_smoke_test.sh
+```
+
+Override the public base URL when testing another host:
+
+```bash
+PUBLIC_BASE_URL=http://example.com bash scripts/vps_smoke_test.sh
+```
+
+The script is read-only. It checks `systemd`, direct backend health, local/public `/api-proxy` health, backend bind address, `REMINDER_ADMIN_TOKEN` presence, reminder dry-run, and reminder diagnostics. The backend binding check is a warning if it cannot confirm `127.0.0.1:5005`; critical health/token/reminder failures exit non-zero.
 
 Check these routes manually:
 
@@ -273,6 +303,7 @@ VPS proxy smoke checks:
 
 ```bash
 curl http://127.0.0.1/api-proxy/health
+curl http://82.115.24.10/api-proxy/health
 ```
 
 Expected:
@@ -298,6 +329,20 @@ curl -i -b cookies.txt http://127.0.0.1/api-proxy/me \
 ```
 
 Expected: `200 OK` with authenticated user data.
+
+Reminder automation smoke checks:
+
+```bash
+TOKEN=$(grep REMINDER_ADMIN_TOKEN /home/ringo/RingoStrike/backend/.env | cut -d '=' -f2)
+
+curl -X POST http://82.115.24.10/api-proxy/api/telegram/remind-due-missions \
+  -H "Content-Type: application/json" \
+  -H "X-Reminder-Token: $TOKEN" \
+  -d '{"dry_run": true}'
+
+curl -H "X-Reminder-Token: $TOKEN" \
+  "http://82.115.24.10/api-proxy/api/telegram/reminder-diagnostics"
+```
 
 Manual browser checks that passed after the `/api-proxy` fix:
 

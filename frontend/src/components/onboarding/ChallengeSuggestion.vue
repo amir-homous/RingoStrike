@@ -12,13 +12,8 @@
         </p>
       </div>
 
-      <RingoMoodFigure
-        class="suggestionRingo"
-        :mood="suggestionMood"
-        :alt="t('onboarding.suggestion.title')"
-        size="md"
-        floating
-      />
+      <RingoMoodFigure class="suggestionRingo" :mood="suggestionMood" :alt="t('onboarding.suggestion.title')" size="md"
+        floating />
     </div>
 
     <BaseCard class="suggestionCard">
@@ -33,30 +28,63 @@
           {{ t("onboarding.suggestion.chooseText") }}
         </p>
 
-        <div class="challengeOptions">
-          <button
-            v-for="challenge in challenges"
-            :key="challenge.challenge_id"
-            type="button"
-            class="challengeOption"
-            :class="{ selected: selectedIds.includes(challenge.challenge_id), joined: challenge.is_joined }"
-            @click="toggleChallenge(challenge)"
-          >
+        <div v-if="primaryChallenge" class="recommendedChallenge">
+          <button type="button" class="challengeOption primaryChallenge" :class="{
+            selected: selectedIds.includes(primaryChallenge.challenge_id),
+            joined: primaryChallenge.is_joined
+          }" @click="toggleChallenge(primaryChallenge)">
             <span class="checkMark" aria-hidden="true">
-              {{ selectedIds.includes(challenge.challenge_id) ? "✓" : "" }}
+              {{ selectedIds.includes(primaryChallenge.challenge_id) ? "✓" : "" }}
             </span>
 
             <span class="optionCopy">
-              <strong>{{ challenge.name || challenge.challenge_name }}</strong>
-              <small>{{ challenge.ringo_intro || challenge.description || t("onboarding.suggestion.noDescription") }}</small>
+              <small class="recommendedLabel">
+                {{ t("onboarding.suggestion.bestStart") }}
+              </small>
+
+              <strong>{{ challengeTitle(primaryChallenge) }}</strong>
+
+              <small>{{ challengeDescription(primaryChallenge) }}</small>
             </span>
 
             <span class="optionMeta">
-              <small v-if="challenge.is_joined">{{ t("onboarding.suggestion.alreadyJoined") }}</small>
-              <small v-else>{{ t("common.dayChallenge", { count: challenge.estimated_days || challenge.duration_days || 0 }) }}</small>
+              <small v-if="primaryChallenge.is_joined">
+                {{ t("onboarding.suggestion.alreadyJoined") }}
+              </small>
+              <small v-else>
+                {{ t("common.dayChallenge", { count: challengeDuration(primaryChallenge) }) }}
+              </small>
             </span>
           </button>
         </div>
+
+        <div v-if="alternativeChallenges.length" class="alternativeChoices">
+          <p class="alternativeTitle">
+            {{ t("onboarding.suggestion.alternativesTitle") }}
+          </p>
+
+          <div class="challengeOptions">
+            <button v-for="challenge in alternativeChallenges" :key="challenge.challenge_id" type="button"
+              class="challengeOption secondaryChallenge"
+              :class="{ selected: selectedIds.includes(challenge.challenge_id), joined: challenge.is_joined }"
+              @click="toggleChallenge(challenge)">
+              <span class="checkMark" aria-hidden="true">
+                {{ selectedIds.includes(challenge.challenge_id) ? "✓" : "" }}
+              </span>
+
+              <span class="optionCopy">
+                <strong>{{ challengeTitle(challenge) }}</strong>
+                <small>{{ challengeDescription(challenge) }}</small>
+              </span>
+
+              <span class="optionMeta">
+                <small v-if="challenge.is_joined">{{ t("onboarding.suggestion.alreadyJoined") }}</small>
+                <small v-else>{{ t("common.dayChallenge", { count: challengeDuration(challenge) }) }}</small>
+              </span>
+            </button>
+          </div>
+        </div>
+
       </div>
 
       <div v-else class="challengeCopy">
@@ -76,28 +104,16 @@
       </div>
 
       <div class="actions">
-        <BaseButton
-          v-if="challenges.length"
-          variant="primary"
-          :loading="joining"
-          :disabled="selectedIds.length === 0"
-          @click="$emit('start', selectedIds)"
-        >
+        <BaseButton v-if="challenges.length" variant="primary" :loading="joining" :disabled="selectedIds.length === 0"
+          @click="$emit('start', selectedIds)">
           {{ t("onboarding.suggestion.startSelected", { count: selectedIds.length }) }}
         </BaseButton>
 
-        <BaseButton
-          variant="secondary"
-          @click="$emit('browse')"
-        >
+        <BaseButton variant="secondary" @click="$emit('browse')">
           {{ t("onboarding.suggestion.browse") }}
         </BaseButton>
 
-        <button
-          type="button"
-          class="skipButton"
-          @click="$emit('skip')"
-        >
+        <button type="button" class="skipButton" @click="$emit('skip')">
           {{ t("onboarding.suggestion.skip") }}
         </button>
       </div>
@@ -153,6 +169,35 @@ const pathLabel = computed(() => {
   return props.path ? t(`onboarding.paths.${props.path}.label`) : t("onboarding.path.defaultPath");
 });
 
+const primaryChallenge = computed(() => {
+  return props.challenge
+    || props.challenges.find((challenge) => !challenge.is_joined)
+    || props.challenges[0]
+    || null;
+});
+
+const alternativeChallenges = computed(() => {
+  const primaryId = primaryChallenge.value?.challenge_id;
+
+  return props.challenges.filter((challenge) => {
+    return challenge.challenge_id !== primaryId;
+  });
+});
+
+function challengeTitle(challenge) {
+  return challenge?.name || challenge?.challenge_name || t("common.challenge");
+}
+
+function challengeDescription(challenge) {
+  return challenge?.ringo_intro
+    || challenge?.description
+    || t("onboarding.suggestion.noDescription");
+}
+
+function challengeDuration(challenge) {
+  return challenge?.estimated_days || challenge?.duration_days || 0;
+}
+
 const suggestionMood = computed(() => {
   return props.challenges.length
     ? resolveRingoMood("onboardingSuggestion")
@@ -167,7 +212,7 @@ function toggleChallenge(challenge) {
     return;
   }
 
-  selectedIds.value = [...selectedIds.value, challenge.challenge_id];
+  selectedIds.value = [challenge.challenge_id];
 }
 </script>
 
@@ -366,6 +411,47 @@ h2 {
 
 .skipButton:hover {
   color: rgba(255, 255, 255, 0.82);
+}
+
+.recommendedChallenge {
+  display: grid;
+  gap: var(--s-12);
+}
+
+.primaryChallenge {
+  padding: 18px;
+  border-color: rgba(110, 229, 255, 0.36);
+  background:
+    radial-gradient(circle at 0% 0%, rgba(110, 229, 255, 0.12), transparent 34%),
+    rgba(110, 229, 255, 0.07);
+}
+
+.recommendedLabel {
+  color: rgba(167, 243, 208, 0.92);
+  font-size: 0.72rem;
+  font-weight: 850;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.alternativeChoices {
+  display: grid;
+  gap: 10px;
+}
+
+.alternativeTitle {
+  margin: 4px 0 0;
+  color: rgba(255, 255, 255, 0.52);
+  font-size: 0.82rem;
+}
+
+.secondaryChallenge {
+  opacity: 0.84;
+}
+
+.secondaryChallenge:hover,
+.secondaryChallenge.selected {
+  opacity: 1;
 }
 
 @media (max-width: 620px) {

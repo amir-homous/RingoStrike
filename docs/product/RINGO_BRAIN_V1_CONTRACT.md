@@ -55,6 +55,11 @@ Successful response:
     "parent_mission_id": null,
     "xp_reward": 10,
     "status": "pending",
+    "reminder_at": null,
+    "done_at": null,
+    "skipped_at": null,
+    "reminder_set_at": null,
+    "status_updated_at": null,
     "challenge_id": 1,
     "challenge_name": "Move Your Body",
     "enrollment_id": 10,
@@ -114,6 +119,15 @@ Successful response:
 ```
 
 If no mission is available, `mission` may be `null`, but `ringo`, `actions`, `progress`, and `fallback` should still be present.
+
+Mission event timestamp fields are additive and nullable. They come from current Ringo day mission logs only:
+
+- `done_at`: current-day completion event time.
+- `skipped_at`: current-day skip event time.
+- `reminder_set_at`: current-day reminder creation/update event time.
+- `status_updated_at`: current-day mission log update time.
+
+Use `reminder_at`, not `reminder_set_at`, when placing reminder-set missions on a daily timeline. If no reliable timestamp is present, the frontend should keep the mission untimed.
 
 ## Supported `user_state` Values
 
@@ -358,9 +372,13 @@ Existing mission APIs remain canonical for mission state and completion:
 - `GET /me/today-missions`
 - `POST /me/missions/:mission_id/done`
 - `POST /me/missions/:mission_id/remind-later`
+- `POST /me/missions/plan-reminders`
+- `POST /me/missions/:mission_id/plan-reminder`
 - `POST /me/missions/:mission_id/skip`
 
 Ringo Brain v1 should not duplicate mission logs, check-ins, XP, streaks, achievements, or activity writes.
+
+Reminder planning is additive. `POST /me/missions/plan-reminders` applies gentle reminder times to eligible pending current-day missions that do not already have reminders. `POST /me/missions/:mission_id/plan-reminder` applies one suggested reminder time for a pending or reminder-set mission. Both planner paths must schedule after server now and before `ringo_day.next_reset_at`, preserve done/skipped missions, and avoid changing completion, streak, check-in, or reward behavior.
 
 Mission completion may return an additive `reward_sequence` array for frontend Ringo Moment rendering. Existing completion fields remain valid and should not be removed or renamed. Initial completion step types are:
 

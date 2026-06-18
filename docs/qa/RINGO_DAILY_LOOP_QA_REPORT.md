@@ -275,7 +275,7 @@ Not fully verified:
 - Run a focused mobile viewport pass for the Ringo daily card, reminder options, skip reasons, reward overlay, and optional mission list.
 - Run an accessibility pass for the reward overlay and panel focus behavior.
 - Continue cleaning Persian copy outside the daily loop.
-- Resolve the known Ringo sprite asset gap for `talking.png` and `victory.png` before relying on clean launch builds.
+- Keep Ringo sprite assets, `frontend/src/constants/ringoSprites.js`, and backend `sprite_key` values aligned before relying on clean launch builds.
 - Expand production/deployment smoke checks after any VPS deployment.
 
 ## Overall QA verdict

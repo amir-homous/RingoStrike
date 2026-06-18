@@ -7,38 +7,22 @@
         <p>{{ t("onboarding.path.body") }}</p>
       </div>
 
-      <RingoMoodFigure
-        class="pathRingo"
-        :mood="pathMood"
-        :alt="t('onboarding.path.title')"
-        size="md"
-        floating
-      />
+      <RingoMoodFigure class="pathRingo" :mood="pathMood" :alt="t('onboarding.path.title')" size="md" floating />
     </div>
 
     <div class="pathGrid">
-      <button
-        v-for="path in paths"
-        :key="path"
-        type="button"
-        class="pathCard"
-        :class="{ selected: selectedPaths.includes(path) }"
-        @click="togglePath(path)"
-      >
+      <button v-for="path in paths" :key="path" type="button" class="pathCard"
+        :class="{ selected: selectedPaths.includes(path) }" @click="togglePath(path)">
         <span class="pathIcon" aria-hidden="true"></span>
         <span class="pathLabel">{{ t(`onboarding.paths.${path}.label`) }}</span>
         <span class="pathSuggestion">
-          {{ t("onboarding.path.suggested", { challenge: t(`onboarding.paths.${path}.challenge`) }) }}
+          {{ t(`onboarding.paths.${path}.outcome`) }}
         </span>
       </button>
     </div>
 
     <div class="actions">
-      <BaseButton
-        variant="primary"
-        :disabled="selectedPaths.length === 0"
-        @click="$emit('continue')"
-      >
+      <BaseButton variant="primary" :disabled="selectedPaths.length === 0" @click="$emit('continue')">
         {{ t("onboarding.path.continueWithCount", { count: selectedPaths.length }) }}
       </BaseButton>
     </div>
@@ -76,7 +60,7 @@ function togglePath(path) {
     return;
   }
 
-  emit("update:modelValue", [...selectedPaths.value, path]);
+  emit("update:modelValue", [path]);
 }
 </script>
 

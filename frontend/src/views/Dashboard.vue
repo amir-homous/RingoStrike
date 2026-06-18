@@ -2,162 +2,207 @@
   <AppContainer>
     <AppHeader />
 
-    <div class="dashboardStack">
+    <div class="dashboardStack" :class="{ dashboardRevealActive }">
       <UiState :loading="loading" :error="!!error" :empty="false" :loading-title="t('dashboard.loadingTitle')"
         :loading-text="t('dashboard.loadingText')" :error-title="t('dashboard.errorTitle')"
         :error-text="error || t('common.pleaseTryAgain')" @retry="loadDashboard" />
 
       <template v-if="!loading && !error">
-        <MissionCenter
-          :key="missionCenterKey"
-          @checked-in="handleMissionCheckin"
-          @loaded="handleMissionCenterLoaded"
-        />
-
-        <!-- Legacy Today Mission is now a fallback when Mission Center has no actionable mission. -->
-        <div v-if="showLegacyTodayMission" id="today-mission" class="scrollAnchor">
-          <TodayMission :challenges="challenges" :stats="stats" :loading="checkingId === missionEnrollmentId"
-            @checkin="checkin" />
-        </div>
-
-        <PostCheckinNextAction
-          v-if="showPostCheckinAction"
-          :enrollment-id="missionEnrollmentId"
-          :all-done="allActiveMissionsDone"
-        />
-
-        <!-- 2. First progress layer: appears after the user has meaningful progress -->
-        <HeroProgressCard v-if="stats && guidedState.hasProgress" :user-name="user?.name" :stats="stats"
-          :animate-pulse="xpPulse" />
-
-        <!-- 3. Progress details: XP, stats, next goal, recent progress -->
-        <div v-if="stats && guidedState.hasProgress" class="progressGrid">
-          <StatsGrid :stats="stats" />
-
-          <div class="sideCol">
-            <NextGoalCard :stats="stats" />
-            <RecentProgressFeed :stats="stats" />
-          </div>
-        </div>
-
-        <!-- 4. Active paths: secondary daily management surface -->
-        <BaseCard v-if="challenges.length" class="challengePanel">
-          <div class="panelHead">
-            <div>
-              <p class="sectionKicker">{{ t("dashboard.activePaths") }}</p>
-              <h2 class="panelTitle">{{ t("dashboard.todaysChallenges") }}</h2>
-              <p class="panelText">
-                {{ t("dashboard.panelText") }}
-              </p>
-            </div>
-
-            <div class="panelActions">
-              <div v-if="challenges.length" class="miniSummary">
-                <span>{{ completedTodayCount }}/{{ challenges.length }}</span>
-                <small>{{ t("dashboard.secured") }}</small>
-              </div>
-
-              <RouterLink class="ghostLink" to="/challenges">
-                {{ t("dashboard.addPath") }}
-              </RouterLink>
-            </div>
-          </div>
-
-          <div class="list">
-            <ChallengeCard v-for="c in visibleChallenges" :key="c.enrollment_id" :challenge="c"
-              :loading="checkingId === c.enrollment_id" compact @checkin="checkin" />
-
-            <button v-if="hasHiddenChallenges" type="button" class="showMoreButton"
-              @click="showAllChallenges = !showAllChallenges">
-              <span>
-                {{ showAllChallenges ? t("common.showFewer") : t("common.showMore", {
-                  count: orderedChallenges.length -
-                challengeLimit }) }}
-              </span>
-              <span aria-hidden="true">{{ showAllChallenges ? "↑" : "↓" }}</span>
-            </button>
-          </div>
-        </BaseCard>
-
-        <!-- 5. Next unlock hint: helps the user understand what comes next -->
-        <BaseCard v-if="guidedState.hasProgress && nextLockedFeature" class="guidedLockCard">
-          <span class="lockDot" aria-hidden="true"></span>
-
+        <BaseCard v-if="showOnboardingFallback" class="onboardingFallbackCard">
           <div>
-            <strong>{{ t("guidedFeatures.nextTitle", { feature: lockedFeatureLabel }) }}</strong>
-            <p>{{ t("guidedFeatures.unlockAfter", { count: nextLockedFeature.threshold }) }}</p>
-          </div>
-        </BaseCard>
-
-        <!-- 6. Activity: unlocked after early progress -->
-        <div
-          v-if="guidedState.features.activity.unlocked"
-          id="activity-feed"
-          class="scrollAnchor"
-        >
-          <ActivityTimeline :events="activityEvents" :loading="loading" />
-        </div>
-
-        <!-- 7. Achievements: after activity has enough meaning -->
-        <AchievementPreview v-if="guidedState.features.achievements.unlocked" :achievements="achievements" />
-
-        <!-- 8. Leaderboard: lower priority because it is enrollment-scoped for now -->
-        <BaseCard v-if="showLeaderboardPreview" id="leaderboard" class="guidedFeatureCard">
-          <div>
-            <p class="sectionKicker">{{ t("guidedFeatures.leaderboard.kicker") }}</p>
-            <h2 class="panelTitle">{{ t("guidedFeatures.leaderboard.title") }}</h2>
+            <p class="sectionKicker">{{ t("dashboard.onboardingFallback.eyebrow") }}</p>
+            <h2 class="panelTitle">{{ t("dashboard.onboardingFallback.title") }}</h2>
             <p class="panelText">
-              {{ t("guidedFeatures.leaderboard.text") }}
+              {{ t("dashboard.onboardingFallback.text") }}
             </p>
           </div>
 
-          <RouterLink class="ghostLink" :to="leaderboardTarget">
-            {{ t("guidedFeatures.leaderboard.cta") }}
+          <RouterLink class="primaryLink" to="/onboarding">
+            <span>{{ t("dashboard.onboardingFallback.cta") }}</span>
+            <span aria-hidden="true">→</span>
           </RouterLink>
         </BaseCard>
 
-        <!-- 9. Support / account context: useful, but not the main daily action -->
-        <section class="dashboardHead supportHead">
-          <div class="headCopy">
-            <div class="eyebrow">
-              <span class="pulseDot"></span>
-              <span>{{ t("dashboard.eyebrow") }}</span>
+        <template v-else>
+          <!-- <BaseCard v-if="showFirstRunFocus" class="firstRunFocusCard">
+            <div>
+              <p class="sectionKicker">{{ t("dashboard.firstRunFocus.eyebrow") }}</p>
+              <h2 class="panelTitle">{{ t("dashboard.firstRunFocus.title") }}</h2>
+              <p class="panelText">
+                {{ t("dashboard.firstRunFocus.text") }}
+              </p>
+
+              <div class="firstRunChoices" aria-label="First mission choices">
+                <span>{{ t("dashboard.firstRunFocus.done") }}</span>
+                <span>{{ t("dashboard.firstRunFocus.smaller") }}</span>
+                <span>{{ t("dashboard.firstRunFocus.remind") }}</span>
+                <span>{{ t("dashboard.firstRunFocus.skip") }}</span>
+              </div>
             </div>
 
-            <h1 class="pageTitle">
-              {{ user ? t("dashboard.welcomeName", { name: firstName }) : t("dashboard.welcome") }}
-            </h1>
+            <button type="button" class="dismissFocusButton" @click="dismissFirstRunFocus">
+              {{ t("dashboard.firstRunFocus.dismiss") }}
+            </button>
+          </BaseCard> -->
 
-            <p class="pageSubtitle">
-              {{ t("dashboard.subtitle") }}
-            </p>
+          <div v-if="showMissionFocusMode && stats" class="missionFocusProgress">
+            <CompactProgressStrip :stats="stats" :today-safe="missionFocusState.todaySafe" />
 
-            <div class="headMeta">
-              <span v-if="date" class="metaPill">
-                {{ date }}
-              </span>
-
-              <span v-if="stats" class="metaPill">
-                {{ t("common.level", { level: stats.level || 1 }) }}
-              </span>
-
-              <span v-if="stats" class="metaPill">
-                {{ t("common.xp", { count: stats.total_points || 0 }) }}
-              </span>
-            </div>
-          </div>
-
-          <div class="headActions">
-            <RouterLink class="primaryLink" to="/challenges">
-              <span>{{ t("dashboard.browse") }}</span>
-              <span aria-hidden="true">→</span>
-            </RouterLink>
-
-            <BaseButton variant="secondary" :loading="loggingOut" @click="doLogout">
-              {{ t("dashboard.logout") }}
+            <BaseButton variant="secondary" @click="showDashboardFromFocus">
+              {{ t("dashboard.showDashboard") }}
             </BaseButton>
           </div>
-        </section>
+
+          <MissionCenter :key="missionCenterKey" :first-run-focus="showFirstRunFocus"
+            :focus-mode-active="showMissionFocusMode" @checked-in="handleMissionCheckin"
+            @loaded="handleMissionCenterLoaded" @first-run-complete="dismissFirstRunFocus"
+            @focus-state-change="handleMissionFocusState" @show-dashboard="showDashboardFromFocus" />
+
+          <!-- Legacy Today Mission is now a fallback when Mission Center has no actionable mission. -->
+          <div v-if="showFullDashboard && showLegacyTodayMission" id="today-mission"
+            class="scrollAnchor dashboardRevealItem">
+            <TodayMission :challenges="challenges" :stats="stats" :loading="checkingId === missionEnrollmentId"
+              @checkin="checkin" />
+          </div>
+
+          <PostCheckinNextAction v-if="showFullDashboard && showPostCheckinAction" class="dashboardRevealItem"
+            :enrollment-id="missionEnrollmentId" :all-done="allActiveMissionsDone" />
+
+          <!-- 2. First progress layer: appears after the user has meaningful progress -->
+          <HeroProgressCard v-if="showFullDashboard && stats && guidedState.hasProgress" class="dashboardRevealItem"
+            :user-name="user?.name" :stats="stats" :animate-pulse="xpPulse" />
+
+          <!-- 3. Progress details: XP, stats, next goal, recent progress -->
+          <div v-if="showFullDashboard && stats && guidedState.hasProgress" class="progressGrid dashboardRevealItem">
+            <StatsGrid :stats="stats" />
+
+            <div class="sideCol">
+              <NextGoalCard :stats="stats" />
+              <RecentProgressFeed :stats="stats" />
+            </div>
+          </div>
+
+          <!-- 4. Active paths: secondary daily management surface -->
+          <BaseCard v-if="showFullDashboard && challenges.length" class="challengePanel dashboardRevealItem">
+            <div class="panelHead">
+              <div>
+                <p class="sectionKicker">{{ t("dashboard.activePaths") }}</p>
+                <h2 class="panelTitle">{{ t("dashboard.todaysChallenges") }}</h2>
+                <p class="panelText">
+                  {{ t("dashboard.panelText") }}
+                </p>
+              </div>
+
+              <div class="panelActions">
+                <div v-if="challenges.length" class="miniSummary">
+                  <span>{{ completedTodayCount }}/{{ challenges.length }}</span>
+                  <small>{{ t("dashboard.secured") }}</small>
+                </div>
+
+                <RouterLink class="ghostLink" to="/challenges">
+                  {{ t("dashboard.addPath") }}
+                </RouterLink>
+              </div>
+            </div>
+
+            <div class="list">
+              <ChallengeCard v-for="c in visibleChallenges" :key="c.enrollment_id" :challenge="c"
+                :loading="checkingId === c.enrollment_id" compact @checkin="checkin" />
+
+              <button v-if="hasHiddenChallenges" type="button" class="showMoreButton"
+                @click="showAllChallenges = !showAllChallenges">
+                <span>
+                  {{ showAllChallenges ? t("common.showFewer") : t("common.showMore", {
+                    count: orderedChallenges.length -
+                      challengeLimit
+                  }) }}
+                </span>
+                <span aria-hidden="true">{{ showAllChallenges ? "↑" : "↓" }}</span>
+              </button>
+            </div>
+          </BaseCard>
+
+          <!-- 5. Next unlock hint: helps the user understand what comes next -->
+          <BaseCard v-if="showFullDashboard && guidedState.hasProgress && nextLockedFeature"
+            class="guidedLockCard dashboardRevealItem">
+            <span class="lockDot" aria-hidden="true"></span>
+
+            <div>
+              <strong>{{ t("guidedFeatures.nextTitle", { feature: lockedFeatureLabel }) }}</strong>
+              <p>{{ t("guidedFeatures.unlockAfter", { count: nextLockedFeature.threshold }) }}</p>
+            </div>
+          </BaseCard>
+
+          <!-- 6. Activity: unlocked after early progress -->
+          <div v-if="showFullDashboard && guidedState.features.activity.unlocked" id="activity-feed"
+            class="scrollAnchor dashboardRevealItem">
+            <ActivityTimeline :events="activityEvents" :loading="loading" />
+          </div>
+
+          <!-- 7. Achievements: after activity has enough meaning -->
+          <AchievementPreview v-if="showFullDashboard && guidedState.features.achievements.unlocked"
+            class="dashboardRevealItem"
+            :achievements="achievements" />
+
+          <!-- 8. Leaderboard: lower priority because it is enrollment-scoped for now -->
+          <BaseCard v-if="showFullDashboard && showLeaderboardPreview" id="leaderboard"
+            class="guidedFeatureCard dashboardRevealItem">
+            <div>
+              <p class="sectionKicker">{{ t("guidedFeatures.leaderboard.kicker") }}</p>
+              <h2 class="panelTitle">{{ t("guidedFeatures.leaderboard.title") }}</h2>
+              <p class="panelText">
+                {{ t("guidedFeatures.leaderboard.text") }}
+              </p>
+            </div>
+
+            <RouterLink class="ghostLink" :to="leaderboardTarget">
+              {{ t("guidedFeatures.leaderboard.cta") }}
+            </RouterLink>
+          </BaseCard>
+
+          <!-- 9. Support / account context: useful, but not the main daily action -->
+          <section v-if="showFullDashboard" class="dashboardHead supportHead dashboardRevealItem">
+            <div class="headCopy">
+              <div class="eyebrow">
+                <span class="pulseDot"></span>
+                <span>{{ t("dashboard.eyebrow") }}</span>
+              </div>
+
+              <h1 class="pageTitle">
+                {{ user ? t("dashboard.welcomeName", { name: firstName }) : t("dashboard.welcome") }}
+              </h1>
+
+              <p class="pageSubtitle">
+                {{ t("dashboard.subtitle") }}
+              </p>
+
+              <div class="headMeta">
+                <span v-if="date" class="metaPill">
+                  {{ date }}
+                </span>
+
+                <span v-if="stats" class="metaPill">
+                  {{ t("common.level", { level: stats.level || 1 }) }}
+                </span>
+
+                <span v-if="stats" class="metaPill">
+                  {{ t("common.xp", { count: stats.total_points || 0 }) }}
+                </span>
+              </div>
+            </div>
+
+            <div class="headActions">
+              <RouterLink class="primaryLink" to="/challenges">
+                <span>{{ t("dashboard.browse") }}</span>
+                <span aria-hidden="true">→</span>
+              </RouterLink>
+
+              <BaseButton variant="secondary" :loading="loggingOut" @click="doLogout">
+                {{ t("dashboard.logout") }}
+              </BaseButton>
+            </div>
+          </section>
+        </template>
       </template>
     </div>
 
@@ -169,7 +214,7 @@
 
 <script setup>
 import { computed, ref, onMounted } from "vue";
-import { useRouter } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 import api from "@/lib/api";
 import AppContainer from "@/components/ui/AppContainer.vue";
@@ -180,6 +225,7 @@ import UiState from "@/components/ui/UiState.vue";
 import MissionCenter from "@/components/missions/MissionCenter.vue";
 import TodayMission from "@/components/dashboard/TodayMission.vue";
 import PostCheckinNextAction from "@/components/guided/PostCheckinNextAction.vue";
+import CompactProgressStrip from "@/components/progress/CompactProgressStrip.vue";
 import HeroProgressCard from "@/components/progress/HeroProgressCard.vue";
 import StatsGrid from "@/components/progress/StatsGrid.vue";
 import NextGoalCard from "@/components/progress/NextGoalCard.vue";
@@ -201,14 +247,22 @@ import {
 import {
   getGuidedFeatureState,
   getNewlyUnlockedGuidedFeatures,
+  getOnboardingUserKey,
+  hasOnboardingDecision,
 } from "@/lib/guidedExperience";
 
+const props = defineProps({
+  firstRunFocus: { type: Boolean, default: false },
+});
+
+const route = useRoute();
 const router = useRouter();
 const { t } = useI18n();
 
 const loading = ref(true);
 const loggingOut = ref(false);
 const checkingId = ref(null);
+const showFirstRunFocus = ref(route.query.firstRun === "1");
 const error = ref("");
 const user = ref(null);
 const date = ref("");
@@ -220,6 +274,14 @@ const xpPulse = ref(false);
 const activityEvents = ref([]);
 const achievements = ref([]);
 const showAllChallenges = ref(false);
+const missionFocusDismissed = ref(false);
+const dashboardRevealActive = ref(false);
+const missionFocusState = ref({
+  active: true,
+  reason: "loading",
+  todaySafe: false,
+  hasActionableSuggestion: false,
+});
 const missionCenterStatus = ref({
   loaded: false,
   state: "",
@@ -227,6 +289,15 @@ const missionCenterStatus = ref({
   error: "",
 });
 const missionCenterKey = ref(0);
+const showOnboardingFallback = computed(() => {
+  if (typeof window === "undefined") return false;
+
+  const userKey = getOnboardingUserKey(user.value);
+
+  if (!userKey) return false;
+
+  return !hasOnboardingDecision(userKey);
+});
 
 const challengeLimit = DASHBOARD_CHALLENGE_LIMIT;
 
@@ -263,6 +334,15 @@ const showLegacyTodayMission = computed(() => {
 
   return ["error", "no_mission_today"].includes(missionCenterStatus.value.state);
 });
+
+const showMissionFocusMode = computed(() => {
+  return Boolean(
+    !missionFocusDismissed.value &&
+    (showFirstRunFocus.value || missionFocusState.value.active),
+  );
+});
+
+const showFullDashboard = computed(() => !showMissionFocusMode.value);
 
 const orderedChallenges = computed(() => {
   return orderDashboardChallenges(challenges.value);
@@ -314,6 +394,7 @@ const lockedFeatureLabel = computed(() => {
   return key ? t(`guidedFeatures.labels.${key}`) : "";
 });
 
+
 function pushToast(text, type = "success") {
   const id = `${Date.now()}-${Math.random()}`;
   rewardToasts.value.push({ id, text, type });
@@ -356,20 +437,40 @@ function buildRewardMomentPayload(rewards, oldStats, challenge, context = {}) {
     streak: challenge?.current_streak ?? stats.value?.current_streak ?? null,
     mission: missionTitle
       ? {
-          title: missionTitle,
-          challengeName,
-          summary: missionSummary,
-          securedAt,
-          securedDate: mission?.date || date.value || "",
-          todayDoneBeforeYou: Number.isFinite(Number(mission?.today_done_before_you))
-            ? Number(mission.today_done_before_you)
-            : null,
-          todayDoneCount: Number.isFinite(Number(mission?.today_done_count))
-            ? Number(mission.today_done_count)
-            : null,
-        }
+        title: missionTitle,
+        challengeName,
+        summary: missionSummary,
+        securedAt,
+        securedDate: mission?.date || date.value || "",
+        todayDoneBeforeYou: Number.isFinite(Number(mission?.today_done_before_you))
+          ? Number(mission.today_done_before_you)
+          : null,
+        todayDoneCount: Number.isFinite(Number(mission?.today_done_count))
+          ? Number(mission.today_done_count)
+          : null,
+      }
       : null,
   };
+}
+
+function dismissFirstRunFocus() {
+  showFirstRunFocus.value = false;
+
+  const { firstRun, ...restQuery } = route.query;
+
+  router.replace({
+    path: "/dashboard",
+    query: restQuery,
+  });
+}
+
+function showDashboardFromFocus() {
+  missionFocusDismissed.value = true;
+  dashboardRevealActive.value = true;
+
+  if (showFirstRunFocus.value) {
+    dismissFirstRunFocus();
+  }
 }
 
 async function loadDashboard() {
@@ -504,6 +605,19 @@ function handleMissionCenterLoaded(payload) {
   };
 }
 
+function handleMissionFocusState(payload) {
+  missionFocusState.value = {
+    active: Boolean(payload?.active),
+    reason: payload?.reason || "",
+    todaySafe: Boolean(payload?.todaySafe),
+    hasActionableSuggestion: Boolean(payload?.hasActionableSuggestion),
+  };
+
+  if (missionFocusState.value.active && !missionFocusDismissed.value) {
+    dashboardRevealActive.value = false;
+  }
+}
+
 async function doLogout() {
   try {
     loggingOut.value = true;
@@ -525,6 +639,43 @@ onMounted(loadDashboard);
 
 .scrollAnchor {
   scroll-margin-top: 110px;
+}
+
+.missionFocusProgress {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--s-12);
+  align-items: center;
+}
+
+.dashboardRevealActive .dashboardRevealItem {
+  opacity: 0;
+  transform: translateY(10px);
+  animation: dashboardReveal 420ms cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+}
+
+.dashboardRevealActive .dashboardRevealItem:nth-of-type(2) {
+  animation-delay: 70ms;
+}
+
+.dashboardRevealActive .dashboardRevealItem:nth-of-type(3) {
+  animation-delay: 140ms;
+}
+
+.dashboardRevealActive .dashboardRevealItem:nth-of-type(n + 4) {
+  animation-delay: 210ms;
+}
+
+@keyframes dashboardReveal {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .dashboardHead {
@@ -716,6 +867,18 @@ onMounted(loadDashboard);
     rgba(255, 255, 255, 0.026);
 }
 
+.onboardingFallbackCard {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--s-16);
+  align-items: center;
+  padding: 22px;
+  border-radius: 24px;
+  background:
+    radial-gradient(circle at 0% 0%, rgba(110, 229, 255, 0.10), transparent 34%),
+    rgba(255, 255, 255, 0.035);
+}
+
 .guidedLockCard {
   justify-content: flex-start;
   padding: 16px;
@@ -806,9 +969,18 @@ onMounted(loadDashboard);
   border-color: rgba(110, 229, 255, 0.25);
 }
 
+
+
+.dismissFocusButton:hover {
+  border-color: rgba(110, 229, 255, 0.26);
+  background: rgba(110, 229, 255, 0.08);
+}
+
+
 @media (max-width: 980px) {
 
   .dashboardHead,
+  .missionFocusProgress,
   .progressGrid {
     grid-template-columns: 1fr;
   }
@@ -819,7 +991,8 @@ onMounted(loadDashboard);
   }
 
   .guidedFeatureCard,
-  .guidedLockCard {
+  .guidedLockCard,
+  .onboardingFallbackCard {
     align-items: flex-start;
     flex-direction: column;
   }
@@ -839,11 +1012,22 @@ onMounted(loadDashboard);
   }
 
   .primaryLink,
-  .ghostLink {
+  .ghostLink,
+  .missionFocusProgress :deep(.btn) {
     width: 100%;
     white-space: normal;
     text-align: center;
   }
 
+
+
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dashboardRevealActive .dashboardRevealItem {
+    opacity: 1;
+    transform: none;
+    animation: none;
+  }
 }
 </style>

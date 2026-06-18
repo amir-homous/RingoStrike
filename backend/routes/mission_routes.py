@@ -4,6 +4,8 @@ from auth import require_auth
 from services.mission_service import (
     get_today_missions,
     mark_mission_done,
+    plan_single_mission_reminder,
+    plan_today_reminders,
     remind_mission_later,
     skip_mission,
 )
@@ -49,6 +51,20 @@ def mission_remind_later_route(claims, mission_id):
         mission_id,
         reminder_at,
     )
+    return service_response(payload, code)
+
+
+@mission_bp.post("/me/missions/plan-reminders")
+@require_auth()
+def mission_plan_reminders_route(claims):
+    payload, code = plan_today_reminders(int(claims["user_id"]))
+    return service_response(payload, code)
+
+
+@mission_bp.post("/me/missions/<int:mission_id>/plan-reminder")
+@require_auth()
+def mission_plan_reminder_route(claims, mission_id):
+    payload, code = plan_single_mission_reminder(int(claims["user_id"]), mission_id)
     return service_response(payload, code)
 
 

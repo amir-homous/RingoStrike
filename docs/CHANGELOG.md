@@ -16,6 +16,69 @@ The project has moved beyond raw MVP. Core progression identity is implemented. 
 
 ## Latest Launch-Hardening Updates
 
+### Mission Focus Mode
+
+Added frontend mission focus gating so the dashboard stays calm while the daily loop still has a meaningful next state:
+
+- Dashboard now listens to MissionCenter focus state instead of relying only on `firstRun=1` to hide secondary sections.
+- Full dashboard sections stay hidden during actionable mission, tiny-flow, due-reminder, optional-bonus, and unacknowledged completion states.
+- Mission Status/timeline details are collapsed by default during focus mode and require an explicit `Show mission status` action.
+- `Finish for today` now lands on a calm Rest Mode card with sleeping Ringo, safe-day copy, and future reminder timing when available.
+- Explicit dashboard reveal uses a restrained stagger/fade and respects reduced-motion preferences.
+- Added a compact premium progress strip for focus mode with level, XP progress, streak, and today-safe context.
+- Added an explicit `Show dashboard` escape hatch while keeping `Finish for today` as the successful completion path.
+- Kept the change frontend-only with no backend, schema, XP, streak, achievement, or check-in ownership changes.
+
+### First-Run Mission Reveal Polish
+
+Added a restrained staged reveal for the first-run dashboard mission focus:
+
+- First-run MissionCenter now reveals Ringo guidance, the first mission intro, the suggested mission card, and action education in a short calm sequence.
+- Normal dashboard usage remains unchanged because the reveal is scoped to `firstRunFocus`.
+- Reduced-motion users see the full mission focus immediately without opacity or transform animation.
+- Kept the change frontend-only with no backend, schema, XP, streak, achievement, or mission-state changes.
+
+### Post-First-Win Completion UX Polish
+
+Polished the mission-center finish states after the first meaningful daily action:
+
+- Main completion with an available bonus now frames the bonus as optional extra momentum and keeps `Finish for today` visible.
+- Tiny completion with an available bonus now settles into a calm today-is-safe message instead of pushing the bonus as the next focus.
+- Bonus completion, reminder-saved, optional-skip, and done-for-today copy now reinforce that stopping is a valid success.
+- Added matching English and Persian mission copy without changing progression, check-in, XP, streak, achievement, or schema behavior.
+
+### Mission Family Agenda State Hardening
+
+Hardened main/tiny mission family behavior before wider pre-launch testing:
+
+- Treat linked `main` and `tiny` missions as one mission family in Ringo agenda selection.
+- A reminded main mission now defers its linked tiny mission instead of immediately suggesting it.
+- A reminded tiny mission now defers the parent main mission instead of suggesting the full version again.
+- Completing a linked tiny mission keeps today safe without promoting the parent main as another active task.
+- Completing a parent main mission suppresses linked tiny reminders from Ringo agenda, MissionCenter family display, and Telegram reminder delivery.
+- Kept `bonus` missions separate from substitute-family suppression so bonus reminders/done states remain visible and deliverable.
+- Bonus can be offered after completing the parent main mission, but completing the tiny substitute now lands on a calm done-for-today state instead of pushing bonus work.
+- Kept raw `mission_logs` statuses intact and avoided schema changes; family state is computed in service/UI selection layers.
+
+### Production Runtime And Reminder Automation Hardening
+
+Documented and stabilized the current VPS launch pattern:
+
+- Backend runs under `systemd` as `ringostrike-backend`.
+- Production-like backend runtime uses env-driven `backend/app.py` values: `FLASK_HOST=127.0.0.1`, `PORT=5005`, and `FLASK_DEBUG=0`.
+- Nginx serves the Vue production build from `frontend/dist`.
+- Public backend access uses `/api-proxy`, with Flask bound to `127.0.0.1:5005`.
+- Production frontend builds for the current VPS use `VITE_API_BASE=/api-proxy` and `VITE_BASE=/`.
+- Production browser builds must not use `VITE_API_BASE=http://localhost:5005`.
+- Added mission-level Telegram reminder delivery for due `mission_logs.status = 'remind_later'` rows.
+- Added n8n/cron-compatible protected endpoint `POST /api/telegram/remind-due-missions`.
+- Added protected operational diagnostics endpoint `GET /api/telegram/reminder-diagnostics`.
+- Added duplicate-send prevention through `mission_logs.reminder_sent_at`.
+- Reminder delivery sends through the existing Telegram service and marks `reminder_sent_at` only after successful send.
+- Reminder diagnostics report due, scheduled future, already sent, missing Telegram, reminders-disabled, recent logs, and server time without exposing secrets.
+- MissionCenter now prompts users to connect or enable Telegram after saving a mission reminder, uses the authenticated connect-code deep link, and shows compact reminder delivery status without exposing automation tokens.
+- Stabilized first-run onboarding so incomplete users are routed back to the guided start, interrupted onboarding resumes from the safest useful step, path/challenge choice is intentionally one clear direction, and existing mission data leads to an explicit final handoff instead of silent completion.
+
 ### Backend-Backed Path And Mission System
 
 Added the first backend-backed guided progression layer:
@@ -50,7 +113,7 @@ Updated Ringo helper presentation:
 - Centralized sprite resolution in `frontend/src/constants/ringoSprites.js`.
 - Simplified RewardMoment so it is a focused reward dialog rather than a Ringo image surface.
 
-Known follow-up: `ringoSprites.js` currently references `talking.png` and `victory.png`, but those files are not present in the current asset folder. Restore the assets or remove those imports before production build verification.
+Current note: `talking.png` and `victory.png` are present in `frontend/src/assets/ringo/`. Sprite resolution is centralized in `frontend/src/constants/ringoSprites.js` and should stay aligned with backend `sprite_key` values.
 
 ### Documentation Refresh
 
@@ -365,13 +428,14 @@ Added backend smoke test coverage for:
 Current backend test command:
 
 ```bash
-./venv/bin/pytest backend/tests
+cd backend
+./venv/bin/pytest tests
 ```
 
 Latest local result:
 
 ```txt
-48 passed
+153 passed
 ```
 
 ### Profile Validation

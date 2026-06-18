@@ -105,8 +105,6 @@ export async function saveTelegramSettings(apiClient, settings) {
     {
       reminders_enabled: Boolean(settings?.reminders_enabled),
       daily_checkin_enabled: Boolean(settings?.daily_checkin_enabled),
-      streak_risk_enabled: Boolean(settings?.streak_risk_enabled),
-      weekly_summary_enabled: Boolean(settings?.weekly_summary_enabled),
     },
   );
 

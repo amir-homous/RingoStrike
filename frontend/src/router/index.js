@@ -27,7 +27,7 @@ const router = createRouter({
   routes: [
     { path: "/login", component: AuthForm,meta: { requiresAuth: false } },
     { path: "/auth/callback", component: AuthCallback },
-    { path: "/onboarding", component: Onboarding, meta: { requiresAuth: true } },
+    { path: "/onboarding", component: Onboarding, meta: { requiresAuth: true ,hideFooter:true } },
     { path: "/dashboard", component: Dashboard ,meta: { requiresAuth: true }},
     { path: "/paths", component: () => import("../views/Paths.vue"), meta: { requiresAuth: true } },
     { path: "/challenges", component: Challenges },

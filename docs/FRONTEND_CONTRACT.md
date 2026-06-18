@@ -19,17 +19,23 @@ VITE_API_BASE=/api-proxy
 VITE_BASE=/
 ```
 
-Nginx should proxy `/api-proxy/` to Flask and rewrite the prefix away:
+Nginx serves the Vue production build from `frontend/dist` and proxies `/api-proxy/` to the local Flask backend. Do not use an nginx `rewrite` rule for this deployment. Use a trailing slash on `proxy_pass` so nginx strips the `/api-proxy/` location prefix and forwards the remaining backend path:
 
 ```nginx
 location /api-proxy/ {
-    rewrite ^/api-proxy/(.*)$ /$1 break;
-    proxy_pass http://127.0.0.1:5005;
+    proxy_pass http://127.0.0.1:5005/;
     proxy_set_header Host $host;
     proxy_set_header X-Real-IP $remote_addr;
     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
 }
 ```
+
+Examples:
+
+- `/api-proxy/health` forwards to Flask `/health`
+- `/api-proxy/api/telegram/remind-due-missions` forwards to Flask `/api/telegram/remind-due-missions`
+- `/api-proxy/me` forwards to Flask `/me`
 
 Vue routes should continue to use the SPA fallback:
 
@@ -250,6 +256,12 @@ Success:
 
 Frontend join UX currently consumes this same response to show JoinSuccessMoment before routing users to the dashboard or enrollment detail. Do not add a separate onboarding/recommendation endpoint for the v1 guided start flow; onboarding and challenge discovery both reuse this join contract.
 
+## First-Run Onboarding
+
+Onboarding is a frontend-guided flow that reuses existing authenticated APIs instead of introducing a separate onboarding backend contract. Authenticated users without a local onboarding completion or skip decision are routed to `/onboarding` before the dashboard. Backend path, joined-challenge, and today-mission data may move the user to the final handoff step, but they must not silently mark onboarding complete.
+
+The onboarding flow stores the selected identity path in `localStorage.ringostrike_identity_path`, resumes at welcome/path selection when no path is stored, resumes at the recommended challenge step when a path is stored, and shows a final handoff when a first challenge or mission already exists. Completion is written only after the final handoff CTA. Skip remains local and intentional through `localStorage.ringostrike_onboarding_skipped`.
+
 ## Paths And Missions
 
 Path and mission APIs are the current backend-backed guided progression contract. They sit above the existing challenge/enrollment/check-in system and should not duplicate XP, streak, achievement, or activity calculations.
@@ -364,7 +376,7 @@ Returns a path summary, path-linked active challenges, mission previews, joined 
           "suggested_time": "morning",
           "unlock_after_days": 0,
           "mission_intensity": "main",
-          "estimated_minutes": null,
+          "estimated_minutes": 10,
           "parent_mission_id": null,
           "unlocks_in_days": 0,
           "available_today": true,
@@ -421,11 +433,16 @@ Returns daily missions available for active enrollments and a RingoCoach decisio
       "suggested_time": "morning",
       "unlock_after_days": 0,
       "mission_intensity": "main",
-      "estimated_minutes": null,
+      "estimated_minutes": 10,
       "parent_mission_id": null,
       "ringo_message": "...",
       "status": "pending",
       "reminder_at": null,
+      "reminder_sent_at": null,
+      "done_at": null,
+      "skipped_at": null,
+      "reminder_set_at": null,
+      "status_updated_at": null,
       "xp_earned": 0,
       "challenge_id": 1,
       "challenge_name": "Move Your Body",
@@ -440,6 +457,18 @@ Returns daily missions available for active enrollments and a RingoCoach decisio
 Current `ringo.state` values include `new_user_no_path`, `path_selected_no_challenge`, `no_mission_today`, `today_completed`, `today_reminded`, `today_skipped`, `today_in_progress`, `returning_after_break`, `streak_at_risk`, and `today_not_started`.
 
 Current action types include `route`, `mission`, `mission_reminder`, and `dismiss`.
+
+Mission event timestamp fields are additive and nullable. They are derived from the current Ringo day mission log only:
+
+- `done_at`: UTC timestamp when the current-day log was last written as `done`.
+- `skipped_at`: UTC timestamp when the current-day log was last written as `skipped`.
+- `reminder_set_at`: UTC timestamp when the current-day log was last written as `remind_later`.
+- `status_updated_at`: UTC timestamp for the current-day mission log update, regardless of status.
+- `reminder_sent_at`: UTC timestamp set after the backend Telegram delivery job successfully sends the scheduled mission reminder.
+
+For timeline placement, use `reminder_at` for reminder-set missions because it is the scheduled reminder time. Use `done_at` for completed missions and `skipped_at` for skipped missions. If a timestamp is missing, keep the mission in an untimed UI state rather than inventing a time.
+
+MissionCenter may combine `reminder_at`, `reminder_sent_at`, and authenticated Telegram settings to display frontend-only reminder delivery states such as scheduled, due, sent, Telegram not connected, or Telegram reminders off. The frontend must not call protected automation endpoints or receive `X-Reminder-Token`.
 
 ### `GET /me/ringo/today`
 
@@ -464,10 +493,15 @@ Returns Ringo Brain v1 guidance for the Ringo-first dashboard. This endpoint is 
     "title": "Move for 10 minutes",
     "description": "...",
     "mission_intensity": "main",
-    "estimated_minutes": null,
+    "estimated_minutes": 10,
     "parent_mission_id": null,
     "xp_reward": 10,
     "status": "pending",
+    "reminder_at": null,
+    "done_at": null,
+    "skipped_at": null,
+    "reminder_set_at": null,
+    "status_updated_at": null,
     "challenge_id": 1,
     "challenge_name": "Move Your Body",
     "enrollment_id": 10,
@@ -534,14 +568,25 @@ Frontend clients should remain compatible when `ringo_day` is missing. When pres
 
 Current daily mission reminders should be scheduled before `ringo_day.next_reset_at`. The frontend should block reminder options that cross this boundary when metadata is available, and the backend rejects cross-reset reminder writes with `reminder_after_next_reset`.
 
-The `agenda` object is additive and summarizes the user's daily mission situation. Existing frontend consumers can ignore it safely. `next_action_type` is selected with this priority order:
+The `agenda` object is additive and summarizes the user's daily mission situation. Existing frontend consumers can ignore it safely. `next_action_type` is selected with family-aware priority. Linked `main` and `tiny` missions are one substitute family: a future reminder on either defers the family, a completed tiny satisfies the parent main for today, and a completed main suppresses linked tiny reminder actions. `bonus` missions are not substitute variants; they remain independently visible/actionable optional work after the required family is safe.
+
+When today is not saved, priority is:
+
+1. `due_reminder`
+2. `primary_mission`
+3. `upcoming_reminder`
+4. `skipped_optional`
+5. `optional_mission`
+
+When today is saved, priority is:
 
 1. `due_reminder`
 2. `upcoming_reminder`
-3. `primary_mission`
+3. `skipped_optional`
 4. `optional_mission`
-5. `skipped_optional`
-6. `done_for_today`
+5. `done_for_today`
+
+Pending bonus missions are auto-suggested as `optional_mission` after the parent `main` mission is completed. If the user completed the `tiny` substitute instead, the agenda should prefer a calm `done_for_today` state unless a bonus reminder, skipped optional state, or other higher-priority item already exists.
 
 Agenda fields:
 
@@ -553,13 +598,40 @@ Agenda fields:
 - `pending_count`, `reminded_count`, `skipped_count`, `done_count`: counts from today's mission list.
 - `has_optional_work`: `true` when remaining work exists but should be treated as optional/paused/no-pressure context.
 
-When `today_saved` is `true`, reminders and skipped missions may still appear in `agenda` as optional context. This does not make them required and does not change mission mutation behavior.
+When `today_saved` is `true`, unresolved reminders and skipped missions may still appear in `agenda` as optional context unless they belong to an already satisfied main/tiny family. This does not make them required and does not change mission mutation behavior.
 
 Frontend guidance:
 
 - Use this endpoint to lead the Ringo-first dashboard with Ringo mood, message, suggested mission, action choices, Today Saved state, and reward sequence placeholder.
 - Continue using `/me/missions/:mission_id/done`, `/remind-later`, and `/skip` for mission mutations.
 - Keep `/me/today-missions` compatibility while the dashboard migrates progressively.
+
+### MissionCenter Frontend Focus Behavior
+
+Mission focus mode is a frontend display contract between `MissionCenter.vue` and `Dashboard.vue`; it is not a backend API contract and does not change mission, XP, streak, achievement, or check-in ownership.
+
+`MissionCenter.vue` emits `focus-state-change` with a local payload shaped like:
+
+```json
+{
+  "active": true,
+  "reason": "primary_mission",
+  "todaySafe": false,
+  "hasActionableSuggestion": true
+}
+```
+
+Current local `reason` values include `loading`, `rest_mode`, `first_run`, `due_reminder`, `tiny_flow`, `optional_bonus`, `primary_mission`, `completion_unacknowledged`, `future_reminder_only`, and `done_for_today`. These values are for frontend gating only and should not be treated as stable backend enum values.
+
+While focus mode is active, `Dashboard.vue` hides the large dashboard sections and shows:
+
+- `MissionCenter`
+- `CompactProgressStrip`, using existing `/me/stats` data for level, XP progress, and streak
+- no duplicate progression calculations
+
+`MissionCenter.vue` keeps mission timeline/status details collapsed by default during focus mode. Users can reveal them explicitly with `Show mission status`. `Finish for today` enters a calm frontend-only Rest Mode card, optionally showing nearest future reminder timing from existing mission `reminder_at` values. `Show dashboard` emits `show-dashboard` so `Dashboard.vue` can reveal the full dashboard with reduced-motion-safe styling.
+
+This is distinct from the still-planned Mission Context UX layer. The current implementation improves focus, family-aware display, and completion tone, but it does not provide a universal path -> challenge -> mission breadcrumb system or backend mission context model.
 
 ### `POST /me/missions/:mission_id/done`
 
@@ -646,6 +718,72 @@ Validation:
 - value must be before the current Ringo day `next_reset_at`; otherwise the endpoint returns `400` with `reminder_after_next_reset`
 
 Success returns the same `mission` shape as mission done with `status: "remind_later"` and no check-in payload.
+
+### `POST /me/missions/plan-reminders`
+
+Auth: required.
+
+Creates gentle reminder times for current-day pending missions that do not already have reminders. Existing `done`, `skipped`, and `remind_later` mission logs are preserved. Planned reminder times are always after server now and before the current Ringo day `next_reset_at`.
+
+Success response:
+
+```json
+{
+  "ok": true,
+  "scheduled": [
+    {
+      "mission_id": 12,
+      "title": "Read five pages",
+      "reminder_at": "2026-06-15T10:30:00Z",
+      "reason": "gentle_spacing"
+    }
+  ],
+  "unscheduled": [
+    {
+      "mission_id": 18,
+      "title": "Bonus movement",
+      "reason": "not_enough_time_before_reset"
+    }
+  ],
+  "summary": {
+    "scheduled_count": 1,
+    "unscheduled_count": 1
+  },
+  "ringo_day": {
+    "date": "2026-06-15",
+    "next_reset_at": "2026-06-16T00:00:00Z",
+    "reset_basis": "utc",
+    "server_now": "2026-06-15T09:00:00Z"
+  }
+}
+```
+
+### `POST /me/missions/:mission_id/plan-reminder`
+
+Auth: required.
+
+Applies one Ringo-suggested reminder time for a single mission. The mission must be `pending` or already `remind_later`; existing reminders may be replaced. The reminder time is chosen by the same planner rules as the global planner and must be after server now and before `ringo_day.next_reset_at`.
+
+Returns `400` with `no_safe_reminder_time` if no safe reminder slot exists before reset.
+
+Success response includes the applied `mission` and a `scheduled` object:
+
+```json
+{
+  "ok": true,
+  "scheduled": {
+    "mission_id": 12,
+    "title": "Read five pages",
+    "reminder_at": "2026-06-15T10:30:00Z",
+    "reason": "gentle_spacing"
+  },
+  "mission": {
+    "mission_id": 12,
+    "status": "remind_later",
+    "reminder_at": "2026-06-15T10:30:00Z"
+  }
+}
+```
 
 ### `POST /me/missions/:mission_id/skip`
 
@@ -850,6 +988,8 @@ Visibility values: `public`, `private`.
 
 The frontend does not use Telegram Login and never sends or stores a bot token.
 
+Active frontend reminder settings should only promise delivery paths that exist. `reminders_enabled` controls mission-level Telegram reminder delivery and `daily_checkin_enabled` controls the existing daily unchecked reminder flow. Streak-risk reminders and weekly summaries may remain in the settings response for compatibility, but the current UI treats them as coming soon until a delivery pipeline exists.
+
 ### `GET /api/me/telegram/settings`
 
 Auth: required.
@@ -887,9 +1027,7 @@ Request fields:
 ```json
 {
   "reminders_enabled": true,
-  "daily_checkin_enabled": true,
-  "streak_risk_enabled": true,
-  "weekly_summary_enabled": false
+  "daily_checkin_enabled": true
 }
 ```
 
@@ -910,6 +1048,115 @@ Request:
   "telegram_username": "alice"
 }
 ```
+
+### `POST /api/telegram/remind-due-missions`
+
+Auth: protected by `X-Reminder-Token`; intended for n8n, cron, or similar automation. The frontend must not call this endpoint.
+
+Current VPS public URL:
+
+```http
+POST /api-proxy/api/telegram/remind-due-missions
+```
+
+The backend finds due mission-level reminders, sends Telegram messages through the configured Telegram bot, and marks each reminder as delivered only after a successful send.
+
+Request:
+
+```json
+{
+  "dry_run": true,
+  "limit": 20
+}
+```
+
+Response:
+
+```json
+{
+  "ok": true,
+  "server_now": "2026-06-16T12:00:00Z",
+  "checked_at": "2026-06-16T12:00:00Z",
+  "run_mode": "dry_run",
+  "dry_run": true,
+  "checked": 3,
+  "due": 3,
+  "sent": 0,
+  "skipped": 0,
+  "failed": 0,
+  "errors": [],
+  "items": [
+    {
+      "mission_log_id": 1,
+      "user_id": 1,
+      "mission_id": 12,
+      "title": "Send one signal",
+      "has_telegram_chat_id": true,
+      "status": "dry_run"
+    }
+  ]
+}
+```
+
+Rules:
+
+- selects `mission_logs.status = "remind_later"` with `reminder_at <= now`
+- ignores already delivered reminders via `mission_logs.reminder_sent_at`
+- requires active enrollment, active challenge, and active mission records
+- skips users without a connected Telegram chat or with reminders disabled
+- dry-run does not send messages and does not set `reminder_sent_at`
+
+### `GET /api/telegram/reminder-diagnostics`
+
+Auth: protected by `X-Reminder-Token`; intended for admin/n8n operational checks. The frontend must not call this endpoint.
+
+Current VPS public URL:
+
+```http
+GET /api-proxy/api/telegram/reminder-diagnostics
+```
+
+Returns safe reminder observability data without sending Telegram messages. It does not expose Telegram chat IDs, bot tokens, admin tokens, JWT secrets, cookies, or other secret values.
+
+Response:
+
+```json
+{
+  "ok": true,
+  "server_now": "2026-06-16T12:00:00Z",
+  "summary": {
+    "total_reminders": 4,
+    "due_count": 1,
+    "scheduled_future_count": 1,
+    "already_sent_count": 1,
+    "missing_telegram_count": 1,
+    "reminders_disabled_count": 0
+  },
+  "due_reminders": [
+    {
+      "mission_log_id": 1,
+      "user_id": 1,
+      "mission_id": 12,
+      "mission_title": "Send one signal",
+      "status": "remind_later",
+      "reminder_at": "2026-06-16T11:55:00Z",
+      "reminder_sent_at": null,
+      "has_telegram_chat_id": true,
+      "reminders_enabled": true,
+      "delivery_state": "due"
+    }
+  ],
+  "scheduled_future_reminders": [],
+  "already_sent_reminders": [],
+  "missing_telegram_reminders": [],
+  "reminders_disabled_reminders": [],
+  "recent_reminder_logs": []
+}
+```
+
+Optional query:
+
+- `recent_limit`: number of recent reminder logs to include in `recent_reminder_logs`
 
 ### `PATCH /api/profile/visibility`
 

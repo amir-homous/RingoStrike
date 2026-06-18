@@ -15,6 +15,7 @@ Current convention:
 - Services own database reads/writes and response payload assembly.
 - `backend/utils/api_response.py` owns shared success/error response helpers.
 - Active frontend route usage is documented in `docs/FRONTEND_CONTRACT.md`.
+- On the current VPS, public backend calls are reached through nginx `/api-proxy`. Endpoint ownership below lists the Flask route paths after nginx forwards them.
 
 ## Public Endpoints
 
@@ -72,6 +73,8 @@ Current convention:
 | --- | --- | --- | --- |
 | `POST /api/telegram/connect` | `routes/telegram_routes.py` | `services/telegram_connection_service.py` | Bot bridge endpoint protected by `X-Reminder-Token`; redeems a connect code and stores the Telegram chat id. |
 | `POST /api/telegram/remind-unchecked-test` | `routes/telegram_routes.py` | `services/reminder_service.py` | Admin-token protected test reminder surface. |
+| `POST /api/telegram/remind-due-missions` | `routes/telegram_routes.py` | `services/reminder_service.py` | Admin-token protected n8n/cron trigger for due mission-level Telegram reminders. Backend sends and marks delivered. |
+| `GET /api/telegram/reminder-diagnostics` | `routes/telegram_routes.py` | `services/reminder_service.py` | Admin-token protected operational diagnostics for mission-level Telegram reminders. Does not send messages or expose chat IDs/secrets. |
 
 ## Development-Only Endpoints
 

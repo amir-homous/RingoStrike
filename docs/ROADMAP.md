@@ -78,6 +78,12 @@ The detailed product direction lives in:
 - Mission completion delegates to the existing check-in pipeline for XP, streak, achievement, activity, and stats consistency.
 - Ringo decision service for coach state, sprite key, message, and primary/secondary action selection.
 - Dashboard MissionCenter as the first daily action surface.
+- Main/tiny mission-family handling where tiny missions are lower-pressure substitutes, while bonus missions remain optional extra momentum.
+- Mission focus mode that hides secondary dashboard sections while there is an active Ringo focus, due reminder, primary mission, tiny flow, optional bonus focus, or unacknowledged completion state.
+- Compact progress strip for focus mode using existing level, XP progress, streak, and today-safe context.
+- First-run staged reveal for Ringo guidance, mission intro, mission card, and action education.
+- Post-first-win completion UX, including optional bonus framing, calm reminder copy, and Rest Mode after `Finish for today`.
+- Mission Status detail lists are collapsed by default during focus mode and can be revealed manually.
 - `/paths` planning view with path picker, stage panels, mission previews, and today progress summary.
 - Ringo helper sprites and RingoCoach component.
 - Premium navigation with Paths in desktop/mobile navigation and Settings removed from visible navigation.
@@ -139,6 +145,11 @@ The detailed product direction lives in:
 - Added premium check-in RewardMoment and frontend-only unlock hints for Activity, Achievements, and Public Profile using existing check-in/stat data.
 - Added frontend-only progressive disclosure on the dashboard using existing check-in counts instead of new backend fields.
 - Added backend-backed path/mission system, MissionCenter, `/paths`, and RingoCoach on top of the existing challenge/check-in progression model.
+- Added mission-level Telegram reminder delivery for due `remind_later` mission logs.
+- Added duplicate-prevention for delivered mission reminders through `mission_logs.reminder_sent_at`.
+- Added protected due reminder endpoint for n8n/cron automation: `POST /api/telegram/remind-due-missions`.
+- Added protected reminder diagnostics endpoint: `GET /api/telegram/reminder-diagnostics`.
+- Hardened VPS runtime around `systemd`, env-driven Flask binding, `FLASK_DEBUG=0`, and nginx `/api-proxy` routing to a localhost-only backend.
 
 
 ### Backend Test Coverage Added
@@ -202,19 +213,20 @@ The detailed product direction lives in:
 These items should happen before expanding product scope:
 
 - Keep invalid challenge join payload coverage as route behavior evolves.
-- Restore or remove missing Ringo sprite imports for `talking.png` and `victory.png`.
 - Add frontend smoke coverage for `/paths`, MissionCenter, mission done/remind/skip, and duplicate mission/check-in behavior.
+- Continue validating mission context clarity after the focus-mode work. A full Mission Context UX layer, universal path -> challenge -> mission breadcrumbs, and contextual reward sequence are still planned work.
 - Add tests for `/auth/logout` edge cases if token blacklist/session invalidation is introduced later.
 - Resolve or document remaining GitHub Actions frontend build instability if it reappears.
 - Run deployment smoke script after every production/pre-launch deployment.
 - Finalize production `.env` values for backend and frontend.
 - Normalize API naming conventions where practical (`/api/...` vs non-`/api/...`).
-- Add a real migration strategy instead of ad hoc table changes in app startup.
+- Add a real migration strategy instead of relying on startup-time additive schema changes for future production database evolution.
 - Review profile update endpoints and reduce overlap where possible.
 - Public challenge/member endpoint visibility has been hardened for private challenges; keep intended policy documented as product scope evolves.
 - Run full `docs/LAUNCH_QA_CHECKLIST.md` before release candidate.
 - Expand shared API response helper usage across existing routes.
 - Keep service-level leaderboard ordering coverage aligned if tie-breaker behavior changes.
+- Keep reminder automation monitored through diagnostics and n8n admin summaries.
 
 
 ---
@@ -392,7 +404,7 @@ npm run build
 python scripts/smoke_backend.py --base-url http://localhost:5005
 ```
 
-## Lunch Readiness Status
+## Launch Readiness Status
 
 Actionable launch-hardening fixes targeted before lunch are complete.
 
