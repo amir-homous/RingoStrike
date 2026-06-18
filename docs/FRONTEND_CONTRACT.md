@@ -606,6 +606,33 @@ Frontend guidance:
 - Continue using `/me/missions/:mission_id/done`, `/remind-later`, and `/skip` for mission mutations.
 - Keep `/me/today-missions` compatibility while the dashboard migrates progressively.
 
+### MissionCenter Frontend Focus Behavior
+
+Mission focus mode is a frontend display contract between `MissionCenter.vue` and `Dashboard.vue`; it is not a backend API contract and does not change mission, XP, streak, achievement, or check-in ownership.
+
+`MissionCenter.vue` emits `focus-state-change` with a local payload shaped like:
+
+```json
+{
+  "active": true,
+  "reason": "primary_mission",
+  "todaySafe": false,
+  "hasActionableSuggestion": true
+}
+```
+
+Current local `reason` values include `loading`, `rest_mode`, `first_run`, `due_reminder`, `tiny_flow`, `optional_bonus`, `primary_mission`, `completion_unacknowledged`, `future_reminder_only`, and `done_for_today`. These values are for frontend gating only and should not be treated as stable backend enum values.
+
+While focus mode is active, `Dashboard.vue` hides the large dashboard sections and shows:
+
+- `MissionCenter`
+- `CompactProgressStrip`, using existing `/me/stats` data for level, XP progress, and streak
+- no duplicate progression calculations
+
+`MissionCenter.vue` keeps mission timeline/status details collapsed by default during focus mode. Users can reveal them explicitly with `Show mission status`. `Finish for today` enters a calm frontend-only Rest Mode card, optionally showing nearest future reminder timing from existing mission `reminder_at` values. `Show dashboard` emits `show-dashboard` so `Dashboard.vue` can reveal the full dashboard with reduced-motion-safe styling.
+
+This is distinct from the still-planned Mission Context UX layer. The current implementation improves focus, family-aware display, and completion tone, but it does not provide a universal path -> challenge -> mission breadcrumb system or backend mission context model.
+
 ### `POST /me/missions/:mission_id/done`
 
 Auth: required.

@@ -29,7 +29,7 @@ Rationale:
 - Active auth code still combines route handling and auth helpers in `backend/auth.py`.
 - Profile update paths overlap: `/api/me/profile/settings`, `/api/profile/visibility`, and `/api/profile` update related user profile fields.
 - API route naming is mixed across `/me/...`, `/api/me/...`, and `/api/profile...`.
-- Ringo sprite resolution is split between backend decision keys and frontend asset imports. The current sprite map references `talking.png` and `victory.png`, but those files are missing from `frontend/src/assets/ringo/`.
+- Ringo sprite resolution is split between backend decision keys and frontend asset imports. The current sprite assets include `talking.png` and `victory.png`; keep `frontend/src/constants/ringoSprites.js`, asset filenames, and backend `sprite_key` values aligned.
 
 ### Complexity Analysis
 
@@ -168,16 +168,15 @@ Issues:
 6. Public/private profile visibility and public profile not-found/privacy behavior have smoke coverage.
 7. Private challenge detail/member endpoints and leaderboard ownership have privacy coverage.
 8. Progression stats, history, consistency, activity, and achievements respect uncounted check-ins.
-9. Backend tests currently pass locally: `41 passed`.
+9. Backend tests currently pass locally: `153 passed` with `cd backend && ./venv/bin/pytest tests`.
 
 ### Important - Next Sprint
 
-1. Restore or remove missing Ringo sprite assets referenced by `frontend/src/constants/ringoSprites.js`.
-2. Add path/mission frontend smoke coverage for `/paths`, MissionCenter loading, mission done/remind/skip, and duplicate mission/check-in behavior.
-3. Consolidate active auth code into route + service modules.
-4. Add or evaluate an index strategy for public username lookup.
-5. Continue expanding shared request/response validation patterns.
-6. Normalize profile update endpoints into one clear contract.
+1. Add path/mission frontend smoke coverage for `/paths`, MissionCenter loading, mission done/remind/skip, focus-mode dashboard gating, and duplicate mission/check-in behavior.
+2. Consolidate active auth code into route + service modules.
+3. Add or evaluate an index strategy for public username lookup.
+4. Continue expanding shared request/response validation patterns.
+5. Normalize profile update endpoints into one clear contract.
 7. Add explicit database migrations instead of ad hoc startup migrations.
 8. Keep public challenge/member visibility documented as the product policy evolves.
 

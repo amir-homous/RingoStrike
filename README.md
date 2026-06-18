@@ -19,6 +19,7 @@ The product combines:
 * activity timelines
 * progression identity
 * Ringo-led daily missions
+* mission focus mode
 * Telegram reminder automation
 * social momentum architecture
 
@@ -67,6 +68,7 @@ The long-term goal is to create a platform where:
 * Reward feedback loops
 * Ringo-led paths and daily missions
 * Mission reminders, skips, and completion state
+* Mission-family behavior for main/tiny substitutes and optional bonus momentum
 
 ---
 
@@ -116,6 +118,9 @@ The long-term goal is to create a platform where:
 * Premium dark UI
 * Glassmorphism-inspired design
 * Modular Vue component system
+* Ringo-led MissionCenter with focus-mode dashboard gating
+* Compact progress strip during focused daily loops
+* First-run staged reveal and calm Rest Mode after finishing for today
 * Reward-driven interactions
 * Responsive layouts
 * Emotionally intelligent UX
@@ -142,7 +147,7 @@ The long-term goal is to create a platform where:
 * Vite
 * Vue Router
 * Pinia
-* TailwindCSS
+* CSS tokens/base styles with a Tailwind dependency present but not used as the active global styling layer
 
 ## Backend
 
@@ -183,9 +188,13 @@ src/
 │   ├── activity/
 │   ├── challenges/
 │   ├── feedback/
+│   ├── guided/
+│   ├── missions/
 │   ├── profile/
 │   ├── progress/
+│   ├── ringo/
 │   └── ui/
+├── i18n/
 ├── views/
 ├── router/
 ├── stores/
@@ -196,6 +205,8 @@ The frontend is built around:
 
 * reusable progression components
 * emotional feedback systems
+* Ringo/MissionCenter guided daily focus
+* English/Persian localization with RTL support
 * scalable identity/social architecture
 
 ---
@@ -229,17 +240,17 @@ Important files:
 
 Current stage:
 
-* progression platform
+* companion-first guided progression
 * identity-focused UX
-* engagement systems
+* mission focus and completion-flow hardening
+* pre-launch operational polish
 
 Future direction:
 
-* public profiles
 * social momentum layer
-* challenge discovery
+* fuller Mission Context UX
+* contextual path/challenge/mission reward framing
 * AI insights
-* automation systems
 * seasonal progression systems
 
 ---

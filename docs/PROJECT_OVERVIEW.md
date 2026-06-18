@@ -27,6 +27,10 @@ Product direction source:
 - RingoCoach guidance states that choose message, sprite, and next action from the user's current path/enrollment/mission context.
 - Daily check-ins per enrollment.
 - Dashboard Mission Center that leads the daily loop and falls back to the legacy Today Mission card only when no mission is available.
+- Frontend mission focus mode that keeps the dashboard centered on Ringo, the current mission/reminder/completion state, and a compact progress strip while the daily loop still needs attention.
+- First-run staged reveal for the Mission Center so Ringo guidance, mission intro, mission card, and action education appear in a calm sequence.
+- Rest Mode after `Finish for today`, with sleeping Ringo, safe-day copy, optional future reminder timing, and an explicit `Show dashboard` escape hatch.
+- Mission Status details are collapsed by default during focus mode and can be revealed manually with `Show mission status`.
 - Full `/paths` page for path selection, challenge stage previews, mission previews, and per-path progress summary.
 - Premium check-in reward moment with existing XP, streak, achievement, and frontend-only unlock hints.
 - Frontend-only progressive disclosure for early dashboard sections based on existing check-in stats.
@@ -145,6 +149,7 @@ Based on git history, the project has progressed through:
 3. XP, dashboard progression UX, activity timeline, achievements, and profile identity hub.
 4. Public identity foundations: public profiles, visibility, username normalization, avatar/profile settings, and shareable UX.
 5. Guided path/mission foundation: seeded MVP paths, path-specific challenges, daily missions, mission logs, RingoCoach state decisions, premium navigation, and Ringo helper sprites.
+6. Mission-family and focus-mode polish: main/tiny substitute behavior, bonus-as-optional momentum, staged first-run reveal, post-first-win copy, compact focus progress, collapsed mission status details, and Rest Mode.
 
 ## Known Stabilization Needs
 
@@ -154,7 +159,7 @@ Based on git history, the project has progressed through:
 - Review public challenge/member endpoint visibility before public launch.
 - Continue expanding shared API response helper usage.
 - Add frontend smoke tests for router guard, login, dashboard, challenge check-in, profile, and public profile rendering.
-- Fix or remove missing Ringo sprite imports for `talking.png` and `victory.png`; the current frontend sprite map references these files, but they are absent from `frontend/src/assets/ringo/`.
+- Continue validating mission context clarity. Mission focus mode is implemented, but a full Mission Context UX layer with consistent path -> challenge -> mission breadcrumbs and contextual reward framing is still planned work.
 
 ## Recently Stabilized
 
@@ -167,7 +172,9 @@ Based on git history, the project has progressed through:
 - Profile, challenge, leaderboard, public identity, and progression privacy edge cases have been hardened.
 - Progression surfaces consistently ignore uncounted check-ins.
 - Achievement XP rewards are included in persisted stats.
-- Backend smoke coverage currently reports `41 passed` in the local `backend/venv` environment.
+- Backend smoke coverage currently reports `153 passed` from `cd backend && ./venv/bin/pytest tests` in the local `backend/venv` environment.
 - MVP paths and missions are seeded by `path_seed_service.py`, with legacy unlinked challenges archived when they have no active mission linkage.
 - Mission-level Telegram reminder delivery is protected by `X-Reminder-Token`, safe for n8n/cron triggering, and prevents duplicate sends with `mission_logs.reminder_sent_at`.
 - Protected reminder diagnostics expose due/scheduled/sent/missing-Telegram/reminders-disabled operational state without sending messages or exposing secrets.
+- Mission-family agenda behavior treats linked `main` and `tiny` missions as substitutes while keeping `bonus` missions independently visible and optional.
+- Dashboard mission focus mode hides secondary sections until the daily focus is resolved or the user explicitly chooses `Show dashboard`; focus mode remains frontend-only and does not alter progression writes.

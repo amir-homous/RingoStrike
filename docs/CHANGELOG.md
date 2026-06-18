@@ -113,7 +113,7 @@ Updated Ringo helper presentation:
 - Centralized sprite resolution in `frontend/src/constants/ringoSprites.js`.
 - Simplified RewardMoment so it is a focused reward dialog rather than a Ringo image surface.
 
-Known follow-up: `ringoSprites.js` currently references `talking.png` and `victory.png`, but those files are not present in the current asset folder. Restore the assets or remove those imports before production build verification.
+Current note: `talking.png` and `victory.png` are present in `frontend/src/assets/ringo/`. Sprite resolution is centralized in `frontend/src/constants/ringoSprites.js` and should stay aligned with backend `sprite_key` values.
 
 ### Documentation Refresh
 
@@ -428,13 +428,14 @@ Added backend smoke test coverage for:
 Current backend test command:
 
 ```bash
-./venv/bin/pytest backend/tests
+cd backend
+./venv/bin/pytest tests
 ```
 
 Latest local result:
 
 ```txt
-48 passed
+153 passed
 ```
 
 ### Profile Validation

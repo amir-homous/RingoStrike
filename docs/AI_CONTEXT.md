@@ -123,7 +123,10 @@ Implementation guidance:
 - When adding Persian UI text, keep `lang="fa"`/`dir="rtl"` behavior centralized through `frontend/src/i18n/index.js`.
 - Keep guided progression UX frontend-first while it is being validated. Reuse current challenge/enrollment/check-in responses; do not add onboarding, recommendation, XP, streak, or achievement backend logic unless a later issue explicitly requires it.
 - For path/mission work, keep mission state in `mission_logs` and canonical progression in check-ins/stats/achievements. Avoid adding a second progression economy.
-- `frontend/src/constants/ringoSprites.js` currently references `talking.png` and `victory.png`, but those assets are missing from `frontend/src/assets/ringo/`. Fix the assets or sprite map before production build verification.
+- `frontend/src/constants/ringoSprites.js` resolves Ringo sprites from `frontend/src/assets/ringo/` with fallback aliases for missing or unknown keys. Keep `RINGO_SPRITE_KEYS`, backend `sprite_key` values, and actual asset filenames aligned.
+- Dashboard mission focus mode is frontend-owned: `MissionCenter.vue` emits `focus-state-change`, `Dashboard.vue` hides secondary dashboard sections while focus is active, and `CompactProgressStrip.vue` provides minimal level/XP/streak context without duplicating progression calculations.
+- `MissionCenter.vue` owns first-run staged reveal, mission status expansion, post-first-win copy, and Rest Mode. `Finish for today` enters the calm Rest Mode card; `Show dashboard` explicitly unlocks the full dashboard.
+- Mission focus mode is not the full Mission Context UX system. It improves dashboard focus and mission-family presentation, but complete path -> challenge -> mission breadcrumb/context clarity remains future product work unless code later proves otherwise.
 - `frontend/src/views/Login.vue` is a Telegram-oriented view and is not the active `/login` route while local username/password auth remains the primary flow.
 - `GET /me/stats` is owned by `stats_routes.py` and delegates to `stats_service.py`.
 - `backend/services/auth_service.py` has been removed; active auth routes are still registered through `backend/auth.py`.

@@ -201,6 +201,9 @@ Guided progression is now split between backend path/mission data and frontend p
 - `frontend/src/views/challengeFlow.js` centralizes join payload handling and returns join success data so callers can decide whether to show JoinSuccessMoment or navigate.
 - `/paths` uses `GET /paths`, `POST /paths/:id/start`, and `GET /paths/:id/challenges` to show active growth paths, challenge stages, mission previews, and path progress.
 - Dashboard loads `MissionCenter` before legacy dashboard sections. `MissionCenter` calls `GET /me/today-missions`, renders `RingoCoach`, and writes mission state through `/me/missions/:id/...`.
+- Dashboard owns frontend mission focus mode. `MissionCenter` emits `focus-state-change`; while active, `Dashboard.vue` hides secondary sections and shows only Ringo/MissionCenter plus `CompactProgressStrip`.
+- Mission focus mode can be exited deliberately through the `show-dashboard` event. Dashboard then reveals the full dashboard with a restrained stagger/fade animation and respects `prefers-reduced-motion`.
+- `MissionCenter.vue` keeps mission timeline/status details collapsed by default during focus mode and exposes them through an explicit `Show mission status` control. `Finish for today` enters a frontend-only Rest Mode card instead of immediately revealing the full dashboard.
 - `POST /me/missions/:id/done` records the mission log and delegates to the existing enrollment check-in service, so XP, streaks, achievements, activity, and stats remain owned by the existing progression pipeline.
 - RewardMoment and JoinSuccessMoment are display feedback components. RewardMoment consumes existing check-in reward data plus frontend-only feature unlock hints; JoinSuccessMoment consumes challenge/path start results.
 
@@ -221,7 +224,7 @@ Guided progression is now split between backend path/mission data and frontend p
 
 `frontend/src/components/ringo/RingoCoach.vue` resolves `sprite_key` through `frontend/src/constants/ringoSprites.js` and emits action payloads for mission/reminder/dismiss behavior. Route actions render as `RouterLink`.
 
-Current sprite asset set is under `frontend/src/assets/ringo/`. The frontend sprite map currently references `talking.png` and `victory.png`; those files are not present in the current working tree and should be restored or removed from the sprite map.
+Current sprite asset set is under `frontend/src/assets/ringo/`. The frontend sprite map resolves assets with `import.meta.glob` and fallback aliases; keep sprite keys, filenames, and backend `sprite_key` values aligned when adding moods.
 
 Router guard behavior:
 
