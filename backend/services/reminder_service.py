@@ -2,7 +2,10 @@ from database import get_db_connection
 from utils.date_utils import utc_iso_z, utc_today_iso
 from services.telegram_service import send_telegram_message
 from config import Config
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
+
+
+STALE_MISSION_REMINDER_AFTER = timedelta(hours=24)
 
 
 def find_unchecked_active_enrollments(today_iso=None):
@@ -174,11 +177,22 @@ def _mission_reminder_is_deliverable(item):
     return reminders_enabled == 1
 
 
+def _mission_reminder_is_stale(item, current):
+    reminder_at = _parse_utc_datetime(item.get("reminder_at"))
+    return bool(
+        reminder_at
+        and reminder_at <= current
+        and current - reminder_at > STALE_MISSION_REMINDER_AFTER
+    )
+
+
 def find_deliverable_due_mission_reminders(now=None):
+    current = (now or datetime.now(timezone.utc)).astimezone(timezone.utc)
     return [
         item
-        for item in find_due_mission_reminders(now)
+        for item in find_due_mission_reminders(current)
         if _mission_reminder_is_deliverable(item)
+        and not _mission_reminder_is_stale(item, current)
     ]
 
 
@@ -238,9 +252,12 @@ def _safe_mission_reminder_diagnostic_item(item, current):
     has_chat = bool(item.get("telegram_chat_id"))
     reminders_enabled = int(item.get("reminders_enabled") or 0) == 1
     is_due = bool(reminder_at and reminder_at <= current)
+    is_stale = _mission_reminder_is_stale(item, current)
 
     if reminder_sent_at:
         delivery_state = "sent"
+    elif is_stale:
+        delivery_state = "stale"
     elif is_due and not has_chat:
         delivery_state = "missing_telegram"
     elif is_due and not reminders_enabled:
@@ -333,6 +350,7 @@ def build_mission_reminder_diagnostics(*, now=None, recent_limit=20):
     sent = [item for item in items if item["delivery_state"] == "sent"]
     missing_telegram = [item for item in items if item["delivery_state"] == "missing_telegram"]
     reminders_disabled = [item for item in items if item["delivery_state"] == "reminders_disabled"]
+    stale = [item for item in items if item["delivery_state"] == "stale"]
 
     try:
         recent_limit = max(0, int(recent_limit))
@@ -345,6 +363,10 @@ def build_mission_reminder_diagnostics(*, now=None, recent_limit=20):
         "summary": {
             "total_reminders": len(items),
             "due_count": len(due),
+            "deliverable_due_count": len(due),
+            "blocked_missing_telegram_count": len(missing_telegram),
+            "blocked_reminders_disabled_count": len(reminders_disabled),
+            "stale_due_count": len(stale),
             "scheduled_future_count": len(scheduled),
             "already_sent_count": len(sent),
             "missing_telegram_count": len(missing_telegram),
@@ -355,6 +377,7 @@ def build_mission_reminder_diagnostics(*, now=None, recent_limit=20):
         "already_sent_reminders": sent,
         "missing_telegram_reminders": missing_telegram,
         "reminders_disabled_reminders": reminders_disabled,
+        "stale_due_reminders": stale,
         "recent_reminder_logs": items[:recent_limit],
     }
 
@@ -387,10 +410,31 @@ def send_due_mission_telegram_reminders(
 ):
     current = (now or datetime.now(timezone.utc)).astimezone(timezone.utc)
     all_due_items = find_due_mission_reminders(current)
-    deliverable_items = [
+    stale_items = [
         item
         for item in all_due_items
+        if _mission_reminder_is_stale(item, current)
+    ]
+    active_due_items = [
+        item
+        for item in all_due_items
+        if not _mission_reminder_is_stale(item, current)
+    ]
+    deliverable_items = [
+        item
+        for item in active_due_items
         if _mission_reminder_is_deliverable(item)
+    ]
+    missing_telegram_items = [
+        item
+        for item in active_due_items
+        if not item.get("telegram_chat_id")
+    ]
+    reminders_disabled_items = [
+        item
+        for item in active_due_items
+        if item.get("telegram_chat_id")
+        and not _mission_reminder_is_deliverable(item)
     ]
 
     items = deliverable_items if deliverable_items else all_due_items
@@ -406,6 +450,11 @@ def send_due_mission_telegram_reminders(
         "dry_run": bool(dry_run),
         "checked": len(items),
         "due": len(items),
+        "total_due": len(all_due_items),
+        "deliverable_due_count": len(deliverable_items),
+        "blocked_missing_telegram_count": len(missing_telegram_items),
+        "blocked_reminders_disabled_count": len(reminders_disabled_items),
+        "stale_due_count": len(stale_items),
         "sent": 0,
         "skipped": 0,
         "failed": 0,
@@ -415,6 +464,15 @@ def send_due_mission_telegram_reminders(
 
     for item in items:
         log_item = _mission_item_for_log(item)
+
+        if _mission_reminder_is_stale(item, current):
+            result["skipped"] += 1
+            result["items"].append({
+                **log_item,
+                "status": "skipped",
+                "reason": "stale_reminder",
+            })
+            continue
 
         if not item.get("telegram_chat_id"):
             result["skipped"] += 1

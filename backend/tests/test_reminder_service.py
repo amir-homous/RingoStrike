@@ -586,6 +586,55 @@ def test_due_mission_reminder_dry_run_does_not_mark_sent(client):
     assert row["reminder_sent_at"] is None
 
 
+def test_mixed_due_mission_reminder_batch_limit_selects_deliverable(client):
+    from services.reminder_service import send_due_mission_telegram_reminders
+
+    missing_one = _mission_reminder_fixture(
+        "MissionBatchNoTelegramOne",
+        chat_id=None,
+        reminder_at=utc_iso_z(datetime.now(timezone.utc) - timedelta(minutes=5)),
+    )
+    missing_two = _mission_reminder_fixture(
+        "MissionBatchNoTelegramTwo",
+        chat_id=None,
+        reminder_at=utc_iso_z(datetime.now(timezone.utc) - timedelta(minutes=4)),
+    )
+    deliverable = _mission_reminder_fixture(
+        "MissionBatchDeliverable",
+        chat_id="20010",
+        reminder_at=utc_iso_z(datetime.now(timezone.utc) - timedelta(minutes=3)),
+    )
+
+    def fail_sender(chat_id, text):
+        raise AssertionError("dry-run should not send mission reminders")
+
+    result = send_due_mission_telegram_reminders(
+        dry_run=True,
+        limit=1,
+        sender=fail_sender,
+    )
+
+    assert result["ok"] is True
+    assert result["dry_run"] is True
+    assert result["checked"] == 1
+    assert result["due"] == 1
+    assert result["total_due"] == 3
+    assert result["deliverable_due_count"] == 1
+    assert result["blocked_missing_telegram_count"] == 2
+    assert result["items"] == [
+        {
+            "mission_log_id": deliverable["mission_log_id"],
+            "user_id": deliverable["user_id"],
+            "mission_id": deliverable["mission_id"],
+            "title": "MissionBatchDeliverable mission",
+            "has_telegram_chat_id": True,
+            "status": "dry_run",
+        }
+    ]
+    assert missing_one["mission_log_id"] not in {item["mission_log_id"] for item in result["items"]}
+    assert missing_two["mission_log_id"] not in {item["mission_log_id"] for item in result["items"]}
+
+
 def test_due_mission_reminder_marker_resets_when_reminder_changes(client):
     from services.mission_service import remind_mission_later
     from utils.date_utils import ringo_day_metadata
@@ -676,6 +725,37 @@ def test_due_mission_reminder_disabled_user_is_skipped(client):
     assert result["items"][0]["reason"] == "reminders_disabled"
 
 
+def test_stale_due_mission_reminder_is_not_sent(client):
+    from services.reminder_service import send_due_mission_telegram_reminders
+
+    fixture = _mission_reminder_fixture(
+        "MissionStaleUser",
+        chat_id="20011",
+        reminder_at=utc_iso_z(datetime.now(timezone.utc) - timedelta(hours=25)),
+    )
+
+    def fail_sender(chat_id, text):
+        raise AssertionError("stale mission reminders should not send")
+
+    result = send_due_mission_telegram_reminders(sender=fail_sender)
+
+    assert result["due"] == 1
+    assert result["stale_due_count"] == 1
+    assert result["sent"] == 0
+    assert result["skipped"] == 1
+    assert result["items"] == [
+        {
+            "mission_log_id": fixture["mission_log_id"],
+            "user_id": fixture["user_id"],
+            "mission_id": fixture["mission_id"],
+            "title": "MissionStaleUser mission",
+            "has_telegram_chat_id": True,
+            "status": "skipped",
+            "reason": "stale_reminder",
+        }
+    ]
+
+
 def test_reminder_diagnostics_requires_admin_token(client):
     res = client.get("/api/telegram/reminder-diagnostics")
 
@@ -699,6 +779,12 @@ def test_reminder_diagnostics_returns_safe_operational_state(client, monkeypatch
         reminder_sent_at=utc_iso_z(datetime.now(timezone.utc) - timedelta(minutes=2)),
     )
     missing = _mission_reminder_fixture("DiagNoTelegramUser", chat_id=None)
+    disabled = _mission_reminder_fixture("DiagDisabledUser", chat_id="30006", reminders_enabled=0)
+    stale = _mission_reminder_fixture(
+        "DiagStaleUser",
+        chat_id="30007",
+        reminder_at=utc_iso_z(datetime.now(timezone.utc) - timedelta(hours=25)),
+    )
 
     res = client.get(
         "/api/telegram/reminder-diagnostics",
@@ -710,14 +796,21 @@ def test_reminder_diagnostics_returns_safe_operational_state(client, monkeypatch
     assert data["ok"] is True
     assert data["server_now"]
     assert data["summary"]["due_count"] == 1
+    assert data["summary"]["deliverable_due_count"] == 1
     assert data["summary"]["scheduled_future_count"] == 1
     assert data["summary"]["already_sent_count"] == 1
     assert data["summary"]["missing_telegram_count"] == 1
+    assert data["summary"]["reminders_disabled_count"] == 1
+    assert data["summary"]["blocked_missing_telegram_count"] == 1
+    assert data["summary"]["blocked_reminders_disabled_count"] == 1
+    assert data["summary"]["stale_due_count"] == 1
 
     assert [item["mission_log_id"] for item in data["due_reminders"]] == [due["mission_log_id"]]
     assert [item["mission_log_id"] for item in data["scheduled_future_reminders"]] == [future["mission_log_id"]]
     assert [item["mission_log_id"] for item in data["already_sent_reminders"]] == [sent["mission_log_id"]]
     assert [item["mission_log_id"] for item in data["missing_telegram_reminders"]] == [missing["mission_log_id"]]
+    assert [item["mission_log_id"] for item in data["reminders_disabled_reminders"]] == [disabled["mission_log_id"]]
+    assert [item["mission_log_id"] for item in data["stale_due_reminders"]] == [stale["mission_log_id"]]
 
     sent_item = data["already_sent_reminders"][0]
     assert sent_item["delivery_state"] == "sent"
@@ -727,6 +820,10 @@ def test_reminder_diagnostics_returns_safe_operational_state(client, monkeypatch
     missing_item = data["missing_telegram_reminders"][0]
     assert missing_item["has_telegram_chat_id"] is False
     assert missing_item["delivery_state"] == "missing_telegram"
+
+    stale_item = data["stale_due_reminders"][0]
+    assert stale_item["has_telegram_chat_id"] is True
+    assert stale_item["delivery_state"] == "stale"
 
     serialized = repr(data)
     assert "test-reminder-token" not in serialized
