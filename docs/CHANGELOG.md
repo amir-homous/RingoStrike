@@ -16,6 +16,15 @@ The project has moved beyond raw MVP. Core progression identity is implemented. 
 
 ## Latest Launch-Hardening Updates
 
+### First-Run Mission Reveal Polish
+
+Added a restrained staged reveal for the first-run dashboard mission focus:
+
+- First-run MissionCenter now reveals Ringo guidance, the first mission intro, the suggested mission card, and action education in a short calm sequence.
+- Normal dashboard usage remains unchanged because the reveal is scoped to `firstRunFocus`.
+- Reduced-motion users see the full mission focus immediately without opacity or transform animation.
+- Kept the change frontend-only with no backend, schema, XP, streak, achievement, or mission-state changes.
+
 ### Post-First-Win Completion UX Polish
 
 Polished the mission-center finish states after the first meaningful daily action:
