@@ -48,9 +48,9 @@
           <div v-if="showMissionFocusMode && stats" class="missionFocusProgress">
             <CompactProgressStrip :stats="stats" :today-safe="missionFocusState.todaySafe" />
 
-            <BaseButton variant="secondary" @click="showDashboardFromFocus">
+            <!-- <BaseButton variant="secondary" @click="showDashboardFromFocus">
               {{ t("dashboard.showDashboard") }}
-            </BaseButton>
+            </BaseButton> -->
           </div>
 
           <MissionCenter :key="missionCenterKey" :first-run-focus="showFirstRunFocus"
@@ -141,8 +141,7 @@
 
           <!-- 7. Achievements: after activity has enough meaning -->
           <AchievementPreview v-if="showFullDashboard && guidedState.features.achievements.unlocked"
-            class="dashboardRevealItem"
-            :achievements="achievements" />
+            class="dashboardRevealItem" :achievements="achievements" />
 
           <!-- 8. Leaderboard: lower priority because it is enrollment-scoped for now -->
           <BaseCard v-if="showFullDashboard && showLeaderboardPreview" id="leaderboard"
