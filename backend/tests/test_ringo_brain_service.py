@@ -497,9 +497,10 @@ def test_ringo_brain_bonus_reminder_not_suppressed_after_tiny_done(client):
 
     assert code == 200
     assert payload["progress"]["today_saved"] is True
-    assert payload["agenda"]["next_action_type"] == "upcoming_reminder"
-    assert payload["agenda"]["next_mission_id"] == bonus_mission["mission_id"]
-    assert payload["agenda"]["next_reminder_at"] == reminder_at
+    assert payload["agenda"]["next_action_type"] != "upcoming_reminder"
+    assert payload["agenda"]["next_mission_id"] != bonus_mission["mission_id"]
+    assert payload["agenda"]["next_reminder_at"] is None
+    assert payload["agenda"]["has_optional_work"] is True
 
 
 def test_linked_tiny_completion_leaves_parent_main_pending_for_compatibility(client):
@@ -610,7 +611,7 @@ def test_ringo_brain_prioritizes_today_saved_over_reminded_after_main_done(clien
     assert "not secured" not in payload["ringo"]["message"].lower()
 
 
-def test_ringo_brain_agenda_today_saved_with_upcoming_reminder(client):
+def test_ringo_brain_agenda_today_saved_keeps_future_reminder_quiet(client):
     user = register_user(client, username="BrainAgendaReminder")
     headers = auth_headers(user["access_token"])
     _start_path_and_join_first_challenge(client, headers)
@@ -921,7 +922,7 @@ def test_ringo_brain_agenda_not_saved_due_reminder_beats_pending(client):
     assert payload["mission"]["mission_id"] == main_mission["mission_id"]
 
 
-def test_ringo_brain_agenda_not_saved_future_reminder_when_no_pending(client):
+def test_ringo_brain_agenda_not_saved_future_reminder_is_not_actionable(client):
     user = register_user(client, username="BrainAgendaOnlyFuture")
     headers = auth_headers(user["access_token"])
     _start_path_and_join_first_challenge(client, headers)
@@ -940,8 +941,9 @@ def test_ringo_brain_agenda_not_saved_future_reminder_when_no_pending(client):
 
     assert code == 200
     assert payload["progress"]["today_saved"] is False
-    assert payload["agenda"]["next_action_type"] == "upcoming_reminder"
-    assert payload["agenda"]["next_reminder_at"] == reminder_at
+    assert payload["agenda"]["next_action_type"] != "upcoming_reminder"
+    assert payload["agenda"]["next_reminder_at"] is None
+    assert payload["agenda"]["has_optional_work"] is True
 
 
 def test_ringo_brain_agenda_all_done_returns_done_for_today(client):
@@ -1124,8 +1126,8 @@ def test_ringo_brain_prioritizes_linked_tiny_done_over_skipped_and_reminded(clie
     assert code == 200
     assert payload["ringo"]["user_state"] == "today_completed"
     assert payload["progress"]["today_saved"] is True
-    assert payload["agenda"]["next_action_type"] == "upcoming_reminder"
-    assert payload["mission"]["mission_id"] == other_mission["mission_id"]
+    assert payload["agenda"]["next_action_type"] != "upcoming_reminder"
+    assert payload["mission"]["mission_id"] != other_mission["mission_id"]
     assert payload["actions"] == [{"type": "dismiss", "label": "Finish for today"}]
 
 

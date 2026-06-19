@@ -385,7 +385,6 @@ def _agenda_payload(missions, today_saved):
     if today_saved:
         choices = [
             ("due_reminder", due_required_reminder or due_optional_reminder),
-            ("upcoming_reminder", upcoming_required_reminder or upcoming_optional_reminder),
             ("skipped_optional", skipped_optional[0] if skipped_optional else None),
             ("optional_mission", optional_candidates[0] if optional_candidates else None),
         ]
@@ -393,7 +392,6 @@ def _agenda_payload(missions, today_saved):
         choices = [
             ("primary_mission", pending_required[0] if pending_required else None),
             ("due_reminder", due_required_reminder),
-            ("upcoming_reminder", upcoming_required_reminder),
             ("skipped_optional", skipped_optional[0] if skipped_optional else None),
         ]
 
@@ -403,7 +401,7 @@ def _agenda_payload(missions, today_saved):
                 "next_action_type": action_type,
                 "next_mission_id": mission.get("mission_id"),
                 "next_mission_title": mission.get("title") or "",
-                "next_reminder_at": mission.get("reminder_at") if action_type in {"due_reminder", "upcoming_reminder"} else None,
+                "next_reminder_at": mission.get("reminder_at") if action_type == "due_reminder" else None,
             })
             return agenda
 
@@ -428,7 +426,6 @@ def _select_mission(missions, user_state=None, agenda=None):
         "due_reminder",
         "primary_mission",
         "optional_mission",
-        "upcoming_reminder",
         "skipped_optional",
     }
 
@@ -637,8 +634,8 @@ def _message_for_state(user_state, mission, agenda=None):
         next_title = agenda.get("next_mission_title") or "that mission"
         if agenda.get("next_action_type") == "optional_mission":
             return f"Today is safe. You can stop here. If you want a little extra momentum, {next_title} is ready as an optional step."
-        if agenda.get("next_action_type") in {"due_reminder", "upcoming_reminder"}:
-            return f"{message} {next_title} is paused for a reminder if you want it later."
+        if agenda.get("next_action_type") == "due_reminder":
+            return f"{message} {next_title} is ready because you asked me to bring it back."
         if agenda.get("next_action_type") == "skipped_optional":
             return f"{message} You skipped {next_title}; that can stay no-pressure."
 

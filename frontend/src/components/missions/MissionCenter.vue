@@ -17,9 +17,9 @@
       </div>
 
       <div class="restModeActions">
-        <BaseButton variant="primary" @click="restForNow">
+        <!-- <BaseButton variant="primary" @click="restForNow">
           {{ t("missions.restMode.restCta") }}
-        </BaseButton>
+        </BaseButton> -->
         <BaseButton variant="secondary" @click="showDashboardFromRest">
           {{ t("missions.restMode.dashboardCta") }}
         </BaseButton>
@@ -43,13 +43,12 @@
         :class="{ firstRunRevealStep: props.firstRunFocus, firstRunRevealMission: props.firstRunFocus }">
         <MissionContextPanel :mission="focusMission" :heading="t('missions.ringoSuggestedMission')"
           :intensity-meta="focusMissionIntensity" :parent-title="parentMissionFor(focusMission)?.title || ''"
-          :reminder-label="missionReminderContextLabel(focusMission)"
-          :status-copy="missionStatusCopy(focusMission)"
+          :reminder-label="missionReminderContextLabel(focusMission)" :status-copy="missionStatusCopy(focusMission)"
           :reminder-delivery-meta="reminderDeliveryMeta(focusMission)" />
         <div v-if="showFocusMissionActions" class="missionActions primaryMissionActions">
           <BaseButton variant="primary" :loading="busyId === focusMission.mission_id && busyAction === 'done'"
             :disabled="missionHasStatus(focusMission, 'done')" @click="markDone(focusMission)">
-            {{ t("missions.doneCta") }}
+            {{ missionHasStatus(focusMission, "remind_later") ? t("missions.doItNow") : t("missions.doneCta") }}
           </BaseButton>
 
           <BaseButton variant="secondary" :loading="busyId === focusMission.mission_id && busyAction === 'remind'"
@@ -162,7 +161,128 @@
         <span v-if="showTodaySavedBody">{{ t("missions.todaySavedBody") }}</span>
       </p> -->
 
-      <section v-if="isTodaySaved && optionalNextMission" class="optionalNextStep">
+      <section v-if="selectedOptionalExplorerMission && !dueReminderFocusActive"
+        class="optionalNextStep optionalExplorerSelected">
+        <div class="optionalNextCopy">
+          <p class="eyebrow compact">{{ t("missions.optionalExplorerList.eyebrow") }}</p>
+          <h3>{{ t("missions.optionalExplorerSelectedTitle") }}</h3>
+          <p>{{ selectedOptionalExplorerBody }}</p>
+        </div>
+
+        <div class="optionalNextMission">
+          <MissionContextPanel :mission="selectedOptionalExplorerMission"
+            :heading="t('missions.optionalExplorerSelectedTitle')"
+            :intensity-meta="buildMissionIntensityMeta(selectedOptionalExplorerMission, { optionalContext: true })"
+            :parent-title="parentMissionFor(selectedOptionalExplorerMission)?.title || ''"
+            :reminder-label="missionReminderContextLabel(selectedOptionalExplorerMission)"
+            :status-copy="missionStatusCopy(selectedOptionalExplorerMission)"
+            :reminder-delivery-meta="reminderDeliveryMeta(selectedOptionalExplorerMission)" />
+        </div>
+
+        <div v-if="showMissionItemActions(selectedOptionalExplorerMission)"
+          class="missionActions optionalExplorerSelectedActions">
+          <BaseButton variant="primary"
+            :loading="busyId === selectedOptionalExplorerMission.mission_id && busyAction === 'done'"
+            :disabled="missionHasStatus(selectedOptionalExplorerMission, 'done')"
+            @click="markDone(selectedOptionalExplorerMission)">
+            {{ missionHasStatus(selectedOptionalExplorerMission, "remind_later") ? t("missions.doItNow") :
+              t("missions.doneCta") }}
+          </BaseButton>
+
+          <BaseButton variant="secondary"
+            :loading="busyId === selectedOptionalExplorerMission.mission_id && busyAction === 'remind'"
+            :disabled="missionHasStatus(selectedOptionalExplorerMission, 'done')"
+            @click="remindLater(selectedOptionalExplorerMission)">
+            {{ missionHasStatus(selectedOptionalExplorerMission, "remind_later") ? t("missions.editReminder") :
+              t("missions.remindLater") }}
+          </BaseButton>
+
+          <BaseButton v-if="shouldShowMissionItemTinyAction(selectedOptionalExplorerMission)" variant="secondary"
+            @click="focusTinyMissionVariant(selectedOptionalExplorerMission)">
+            {{ t("missions.ringoActions.tryTinyVersion") }}
+          </BaseButton>
+
+          <BaseButton v-if="shouldShowFullVersionAction(selectedOptionalExplorerMission)" variant="secondary"
+            @click="focusMainMissionVariant(selectedOptionalExplorerMission)">
+            {{ t("missions.ringoActions.useFullVersion") }}
+          </BaseButton>
+
+          <BaseButton variant="secondary"
+            :loading="busyId === selectedOptionalExplorerMission.mission_id && busyAction === 'skip'"
+            :disabled="missionHasStatus(selectedOptionalExplorerMission, 'done', 'skipped')"
+            @click="skipMission(selectedOptionalExplorerMission)">
+            {{ missionHasStatus(selectedOptionalExplorerMission, "skipped") ? t("missions.skipped") :
+              t("missions.skip") }}
+          </BaseButton>
+        </div>
+
+        <div v-if="isReminderPanelOpen(selectedOptionalExplorerMission)" class="remindOptionsPanel">
+          <p>{{ t("missions.remindOptions.prompt") }}</p>
+          <div class="remindOptions">
+            <BaseButton v-for="option in reminderOptions" :key="option.key" variant="secondary"
+              :loading="isReminderOptionLoading(selectedOptionalExplorerMission, option.key)"
+              :disabled="busyAction === 'remind' && busyId === selectedOptionalExplorerMission.mission_id"
+              @click="selectReminderOption(selectedOptionalExplorerMission, option)">
+              {{ option.label }}
+            </BaseButton>
+            <BaseButton variant="secondary" :loading="isReminderOptionLoading(selectedOptionalExplorerMission, 'ringo')"
+              :disabled="busyAction === 'remind' && busyId === selectedOptionalExplorerMission.mission_id"
+              @click="planMissionReminder(selectedOptionalExplorerMission)">
+              {{ t("missions.remindOptions.ringoPick") }}
+            </BaseButton>
+            <BaseButton variant="secondary"
+              :disabled="busyAction === 'remind' && busyId === selectedOptionalExplorerMission.mission_id"
+              @click="openCustomReminderTime(selectedOptionalExplorerMission)">
+              {{ t("missions.remindOptions.customTime") }}
+            </BaseButton>
+            <BaseButton variant="secondary" @click="closeReminderPanel">
+              {{ t("missions.backToMissionActions") }}
+            </BaseButton>
+          </div>
+          <div v-if="isCustomReminderPanelOpen(selectedOptionalExplorerMission)" class="customReminderPanel">
+            <label :for="`optional-custom-reminder-${selectedOptionalExplorerMission.mission_id}`">
+              {{ t("missions.remindOptions.customPrompt") }}
+            </label>
+            <div class="customReminderControls">
+              <input :id="`optional-custom-reminder-${selectedOptionalExplorerMission.mission_id}`"
+                v-model="customReminderTime" type="time" />
+              <BaseButton variant="primary"
+                :loading="isReminderOptionLoading(selectedOptionalExplorerMission, 'custom')"
+                :disabled="busyAction === 'remind' && busyId === selectedOptionalExplorerMission.mission_id"
+                @click="selectCustomReminderTime(selectedOptionalExplorerMission)">
+                {{ t("missions.remindOptions.setCustom") }}
+              </BaseButton>
+            </div>
+            <small>{{ t("missions.remindOptions.customHelp") }}</small>
+          </div>
+        </div>
+
+        <div v-if="isSkipReasonPanelOpen(selectedOptionalExplorerMission)" class="skipReasonPanel">
+          <p>{{ t("missions.skipReasons.prompt") }}</p>
+          <div class="skipReasons">
+            <BaseButton v-for="reason in skipReasonOptions" :key="reason.key" variant="secondary"
+              :loading="isSkipReasonLoading(selectedOptionalExplorerMission, reason.key)"
+              :disabled="busyAction === 'skip' && busyId === selectedOptionalExplorerMission.mission_id"
+              @click="selectSkipReason(selectedOptionalExplorerMission, reason)">
+              {{ reason.label }}
+            </BaseButton>
+            <BaseButton variant="secondary" @click="closeSkipReasonPanel">
+              {{ t("missions.backToMissionActions") }}
+            </BaseButton>
+          </div>
+        </div>
+
+        <div class="optionalNextActions">
+          <BaseButton variant="primary" @click="finishForToday">
+            {{ t("missions.finishForToday") }}
+          </BaseButton>
+          <BaseButton variant="secondary" @click="backToOptionalChoices">
+            {{ t("missions.backToOptionalChoices") }}
+          </BaseButton>
+        </div>
+      </section>
+
+      <section v-else-if="isTodaySaved && optionalNextMission" class="optionalNextStep">
         <div class="optionalNextCopy">
           <p class="eyebrow compact">{{ t("missions.optionalNextEyebrow") }}</p>
           <h3>{{ t("missions.optionalNextTitle") }}</h3>
@@ -213,20 +333,44 @@
         </div>
       </section>
 
-      <div v-if="isTodaySaved" class="completedChoices">
+      <RemainingMissionExplorer v-if="showOptionalMissionExplorer" :missions="optionalExplorerMissions"
+        :selected-mission-id="selectedOptionalExplorerMissionId" @select="selectOptionalExplorerMission"
+        @select-path="selectOptionalExplorerPath" @select-challenge="selectOptionalExplorerChallenge"
+        @back="showOptionalExplorerRoot" @close="hideOptionalMissionExplorer" @finish="finishForToday" />
+
+      <section v-if="showOptionalExplorerPrompt" class="optionalExplorerPrompt">
+        <div class="optionalNextCopy">
+          <p class="eyebrow compact">{{ t("missions.optionalExplorerEyebrow") }}</p>
+          <h3>{{ t("missions.optionalExplorerTitle") }}</h3>
+          <p>{{ t("missions.optionalExplorerBody") }}</p>
+        </div>
+
+        <div class="optionalExplorerActions">
+          <BaseButton variant="primary" @click="finishForToday">
+            {{ t("missions.finishForToday") }}
+          </BaseButton>
+          <span v-if="futureReminderCount" class="optionalReminderQueue">
+            {{ t("missions.futureReminderQueue", { count: futureReminderCount }) }}
+          </span>
+          <BaseButton v-if="optionalSuggestionAvailable" variant="secondary" @click="suggestOptionalStep">
+            {{ t("missions.suggestOptionalStep") }}
+          </BaseButton>
+          <BaseButton v-if="optionalExplorerMissions.length" variant="secondary" @click="viewRemainingMissions">
+            {{ t("missions.viewOptionalMissions") }}
+          </BaseButton>
+        </div>
+      </section>
+
+      <div v-if="showCompletedChoices" class="completedChoices">
         <BaseButton v-if="!optionalNextMission" variant="primary" @click="finishForToday">
           {{ t("missions.finishForToday") }}
         </BaseButton>
 
-        <RouterLink v-if="detailsMission?.enrollment_id" class="missionGuideLink"
+        <!-- <RouterLink v-if="detailsMission?.enrollment_id" class="missionGuideLink"
           :to="`/enrollment/${detailsMission.enrollment_id}`">
           {{ t("missions.detailsCta") }}
-        </RouterLink>
+        </RouterLink> -->
 
-        <BaseButton v-if="otherMissions.length && !optionalNextSuppressed && !showOtherMissions" variant="secondary"
-          @click="showOtherMissions = true">
-          {{ t("missions.showOtherMissions", { count: otherMissions.length }) }}
-        </BaseButton>
       </div>
 
     </BaseCard>
@@ -304,13 +448,12 @@
         <MissionContextPanel :mission="focusMission"
           :heading="guidanceMission ? t('missions.ringoSuggestedMission') : t('missions.nextMission')"
           :intensity-meta="focusMissionIntensity" :parent-title="parentMissionFor(focusMission)?.title || ''"
-          :reminder-label="missionReminderContextLabel(focusMission)"
-          :status-copy="missionStatusCopy(focusMission)"
+          :reminder-label="missionReminderContextLabel(focusMission)" :status-copy="missionStatusCopy(focusMission)"
           :reminder-delivery-meta="reminderDeliveryMeta(focusMission)" />
         <div v-if="showFocusMissionActions" class="missionActions primaryMissionActions">
           <BaseButton variant="primary" :loading="busyId === focusMission.mission_id && busyAction === 'done'"
             :disabled="missionHasStatus(focusMission, 'done')" @click="markDone(focusMission)">
-            {{ t("missions.doneCta") }}
+            {{ missionHasStatus(focusMission, "remind_later") ? t("missions.doItNow") : t("missions.doneCta") }}
           </BaseButton>
 
           <BaseButton variant="secondary" :loading="busyId === focusMission.mission_id && busyAction === 'remind'"
@@ -762,6 +905,7 @@ import RingoCoach from "@/components/ringo/RingoCoach.vue";
 import RingoRewardSequence from "@/components/ringo/RingoRewardSequence.vue";
 import MissionContextPanel from "@/components/missions/MissionContextPanel.vue";
 import PathSelection from "@/components/missions/PathSelection.vue";
+import RemainingMissionExplorer from "@/components/missions/RemainingMissionExplorer.vue";
 import { resolveRingoSprite } from "@/constants/ringoSprites";
 import {
   localizeMissionList,
@@ -794,6 +938,8 @@ const manualFocusMissionId = ref(null);
 const showOtherMissions = ref(true);
 const missionStatusExpanded = ref(false);
 const restModeActive = ref(false);
+const optionalExplorerExpanded = ref(false);
+const selectedOptionalExplorerMissionId = ref(null);
 const selectedTimelineMissionId = ref(null);
 const reminderPanelMissionId = ref(null);
 const busyReminderOption = ref("");
@@ -805,6 +951,7 @@ const planningReminders = ref(false);
 const rewardSequenceSteps = ref([]);
 const rewardSequenceSprite = ref("celebration");
 const optionalNextSuppressed = ref(false);
+const optionalSuggestionRequested = ref(false);
 const revealedTinyMissionIds = ref(new Set());
 const telegramSettings = ref({
   connected: false,
@@ -949,6 +1096,15 @@ const optionalNextNarrative = computed(() => {
   };
 });
 
+const dueReminderNarrative = computed(() => {
+  if (!dueReminderFocusActive.value) return null;
+
+  return {
+    message: t("missions.narrative.optionalSelectedDueReminder"),
+    mood: "thinking",
+  };
+});
+
 const finishedForTodayNarrative = computed(() => {
   if (!optionalNextSuppressed.value || !isTodaySaved.value) return null;
 
@@ -957,6 +1113,7 @@ const finishedForTodayNarrative = computed(() => {
 
 const dailySummaryNarrative = computed(() => {
   if (!isTodaySaved.value || !localizedMissions.value.length) return null;
+  if (showOptionalExplorerPrompt.value) return null;
 
   const summary = dailySummary.value;
   const nearestReminder = summary.reminded[0] || null;
@@ -1052,6 +1209,17 @@ const agendaNarrative = computed(() => {
     return doneForTodayAgendaNarrative();
   }
 
+  if (
+    agenda.today_saved
+    && agenda.next_action_type === "optional_mission"
+    && !optionalSuggestionRequested.value
+  ) {
+    return {
+      message: t("missions.agendaNarrative.optionalPrompt"),
+      mood: "sleeping",
+    };
+  }
+
   if (usesMissionTarget && !missionIsReachable) {
     if (agenda.next_action_type === "skipped_optional") {
       return {
@@ -1134,7 +1302,8 @@ const agendaNarrative = computed(() => {
 });
 
 const coachNarrative = computed(() => {
-  return interactionNarrative.value
+  return dueReminderNarrative.value
+    || interactionNarrative.value
     || finishedForTodayNarrative.value
     || dailySummaryNarrative.value
     || completionNarrative.value
@@ -1199,6 +1368,8 @@ const dueReminderMission = computed(() => {
     deferredMissions.value.filter((mission) => isReminderDue(mission)),
   )[0] || null;
 });
+
+const dueReminderFocusActive = computed(() => Boolean(dueReminderMission.value));
 
 const pendingMissions = computed(() => {
   return autoFocusableMissionRepresentatives.value.filter((mission) => missionHasStatus(mission, "pending"));
@@ -1415,13 +1586,108 @@ const safeOptionalMissions = computed(() => {
 
 const optionalNextMission = computed(() => {
   if (!isTodaySaved.value || optionalNextSuppressed.value) return null;
+  if (dueReminderFocusActive.value) return null;
+  if (!optionalSuggestionRequested.value) return null;
+  if (optionalExplorerExpanded.value || selectedOptionalExplorerMissionId.value) return null;
 
   return safeOptionalMissions.value[0] || null;
+});
+
+const optionalExplorerMissions = computed(() => {
+  if (!isTodaySaved.value || optionalNextSuppressed.value) return [];
+
+  return effectiveMissionRepresentatives.value
+    .filter(shouldShowOptionalExplorerMission)
+    .sort((a, b) => {
+      const pathCompare = String(a.path_title || "").localeCompare(String(b.path_title || ""));
+      if (pathCompare) return pathCompare;
+
+      const challengeCompare = String(a.challenge_name || "").localeCompare(String(b.challenge_name || ""));
+      if (challengeCompare) return challengeCompare;
+
+      return optionalMissionRank(a, focusMission.value?.challenge_id) - optionalMissionRank(b, focusMission.value?.challenge_id);
+    });
+});
+
+const optionalWorkAvailable = computed(() => {
+  if (!isTodaySaved.value || optionalNextSuppressed.value) return false;
+
+  return Boolean(
+    safeOptionalMissions.value.length
+    || optionalExplorerMissions.value.length
+    || guidanceAgenda.value?.has_optional_work
+  );
+});
+
+const optionalSuggestionAvailable = computed(() => {
+  return Boolean(
+    isTodaySaved.value
+    && !optionalNextSuppressed.value
+    && !dueReminderFocusActive.value
+    && safeOptionalMissions.value.length
+  );
+});
+
+const futureReminderCount = computed(() => {
+  if (!isTodaySaved.value || optionalNextSuppressed.value) return 0;
+
+  return optionalExplorerMissions.value.filter(isFutureReminder).length;
+});
+
+const showOptionalExplorerPrompt = computed(() => {
+  return Boolean(
+    isTodaySaved.value
+    && !optionalNextMission.value
+    && !optionalNextSuppressed.value
+    && !dueReminderFocusActive.value
+    && !optionalExplorerExpanded.value
+    && !selectedOptionalExplorerMissionId.value
+    && optionalWorkAvailable.value
+  );
+});
+
+const selectedOptionalExplorerMission = computed(() => {
+  if (!selectedOptionalExplorerMissionId.value) return null;
+
+  return optionalExplorerMissions.value.find((mission) => {
+    return sameMissionId(mission.mission_id, selectedOptionalExplorerMissionId.value);
+  }) || null;
+});
+
+const showOptionalMissionExplorer = computed(() => {
+  return Boolean(
+    isTodaySaved.value
+    && optionalExplorerExpanded.value
+    && !dueReminderFocusActive.value
+    && !selectedOptionalExplorerMission.value
+    && !optionalNextSuppressed.value
+    && optionalExplorerMissions.value.length
+  );
+});
+
+const selectedOptionalExplorerBody = computed(() => {
+  const mission = selectedOptionalExplorerMission.value;
+  if (!mission) return t("missions.optionalExplorerSelectedBody");
+
+  return t(selectedOptionalExplorerNarrativeKey(mission));
+});
+
+const showCompletedChoices = computed(() => {
+  return Boolean(
+    isTodaySaved.value
+    && !dueReminderFocusActive.value
+    && !optionalNextMission.value
+    && !showOptionalExplorerPrompt.value
+    && !showOptionalMissionExplorer.value
+    && !selectedOptionalExplorerMission.value
+  );
 });
 
 const otherMissions = computed(() => {
   return curatedOtherMissions.value.filter(shouldShowOtherMissionItem);
 });
+
+const missionStatusMissions = computed(() => otherMissions.value);
 
 const selectedTimelineMission = computed(() => {
   if (!selectedTimelineMissionId.value) return null;
@@ -1729,7 +1995,7 @@ const missionFocusState = computed(() => {
     normalizedMissionIntensity(focusMission.value) === "tiny" &&
     !missionHasStatus(focusMission.value, "done", "skipped"),
   );
-  const hasOptionalBonusFocus = Boolean(optionalNextMission.value || agendaType === "optional_mission");
+  const hasOptionalBonusFocus = Boolean(optionalNextMission.value);
   const isCompletionUnacknowledged = Boolean(isTodaySaved.value && !optionalNextSuppressed.value);
   const isFutureReminderOnly = Boolean(
     !hasPendingPrimary &&
@@ -1847,21 +2113,14 @@ const showFirstRunMissionIntro = computed(() => {
 });
 
 const showMissionStatusToggle = computed(() => {
-  return Boolean(
-    props.focusModeActive &&
-    !missionStatusExpanded.value &&
-    !restModeActive.value &&
-    showOtherMissionList.value
-  );
+  return false;
 });
 
 const showSecondaryMissionStatus = computed(() => {
   return Boolean(
     showOtherMissionList.value &&
-    (
-      (!props.focusModeActive && !props.firstRunFocus) ||
-      missionStatusExpanded.value
-    )
+    !props.focusModeActive &&
+    !props.firstRunFocus
   );
 });
 
@@ -2012,7 +2271,10 @@ async function loadMissions() {
   clearNarrativeState();
   manualFocusMissionId.value = null;
   restModeActive.value = false;
+  optionalExplorerExpanded.value = false;
+  selectedOptionalExplorerMissionId.value = null;
   showOtherMissions.value = true;
+  optionalSuggestionRequested.value = false;
   selectedTimelineMissionId.value = null;
   reminderPanelMissionId.value = null;
   customReminderPanelMissionId.value = null;
@@ -2683,11 +2945,80 @@ function finishRewardSequence() {
 
 function finishForToday() {
   optionalNextSuppressed.value = true;
+  optionalSuggestionRequested.value = false;
   manualFocusMissionId.value = null;
   restModeActive.value = true;
+  optionalExplorerExpanded.value = false;
+  selectedOptionalExplorerMissionId.value = null;
   missionStatusExpanded.value = false;
   showOtherMissions.value = true;
   setInteractionNarrative("missions.finishedForTodayMessage", "sleeping");
+}
+
+function suggestOptionalStep() {
+  optionalSuggestionRequested.value = true;
+  optionalExplorerExpanded.value = false;
+  missionStatusExpanded.value = false;
+  showOtherMissions.value = false;
+  setInteractionNarrative("missions.narrative.optionalSuggestionRequested", "happy");
+}
+
+function viewRemainingMissions() {
+  optionalExplorerExpanded.value = true;
+  missionStatusExpanded.value = false;
+  showOtherMissions.value = false;
+  selectedOptionalExplorerMissionId.value = null;
+  setInteractionNarrative("missions.narrative.viewRemainingOptional", "thinking");
+}
+
+function hideOptionalMissionExplorer() {
+  optionalExplorerExpanded.value = false;
+  selectedOptionalExplorerMissionId.value = null;
+}
+
+function selectOptionalExplorerPath(path) {
+  selectedOptionalExplorerMissionId.value = null;
+  closeReminderPanel();
+  closeSkipReasonPanel();
+  setInteractionNarrative("missions.narrative.optionalPathSelected", "thinking", {
+    path: path?.title || t("missions.fallbackPath"),
+  });
+}
+
+function selectOptionalExplorerChallenge(challenge) {
+  selectedOptionalExplorerMissionId.value = null;
+  closeReminderPanel();
+  closeSkipReasonPanel();
+  setInteractionNarrative("missions.narrative.optionalChallengeSelected", "thinking", {
+    challenge: challenge?.title || t("missions.fallbackChallenge"),
+  });
+}
+
+function showOptionalExplorerRoot() {
+  selectedOptionalExplorerMissionId.value = null;
+  closeReminderPanel();
+  closeSkipReasonPanel();
+  setInteractionNarrative("missions.narrative.backToOptionalChoices", "thinking");
+}
+
+function selectOptionalExplorerMission(mission) {
+  if (!mission?.mission_id) return;
+
+  selectedOptionalExplorerMissionId.value = mission.mission_id;
+  optionalExplorerExpanded.value = false;
+  closeReminderPanel();
+  closeSkipReasonPanel();
+  setInteractionNarrative(selectedOptionalExplorerNarrativeKey(mission), selectedOptionalExplorerNarrativeMood(mission), {
+    mission: mission.title || t("missions.fallbackMission"),
+  });
+}
+
+function backToOptionalChoices() {
+  selectedOptionalExplorerMissionId.value = null;
+  optionalExplorerExpanded.value = true;
+  closeReminderPanel();
+  closeSkipReasonPanel();
+  setInteractionNarrative("missions.narrative.backToOptionalChoices", "thinking");
 }
 
 function restForNow() {
@@ -2972,15 +3303,30 @@ function shouldShowOtherMission(mission) {
 
 function shouldShowOtherMissionItem(mission) {
   if (!mission?.mission_id) return false;
+  if (isTodaySaved.value && missionHasStatus(mission, "pending")) return false;
 
   return true;
 }
 
+function shouldShowOptionalExplorerMission(mission) {
+  if (!mission?.mission_id) return false;
+  if (missionHasStatus(mission, "locked")) return false;
+  if (isFocusMissionRendered() && sameMissionId(mission.mission_id, focusMission.value?.mission_id)) return false;
+
+  return missionHasStatus(mission, "pending", "remind_later", "done", "skipped");
+}
+
 function isFocusMissionRendered() {
   if (!focusMission.value) return false;
+  if (missionHasStatus(focusMission.value, "remind_later")) {
+    return isReminderDue(focusMission.value) || !!(
+      sameMissionId(focusMission.value.mission_id, manualFocusMissionId.value)
+      || isReminderPanelOpen(focusMission.value)
+      || isSkipReasonPanelOpen(focusMission.value)
+    );
+  }
   if (!isTodaySaved.value) return true;
   if (missionHasStatus(focusMission.value, "done")) return false;
-  if (missionHasStatus(focusMission.value, "remind_later")) return true;
 
   return !!(
     sameMissionId(focusMission.value.mission_id, manualFocusMissionId.value)
@@ -2992,7 +3338,7 @@ function isFocusMissionRendered() {
 function primaryReminderMission() {
   return sortReminderMissions(
     effectiveMissionRepresentatives.value.filter((mission) => {
-      return missionHasStatus(mission, "remind_later");
+      return missionHasStatus(mission, "remind_later") && isReminderDue(mission);
     }),
   )[0] || null;
 }
@@ -3387,6 +3733,34 @@ function reminderTimestamp(mission) {
 
 function isReminderDue(mission) {
   return reminderTimestamp(mission) <= Date.now();
+}
+
+function isFutureReminder(mission) {
+  return missionHasStatus(mission, "remind_later") && reminderTimestamp(mission) > Date.now();
+}
+
+function selectedOptionalExplorerNarrativeKey(mission) {
+  if (missionHasStatus(mission, "remind_later")) {
+    return isReminderDue(mission)
+      ? "missions.narrative.optionalSelectedDueReminder"
+      : "missions.narrative.optionalSelectedFutureReminder";
+  }
+
+  if (missionHasStatus(mission, "done")) return "missions.narrative.optionalSelectedDone";
+  if (missionHasStatus(mission, "skipped")) return "missions.narrative.optionalSelectedSkipped";
+
+  return "missions.narrative.optionalSelectedPending";
+}
+
+function selectedOptionalExplorerNarrativeMood(mission) {
+  if (missionHasStatus(mission, "remind_later")) {
+    return isReminderDue(mission) ? "thinking" : "sleeping";
+  }
+
+  if (missionHasStatus(mission, "done")) return "proud";
+  if (missionHasStatus(mission, "skipped")) return "concerned";
+
+  return "happy";
 }
 
 function sortReminderMissions(items) {
@@ -4118,6 +4492,35 @@ onMounted(loadMissions);
   flex-wrap: wrap;
   gap: var(--s-8);
   align-items: center;
+}
+
+.optionalExplorerPrompt {
+  display: grid;
+  gap: var(--s-10);
+  padding: 12px;
+  border: 1px solid rgba(110, 229, 255, 0.14);
+  border-radius: 18px;
+  background: rgba(110, 229, 255, 0.05);
+}
+
+.optionalExplorerActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-8);
+  align-items: center;
+}
+
+.optionalReminderQueue {
+  display: inline-flex;
+  align-items: center;
+  min-height: 34px;
+  padding: 7px 10px;
+  border: 1px solid rgba(110, 229, 255, 0.16);
+  border-radius: 999px;
+  color: rgba(219, 244, 255, 0.86);
+  background: rgba(110, 229, 255, 0.065);
+  font-size: var(--cap);
+  font-weight: 850;
 }
 
 .optionalNextStep {
