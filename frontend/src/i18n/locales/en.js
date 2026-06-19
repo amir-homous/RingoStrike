@@ -485,17 +485,17 @@ export default {
     breadcrumbLabel: "Mission origin",
     instruction: {
       title: "What counts",
-      main: "Do the mission in a simple, honest way. When it is done, mark it complete.",
-      tiny: "Do the smaller version. It is intentionally light and still counts.",
-      bonus: "Do this only if you want extra momentum after the required step.",
-      mission: "Do the action described here, then mark it complete.",
+      main: "Do the mission in a simple, honest way. When it feels done, mark it complete.",
+      tiny: "Do the smaller version. It is deliberately light, and it still counts.",
+      bonus: "Do this only if you want extra momentum. Finishing for today is already a win.",
+      mission: "Do the action described here. When it feels done, mark it complete.",
     },
     why: {
       title: "Why this helps",
       main: "This keeps today connected to your current challenge.",
       mainWithChallenge: "This keeps today connected to {challenge}.",
-      tiny: "This protects momentum without asking for the full version.",
-      bonus: "This is optional extra momentum, not another requirement.",
+      tiny: "This keeps momentum alive without asking for the full version.",
+      bonus: "This is optional extra momentum, not another required step.",
     },
     tiny: {
       smallerVersionGeneric: "Smaller version of today’s main mission.",
@@ -504,11 +504,11 @@ export default {
     },
     bonus: {
       optionalTitle: "Optional extra momentum.",
-      optionalBody: "Today is already safe if the required step is done.",
+      optionalBody: "If the required step is done, you can stop here.",
     },
     reminder: {
       setFor: "Reminder set for {time}.",
-      returnLater: "Ringo will bring this mission back later.",
+      returnLater: "Ringo will keep it parked and bring it back later.",
     },
   },
   challengeInvite: {

@@ -119,6 +119,7 @@ const showReminderContext = computed(() => {
   display: grid;
   gap: 10px;
   min-width: 0;
+  text-align: start;
 }
 
 .missionContextKicker {
@@ -143,6 +144,7 @@ const showReminderContext = computed(() => {
   display: inline-flex;
   min-width: 0;
   align-items: center;
+  overflow-wrap: anywhere;
 }
 
 .missionBreadcrumb span + span::before {
@@ -196,6 +198,7 @@ const showReminderContext = computed(() => {
   color: rgba(255, 255, 255, 0.94);
   font-size: 1rem;
   line-height: 1.35;
+  overflow-wrap: anywhere;
 }
 
 .missionContextBlock,
@@ -224,6 +227,7 @@ const showReminderContext = computed(() => {
   color: rgba(255, 255, 255, 0.66);
   font-size: 0.9rem;
   line-height: 1.55;
+  overflow-wrap: anywhere;
 }
 
 .missionContextBlock.why {
@@ -282,5 +286,16 @@ const showReminderContext = computed(() => {
   border-color: rgba(251, 146, 60, 0.24);
   color: rgba(254, 215, 170, 0.96);
   background: rgba(251, 146, 60, 0.075);
+}
+
+@media (max-width: 520px) {
+  .missionContextPanel {
+    gap: 8px;
+  }
+
+  .missionContextBlock,
+  .missionContextNote {
+    padding: 9px 10px;
+  }
 }
 </style>
