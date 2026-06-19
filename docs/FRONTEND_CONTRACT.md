@@ -631,7 +631,31 @@ While focus mode is active, `Dashboard.vue` hides the large dashboard sections a
 
 `MissionCenter.vue` keeps mission timeline/status details collapsed by default during focus mode. Users can reveal them explicitly with `Show mission status`. `Finish for today` enters a calm frontend-only Rest Mode card, optionally showing nearest future reminder timing from existing mission `reminder_at` values. `Show dashboard` emits `show-dashboard` so `Dashboard.vue` can reveal the full dashboard with reduced-motion-safe styling.
 
-This is distinct from the still-planned Mission Context UX layer. The current implementation improves focus, family-aware display, and completion tone, but it does not provide a universal path -> challenge -> mission breadcrumb system or backend mission context model.
+Mission Context UX Phase 1 is now implemented as a frontend-only clarity layer. The current implementation improves focus, family-aware display, completion tone, and mission-card context clarity, but it does not implement the full future Mission Context UX system, contextual reward sequence, Telegram mission-specific deep-link restoration, or a backend mission context read model.
+
+### MissionContextPanel Display Contract
+
+`frontend/src/components/missions/MissionContextPanel.vue` is a display-only child surface used by `MissionCenter.vue` for mission clarity.
+
+It can display, when available:
+
+- path/challenge breadcrumb from existing mission fields such as `path_title` and `challenge_name`
+- mission intensity/time from `mission_intensity` and `estimated_minutes`
+- “What counts” instruction copy
+- “Why this helps” copy
+- tiny mission no-shame framing
+- bonus optional framing
+
+Contract rules:
+
+- It must not call mission mutation endpoints.
+- It must not calculate XP, streaks, achievements, check-ins, or progression.
+- It must not own MissionCenter action hierarchy.
+- It must not replace RingoCoach, RewardMoment, CompactProgressStrip, Rest Mode, or dashboard focus gating.
+- It must tolerate missing optional context fields by hiding or simplifying display text instead of inventing data.
+- English and Persian visible text belongs in the frontend i18n locale files, not backend response shapes.
+
+`MissionCenter.vue` remains the owner of mission actions such as done, remind later, skip, finish for today, and show dashboard. Existing mission mutation APIs remain unchanged.
 
 ### `POST /me/missions/:mission_id/done`
 

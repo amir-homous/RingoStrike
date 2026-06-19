@@ -66,9 +66,63 @@ The following flows were manually reasoned through and tested during development
 - Using Optional Next Step.
 - Expanding Optional Missions.
 - Persian mode checks.
+- Mission Context UX Phase 1 main/tiny/bonus clarity checks.
+- Mission Context UX Phase 1 after-done/detail card check.
+- Persian RTL visual check for the new mission context copy.
 - Frontend build checks.
+- Frontend router smoke check.
+- Git diff whitespace check.
 
 These checks were useful for validating the main loop shape, but they should not be treated as a replacement for repeatable automated smoke coverage.
+
+## Mission Context UX Phase 1 addendum
+
+Status: implemented and manually checked after merge into `dev`.
+
+Scope checked:
+
+- Main mission context state.
+- Tiny mission context state.
+- Bonus mission context state.
+- After-done/detail card state.
+- Persian RTL visual behavior for the new context layer.
+
+Observed QA notes:
+
+- `MissionContextPanel.vue` appears as a display-only clarity layer inside MissionCenter.
+- Path/challenge breadcrumb appears when available.
+- Mission intensity/time display appears when available.
+- “What counts” instruction copy appears for mission clarity.
+- “Why this helps” copy appears for mission purpose clarity.
+- Tiny mission framing is no-shame and keeps the smaller step valid.
+- Bonus mission framing remains optional.
+- Optional bonus action hierarchy keeps `Finish for today` primary when today is already safe.
+- Existing MissionCenter actions, focus mode, CompactProgressStrip, RewardMoment behavior, Rest Mode, and `Show dashboard` behavior are preserved.
+
+Validation commands/results:
+
+- `npm --prefix frontend run build` passed.
+- `npm --prefix frontend run test:router` passed.
+- `git diff --check` passed.
+- Existing Vite large chunk warning remains.
+
+Boundaries confirmed:
+
+- No backend changes.
+- No database changes.
+- No API changes.
+- No mission mutation behavior changes.
+- No XP, streak, achievement, check-in, reminder delivery, or progression logic changes.
+- No dashboard redesign.
+- No contextual reward sequence implementation.
+- No Telegram mission-specific deep-link restoration.
+
+Not fully verified:
+
+- No fresh automated end-to-end test log is attached for Mission Context UX Phase 1.
+- No full mobile viewport matrix was completed for every mission context state.
+- No screen-reader/accessibility pass was completed for the new context layer.
+- Full contextual reward sequence and Telegram mission-specific deep-link restoration remain future work.
 
 ## Fresh user 3-challenge flow
 
@@ -268,12 +322,13 @@ Not fully verified:
 
 ## Known issues and follow-ups
 
-- Add repeatable frontend smoke coverage for MissionCenter, `/paths`, mission done, remind later, skip reason, reward sequence, and Today Saved.
+- Add repeatable frontend smoke coverage for MissionCenter, MissionContextPanel, `/paths`, mission done, remind later, skip reason, reward sequence, and Today Saved.
 - Add a documented QA script for a fresh user starting multiple challenges and exercising the full daily loop.
 - Verify actual database persistence for skip reasons in a targeted backend or integration test.
 - Verify multi-day reset behavior for Today Saved, deferred missions, skipped missions, and optional mission ranking.
 - Run a focused mobile viewport pass for the Ringo daily card, reminder options, skip reasons, reward overlay, and optional mission list.
 - Run an accessibility pass for the reward overlay and panel focus behavior.
+- Run a focused Mission Context UX Phase 1 microcopy polish pass, especially Persian wording, tiny no-shame framing, bonus optional framing, and missing-field fallbacks.
 - Continue cleaning Persian copy outside the daily loop.
 - Keep Ringo sprite assets, `frontend/src/constants/ringoSprites.js`, and backend `sprite_key` values aligned before relying on clean launch builds.
 - Expand production/deployment smoke checks after any VPS deployment.
@@ -290,6 +345,7 @@ The current implementation appears aligned with the product direction:
 - Reminder and skip flows are conversational and non-shaming.
 - Reward sequence and Today Saved support the emotional loop.
 - Optional next actions are present but secondary.
+- Mission Context UX Phase 1 improves mission clarity without changing backend/API/database/progression behavior.
 
 However, QA confidence is still development-level rather than release-candidate-level. The loop needs repeatable smoke tests, a documented fresh-user test script, mobile/accessibility passes, and targeted persistence checks before it should be treated as fully launch-verified.
 

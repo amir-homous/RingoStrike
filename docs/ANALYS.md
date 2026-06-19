@@ -160,6 +160,7 @@ Issues:
 
 ### Completed Stabilization
 
+0. Mission Context UX Phase 1 is implemented as a frontend-only clarity layer in MissionCenter through `MissionContextPanel.vue`; manual QA covered main, tiny, bonus, and after-done/detail states, Persian RTL was visually checked, `npm --prefix frontend run build` passed, `npm --prefix frontend run test:router` passed, and `git diff --check` passed. Full contextual reward sequence and Telegram mission-specific deep-link context remain future work.
 1. Production secret requirements are enforced outside development.
 2. Active JWT signing/verification uses centralized `Config.JWT_SECRET`.
 3. Debug endpoints are blocked outside development.
@@ -172,13 +173,14 @@ Issues:
 
 ### Important - Next Sprint
 
-1. Add path/mission frontend smoke coverage for `/paths`, MissionCenter loading, mission done/remind/skip, focus-mode dashboard gating, and duplicate mission/check-in behavior.
+1. Add/maintain path/mission frontend smoke coverage for `/paths`, MissionCenter loading, MissionContextPanel rendering, mission done/remind/skip, focus-mode dashboard gating, and duplicate mission/check-in behavior.
 2. Consolidate active auth code into route + service modules.
 3. Add or evaluate an index strategy for public username lookup.
 4. Continue expanding shared request/response validation patterns.
 5. Normalize profile update endpoints into one clear contract.
 7. Add explicit database migrations instead of ad hoc startup migrations.
 8. Keep public challenge/member visibility documented as the product policy evolves.
+9. Run a QA/microcopy polish pass for Mission Context UX Phase 1, especially Persian wording, tiny no-shame copy, bonus optional framing, and missing-field fallbacks.
 
 ### Optional - Future Improvement
 
