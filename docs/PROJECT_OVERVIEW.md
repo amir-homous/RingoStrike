@@ -27,6 +27,7 @@ Product direction source:
 - RingoCoach guidance states that choose message, sprite, and next action from the user's current path/enrollment/mission context.
 - Daily check-ins per enrollment.
 - Dashboard Mission Center that leads the daily loop and falls back to the legacy Today Mission card only when no mission is available.
+- Mission Context UX Phase 1 through `MissionContextPanel.vue`, a frontend-only clarity layer that shows path/challenge breadcrumb, mission intensity/time, “What counts,” and “Why this helps” copy when available.
 - Frontend mission focus mode that keeps the dashboard centered on Ringo, the current mission/reminder/completion state, and a compact progress strip while the daily loop still needs attention.
 - First-run staged reveal for the Mission Center so Ringo guidance, mission intro, mission card, and action education appear in a calm sequence.
 - Rest Mode after `Finish for today`, with sleeping Ringo, safe-day copy, optional future reminder timing, and an explicit `Show dashboard` escape hatch.
@@ -109,6 +110,7 @@ Selected frontend language is stored in `localStorage.ringostrike_locale`.
 Register/Login
   -> Ringo welcomes and reads the user's current state
   -> Ringo suggests one clear daily mission
+  -> MissionContextPanel explains path/challenge context, mission intensity, what counts, and why it helps
   -> User chooses the main step, a smaller step, or an optional extra
   -> User completes a small self-improvement action
   -> Existing check-in/stats/achievement pipeline
@@ -159,7 +161,7 @@ Based on git history, the project has progressed through:
 - Review public challenge/member endpoint visibility before public launch.
 - Continue expanding shared API response helper usage.
 - Add frontend smoke tests for router guard, login, dashboard, challenge check-in, profile, and public profile rendering.
-- Continue validating mission context clarity. Mission focus mode is implemented, but a full Mission Context UX layer with consistent path -> challenge -> mission breadcrumbs and contextual reward framing is still planned work.
+- Continue validating Mission Context UX Phase 1 through QA and microcopy polish. The frontend-only clarity layer is implemented, but full contextual reward sequence, Telegram mission-specific deep-link restoration, backend read-model fields if needed, and deeper reward/path/challenge impact explanation remain planned work.
 
 ## Recently Stabilized
 
@@ -177,4 +179,4 @@ Based on git history, the project has progressed through:
 - Mission-level Telegram reminder delivery is protected by `X-Reminder-Token`, safe for n8n/cron triggering, and prevents duplicate sends with `mission_logs.reminder_sent_at`.
 - Protected reminder diagnostics expose due/scheduled/sent/missing-Telegram/reminders-disabled operational state without sending messages or exposing secrets.
 - Mission-family agenda behavior treats linked `main` and `tiny` missions as substitutes while keeping `bonus` missions independently visible and optional.
-- Dashboard mission focus mode hides secondary sections until the daily focus is resolved or the user explicitly chooses `Show dashboard`; focus mode remains frontend-only and does not alter progression writes.
+- Dashboard mission focus mode hides secondary sections until the daily focus is resolved or the user explicitly chooses `Show dashboard`; focus mode and Mission Context UX Phase 1 remain frontend-only and do not alter progression writes.

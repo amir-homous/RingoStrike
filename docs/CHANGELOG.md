@@ -16,6 +16,24 @@ The project has moved beyond raw MVP. Core progression identity is implemented. 
 
 ## Latest Launch-Hardening Updates
 
+### Mission Context UX Phase 1
+
+Implemented the first frontend-only mission clarity layer after the Mission Context planning docs:
+
+- Added `MissionContextPanel.vue` as a display-only context layer inside MissionCenter.
+- Shows path/challenge breadcrumb when available, using existing mission fields.
+- Shows mission intensity and estimated time when available.
+- Adds “What counts” instruction copy and “Why this helps” copy.
+- Improves main/tiny/bonus clarity without changing mission mutation behavior.
+- Adds tiny mission no-shame framing so smaller steps remain valid wins.
+- Adds bonus optional framing and updates optional bonus state to use the same context layer.
+- Reordered optional bonus actions so `Finish for today` remains primary when today is already safe.
+- Added English and Persian i18n copy for the new visible mission context text.
+- Preserved existing MissionCenter actions, focus mode, CompactProgressStrip, RewardMoment behavior, Rest Mode, and `Show dashboard` behavior.
+- Validation passed: `npm --prefix frontend run build`, `npm --prefix frontend run test:router`, and `git diff --check`.
+- Existing Vite large chunk warning remains.
+- Kept the change frontend-only with no backend, API, database, XP, streak, achievement, check-in, reminder delivery, or progression logic changes.
+
 ### Mission Focus Mode
 
 Added frontend mission focus gating so the dashboard stays calm while the daily loop still has a meaningful next state:
