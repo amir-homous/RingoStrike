@@ -41,20 +41,11 @@
 
       <div v-if="showFocusMissionCard" :id="`mission-${focusMission.mission_id}`" class="focusMission coachFocusMission"
         :class="{ firstRunRevealStep: props.firstRunFocus, firstRunRevealMission: props.firstRunFocus }">
-        <span>{{ t("missions.ringoSuggestedMission") }}</span>
-        <div v-if="focusMissionIntensity" class="missionIntensity" :class="focusMissionIntensity.intensity">
-          <span>{{ focusMissionIntensity.label }}</span>
-          <small v-if="focusMissionIntensity.detail">{{ focusMissionIntensity.detail }}</small>
-        </div>
-        <strong>{{ focusMission.title }}</strong>
-        <p>{{ focusMission.description }}</p>
-        <small v-if="missionStatusCopy(focusMission)" class="missionStatusCopy">
-          {{ missionStatusCopy(focusMission) }}
-        </small>
-        <small v-if="reminderDeliveryMeta(focusMission)" class="reminderDeliveryChip"
-          :class="reminderDeliveryMeta(focusMission).state">
-          {{ reminderDeliveryMeta(focusMission).label }}
-        </small>
+        <MissionContextPanel :mission="focusMission" :heading="t('missions.ringoSuggestedMission')"
+          :intensity-meta="focusMissionIntensity" :parent-title="parentMissionFor(focusMission)?.title || ''"
+          :reminder-label="missionReminderContextLabel(focusMission)"
+          :status-copy="missionStatusCopy(focusMission)"
+          :reminder-delivery-meta="reminderDeliveryMeta(focusMission)" />
         <div v-if="showFocusMissionActions" class="missionActions primaryMissionActions">
           <BaseButton variant="primary" :loading="busyId === focusMission.mission_id && busyAction === 'done'"
             :disabled="missionHasStatus(focusMission, 'done')" @click="markDone(focusMission)">
@@ -179,31 +170,25 @@
         </div>
 
         <div class="optionalNextMission">
-          <div v-if="optionalNextMissionIntensity" class="missionIntensity"
-            :class="optionalNextMissionIntensity.intensity">
-            <span>{{ optionalNextMissionIntensity.label }}</span>
-            <small v-if="optionalNextMissionIntensity.detail">
-              {{ optionalNextMissionIntensity.detail }}
-            </small>
-          </div>
-          <strong>{{ optionalNextMission.title }}</strong>
-          <p>{{ optionalNextMission.description }}</p>
-          <small v-if="optionalNextMission.challenge_name" class="missionStatusCopy">
-            {{ optionalNextMission.challenge_name }}
-          </small>
+          <MissionContextPanel :mission="optionalNextMission" :heading="t('missions.optionalNextTitle')"
+            :intensity-meta="optionalNextMissionIntensity"
+            :parent-title="parentMissionFor(optionalNextMission)?.title || ''"
+            :reminder-label="missionReminderContextLabel(optionalNextMission)"
+            :status-copy="missionStatusCopy(optionalNextMission)"
+            :reminder-delivery-meta="reminderDeliveryMeta(optionalNextMission)" />
         </div>
 
         <div class="optionalNextActions">
-          <BaseButton variant="primary" :loading="busyId === optionalNextMission.mission_id && busyAction === 'done'"
+          <BaseButton variant="primary" @click="finishForToday">
+            {{ t("missions.finishForToday") }}
+          </BaseButton>
+          <BaseButton variant="secondary" :loading="busyId === optionalNextMission.mission_id && busyAction === 'done'"
             :disabled="missionHasStatus(optionalNextMission, 'done')" @click="markDone(optionalNextMission)">
             {{
               normalizedMissionIntensity(optionalNextMission) === "bonus"
                 ? t("missions.bonusDoneCta")
                 : t("missions.doneCta")
             }}
-          </BaseButton>
-          <BaseButton variant="secondary" @click="finishForToday">
-            {{ t("missions.finishForToday") }}
           </BaseButton>
           <BaseButton variant="secondary"
             :loading="busyId === optionalNextMission.mission_id && busyAction === 'remind'"
@@ -316,20 +301,12 @@
       </div>
 
       <div v-if="focusMission && !coachActionPanel" :id="`mission-${focusMission.mission_id}`" class="focusMission">
-        <span>{{ guidanceMission ? t("missions.ringoSuggestedMission") : t("missions.nextMission") }}</span>
-        <div v-if="focusMissionIntensity" class="missionIntensity" :class="focusMissionIntensity.intensity">
-          <span>{{ focusMissionIntensity.label }}</span>
-          <small v-if="focusMissionIntensity.detail">{{ focusMissionIntensity.detail }}</small>
-        </div>
-        <strong>{{ focusMission.title }}</strong>
-        <p>{{ focusMission.description }}</p>
-        <small v-if="missionStatusCopy(focusMission)" class="missionStatusCopy">
-          {{ missionStatusCopy(focusMission) }}
-        </small>
-        <small v-if="reminderDeliveryMeta(focusMission)" class="reminderDeliveryChip"
-          :class="reminderDeliveryMeta(focusMission).state">
-          {{ reminderDeliveryMeta(focusMission).label }}
-        </small>
+        <MissionContextPanel :mission="focusMission"
+          :heading="guidanceMission ? t('missions.ringoSuggestedMission') : t('missions.nextMission')"
+          :intensity-meta="focusMissionIntensity" :parent-title="parentMissionFor(focusMission)?.title || ''"
+          :reminder-label="missionReminderContextLabel(focusMission)"
+          :status-copy="missionStatusCopy(focusMission)"
+          :reminder-delivery-meta="reminderDeliveryMeta(focusMission)" />
         <div v-if="showFocusMissionActions" class="missionActions primaryMissionActions">
           <BaseButton variant="primary" :loading="busyId === focusMission.mission_id && busyAction === 'done'"
             :disabled="missionHasStatus(focusMission, 'done')" @click="markDone(focusMission)">
@@ -783,6 +760,7 @@ import BaseCard from "@/components/ui/BaseCard.vue";
 import UiState from "@/components/ui/UiState.vue";
 import RingoCoach from "@/components/ringo/RingoCoach.vue";
 import RingoRewardSequence from "@/components/ringo/RingoRewardSequence.vue";
+import MissionContextPanel from "@/components/missions/MissionContextPanel.vue";
 import PathSelection from "@/components/missions/PathSelection.vue";
 import { resolveRingoSprite } from "@/constants/ringoSprites";
 import {
@@ -2852,7 +2830,8 @@ function missionMetadataChips(mission) {
 function buildMissionIntensityMeta(mission, options = {}) {
   if (!mission) return null;
 
-  const intensity = normalizedMissionIntensity(mission);
+  const rawIntensity = String(mission?.mission_intensity || "").trim().toLowerCase();
+  const intensity = ["main", "tiny", "bonus"].includes(rawIntensity) ? rawIntensity : "mission";
   const optionalContext = Boolean(options.optionalContext);
   const labelKey = optionalContext && intensity === "main"
     ? "missions.intensity.optional"
@@ -3496,6 +3475,11 @@ function missionStatusCopy(mission) {
   }
 
   return mission.ringo_message || "";
+}
+
+function missionReminderContextLabel(mission) {
+  if (!mission?.reminder_at) return "";
+  return formattedReminderLabel(mission.reminder_at);
 }
 
 function isPendingTinyMission(mission) {
