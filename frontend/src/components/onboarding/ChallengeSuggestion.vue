@@ -129,6 +129,7 @@ import BaseButton from "@/components/ui/BaseButton.vue";
 import BaseCard from "@/components/ui/BaseCard.vue";
 import RingoMoodFigure from "@/components/ringo/RingoMoodFigure.vue";
 import { resolveRingoMood } from "@/constants/ringoSprites";
+import { localizeChallenge } from "@/lib/ringoContentLocalization";
 
 const props = defineProps({
   path: { type: String, default: "" },
@@ -141,7 +142,7 @@ const props = defineProps({
 
 defineEmits(["start", "browse", "skip"]);
 
-const { t } = useI18n();
+const { locale, t } = useI18n();
 const selectedIds = ref([]);
 
 function initialIds(challenges) {
@@ -185,12 +186,15 @@ const alternativeChallenges = computed(() => {
 });
 
 function challengeTitle(challenge) {
-  return challenge?.name || challenge?.challenge_name || t("common.challenge");
+  const displayChallenge = localizeChallenge(challenge, locale.value);
+  return displayChallenge?.name || displayChallenge?.challenge_name || t("common.challenge");
 }
 
 function challengeDescription(challenge) {
-  return challenge?.ringo_intro
-    || challenge?.description
+  const displayChallenge = localizeChallenge(challenge, locale.value);
+
+  return displayChallenge?.ringo_intro
+    || displayChallenge?.description
     || t("onboarding.suggestion.noDescription");
 }
 

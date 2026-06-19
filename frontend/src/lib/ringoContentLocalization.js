@@ -1,4 +1,8 @@
-import { getMissionDisplayCopy } from "@/lib/missionDisplayCopy";
+import {
+  getChallengeDisplayCopy,
+  getMissionDisplayCopy,
+  getPathDisplayCopy,
+} from "@/lib/missionDisplayCopy";
 
 const FA_PATHS = {
   fitness: {
@@ -185,13 +189,26 @@ function shouldLocalize(locale) {
 
 export function localizePath(item, locale) {
   if (!item || !shouldLocalize(locale)) return item;
-  const copy = FA_PATHS[item.key];
+  const displayCopy = getPathDisplayCopy(item, locale);
+  const fallbackCopy = FA_PATHS[item.key];
+  const copy = displayCopy.found
+    ? { title: displayCopy.title, description: displayCopy.description }
+    : fallbackCopy;
+
   return copy ? { ...item, ...copy } : item;
 }
 
 export function localizeChallenge(item, locale) {
   if (!item || !shouldLocalize(locale)) return item;
-  const copy = FA_CHALLENGES[item.name];
+  const displayCopy = getChallengeDisplayCopy(item, locale);
+  const fallbackCopy = FA_CHALLENGES[item.name];
+  const copy = displayCopy.found
+    ? {
+      name: displayCopy.name,
+      description: displayCopy.description,
+      ringo_intro: displayCopy.ringo_intro,
+    }
+    : fallbackCopy;
   const missions = Array.isArray(item.missions)
     ? item.missions.map((mission) => localizeMission(mission, locale))
     : item.missions;

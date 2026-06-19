@@ -511,6 +511,105 @@ export default {
       returnLater: "Ringo will keep it parked and bring it back later.",
     },
   },
+  pathContent: {
+    fitness: {
+      title: "Fitness",
+      description: "Build energy and body momentum through small movement missions.",
+    },
+    learning: {
+      title: "Learning",
+      description: "Turn curiosity into visible daily learning progress.",
+    },
+    career: {
+      title: "Career",
+      description: "Protect focused work and career momentum with small daily wins.",
+    },
+    creativity: {
+      title: "Creativity",
+      description: "Keep creative identity alive through small making rituals.",
+    },
+    sleep: {
+      title: "Sleep",
+      description: "Create calmer nights and better recovery through small reset missions.",
+    },
+  },
+  challengeContent: {
+    "move-your-body": {
+      name: "Move Your Body",
+      description: "Create physical momentum with a daily walk, workout, stretch, or movement session.",
+      ringo_intro: "Start small. One movement session is enough to protect today’s rhythm.",
+    },
+    "strength-starter": {
+      name: "Strength Starter",
+      description: "Begin a simple strength rhythm with light bodyweight work.",
+      ringo_intro: "No heroic session needed. A few honest reps count.",
+    },
+    "mobility-reset": {
+      name: "Mobility Reset",
+      description: "Keep your body loose with a daily mobility pause.",
+      ringo_intro: "A flexible body starts with one quiet reset.",
+    },
+    "learn-one-thing": {
+      name: "Learn One Thing",
+      description: "Learn, read, watch, practice, or document one useful thing every day.",
+      ringo_intro: "One useful thing today is enough to keep your learning identity alive.",
+    },
+    "read-five-pages": {
+      name: "Read Five Pages",
+      description: "Build a calm reading rhythm with a small daily page target.",
+      ringo_intro: "Five pages can change the tone of a day.",
+    },
+    "practice-skill": {
+      name: "Practice Skill",
+      description: "Make skill growth visible through one focused practice block.",
+      ringo_intro: "Practice becomes identity when it survives ordinary days.",
+    },
+    "deep-work-sprint": {
+      name: "Deep Work Sprint",
+      description: "Protect focused time and complete one meaningful deep-work session per day.",
+      ringo_intro: "Your career path starts with one protected focus block.",
+    },
+    "portfolio-pulse": {
+      name: "Portfolio Pulse",
+      description: "Move one professional asset forward every day.",
+      ringo_intro: "A visible career identity is built one proof at a time.",
+    },
+    "network-signal": {
+      name: "Network Signal",
+      description: "Create one small professional signal or connection.",
+      ringo_intro: "Connection does not need pressure. One thoughtful signal is enough.",
+    },
+    "creative-spark": {
+      name: "Creative Spark",
+      description: "Make or capture one small creative idea each day.",
+      ringo_intro: "Creativity likes a low-pressure doorway.",
+    },
+    "publish-tiny": {
+      name: "Publish Tiny",
+      description: "Practice sharing one small piece of creative output.",
+      ringo_intro: "Sharing can be quiet. Tiny publishing still counts.",
+    },
+    "idea-remix": {
+      name: "Idea Remix",
+      description: "Train creative range by remixing one existing idea.",
+      ringo_intro: "A remix is a safe way to start moving.",
+    },
+    "mind-reset": {
+      name: "Mind Reset",
+      description: "Take a short daily reset for reflection, breathing, journaling, or mental clarity.",
+      ringo_intro: "A calmer night starts before the moment you need sleep.",
+    },
+    "sleep-wind-down": {
+      name: "Sleep Wind Down",
+      description: "Build a simple evening wind-down ritual.",
+      ringo_intro: "The wind-down is the mission. Sleep can follow.",
+    },
+    "morning-recovery": {
+      name: "Morning Recovery",
+      description: "Start the day with one recovery-friendly signal.",
+      ringo_intro: "Recovery continues in the first minutes of the morning.",
+    },
+  },
   missionContent: {
     "move-10-tiny": {
       title: "Move for 2 minutes",
