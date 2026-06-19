@@ -2,7 +2,7 @@ import {
   getChallengeDisplayCopy,
   getMissionDisplayCopy,
   getPathDisplayCopy,
-} from "@/lib/missionDisplayCopy";
+} from "./missionDisplayCopy.js";
 
 const FA_PATHS = {
   fitness: {

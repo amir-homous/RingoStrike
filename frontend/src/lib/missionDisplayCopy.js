@@ -1,5 +1,5 @@
-import en from "@/i18n/locales/en";
-import fa from "@/i18n/locales/fa";
+import en from "../i18n/locales/en.js";
+import fa from "../i18n/locales/fa.js";
 
 const LOCALE_CATALOGS = {
   en,
