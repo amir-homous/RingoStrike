@@ -53,6 +53,10 @@
 <script setup>
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
+import {
+  getMissionDisplayDescription,
+  getMissionDisplayTitle,
+} from "@/lib/missionDisplayCopy";
 
 const props = defineProps({
   mission: { type: Object, required: true },
@@ -64,9 +68,9 @@ const props = defineProps({
   reminderDeliveryMeta: { type: Object, default: null },
 });
 
-const { t } = useI18n();
+const { locale, t } = useI18n();
 
-const missionTitle = computed(() => props.mission?.title || t("missions.fallbackMission"));
+const missionTitle = computed(() => getMissionDisplayTitle(props.mission, locale.value) || t("missions.fallbackMission"));
 
 const normalizedIntensity = computed(() => {
   const value = String(props.mission?.mission_intensity || "").toLowerCase();
@@ -82,7 +86,7 @@ const breadcrumbItems = computed(() => {
     .filter(Boolean);
 });
 
-const description = computed(() => String(props.mission?.description || "").trim());
+const description = computed(() => String(getMissionDisplayDescription(props.mission, locale.value) || "").trim());
 
 const instructionCopy = computed(() => {
   if (description.value.length >= 12) return description.value;

@@ -1,3 +1,5 @@
+import { getMissionDisplayCopy } from "@/lib/missionDisplayCopy";
+
 const FA_PATHS = {
   fitness: {
     title: "تناسب و انرژی",
@@ -199,10 +201,13 @@ export function localizeChallenge(item, locale) {
 
 export function localizeMission(item, locale) {
   if (!item || !shouldLocalize(locale)) return item;
-  const copy = FA_MISSIONS[item.key];
-  if (!copy) return item;
+  const displayCopy = getMissionDisplayCopy(item, locale);
+  const fallbackCopy = FA_MISSIONS[item.key];
+  if (!displayCopy.found && !fallbackCopy) return item;
 
-  const [title, description] = copy;
+  const [fallbackTitle, fallbackDescription] = fallbackCopy || [];
+  const title = displayCopy.found ? displayCopy.title : fallbackTitle;
+  const description = displayCopy.found ? displayCopy.description : fallbackDescription;
   const challenge = item.challenge_name
     ? localizeChallenge({ name: item.challenge_name }, locale)
     : null;

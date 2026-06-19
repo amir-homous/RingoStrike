@@ -511,6 +511,124 @@ export default {
       returnLater: "Ringo will keep it parked and bring it back later.",
     },
   },
+  missionContent: {
+    "move-10-tiny": {
+      title: "Move for 2 minutes",
+      description: "Walk, stretch, or shake out tension for just two minutes.",
+    },
+    "move-10-bonus": {
+      title: "Add one extra movement minute",
+      description: "If you feel good, add one extra minute after the main movement mission.",
+    },
+    "bodyweight-set-tiny": {
+      title: "Do three honest reps",
+      description: "Do three calm reps of any bodyweight movement.",
+    },
+    "bodyweight-set-bonus": {
+      title: "Add one steady set",
+      description: "If the first set felt okay, add one extra calm set or hold.",
+    },
+    "stretch-focus-tiny": {
+      title: "Stretch for one minute",
+      description: "Pick one tight area and give it one calm minute.",
+    },
+    "stretch-focus-bonus": {
+      title: "Stretch one more area",
+      description: "If your body wants more room, choose one more tight area and stretch it gently.",
+    },
+    "learn-one-thing-tiny": {
+      title: "Learn one tiny idea",
+      description: "Read or watch one small piece and name the useful idea.",
+    },
+    "learn-one-thing-bonus": {
+      title: "Save a second useful idea",
+      description: "If curiosity is alive, capture one more useful idea.",
+    },
+    "read-five-pages-tiny": {
+      title: "Read one page",
+      description: "Read one page or one short section. That still keeps the thread alive.",
+    },
+    "read-five-pages-bonus": {
+      title: "Save one extra idea",
+      description: "If the reading has momentum, save one more useful idea before you stop.",
+    },
+    "practice-15-tiny": {
+      title: "Practice for three minutes",
+      description: "Do one tiny drill for three focused minutes.",
+    },
+    "practice-15-bonus": {
+      title: "Repeat one small drill",
+      description: "If practice feels alive, repeat one tiny drill once more with attention.",
+    },
+    "deep-work-block-tiny": {
+      title: "Focus for three minutes",
+      description: "Protect three minutes for one task without switching tabs.",
+    },
+    "deep-work-block-bonus": {
+      title: "Add one closing note",
+      description: "If the focus block went well, write one extra note about the next step.",
+    },
+    "improve-asset-tiny": {
+      title: "Make one tiny edit",
+      description: "Change one line, one word, one image, or one detail on a career asset.",
+    },
+    "improve-asset-bonus": {
+      title: "Save one proof",
+      description: "If the asset moved forward, save one screenshot, note, or before-after proof.",
+    },
+    "send-signal-tiny": {
+      title: "Draft one sentence",
+      description: "Write one sentence you could send later, even if you do not send it now.",
+    },
+    "capture-idea-tiny": {
+      title: "Capture one tiny spark",
+      description: "Save one phrase, shape, color, sound, or rough thought.",
+    },
+    "capture-idea-bonus": {
+      title: "Add one detail",
+      description: "If the idea has energy, add one extra detail before you archive it.",
+    },
+    "draft-small-tiny": {
+      title: "Write one rough line",
+      description: "Create one rough line, beat, frame, or sentence for the draft.",
+    },
+    "draft-small-bonus": {
+      title: "Create one extra version",
+      description: "If the draft has energy, make one small alternate version before you stop.",
+    },
+    "choose-source-tiny": {
+      title: "Pick one reference",
+      description: "Choose one reference or prompt and stop there if that is enough.",
+    },
+    "choose-source-bonus": {
+      title: "Try one alternate angle",
+      description: "If the source feels interesting, write one different angle, mood, or constraint for the remix.",
+    },
+    "mind-reset-tiny": {
+      title: "Take three calm breaths",
+      description: "Pause and take three slow breaths without fixing anything.",
+    },
+    "mind-reset-bonus": {
+      title: "Write one calm sentence",
+      description: "If your mind is still noisy, write one sentence to park it for tomorrow.",
+    },
+    "dim-inputs-tiny": {
+      title: "Dim one input",
+      description: "Lower one light, one sound, or one screen for a minute.",
+    },
+    "dim-inputs-bonus": {
+      title: "Add one calm cue",
+      description: "If the night still feels noisy, add one small cue that tells your body it can slow down.",
+    },
+    "morning-light-tiny": {
+      title: "Find light for one minute",
+      description: "Stand near a window or step outside for one minute.",
+    },
+    "morning-light-bonus": {
+      title: "Add one calm breath",
+      description: "If the morning feels okay, take one slow breath after finding light.",
+    },
+  },
   challengeInvite: {
     eyebrow: "Progression paths",
     title: "Choose another small path when you feel ready.",
