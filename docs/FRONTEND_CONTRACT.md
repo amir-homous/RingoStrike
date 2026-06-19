@@ -631,31 +631,36 @@ While focus mode is active, `Dashboard.vue` hides the large dashboard sections a
 
 `MissionCenter.vue` keeps mission timeline/status details collapsed by default during focus mode. Users can reveal them explicitly with `Show mission status`. `Finish for today` enters a calm frontend-only Rest Mode card, optionally showing nearest future reminder timing from existing mission `reminder_at` values. `Show dashboard` emits `show-dashboard` so `Dashboard.vue` can reveal the full dashboard with reduced-motion-safe styling.
 
-Mission Context UX Phase 1 is now implemented as a frontend-only clarity layer. The current implementation improves focus, family-aware display, completion tone, and mission-card context clarity, but it does not implement the full future Mission Context UX system, contextual reward sequence, Telegram mission-specific deep-link restoration, or a backend mission context read model.
+This is distinct from the still-planned Mission Context UX layer. The current implementation improves focus, family-aware display, and completion tone, but it does not provide a universal path -> challenge -> mission breadcrumb system or backend mission context model.
 
-### MissionContextPanel Display Contract
+### Seeded Content Display Localization Contract
 
-`frontend/src/components/missions/MissionContextPanel.vue` is a display-only child surface used by `MissionCenter.vue` for mission clarity.
+Known seeded mission/path/challenge content may be localized at the frontend display layer. This is a display contract only and does not change backend API response shapes.
 
-It can display, when available:
+Current frontend helpers involved:
 
-- path/challenge breadcrumb from existing mission fields such as `path_title` and `challenge_name`
-- mission intensity/time from `mission_intensity` and `estimated_minutes`
-- “What counts” instruction copy
-- “Why this helps” copy
-- tiny mission no-shame framing
-- bonus optional framing
+- `frontend/src/lib/missionDisplayCopy.js`
+- `frontend/src/lib/ringoContentLocalization.js`
+
+Used by current/affected surfaces such as:
+
+- MissionCenter / MissionContextPanel seeded mission display
+- onboarding suggested challenge cards
+- onboarding handoff mission titles where available
+- path/challenge preview copy where available
+- Challenge Discovery cards for known seeded challenge content
 
 Contract rules:
 
-- It must not call mission mutation endpoints.
-- It must not calculate XP, streaks, achievements, check-ins, or progression.
-- It must not own MissionCenter action hierarchy.
-- It must not replace RingoCoach, RewardMoment, CompactProgressStrip, Rest Mode, or dashboard focus gating.
-- It must tolerate missing optional context fields by hiding or simplifying display text instead of inventing data.
-- English and Persian visible text belongs in the frontend i18n locale files, not backend response shapes.
+- Raw backend mission/path/challenge values remain logic inputs.
+- Known seeded content can be mapped to localized display copy in the frontend.
+- Unknown or custom backend content must fall back to backend-provided title/name/description.
+- English behavior should remain unchanged or equivalent.
+- No API response shape change is required for this phase.
+- No backend localization or backend seed-data change is required for this phase.
+- No CMS or AI-generated copy is part of this phase.
 
-`MissionCenter.vue` remains the owner of mission actions such as done, remind later, skip, finish for today, and show dashboard. Existing mission mutation APIs remain unchanged.
+This display-localization layer must not affect onboarding completion, path start, challenge join, mission mutation, XP, streak, achievement, check-in, reminder delivery, or progression behavior.
 
 ### `POST /me/missions/:mission_id/done`
 

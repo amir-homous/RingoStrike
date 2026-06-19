@@ -124,6 +124,56 @@ Not fully verified:
 - No screen-reader/accessibility pass was completed for the new context layer.
 - Full contextual reward sequence and Telegram mission-specific deep-link restoration remain future work.
 
+
+## Frontend-only seeded content display localization addendum
+
+Status: implemented and partially manually checked after merge into `dev`.
+
+Scope checked:
+
+- Persian MissionCenter seeded mission display.
+- Persian onboarding challenge selection.
+- Known seeded challenge/path/mission display copy where available.
+- Fallback behavior by design for unknown/custom backend content.
+
+Observed QA notes:
+
+- Known seeded mission/path/challenge copy can now be localized at the frontend display layer.
+- `missionDisplayCopy.js` and `ringoContentLocalization.js` are the display-localization helpers.
+- Persian onboarding and Challenge Discovery surfaces now avoid several obvious English seed-content leaks.
+- Unknown/custom backend content still falls back to backend-provided title/name/description.
+- Raw backend values remain logic inputs.
+
+Validation commands/results:
+
+- `npm --prefix frontend run build` passed.
+- `npm --prefix frontend run test:router` passed.
+- `git diff --check` passed.
+- Existing Vite large chunk warning remains.
+
+Boundaries confirmed:
+
+- No backend changes.
+- No database changes.
+- No schema changes.
+- No API changes.
+- No seed data changes.
+- No onboarding completion logic changes.
+- No path start logic changes.
+- No challenge join logic changes.
+- No mission mutation behavior changes.
+- No XP, streak, achievement, check-in, reminder delivery, or progression logic changes.
+- No CMS.
+- No AI-generated copy.
+
+Not fully verified:
+
+- No full audit of every seeded mission/path/challenge key.
+- No full mobile viewport matrix for onboarding/challenge discovery after localization.
+- No automated test currently asserts localization fallback coverage for every known seeded key.
+- Unknown/custom content fallback is design-validated but not exhaustively tested.
+
+
 ## Fresh user 3-challenge flow
 
 Status: partially verified through manual development flow.
@@ -328,7 +378,7 @@ Not fully verified:
 - Verify multi-day reset behavior for Today Saved, deferred missions, skipped missions, and optional mission ranking.
 - Run a focused mobile viewport pass for the Ringo daily card, reminder options, skip reasons, reward overlay, and optional mission list.
 - Run an accessibility pass for the reward overlay and panel focus behavior.
-- Run a focused Mission Context UX Phase 1 microcopy polish pass, especially Persian wording, tiny no-shame framing, bonus optional framing, and missing-field fallbacks.
+- Continue localized-copy QA as seeded content expands, especially onboarding, Challenge Discovery, MissionCenter, missing-field fallbacks, and unknown/custom backend content.
 - Continue cleaning Persian copy outside the daily loop.
 - Keep Ringo sprite assets, `frontend/src/constants/ringoSprites.js`, and backend `sprite_key` values aligned before relying on clean launch builds.
 - Expand production/deployment smoke checks after any VPS deployment.
