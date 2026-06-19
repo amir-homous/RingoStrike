@@ -80,8 +80,6 @@ The detailed product direction lives in:
 - Dashboard MissionCenter as the first daily action surface.
 - Main/tiny mission-family handling where tiny missions are lower-pressure substitutes, while bonus missions remain optional extra momentum.
 - Mission focus mode that hides secondary dashboard sections while there is an active Ringo focus, due reminder, primary mission, tiny flow, optional bonus focus, or unacknowledged completion state.
-- Mission Context UX Phase 1 frontend clarity layer through `MissionContextPanel.vue`, showing path/challenge breadcrumb, mission intensity/time, “What counts,” and “Why this helps” copy when available.
-- Main/tiny/bonus mission context clarity improved: tiny missions receive no-shame smaller-step framing, bonus missions are clearly optional, and `Finish for today` stays primary when today is already safe.
 - Compact progress strip for focus mode using existing level, XP progress, streak, and today-safe context.
 - First-run staged reveal for Ringo guidance, mission intro, mission card, and action education.
 - Post-first-win completion UX, including optional bonus framing, calm reminder copy, and Rest Mode after `Finish for today`.
@@ -140,6 +138,7 @@ The detailed product direction lives in:
 - Removed stale frontend route/file clutter around the legacy login import and stray `Untitled` view snippet.
 - Aligned auth callback token storage with the shared API client Bearer fallback, constrained callback redirects to internal paths, and cleared stored callback tokens on logout.
 - Added frontend-only Persian/English i18n with `vue-i18n`, persisted locale selection, automatic `lang`/`dir` updates, and a header language switcher.
+- Added frontend-only seeded content display localization for known mission/path/challenge copy through helpers such as `missionDisplayCopy.js` and `ringoContentLocalization.js`, improving Persian MissionCenter, onboarding, path/challenge previews, and Challenge Discovery surfaces while preserving backend seed data.
 - Added Persian-only Vazirmatn typography through the active global CSS layer while preserving the existing English system font stack.
 - Added guided Today Mission dashboard focus and a reusable first-path empty state for users without active enrollments.
 - Added lightweight frontend-only onboarding with identity path selection and suggested first challenge mapping.
@@ -216,8 +215,8 @@ These items should happen before expanding product scope:
 
 - Keep invalid challenge join payload coverage as route behavior evolves.
 - Add frontend smoke coverage for `/paths`, MissionCenter, mission done/remind/skip, and duplicate mission/check-in behavior.
-- Mission Context UX Phase 1 is implemented and merged into `dev`; continue validating clarity through QA/microcopy polish.
-- Keep future Mission Context work planned: full contextual reward sequence, Telegram mission-specific deep-link restoration, backend read-model fields if needed, and deeper reward/path/challenge impact explanation.
+- Continue validating mission context clarity after the focus-mode work. A full Mission Context UX layer, universal path -> challenge -> mission breadcrumbs, and contextual reward sequence are still planned work.
+- Frontend-only seeded content display localization is implemented for known mission/path/challenge copy; continue maintaining localization key coverage as seeded content expands. Future content work can include fuller localization for custom content, a CMS/content-management approach if the product scales, and AI-generated copy only later after deterministic copy is stable.
 - Add tests for `/auth/logout` edge cases if token blacklist/session invalidation is introduced later.
 - Resolve or document remaining GitHub Actions frontend build instability if it reappears.
 - Run deployment smoke script after every production/pre-launch deployment.
@@ -250,14 +249,14 @@ Why:
 
 Early tester feedback shows that the product is valuable but feels too complex. Before wider launch, the app should make the next action obvious, emotionally safe, and guided by Ringo rather than by a dense system surface.
 
-Planned / continuing work:
+Planned work:
 
-- Continue validating the Today Mission Card, Mission Context UX Phase 1, and guided empty state with first-time users.
-- Keep refining the dashboard as Ringo's home and make Ringo the first visual/emotional focus.
-- Continue polishing the implemented Main/Tiny/Bonus mission structure so users always know what is enough today.
+- Continue validating the Today Mission Card and guided empty state with first-time users.
+- Reframe the dashboard as Ringo's home and make Ringo the first visual/emotional focus.
+- Introduce the daily Main Mission, Tiny Mission, and optional Bonus Mission structure.
 - Keep existing path, challenge, mission, check-in, stats, achievement, and activity systems as the supporting infrastructure.
 - Refine simplified early navigation/progressive disclosure without blocking direct routes.
-- Future work should expand the reward moment only when existing backend responses or additive read-model fields provide enough safe context.
+- Expand the reward moment and join success moment only when existing backend responses provide enough data.
 - Improve first-run onboarding after the identity path flow is validated.
 - Consider reminder connection prompts after the first reward/check-in moment, not before.
 
@@ -279,12 +278,12 @@ Make RingoStrike feel like a caring daily self-improvement companion, not only a
 
 Near-term product sequence:
 
-1. Ringo-first dashboard: implemented through MissionCenter/focus-mode foundations and continuing polish.
-2. Ringo Brain v1: deterministic decision layer foundations are implemented and should remain structured/fallback-safe.
-3. Main/Tiny/Bonus missions: implemented and now clarified by Mission Context UX Phase 1; continue QA/microcopy polish.
-4. Ringo Moment reward sequence: future work should turn mission completion into a contextual step-by-step emotional reward ritual instead of one static result card.
-5. Ringo Pulse feed: future work can add a warm lightweight activity/community pulse, with privacy-aware defaults.
-6. AI-assisted language layer: later, after deterministic Ringo behavior is stable, use AI for safe wording variation and personalized language only.
+1. Ringo-first dashboard: simplify the first screen around Ringo's mood, message, and one clear next action.
+2. Ringo Brain v1: add a deterministic decision layer for user state, Ringo mood, suggested mission, mission intensity, tone, actions, and reward sequence type.
+3. Main/Tiny/Bonus missions: show a focused daily set so the user always knows what is enough today.
+4. Ringo Moment reward sequence: turn mission completion into a step-by-step emotional reward ritual instead of one static result card.
+5. Ringo Pulse feed: add a warm lightweight activity/community pulse, with privacy-aware defaults.
+6. AI-assisted language layer: later, after the rule-based Ringo Brain exists, use AI for safe wording variation and personalized language only.
 
 Implementation principles:
 

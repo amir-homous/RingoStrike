@@ -86,9 +86,9 @@ Implementation guidance:
 - Frontend i18n is implemented with `vue-i18n` in `frontend/src/i18n/`, currently supporting English (`en`) and Persian (`fa`).
 - The language switcher lives in `frontend/src/components/i18n/LanguageSwitcher.vue`, persists the selected locale in `localStorage.ringostrike_locale`, and updates `document.documentElement.lang` and `dir`.
 - Persian mode uses the local Vazirmatn variable WOFF2 font from `frontend/src/assets/fonts/Vazirmatn.woff2`; English mode keeps the existing system font stack.
+- Frontend-only seeded content display localization is implemented through helpers such as `frontend/src/lib/missionDisplayCopy.js` and `frontend/src/lib/ringoContentLocalization.js`. Known seeded mission/path/challenge copy can be localized for display while raw backend values remain logic inputs. Unknown or custom backend content falls back safely to backend-provided title/name/description.
 - Component groups for UI primitives, progress, achievements, activity, challenge cards, profile, and feedback.
-- Guided progression surfaces now include Dashboard MissionCenter, `MissionContextPanel.vue`, backend RingoCoach decisions, `/paths` path planning, path selection from MissionCenter, lightweight `/onboarding` identity path flow, progressive dashboard disclosure, premium check-in RewardMoment, and JoinSuccessMoment after successful challenge joins.
-- Mission Context UX Phase 1 is implemented as a frontend-only clarity layer in MissionCenter. `MissionContextPanel.vue` displays path/challenge context, mission intensity/time, “What counts,” and “Why this helps” copy using existing mission fields.
+- Guided progression surfaces now include Dashboard MissionCenter, backend RingoCoach decisions, `/paths` path planning, path selection from MissionCenter, lightweight `/onboarding` identity path flow, progressive dashboard disclosure, premium check-in RewardMoment, and JoinSuccessMoment after successful challenge joins.
 - `MissionCenter.vue` calls `/me/today-missions`; mission done calls `/me/missions/:id/done`, which writes a mission log and delegates to the existing check-in pipeline.
 - `PathSelection.vue` starts a path and then joins the first related challenge when one is available. Path start and challenge join remain separate API operations.
 - RewardMoment displays existing backend check-in rewards only and can surface frontend-only feature unlock hints for Activity, Achievements, and Public Profile. Leaderboard unlock hints are intentionally skipped for v1 because there is no dedicated global leaderboard route yet.
@@ -121,14 +121,14 @@ Implementation guidance:
 - Cookies remain the preferred auth path; `localStorage.ringo_token` is only a callback-token fallback and is cleared on logout.
 - `frontend/src/components/AuthForm.vue` should stay aligned with `frontend/src/lib/api.js`; avoid hard-coded backend origins or auth payload logging.
 - Frontend translations should stay frontend-only. Do not change backend response shapes to support locale text; translate display labels at the component/i18n layer and keep raw backend values for logic.
+- Known seeded content display localization should use frontend helpers such as `missionDisplayCopy.js` and `ringoContentLocalization.js`; do not change backend seed data for this phase. Unknown/custom content must fall back to backend values.
 - When adding Persian UI text, keep `lang="fa"`/`dir="rtl"` behavior centralized through `frontend/src/i18n/index.js`.
 - Keep guided progression UX frontend-first while it is being validated. Reuse current challenge/enrollment/check-in responses; do not add onboarding, recommendation, XP, streak, or achievement backend logic unless a later issue explicitly requires it.
 - For path/mission work, keep mission state in `mission_logs` and canonical progression in check-ins/stats/achievements. Avoid adding a second progression economy.
 - `frontend/src/constants/ringoSprites.js` resolves Ringo sprites from `frontend/src/assets/ringo/` with fallback aliases for missing or unknown keys. Keep `RINGO_SPRITE_KEYS`, backend `sprite_key` values, and actual asset filenames aligned.
 - Dashboard mission focus mode is frontend-owned: `MissionCenter.vue` emits `focus-state-change`, `Dashboard.vue` hides secondary dashboard sections while focus is active, and `CompactProgressStrip.vue` provides minimal level/XP/streak context without duplicating progression calculations.
-- `MissionCenter.vue` owns first-run staged reveal, mission status expansion, post-first-win copy, optional bonus action hierarchy, and Rest Mode. `Finish for today` enters the calm Rest Mode card; `Show dashboard` explicitly unlocks the full dashboard.
-- `MissionContextPanel.vue` is display-only. It must not mutate missions, calculate XP/streak/achievements/progression, or replace MissionCenter action ownership.
-- Mission Context UX Phase 1 improves mission clarity for main/tiny/bonus states, but full Mission Context UX remains planned: contextual reward sequence, Telegram mission-specific deep-link restoration, backend read-model fields if needed, and deeper path/challenge reward impact explanation are not implemented yet.
+- `MissionCenter.vue` owns first-run staged reveal, mission status expansion, post-first-win copy, and Rest Mode. `Finish for today` enters the calm Rest Mode card; `Show dashboard` explicitly unlocks the full dashboard.
+- Mission focus mode is not the full Mission Context UX system. It improves dashboard focus and mission-family presentation, but complete path -> challenge -> mission breadcrumb/context clarity remains future product work unless code later proves otherwise.
 - `frontend/src/views/Login.vue` is a Telegram-oriented view and is not the active `/login` route while local username/password auth remains the primary flow.
 - `GET /me/stats` is owned by `stats_routes.py` and delegates to `stats_service.py`.
 - `backend/services/auth_service.py` has been removed; active auth routes are still registered through `backend/auth.py`.
@@ -157,4 +157,4 @@ The project has moved beyond the older v0.3 dashboard/profile milestone. Public 
 - profile settings and avatar/bio fields
 - public consistency and public achievements endpoints
 
-The next highest-value work is launch hardening and operations polish plus QA/microcopy polish for Mission Context UX Phase 1: keep reminder automation monitored, verify frontend production builds use `/api-proxy`, run the launch QA checklist, add/maintain mission-path-reminder smoke coverage, add a migration/backup plan, and continue reducing profile/API contract overlap.
+The next highest-value work is launch hardening and operations polish plus QA/microcopy/localization polish for seeded Persian content display: keep reminder automation monitored, verify frontend production builds use `/api-proxy`, run the launch QA checklist, add/maintain mission-path-reminder smoke coverage, add a migration/backup plan, and continue reducing profile/API contract overlap.

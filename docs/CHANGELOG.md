@@ -16,23 +16,22 @@ The project has moved beyond raw MVP. Core progression identity is implemented. 
 
 ## Latest Launch-Hardening Updates
 
-### Mission Context UX Phase 1
+### Frontend-Only Seeded Content Display Localization
 
-Implemented the first frontend-only mission clarity layer after the Mission Context planning docs:
+Implemented frontend-only display localization for known seeded RingoStrike content:
 
-- Added `MissionContextPanel.vue` as a display-only context layer inside MissionCenter.
-- Shows path/challenge breadcrumb when available, using existing mission fields.
-- Shows mission intensity and estimated time when available.
-- Adds “What counts” instruction copy and “Why this helps” copy.
-- Improves main/tiny/bonus clarity without changing mission mutation behavior.
-- Adds tiny mission no-shame framing so smaller steps remain valid wins.
-- Adds bonus optional framing and updates optional bonus state to use the same context layer.
-- Reordered optional bonus actions so `Finish for today` remains primary when today is already safe.
-- Added English and Persian i18n copy for the new visible mission context text.
-- Preserved existing MissionCenter actions, focus mode, CompactProgressStrip, RewardMoment behavior, Rest Mode, and `Show dashboard` behavior.
+- Added/extended `frontend/src/lib/missionDisplayCopy.js` for known seeded mission display copy.
+- Added/extended `frontend/src/lib/ringoContentLocalization.js` for known seeded path/challenge/Ringo content.
+- Localized known seeded Persian mission display copy in MissionCenter / `MissionContextPanel.vue`.
+- Localized onboarding suggested challenge cards and onboarding handoff mission titles where available.
+- Localized path/challenge preview copy where available.
+- Localized Challenge Discovery cards for known seeded challenge content.
+- Reused/extended frontend localization helpers instead of changing backend seed data.
+- Preserved fallback to backend-provided title/name/description for unknown or custom content.
+- Preserved English behavior as unchanged or equivalent.
 - Validation passed: `npm --prefix frontend run build`, `npm --prefix frontend run test:router`, and `git diff --check`.
 - Existing Vite large chunk warning remains.
-- Kept the change frontend-only with no backend, API, database, XP, streak, achievement, check-in, reminder delivery, or progression logic changes.
+- Kept the change frontend-only with no backend, API, database, schema, migration, seed data, onboarding completion, path start, challenge join, mission mutation, XP, streak, achievement, check-in, reminder delivery, CMS, AI-generated copy, or progression logic changes.
 
 ### Mission Focus Mode
 

@@ -20,7 +20,7 @@ The product combines:
 * progression identity
 * Ringo-led daily missions
 * mission focus mode
-* Mission Context UX Phase 1 clarity layer
+* frontend display localization for known seeded mission/path/challenge content
 * Telegram reminder automation
 * social momentum architecture
 
@@ -120,13 +120,13 @@ The long-term goal is to create a platform where:
 * Glassmorphism-inspired design
 * Modular Vue component system
 * Ringo-led MissionCenter with focus-mode dashboard gating
-* MissionContextPanel for path/challenge, intensity/time, “What counts,” and “Why this helps” mission clarity
 * Compact progress strip during focused daily loops
 * First-run staged reveal and calm Rest Mode after finishing for today
 * Reward-driven interactions
 * Responsive layouts
 * Emotionally intelligent UX
 * English/Persian i18n with RTL support
+* seeded mission/path/challenge display localization without backend seed-data changes
 
 ---
 
@@ -208,7 +208,6 @@ The frontend is built around:
 * reusable progression components
 * emotional feedback systems
 * Ringo/MissionCenter guided daily focus
-* frontend-only Mission Context UX Phase 1 without backend progression changes
 * English/Persian localization with RTL support
 * scalable identity/social architecture
 
@@ -251,10 +250,9 @@ Current stage:
 Future direction:
 
 * social momentum layer
-* full contextual reward sequence for Mission Context UX
+* fuller Mission Context UX
 * contextual path/challenge/mission reward framing
-* Telegram mission-specific deep-link restoration
-* optional backend mission context read-model fields if needed
+* fuller localization coverage for future custom content and CMS/content-management if the product scales
 * AI insights
 * seasonal progression systems
 
