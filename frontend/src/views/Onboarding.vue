@@ -31,7 +31,7 @@
         <StepPath v-else-if="step === 2" v-model="selectedPaths" @continue="continueToSuggestion" />
 
         <ChallengeSuggestion v-else-if="step === 3" :path="selectedPath" :paths="selectedPaths"
-          :challenge="suggestedChallenge" :challenges="suggestedChallenges" :joining="joining" :error="joinError"
+          :challenge="localizedSuggestedChallenge" :challenges="localizedSuggestedChallenges" :joining="joining" :error="joinError"
           @start="startSuggestedPath" @browse="browseChallenges" @skip="skipOnboarding" />
 
         <section v-else class="handoffStep">
@@ -106,6 +106,10 @@ import {
   isInviteOnlyChallenge,
   submitJoinFlow,
 } from "./challengeFlow";
+import {
+  localizeChallenge,
+  localizeMission,
+} from "@/lib/ringoContentLocalization";
 
 const router = useRouter();
 const { locale, t } = useI18n();
@@ -139,7 +143,7 @@ const firstMissionTitle = computed(() => {
     ? missions.find((item) => item?.status === "pending") || missions[0]
     : null;
 
-  return mission?.title || "";
+  return localizeMission(mission, locale.value)?.title || mission?.title || "";
 });
 
 const selectedBackendPaths = computed(() => {
@@ -165,6 +169,18 @@ const suggestedChallenge = computed(() => {
   return suggestedChallenges.value.find((challenge) => !challenge.is_joined)
     || suggestedChallenges.value[0]
     || null;
+});
+
+const localizedSuggestedChallenges = computed(() => {
+  return suggestedChallenges.value.map((challenge) => localizeChallenge(challenge, locale.value));
+});
+
+const localizedSuggestedChallenge = computed(() => {
+  if (!suggestedChallenge.value) return null;
+
+  return localizedSuggestedChallenges.value.find((challenge) => {
+    return challenge.challenge_id === suggestedChallenge.value.challenge_id;
+  }) || localizeChallenge(suggestedChallenge.value, locale.value);
 });
 
 async function loadChallenges() {
