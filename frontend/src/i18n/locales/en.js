@@ -301,10 +301,12 @@ export default {
       optional: "Optional mission",
       tiny: "Tiny version",
       bonus: "Bonus mission",
+      mission: "Mission",
       mainDetail: "Enough for today",
       optionalDetail: "Extra momentum",
       tinyDetail: "Ringo made this smaller",
       bonusDetail: "Optional extra",
+      missionDetail: "Today’s step",
       minutes: "{count} min",
     },
     metadata: {
@@ -477,6 +479,36 @@ export default {
       eyebrow: "First mission focus",
       title: "Mashti, just stay with this mission.",
       text: "Do it, make it smaller, remind it, or skip it. The rest of the dashboard can wait.",
+    },
+  },
+  missionContext: {
+    breadcrumbLabel: "Mission origin",
+    instruction: {
+      title: "What counts",
+      main: "Do the mission in a simple, honest way. When it is done, mark it complete.",
+      tiny: "Do the smaller version. It is intentionally light and still counts.",
+      bonus: "Do this only if you want extra momentum after the required step.",
+      mission: "Do the action described here, then mark it complete.",
+    },
+    why: {
+      title: "Why this helps",
+      main: "This keeps today connected to your current challenge.",
+      mainWithChallenge: "This keeps today connected to {challenge}.",
+      tiny: "This protects momentum without asking for the full version.",
+      bonus: "This is optional extra momentum, not another requirement.",
+    },
+    tiny: {
+      smallerVersionGeneric: "Smaller version of today’s main mission.",
+      smallerVersionOf: "Smaller version of {mission}.",
+      stillCounts: "The smaller step still counts.",
+    },
+    bonus: {
+      optionalTitle: "Optional extra momentum.",
+      optionalBody: "Today is already safe if the required step is done.",
+    },
+    reminder: {
+      setFor: "Reminder set for {time}.",
+      returnLater: "Ringo will bring this mission back later.",
     },
   },
   challengeInvite: {
