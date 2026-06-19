@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, time, timedelta, timezone
 
 
 VALID_SPRITES = {
@@ -114,11 +114,27 @@ def _parse_reminder_at(value):
     return parsed.astimezone(timezone.utc)
 
 
+def _current_ringo_day_start(now=None):
+    current = (now or datetime.now(timezone.utc)).astimezone(timezone.utc)
+    return datetime.combine(current.date(), time.min, tzinfo=timezone.utc)
+
+
+def _is_current_ringo_day_reminder(mission, now=None):
+    reminder_at = _parse_reminder_at(mission.get("reminder_at"))
+    if not reminder_at:
+        return False
+
+    current = (now or datetime.now(timezone.utc)).astimezone(timezone.utc)
+    day_start = _current_ringo_day_start(current)
+    return day_start <= reminder_at < day_start + timedelta(days=1)
+
+
 def _due_reminder_mission(deferred):
     now = datetime.now(timezone.utc)
     due = [
         mission for mission in deferred
-        if (_parse_reminder_at(mission.get("reminder_at")) or datetime.max.replace(tzinfo=timezone.utc)) <= now
+        if _is_current_ringo_day_reminder(mission, now)
+        and (_parse_reminder_at(mission.get("reminder_at")) or datetime.max.replace(tzinfo=timezone.utc)) <= now
     ]
 
     if not due:
@@ -134,11 +150,16 @@ def _due_reminder_mission(deferred):
     )[0]
 
 
-def _is_due_reminder(mission, now=None):
-    now = now or datetime.now(timezone.utc)
-    reminder_at = _parse_reminder_at(mission.get("reminder_at"))
+def _is_required_mission(mission):
+    return _mission_intensity_value(mission) in {"main", "tiny"}
 
-    return bool(reminder_at and reminder_at <= now)
+
+def _bonus_done(missions):
+    return any(
+        mission.get("status") == "done"
+        and _mission_intensity_value(mission) == "bonus"
+        for mission in missions
+    )
 
 
 def _family_done_keys(missions):
@@ -173,7 +194,7 @@ def _family_deferred_keys(missions):
         for mission in missions
         if mission.get("status") == "remind_later"
         and _mission_intensity_value(mission) in {"main", "tiny"}
-        and not _is_due_reminder(mission, now)
+        and _is_current_ringo_day_reminder(mission, now)
     }
 
 
@@ -182,6 +203,7 @@ def _active_deferred_missions(missions, done_keys):
         mission
         for mission in missions
         if mission.get("status") == "remind_later"
+        and _is_current_ringo_day_reminder(mission)
         and not (
             _mission_intensity_value(mission) in {"main", "tiny"}
             and _mission_family_key(mission) in done_keys
@@ -197,6 +219,15 @@ def _preferred_pending_mission(pending, preferred_intensity="main"):
         ),
         None,
     ) or (pending[0] if pending else None)
+
+
+def _post_safe_optional_mission(pending_required, pending_optional, missions):
+    if _bonus_done(missions):
+        return None
+
+    return (pending_optional[0] if pending_optional else None) or (
+        pending_required[0] if pending_required else None
+    )
 
 
 def _decision(state, sprite, message, primary_action=None, secondary_action=None):
@@ -255,7 +286,14 @@ def decide_ringo_state(
     deferred_family_keys = _family_deferred_keys(missions)
     pending = [
         mission for mission in missions
-        if mission.get("status") == "pending"
+        if (
+            mission.get("status") == "pending"
+            or (
+                mission.get("status") == "remind_later"
+                and _is_required_mission(mission)
+                and not _is_current_ringo_day_reminder(mission)
+            )
+        )
         and (
             (
                 _mission_intensity_value(mission) in {"main", "tiny"}
@@ -271,11 +309,46 @@ def decide_ringo_state(
             )
         )
     ]
-    deferred = _active_deferred_missions(missions, done_family_keys)
-    skipped = [mission for mission in missions if mission.get("status") == "skipped"]
-    due_reminder = _due_reminder_mission(deferred)
+    if _bonus_done(missions):
+        pending = [
+            mission for mission in pending
+            if _mission_intensity_value(mission) != "bonus"
+        ]
 
-    if _completed_satisfying_mission(missions) and not pending and not deferred and not skipped:
+    pending_required = [
+        mission for mission in pending
+        if _is_required_mission(mission)
+    ]
+    pending_optional = [
+        mission for mission in pending
+        if not _is_required_mission(mission)
+    ]
+    deferred = _active_deferred_missions(missions, done_family_keys)
+    required_deferred = [
+        mission for mission in deferred
+        if _is_required_mission(mission)
+    ]
+    optional_deferred = [
+        mission for mission in deferred
+        if not _is_required_mission(mission)
+    ]
+    due_required_reminder = _due_reminder_mission(required_deferred)
+    due_optional_reminder = _due_reminder_mission(optional_deferred)
+    skipped = [mission for mission in missions if mission.get("status") == "skipped"]
+    today_satisfied = bool(_completed_satisfying_mission(missions))
+
+    if today_satisfied:
+        optional_next = _post_safe_optional_mission(pending_required, pending_optional, missions)
+        if optional_next:
+            return _decision(
+                "today_completed",
+                "celebration",
+                f"Today is secured. You can stop here. If you want a little extra momentum, {optional_next.get('title') or 'one optional step'} is ready.",
+                _action("Done for today", "dismiss"),
+                _action(_mission_label("Optional", optional_next), "mission", mission_id=optional_next.get("mission_id")),
+            )
+
+    if today_satisfied and not pending and not deferred and not skipped:
         return _decision(
             "today_completed",
             "celebration",
@@ -284,8 +357,8 @@ def decide_ringo_state(
             _action("Preview next path", "route", "/paths"),
         )
 
-    if not pending and deferred:
-        next_mission = deferred[0]
+    if not pending and deferred and (today_satisfied or required_deferred):
+        next_mission = (required_deferred or deferred)[0]
         return _decision(
             "today_reminded",
             "thinking",
@@ -305,7 +378,13 @@ def decide_ringo_state(
         )
 
     if done_count > 0:
-        next_mission = due_reminder or (pending[0] if pending else deferred[0] if deferred else missions[0])
+        next_mission = (
+            pending_required[0] if pending_required
+            else due_required_reminder
+            or (pending_optional[0] if pending_optional else None)
+            or due_optional_reminder
+            or (deferred[0] if deferred else missions[0])
+        )
         return _decision(
             "today_in_progress",
             "encouraging",
@@ -315,7 +394,7 @@ def decide_ringo_state(
         )
 
     if checkins_total > 0 and current_streak == 0:
-        next_mission = due_reminder or _preferred_pending_mission(pending, "tiny") or missions[0]
+        next_mission = _preferred_pending_mission(pending_required, "main") or due_required_reminder or missions[0]
         return _decision(
             "returning_after_break",
             "concerned",
@@ -325,7 +404,7 @@ def decide_ringo_state(
         )
 
     if checkins_total > 0 and current_streak <= 1:
-        next_mission = due_reminder or _preferred_pending_mission(pending, "tiny") or missions[0]
+        next_mission = _preferred_pending_mission(pending_required, "main") or due_required_reminder or missions[0]
         return _decision(
             "streak_at_risk",
             "warning",
@@ -334,10 +413,10 @@ def decide_ringo_state(
             _action("Remind me later", "mission_reminder", mission_id=next_mission.get("mission_id")),
         )
 
-    next_mission = due_reminder or _preferred_pending_mission(pending, "main") or missions[0]
+    next_mission = _preferred_pending_mission(pending_required, "main") or due_required_reminder or missions[0]
     reminder_context = (
         "I saved that reminder. While we wait, "
-        if deferred and pending and not due_reminder
+        if deferred and pending and not due_required_reminder
         else ""
     )
     return _decision(

@@ -97,6 +97,45 @@ def _set_challenge_missions_available(challenge_id):
         conn.close()
 
 
+def _set_mission_log_status(user_id, mission, status, *, reminder_at=None):
+    import database
+
+    conn = database.get_db_connection()
+    try:
+        conn.execute(
+            """
+            INSERT INTO mission_logs (
+                user_id,
+                enrollment_id,
+                challenge_id,
+                mission_id,
+                date,
+                status,
+                reminder_at,
+                updated_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(user_id, mission_id, date) DO UPDATE SET
+                status = excluded.status,
+                reminder_at = excluded.reminder_at,
+                updated_at = excluded.updated_at
+            """,
+            (
+                user_id,
+                mission["enrollment_id"],
+                mission["challenge_id"],
+                mission["mission_id"],
+                utc_today_iso(),
+                status,
+                reminder_at,
+                datetime.now(timezone.utc).isoformat(),
+            ),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
 def _reminder_at():
     next_reset = datetime.fromisoformat(
         ringo_day_metadata()["next_reset_at"].replace("Z", "+00:00"),
@@ -110,6 +149,10 @@ def _reminder_at():
 
 def _due_reminder_at():
     return (datetime.now(timezone.utc) - timedelta(minutes=5)).isoformat()
+
+
+def _stale_reminder_at():
+    return (datetime.now(timezone.utc) - timedelta(days=1, minutes=5)).isoformat()
 
 
 def _status_counts(missions):
@@ -205,7 +248,7 @@ def test_ringo_brain_treats_linked_tiny_completion_as_today_saved(client):
     assert payload["progress"]["today_saved"] is True
     assert payload["mission"]["mission_id"] == tiny_mission["mission_id"]
     assert payload["mission"]["mission_intensity"] == "tiny"
-    assert payload["actions"] == []
+    assert payload["actions"] == [{"type": "dismiss", "label": "Finish for today"}]
     assert payload["agenda"]["next_action_type"] == "done_for_today"
 
 
@@ -255,7 +298,177 @@ def test_ringo_brain_main_completion_can_suggest_bonus(client):
     assert payload["progress"]["today_saved"] is True
     assert payload["agenda"]["next_action_type"] == "optional_mission"
     assert payload["agenda"]["next_mission_id"] == bonus_mission["mission_id"]
-    assert payload["mission"]["mission_id"] == main_mission["mission_id"]
+    assert payload["mission"]["mission_id"] == bonus_mission["mission_id"]
+    assert "Today is safe" in payload["ringo"]["message"]
+    assert "optional step" in payload["ringo"]["message"]
+    assert payload["actions"][0]["type"] == "dismiss"
+    assert payload["actions"][1]["mission_id"] == bonus_mission["mission_id"]
+
+
+def test_ringo_brain_main_completion_can_suggest_unrelated_pending_as_optional(client):
+    user = register_user(client, username="BrainMainOther")
+    headers = auth_headers(user["access_token"])
+    context = _start_path_and_join_first_challenge(client, headers)
+    path_id = context["path"]["path_id"]
+    challenges = client.get(
+        f"/paths/{path_id}/challenges",
+        headers=headers,
+    ).get_json()["items"]
+    second_challenge = next(
+        challenge for challenge in challenges
+        if challenge["challenge_id"] != context["challenge"]["challenge_id"]
+    )
+    client.post(
+        f"/challenges/{second_challenge['challenge_id']}/join",
+        json={},
+        headers=headers,
+    )
+    _set_challenge_missions_available(context["challenge"]["challenge_id"])
+    _set_challenge_missions_available(second_challenge["challenge_id"])
+    missions = _today_missions(client, headers)
+    first_main = _main_mission([
+        mission for mission in missions
+        if mission["challenge_id"] == context["challenge"]["challenge_id"]
+    ])
+    first_bonus = _linked_bonus_mission(missions, first_main)
+    second_main = _main_mission([
+        mission for mission in missions
+        if mission["challenge_id"] == second_challenge["challenge_id"]
+    ])
+
+    import database
+
+    conn = database.get_db_connection()
+    try:
+        conn.execute(
+            "UPDATE missions SET status = 'Archived' WHERE id = ?",
+            (first_bonus["mission_id"],),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+    assert client.post(
+        f"/me/missions/{first_main['mission_id']}/done",
+        headers=headers,
+    ).status_code == 200
+
+    payload, code = get_today_ringo_guidance(user["user_id"])
+
+    assert code == 200
+    assert payload["progress"]["today_saved"] is True
+    assert payload["ringo"]["user_state"] == "today_completed"
+    assert payload["agenda"]["next_action_type"] == "optional_mission"
+    assert payload["agenda"]["next_mission_id"] == second_main["mission_id"]
+    assert payload["mission"]["mission_id"] == second_main["mission_id"]
+    assert "optional step" in payload["ringo"]["message"]
+    assert payload["actions"][0]["type"] == "dismiss"
+    assert payload["actions"][1]["mission_id"] == second_main["mission_id"]
+    assert payload["agenda"]["pending_count"] > 1
+
+
+def test_ringo_brain_tiny_completion_can_softly_suggest_unrelated_pending_only(client):
+    user = register_user(client, username="BrainTinyOther")
+    headers = auth_headers(user["access_token"])
+    context = _start_path_and_join_first_challenge(client, headers)
+    path_id = context["path"]["path_id"]
+    challenges = client.get(
+        f"/paths/{path_id}/challenges",
+        headers=headers,
+    ).get_json()["items"]
+    second_challenge = next(
+        challenge for challenge in challenges
+        if challenge["challenge_id"] != context["challenge"]["challenge_id"]
+    )
+    client.post(
+        f"/challenges/{second_challenge['challenge_id']}/join",
+        json={},
+        headers=headers,
+    )
+    _set_challenge_missions_available(context["challenge"]["challenge_id"])
+    _set_challenge_missions_available(second_challenge["challenge_id"])
+    missions = _today_missions(client, headers)
+    first_main = _main_mission([
+        mission for mission in missions
+        if mission["challenge_id"] == context["challenge"]["challenge_id"]
+    ])
+    first_tiny = _linked_tiny_mission(missions, first_main)
+    first_bonus = _linked_bonus_mission(missions, first_main)
+    second_main = _main_mission([
+        mission for mission in missions
+        if mission["challenge_id"] == second_challenge["challenge_id"]
+    ])
+
+    assert client.post(
+        f"/me/missions/{first_tiny['mission_id']}/done",
+        headers=headers,
+    ).status_code == 200
+
+    payload, code = get_today_ringo_guidance(user["user_id"])
+
+    assert code == 200
+    assert payload["progress"]["today_saved"] is True
+    assert payload["ringo"]["user_state"] == "today_completed"
+    assert payload["agenda"]["next_action_type"] == "optional_mission"
+    assert payload["agenda"]["next_mission_id"] == second_main["mission_id"]
+    assert payload["mission"]["mission_id"] == second_main["mission_id"]
+    assert payload["agenda"]["next_mission_id"] != first_main["mission_id"]
+    assert payload["agenda"]["next_mission_id"] != first_bonus["mission_id"]
+    assert "optional step" in payload["ringo"]["message"]
+
+
+def test_ringo_brain_bonus_completion_prefers_done_over_another_bonus(client):
+    user = register_user(client, username="BrainBonusDoneStops")
+    headers = auth_headers(user["access_token"])
+    context = _start_path_and_join_first_challenge(client, headers)
+    path_id = context["path"]["path_id"]
+    challenges = client.get(
+        f"/paths/{path_id}/challenges",
+        headers=headers,
+    ).get_json()["items"]
+    second_challenge = next(
+        challenge for challenge in challenges
+        if challenge["challenge_id"] != context["challenge"]["challenge_id"]
+    )
+    client.post(
+        f"/challenges/{second_challenge['challenge_id']}/join",
+        json={},
+        headers=headers,
+    )
+    _set_challenge_missions_available(context["challenge"]["challenge_id"])
+    _set_challenge_missions_available(second_challenge["challenge_id"])
+    missions = _today_missions(client, headers)
+    first_main = _main_mission([
+        mission for mission in missions
+        if mission["challenge_id"] == context["challenge"]["challenge_id"]
+    ])
+    first_bonus = _linked_bonus_mission(missions, first_main)
+    second_main = _main_mission([
+        mission for mission in missions
+        if mission["challenge_id"] == second_challenge["challenge_id"]
+    ])
+    second_bonus = _linked_bonus_mission(missions, second_main)
+
+    assert client.post(
+        f"/me/missions/{first_main['mission_id']}/done",
+        headers=headers,
+    ).status_code == 200
+    assert client.post(
+        f"/me/missions/{second_main['mission_id']}/done",
+        headers=headers,
+    ).status_code == 200
+    assert client.post(
+        f"/me/missions/{first_bonus['mission_id']}/done",
+        headers=headers,
+    ).status_code == 200
+
+    payload, code = get_today_ringo_guidance(user["user_id"])
+
+    assert code == 200
+    assert payload["progress"]["today_saved"] is True
+    assert payload["agenda"]["next_action_type"] == "done_for_today"
+    assert payload["agenda"]["next_mission_id"] is None
+    assert payload["mission"]["mission_id"] != second_bonus["mission_id"]
 
 
 def test_ringo_brain_bonus_reminder_not_suppressed_after_tiny_done(client):
@@ -321,7 +534,9 @@ def test_ringo_brain_main_completion_still_saves_today(client):
     user = register_user(client, username="BrainMainDone")
     headers = auth_headers(user["access_token"])
     _start_path_and_join_first_challenge(client, headers)
-    main_mission = _main_mission(_today_missions(client, headers))
+    missions = _today_missions(client, headers)
+    main_mission = _main_mission(missions)
+    bonus_mission = _linked_bonus_mission(missions, main_mission)
 
     done_res = client.post(
         f"/me/missions/{main_mission['mission_id']}/done",
@@ -334,8 +549,9 @@ def test_ringo_brain_main_completion_still_saves_today(client):
     assert code == 200
     assert payload["ringo"]["user_state"] == "today_completed"
     assert payload["progress"]["today_saved"] is True
-    assert payload["mission"]["mission_id"] == main_mission["mission_id"]
-    assert payload["mission"]["mission_intensity"] == "main"
+    assert payload["agenda"]["next_action_type"] == "optional_mission"
+    assert payload["mission"]["mission_id"] == bonus_mission["mission_id"]
+    assert payload["mission"]["mission_intensity"] == "bonus"
 
 
 def test_ringo_brain_prioritizes_today_saved_over_skipped_after_main_done(client):
@@ -509,6 +725,104 @@ def test_ringo_brain_agenda_not_saved_future_reminder_does_not_block_pending(cli
     assert other_pending["title"] in payload["ringo"]["message"]
 
 
+def test_ringo_brain_agenda_not_saved_main_mission_outranks_unrelated_due_reminder(client):
+    user = register_user(client, username="BrainAgendaDueUnrelated")
+    headers = auth_headers(user["access_token"])
+    context = _start_path_and_join_first_challenge(client, headers)
+    path_id = context["path"]["path_id"]
+    challenges = client.get(
+        f"/paths/{path_id}/challenges",
+        headers=headers,
+    ).get_json()["items"]
+    second_challenge = next(
+        challenge for challenge in challenges
+        if challenge["challenge_id"] != context["challenge"]["challenge_id"]
+    )
+    client.post(
+        f"/challenges/{second_challenge['challenge_id']}/join",
+        json={},
+        headers=headers,
+    )
+    _set_challenge_missions_available(context["challenge"]["challenge_id"])
+    _set_challenge_missions_available(second_challenge["challenge_id"])
+    missions = _today_missions(client, headers)
+    first_main = _main_mission([
+        mission for mission in missions
+        if mission["challenge_id"] == context["challenge"]["challenge_id"]
+    ])
+    second_main = _main_mission([
+        mission for mission in missions
+        if mission["challenge_id"] == second_challenge["challenge_id"]
+    ])
+
+    remind_res = client.post(
+        f"/me/missions/{first_main['mission_id']}/remind-later",
+        json={"reminder_at": _due_reminder_at()},
+        headers=headers,
+    )
+    assert remind_res.status_code == 200
+
+    payload, code = get_today_ringo_guidance(user["user_id"])
+
+    assert code == 200
+    assert payload["progress"]["today_saved"] is False
+    assert payload["agenda"]["next_action_type"] == "primary_mission"
+    assert payload["agenda"]["next_mission_id"] == second_main["mission_id"]
+    assert payload["mission"]["mission_id"] == second_main["mission_id"]
+    assert second_main["title"] in payload["ringo"]["message"]
+
+
+def test_ringo_brain_agenda_stale_reminder_does_not_dominate_after_reset(client):
+    user = register_user(client, username="BrainAgendaStaleReminder")
+    headers = auth_headers(user["access_token"])
+    context = _start_path_and_join_first_challenge(client, headers)
+    _set_challenge_missions_available(context["challenge"]["challenge_id"])
+    missions = _today_missions(client, headers)
+    main_mission = _main_mission(missions)
+
+    _set_mission_log_status(
+        user["user_id"],
+        main_mission,
+        "remind_later",
+        reminder_at=_stale_reminder_at(),
+    )
+
+    payload, code = get_today_ringo_guidance(user["user_id"])
+
+    assert code == 200
+    assert payload["progress"]["today_saved"] is False
+    assert payload["agenda"]["next_action_type"] == "primary_mission"
+    assert payload["agenda"]["next_mission_id"] == main_mission["mission_id"]
+    assert payload["agenda"]["next_reminder_at"] is None
+    assert payload["mission"]["mission_id"] == main_mission["mission_id"]
+
+
+def test_ringo_brain_bonus_reminder_does_not_become_primary_before_today_saved(client):
+    user = register_user(client, username="BrainUnsafeBonus")
+    headers = auth_headers(user["access_token"])
+    context = _start_path_and_join_first_challenge(client, headers)
+    _set_challenge_missions_available(context["challenge"]["challenge_id"])
+    missions = _today_missions(client, headers)
+    main_mission = _main_mission(missions)
+    bonus_mission = _linked_bonus_mission(missions, main_mission)
+
+    remind_res = client.post(
+        f"/me/missions/{bonus_mission['mission_id']}/remind-later",
+        json={"reminder_at": _due_reminder_at()},
+        headers=headers,
+    )
+    assert remind_res.status_code == 200
+
+    payload, code = get_today_ringo_guidance(user["user_id"])
+
+    assert code == 200
+    assert payload["progress"]["today_saved"] is False
+    assert payload["agenda"]["next_action_type"] == "primary_mission"
+    assert payload["agenda"]["next_mission_id"] == main_mission["mission_id"]
+    assert payload["mission"]["mission_id"] == main_mission["mission_id"]
+    assert payload["agenda"]["next_mission_id"] != bonus_mission["mission_id"]
+
+
 def test_ringo_brain_linked_tiny_reminder_covers_parent_main(client):
     user = register_user(client, username="BrainAgendaTinyCovered")
     headers = auth_headers(user["access_token"])
@@ -562,7 +876,6 @@ def test_ringo_brain_due_linked_tiny_reminder_beats_parent_and_pending(client):
     user = register_user(client, username="BrainAgendaTinyDue")
     headers = auth_headers(user["access_token"])
     context = _start_path_and_join_first_challenge(client, headers)
-    _set_challenge_missions_available(context["challenge"]["challenge_id"])
     missions = _today_missions(client, headers)
     main_mission = _main_mission(missions)
     tiny_mission = _linked_tiny_mission(missions, main_mission)
@@ -587,7 +900,6 @@ def test_ringo_brain_agenda_not_saved_due_reminder_beats_pending(client):
     user = register_user(client, username="BrainAgendaDueReminder")
     headers = auth_headers(user["access_token"])
     context = _start_path_and_join_first_challenge(client, headers)
-    _set_challenge_missions_available(context["challenge"]["challenge_id"])
     missions = _today_missions(client, headers)
     main_mission = _main_mission(missions)
     reminder_at = _due_reminder_at()
@@ -812,8 +1124,9 @@ def test_ringo_brain_prioritizes_linked_tiny_done_over_skipped_and_reminded(clie
     assert code == 200
     assert payload["ringo"]["user_state"] == "today_completed"
     assert payload["progress"]["today_saved"] is True
-    assert payload["mission"]["mission_id"] == tiny_mission["mission_id"]
-    assert payload["actions"] == []
+    assert payload["agenda"]["next_action_type"] == "upcoming_reminder"
+    assert payload["mission"]["mission_id"] == other_mission["mission_id"]
+    assert payload["actions"] == [{"type": "dismiss", "label": "Finish for today"}]
 
 
 def test_ringo_brain_returns_today_skipped_when_no_satisfying_mission_done(client):
@@ -872,9 +1185,8 @@ def test_ringo_brain_returns_returning_after_absence(client):
 
     assert code == 200
     assert payload["ringo"]["user_state"] == "returning_after_absence"
-    assert payload["mission"]["mission_intensity"] == "tiny"
-    assert payload["mission"]["estimated_minutes"] in {1, 2, 3}
-    assert payload["mission"]["parent_mission_id"] is not None
+    assert payload["mission"]["mission_intensity"] == "main"
+    assert payload["mission"]["parent_mission_id"] is None
     assert payload["reward_sequence"]["type"] == "comeback"
 
 
@@ -893,14 +1205,13 @@ def test_ringo_brain_returns_streak_risk_for_young_streak(client):
 
     assert code == 200
     assert payload["ringo"]["user_state"] == "streak_risk"
-    assert payload["mission"]["mission_intensity"] == "tiny"
-    assert payload["mission"]["estimated_minutes"] in {1, 2, 3}
-    assert payload["mission"]["parent_mission_id"] is not None
+    assert payload["mission"]["mission_intensity"] == "main"
+    assert payload["mission"]["parent_mission_id"] is None
     assert payload["reward_sequence"]["type"] == "streak_saved"
 
 
-def test_ringo_brain_prefers_tiny_mission_for_low_pressure_state(client):
-    user = register_user(client, username="BrainTiny")
+def test_ringo_brain_defaults_to_main_mission_for_low_pressure_state(client):
+    user = register_user(client, username="BrainMainDefault")
     headers = auth_headers(user["access_token"])
     context = _start_path_and_join_first_challenge(client, headers)
     old_date = (datetime.now(timezone.utc).date() - timedelta(days=3)).isoformat()
@@ -915,13 +1226,12 @@ def test_ringo_brain_prefers_tiny_mission_for_low_pressure_state(client):
 
     assert code == 200
     assert payload["ringo"]["user_state"] == "returning_after_absence"
-    assert payload["mission"]["mission_intensity"] == "tiny"
-    assert payload["mission"]["estimated_minutes"] in {1, 2, 3}
-    assert payload["mission"]["parent_mission_id"] is not None
+    assert payload["mission"]["mission_intensity"] == "main"
+    assert payload["mission"]["parent_mission_id"] is None
 
 
-def test_ringo_brain_low_pressure_state_falls_back_to_main_without_tiny(client):
-    user = register_user(client, username="BrainNoTiny")
+def test_ringo_brain_low_pressure_state_falls_back_to_tiny_without_main(client):
+    user = register_user(client, username="BrainNoMain")
     headers = auth_headers(user["access_token"])
     context = _start_path_and_join_first_challenge(client, headers)
     old_date = (datetime.now(timezone.utc).date() - timedelta(days=3)).isoformat()
@@ -941,7 +1251,7 @@ def test_ringo_brain_low_pressure_state_falls_back_to_main_without_tiny(client):
             UPDATE missions
             SET status = 'Archived'
             WHERE challenge_id = ?
-              AND mission_intensity = 'tiny'
+              AND mission_intensity = 'main'
             """,
             (context["challenge"]["challenge_id"],),
         )
@@ -953,7 +1263,8 @@ def test_ringo_brain_low_pressure_state_falls_back_to_main_without_tiny(client):
 
     assert code == 200
     assert payload["ringo"]["user_state"] == "returning_after_absence"
-    assert payload["mission"]["mission_intensity"] == "main"
+    assert payload["mission"]["mission_intensity"] == "tiny"
+    assert payload["mission"]["parent_mission_id"] is not None
 
 
 def test_ringo_brain_returns_no_mission_today_when_none_available(client):

@@ -1388,10 +1388,15 @@ const showOtherMissionList = computed(() => {
 });
 
 const safeOptionalMissions = computed(() => {
+  const agendaOptionalMissionId = guidanceAgenda.value?.next_action_type === "optional_mission"
+    ? guidanceAgenda.value.next_mission_id
+    : null;
+
   const candidates = effectiveMissionRepresentatives.value.filter((mission) => {
     if (!missionHasStatus(mission, "pending")) return false;
     if (isFocusMissionRendered() && sameMissionId(mission.mission_id, focusMission.value?.mission_id)) return false;
     if (isTodaySaved.value) {
+      if (agendaOptionalMissionId && sameMissionId(mission.mission_id, agendaOptionalMissionId)) return true;
       if (normalizedMissionIntensity(mission) !== "bonus") return false;
       if (mission.parent_mission_id && !mainDoneMissionIds.value.has(String(mission.parent_mission_id))) return false;
     }
