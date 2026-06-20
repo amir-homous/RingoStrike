@@ -20,6 +20,7 @@ The product combines:
 * progression identity
 * Ringo-led daily missions
 * mission focus mode
+* mission reward moments
 * post-safe optional explorer growth map
 * frontend display localization for known seeded mission/path/challenge content
 * Telegram reminder automation
@@ -71,6 +72,7 @@ The long-term goal is to create a platform where:
 * Ringo-led paths and daily missions
 * Mission reminders, skips, and completion state
 * Mission-family behavior for main/tiny substitutes and optional bonus momentum
+* Frontend-only mission reward moment that displays earned mission XP without changing backend progression ownership
 
 ---
 
@@ -124,6 +126,7 @@ The long-term goal is to create a platform where:
 * Compact progress strip during focused daily loops
 * First-run staged reveal and calm Rest Mode after finishing for today
 * Optional explorer progress-map polish with path/challenge progress surfaces, icon rings, XP summaries, mission icons, and status-aware mission rows
+* Mission Reward Moment v1 after eligible mission completions, reusing the existing reward sequence with EN/FA copy and calm no-XP/already-done fallbacks
 * Reward-driven interactions
 * Responsive layouts
 * Emotionally intelligent UX

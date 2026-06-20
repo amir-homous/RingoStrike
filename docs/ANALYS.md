@@ -24,6 +24,7 @@ Rationale:
 - Frontend views call backend endpoints directly; Pinia is not consistently used as a stable state boundary.
 - Guided progression now spans path state, mission logs, enrollments, check-ins, and dashboard reward display. This is appropriate for the product, but it increases the need for end-to-end smoke coverage around duplicate mission/check-in submissions.
 - MissionCenter optional explorer now derives richer display metadata from grouped mission rows. This is appropriate frontend composition, but future work should keep reward-ready/building states display-only unless backend reward-claim ownership is explicitly designed.
+- Mission Reward Moment v1 now consumes additive mission completion fields for frontend reward display only. Future work should preserve the boundary that XP/stat/progression ownership stays in backend services.
 
 ### Duplication Hotspots
 
@@ -163,6 +164,7 @@ Issues:
 
 0. Frontend-only seeded content display localization is implemented for known mission/path/challenge copy through helpers such as `missionDisplayCopy.js` and `ringoContentLocalization.js`; Persian onboarding challenge selection and Persian MissionCenter seeded mission display were visually checked, `npm --prefix frontend run build` passed, `npm --prefix frontend run test:router` passed, and `git diff --check` passed. Unknown/custom backend content still falls back by design, and localization key coverage must be maintained as seeded content expands.
 0. MissionCenter optional explorer progress-map polish is implemented as a frontend-only refinement: progress-surface path/challenge cards, icon progress rings, reward-ready/building display slots, earned/total XP summaries, mission-key icons, status-aware mission rows, completed-group visibility, improved Ringo optional-state copy, and Persian/RTL root-background stability. Validation passed with `npm --prefix frontend run build`, `npm --prefix frontend run test:router`, `npm --prefix frontend run test:localization`, and `git diff --check`.
+0. Mission Reward Moment v1 is implemented as a frontend-only enhancement after mission completion: it reuses `RingoRewardSequence.vue`, shows earned mission XP only for positive non-replayed completion responses, differentiates main/tiny/bonus copy, falls back to calm completion copy for already-done or missing/zero-XP responses, and preserves backend XP/stat/progression ownership. Validation passed with `npm --prefix frontend run build`, `npm --prefix frontend run test:router`, `npm --prefix frontend run test:localization`, and `git diff --check`; the existing Vite large chunk warning remains.
 1. Production secret requirements are enforced outside development.
 2. Active JWT signing/verification uses centralized `Config.JWT_SECRET`.
 3. Debug endpoints are blocked outside development.

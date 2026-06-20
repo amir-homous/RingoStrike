@@ -227,6 +227,55 @@ Not fully verified:
 - No automated visual regression test asserts the optional explorer growth-map state.
 
 
+## Mission Reward Moment v1 addendum
+
+Status: implemented and manually checked during frontend polish.
+
+Scope checked:
+
+- Main mission completion reward.
+- Tiny mission completion reward.
+- Bonus mission completion reward.
+- Already-done and no-XP completion behavior.
+- English and Persian localized reward copy.
+- RTL behavior through the existing i18n/root direction system.
+
+Observed QA notes:
+
+- Mission completion can show a lightweight reward moment after successful completion.
+- The reward moment reuses `RingoRewardSequence.vue`; no duplicate reward component was created.
+- The full reward moment appears only when `mission.xp_awarded > 0` and `mission.already_done !== true`.
+- Already-completed missions do not replay the full reward overlay.
+- Missing or zero XP falls back to calm completion copy instead of fake rewards.
+- Main/tiny missions can show Today Safe / streak-protected language when appropriate.
+- Bonus missions show bonus-complete XP language, but do not claim Today Safe and do not create a new bonus chain.
+- Optional explorer / next-action flow still appears after the reward moment is dismissed.
+
+Validation commands/results:
+
+- `npm --prefix frontend run build` passed.
+- `npm --prefix frontend run test:router` passed.
+- `npm --prefix frontend run test:localization` passed.
+- `git diff --check` passed.
+- Existing Vite large chunk warning remains.
+
+Boundaries confirmed:
+
+- No backend changes.
+- No database changes.
+- No schema changes.
+- No API contract breaking changes.
+- No mission mutation behavior changes.
+- No XP, stat, streak, achievement, check-in, activity, reminder delivery, reward economy, or progression ownership changes.
+- No Ringo Brain decision policy changes.
+
+Not fully verified:
+
+- No screenshot artifact is attached.
+- No full mobile/desktop viewport matrix is attached.
+- No automated visual regression test asserts the reward overlay state.
+
+
 ## Fresh user 3-challenge flow
 
 Status: partially verified through manual development flow.
