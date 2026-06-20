@@ -33,7 +33,7 @@
             <span class="groupSubtitle">{{ pathSummary(path) }}</span>
             <span class="groupMetaLine">
               <span>{{ t("missions.optionalExplorerList.doneCount", { done: path.stats.done, total: path.stats.total })
-                }}</span>
+              }}</span>
               <span>{{ t("missions.optionalExplorerList.challengeCount", {
                 done: path.stats.completedChallenges,
                 total: path.stats.challengeCount
@@ -109,13 +109,11 @@
 
             <div v-if="expandedChallenges.has(challenge.key)" class="missionRows">
               <button v-for="mission in challenge.missions" :key="mission.mission_id" type="button"
-                class="missionChoiceRow"
-                :class="[
+                class="missionChoiceRow" :class="[
                   `intensity-${normalizedIntensity(mission)}`,
                   `status-${missionVisualState(mission)}`,
                   { selected: isSelected(mission) },
-                ]"
-                @click="$emit('select', mission)">
+                ]" @click="$emit('select', mission)">
                 <span class="missionChoiceIcon" :class="{ fallback: !missionIconUrl(mission) }" aria-hidden="true">
                   <img v-if="missionIconUrl(mission)" :src="missionIconUrl(mission)" alt="" />
                   <span v-else>{{ initialsFor(missionTitle(mission)) }}</span>
@@ -125,11 +123,14 @@
                   <small v-if="missionDescription(mission)">{{ missionDescription(mission) }}</small>
                 </span>
                 <span class="missionChoiceChips">
-                  <span class="choiceChip intensity" :class="normalizedIntensity(mission)">{{ intensityLabel(mission) }}</span>
-                  <span class="choiceChip status" :class="missionVisualState(mission)">{{ missionStatusLabel(mission) }}</span>
+                  <span class="choiceChip intensity" :class="normalizedIntensity(mission)">{{ intensityLabel(mission)
+                    }}</span>
+                  <span class="choiceChip status" :class="missionVisualState(mission)">{{ missionStatusLabel(mission)
+                    }}</span>
                   <span v-if="xpLabel(mission)" class="choiceChip xp">{{ xpLabel(mission) }}</span>
                   <span v-if="timeLabel(mission)" class="choiceChip time">{{ timeLabel(mission) }}</span>
-                  <span v-if="reminderLabel(mission)" class="choiceChip reminder" :class="missionReminderState(mission)">
+                  <span v-if="reminderLabel(mission)" class="choiceChip reminder"
+                    :class="missionReminderState(mission)">
                     {{ reminderLabel(mission) }}
                   </span>
                 </span>
