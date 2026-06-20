@@ -8,6 +8,24 @@ from database import get_db_connection
 from utils.date_utils import utc_today_iso
 
 XP_PER_CHECKIN = 10
+MISSION_XP_FALLBACKS = {
+    "main": 10,
+    "tiny": 5,
+    "bonus": 5,
+}
+
+
+def resolve_mission_xp(xp_reward, mission_intensity: str | None = None) -> int:
+    try:
+        xp = int(xp_reward)
+    except (TypeError, ValueError):
+        xp = 0
+
+    if xp > 0:
+        return xp
+
+    intensity = (mission_intensity or "main").strip().lower()
+    return MISSION_XP_FALLBACKS.get(intensity, MISSION_XP_FALLBACKS["main"])
 
 
 def _iso_to_date(value: str):
@@ -100,12 +118,42 @@ def build_user_stats_payload(user_id: int) -> tuple[dict, int]:
         checkin_totals_row = conn.execute(
             """
             SELECT
-                CAST(COUNT(*) AS INTEGER) AS total_checkins,
-                CAST(COUNT(*) * ? AS INTEGER) AS base_points
+                CAST(COUNT(*) AS INTEGER) AS total_checkins
             FROM checkins
             WHERE user_id = ? AND status = 'Done' AND is_counted = 1
             """,
-            (XP_PER_CHECKIN, user_id),
+            (user_id,),
+        ).fetchone()
+
+        mission_xp_row = conn.execute(
+            """
+            SELECT CAST(COALESCE(SUM(xp_earned), 0) AS INTEGER) AS mission_points
+            FROM mission_logs
+            WHERE user_id = ?
+              AND status = 'done'
+            """,
+            (user_id,),
+        ).fetchone()
+
+        legacy_checkin_row = conn.execute(
+            """
+            SELECT CAST(COUNT(*) AS INTEGER) AS legacy_checkins
+            FROM checkins ci
+            WHERE ci.user_id = ?
+              AND ci.status = 'Done'
+              AND ci.is_counted = 1
+              AND NOT EXISTS (
+                  SELECT 1
+                  FROM mission_logs ml
+                  JOIN missions m ON m.id = ml.mission_id
+                  WHERE ml.user_id = ci.user_id
+                    AND ml.enrollment_id = ci.enrollment_id
+                    AND ml.date = ci.date
+                    AND ml.status = 'done'
+                    AND COALESCE(m.mission_intensity, 'main') IN ('main', 'tiny')
+              )
+            """,
+            (user_id,),
         ).fetchone()
 
         achievement_reward_row = conn.execute(
@@ -130,7 +178,9 @@ def build_user_stats_payload(user_id: int) -> tuple[dict, int]:
 
         dates = [row["date"] for row in rows]
         total_checkins = int((checkin_totals_row or {})["total_checkins"] or 0)
-        base_points = int((checkin_totals_row or {})["base_points"] or 0)
+        mission_points = int((mission_xp_row or {})["mission_points"] or 0)
+        legacy_points = int((legacy_checkin_row or {})["legacy_checkins"] or 0) * XP_PER_CHECKIN
+        base_points = mission_points + legacy_points
         reward_points = int((achievement_reward_row or {})["reward_points"] or 0)
         total_points = base_points + reward_points
         current_streak = calculate_current_streak(dates, utc_today_iso())

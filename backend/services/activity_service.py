@@ -15,11 +15,30 @@ def get_activity_feed(user_id: int, limit: int = 40):
     try:
         safe_limit = max(1, min(int(limit or 40), 100))
         rows = conn.execute(
-            """SELECT c.id, c.date, ch.name AS challenge_name
-            FROM checkins c JOIN challenges ch ON ch.id = c.challenge_id
+            """SELECT
+                c.id,
+                c.date,
+                ch.name AS challenge_name,
+                COALESCE(mx.xp_delta, ?) AS xp_delta
+            FROM checkins c
+            JOIN challenges ch ON ch.id = c.challenge_id
+            LEFT JOIN (
+                SELECT
+                    ml.enrollment_id,
+                    ml.date,
+                    SUM(ml.xp_earned) AS xp_delta
+                FROM mission_logs ml
+                JOIN missions m ON m.id = ml.mission_id
+                WHERE ml.user_id = ?
+                  AND ml.status = 'done'
+                  AND COALESCE(m.mission_intensity, 'main') IN ('main', 'tiny')
+                GROUP BY ml.enrollment_id, ml.date
+            ) mx
+              ON mx.enrollment_id = c.enrollment_id
+             AND mx.date = c.date
             WHERE c.user_id = ? AND c.status = 'Done' AND c.is_counted = 1
             ORDER BY c.date DESC, c.id DESC LIMIT ?""",
-            (user_id, safe_limit),
+            (XP_PER_CHECKIN, user_id, user_id, safe_limit),
         ).fetchall()
 
         all_dates = [r["date"] for r in conn.execute(
@@ -36,7 +55,8 @@ def get_activity_feed(user_id: int, limit: int = 40):
         seen_streak_dates, seen_level_dates = set(), set()
         for row in rows:
             created_at = _iso_label(f"{row['date']}T12:00:00+00:00")
-            events.append({"id": f"checkin-{row['id']}", "type": "checkin", "title": f"Completed {row['challenge_name'] or 'Challenge'}", "subtitle": f"+{XP_PER_CHECKIN} XP earned", "xp_delta": XP_PER_CHECKIN, "icon": "check", "created_at": created_at})
+            xp_delta = int(row["xp_delta"] or XP_PER_CHECKIN)
+            events.append({"id": f"checkin-{row['id']}", "type": "checkin", "title": f"Completed {row['challenge_name'] or 'Challenge'}", "subtitle": f"+{xp_delta} XP earned", "xp_delta": xp_delta, "icon": "check", "created_at": created_at})
             if row["date"] not in seen_streak_dates:
                 streak = calculate_current_streak([d for d in all_dates if d <= row["date"]], row["date"])
                 if streak >= 2:
