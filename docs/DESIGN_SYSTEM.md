@@ -103,6 +103,20 @@ Use this pattern for similar progression surfaces:
 
 Keep this style restrained: the optional explorer should feel like a calm progression map, not a noisy game board.
 
+## Mission Reward Moments
+
+Mission Reward Moment v1 uses the existing `RingoRewardSequence.vue` visual pattern after mission completion. It should feel calm, premium, cinematic, and emotionally meaningful, not casino-like or noisy.
+
+Design rules:
+
+- Reuse the existing reward sequence language and motion pattern instead of creating a separate reward component family.
+- Show earned mission XP only when the completion response reports positive XP and is not already done.
+- Use calm completion copy for already-done or zero/missing-XP responses.
+- Main/tiny completions may carry Today Safe / streak-protected language when the mission context supports it.
+- Bonus completions should feel like optional extra momentum and must not claim Today Safe or imply a new bonus chain.
+- Let the optional explorer / next-action state return after dismissal without turning the reward into a blocking loop.
+- Keep EN/FA copy aligned, with RTL handled by the existing i18n/root direction behavior.
+
 ## Component System
 
 UI primitives:
@@ -123,7 +137,7 @@ Feature components:
 - activity: timeline, timeline items, day grouping, empty state
 - challenges: challenge card
 - missions: MissionCenter, PathSelection, focus-mode mission surfaces, collapsed mission status details, and Rest Mode
-- feedback: RewardMoment for check-ins and JoinSuccessMoment for softer challenge-start transitions
+- feedback: RewardMoment for check-ins, Mission Reward Moment via `RingoRewardSequence.vue`, and JoinSuccessMoment for softer challenge-start transitions
 - guided: reusable first-path empty state
 - onboarding: welcome, identity path selection, and suggested challenge steps
 - profile: hero card, stats grid, settings card/modal, avatar, consistency heatmap
@@ -176,6 +190,7 @@ Current asset consistency note: the sprite map resolves assets from `frontend/sr
 - Avoid adding separate visual languages for each feature.
 - Keep empty states hopeful and action-oriented.
 - Keep animations subtle and purposeful.
+- Keep reward moments calm and restrained: mission rewards can feel cinematic and premium without loud casino-style escalation.
 
 ## Implementation Gaps
 

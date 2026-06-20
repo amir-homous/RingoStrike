@@ -34,6 +34,7 @@ Product direction source:
 - Mission Status details are collapsed by default during focus mode and can be revealed manually with `Show mission status`.
 - Full `/paths` page for path selection, challenge stage previews, mission previews, and per-path progress summary.
 - Premium check-in reward moment with existing XP, streak, achievement, and frontend-only unlock hints.
+- Frontend-only Mission Reward Moment v1 after mission completion, reusing `RingoRewardSequence.vue` for earned mission XP while falling back to calm completion copy for already-done or no-XP responses.
 - Frontend-only progressive disclosure for early dashboard sections based on existing check-in stats.
 - Enrollment history and challenge leaderboard.
 - XP, level, current streak, longest streak, and progress calculations.
@@ -116,7 +117,7 @@ Register/Login
   -> Known seeded mission/path/challenge copy is localized at the frontend display layer when available
   -> User completes a small self-improvement action
   -> Existing check-in/stats/achievement pipeline
-  -> Ringo reacts and rewards the moment
+  -> Ringo reacts and, when mission XP is earned, shows the Mission Reward Moment
   -> Next gentle step or rest
 ```
 
@@ -129,7 +130,7 @@ Register/Login
   -> Path Started Moment / JoinSuccessMoment
   -> Ringo-guided Today's Mission
   -> Mission Done / Check-in
-  -> Ringo Moment / Reward Moment
+  -> Mission Reward Moment / Ringo Moment
   -> Next Step
   -> Paths/Dashboard/Profile as supporting surfaces
 ```
@@ -154,6 +155,7 @@ Based on git history, the project has progressed through:
 4. Public identity foundations: public profiles, visibility, username normalization, avatar/profile settings, and shareable UX.
 5. Guided path/mission foundation: seeded MVP paths, path-specific challenges, daily missions, mission logs, RingoCoach state decisions, premium navigation, and Ringo helper sprites.
 6. Mission-family, focus-mode, and optional-explorer polish: main/tiny substitute behavior, bonus-as-optional momentum, staged first-run reveal, post-first-win copy, compact focus progress, collapsed mission status details, Rest Mode, and post-safe optional growth-map exploration.
+7. Mission Reward Moment v1: frontend-only mission completion feedback that reuses the existing reward sequence, differentiates main/tiny/bonus copy, skips full replay for already-done/no-XP responses, and keeps progression ownership in the existing backend systems.
 
 ## Known Stabilization Needs
 
@@ -183,4 +185,5 @@ Based on git history, the project has progressed through:
 - Mission-family agenda behavior treats linked `main` and `tiny` missions as substitutes while keeping `bonus` missions independently visible and optional.
 - Dashboard mission focus mode hides secondary sections until the daily focus is resolved or the user explicitly chooses `Show dashboard`; focus mode remains frontend-only and does not alter progression writes.
 - MissionCenter optional explorer progress-map polish remains frontend-only: completed groups can stay visible, due reminders still own focus, future reminders stay quiet until due, and reward-ready/building states do not imply backend reward claims.
+- Mission Reward Moment v1 remains frontend-only: it consumes additive mission completion fields such as `mission.xp_awarded`, `mission.already_done`, and `mission.mission_intensity`, but does not change backend XP/stat/progression logic, mission mutation behavior, schema, reminder delivery, or Ringo Brain policy.
 - Persian/RTL root-background and layout stability were hardened by ensuring dark coverage for the full root/app shell.

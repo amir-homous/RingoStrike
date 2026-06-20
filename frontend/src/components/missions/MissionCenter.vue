@@ -980,14 +980,6 @@ const SUPPORTED_GUIDANCE_ACTIONS = new Set([
   "skip_today",
 ]);
 
-const SUPPORTED_REWARD_STEP_TYPES = new Set([
-  "ringo_message",
-  "mission_completed",
-  "xp_earned",
-  "today_saved",
-  "next_choice",
-]);
-
 const REMINDER_OPTION_KEYS = [
   "fifteenMinutes",
   "oneHour",
@@ -2378,7 +2370,7 @@ async function runMissionAction(mission, action, request, options = {}) {
 
     if (action === "done") {
       rewardSequenceSteps.value = buildRewardSequence(data, mission);
-      rewardSequenceSprite.value = data?.checkin?.already_checked ? "happy" : "celebration";
+      rewardSequenceSprite.value = missionRewardIntensity(data, mission) === "bonus" ? "happy" : "celebration";
     }
 
     applyMissionResponse(data, mission);
@@ -2392,10 +2384,7 @@ async function runMissionAction(mission, action, request, options = {}) {
     if (options.narrative) {
       setNarrative(options.narrative);
     } else if (action === "done") {
-      completionNarrative.value = {
-        message: t("missions.narrative.completed", { mission: mission.title }),
-        mood: "proud",
-      };
+      completionNarrative.value = missionCompletionNarrative(data, mission);
     }
   } catch (e) {
     const errorCode = e?.response?.data?.error || e?.message || String(e);
@@ -2837,113 +2826,140 @@ function applyMissionResponse(data, fallbackMission) {
   });
 }
 
-function rewardStepFallbackTitle(type, mission) {
-  const titleMap = {
-    ringo_message: "ringoTitle",
-    mission_completed: "missionFallback",
-    xp_earned: "xpTitle",
-    today_saved: "todaySavedTitle",
-    next_choice: "nextTitle",
-  };
-
-  if (type === "mission_completed") {
-    return mission?.title || t("ringoRewardSequence.local.missionFallback");
-  }
-
-  return t(`ringoRewardSequence.local.${titleMap[type] || "missionFallback"}`);
+function missionRewardXpAwarded(data) {
+  const amount = Number(data?.mission?.xp_awarded);
+  return Number.isFinite(amount) && amount > 0 ? amount : 0;
 }
 
-function rewardStepFallbackText(type) {
-  const textMap = {
-    ringo_message: "ringoText",
-    mission_completed: "missionText",
-    today_saved: "todaySavedText",
-    next_choice: "nextText",
-  };
-
-  return textMap[type] ? t(`ringoRewardSequence.local.${textMap[type]}`) : "";
+function missionRewardAlreadyDone(data) {
+  return Boolean(data?.mission?.already_done);
 }
 
-function rewardStepValue(step) {
-  if (step?.value !== undefined && step?.value !== null && String(step.value).trim()) {
-    return String(step.value);
+function backendRewardHasStep(data, type) {
+  const sequence = data?.reward_sequence;
+  return Array.isArray(sequence) && sequence.some((step) => step?.type === type);
+}
+
+function missionRewardIntensity(data, mission) {
+  return normalizedMissionIntensity({
+    ...(mission || {}),
+    ...(data?.mission || {}),
+  });
+}
+
+function missionRewardTitle(data, mission) {
+  return data?.mission?.title || mission?.title || t("ringoRewardSequence.local.missionFallback");
+}
+
+function missionRewardTodaySafe(data, mission) {
+  const intensity = missionRewardIntensity(data, mission);
+  if (intensity === "bonus") return false;
+  if (backendRewardHasStep(data, "today_saved")) return true;
+
+  return Boolean(data?.checkin?.ok && !data?.checkin?.already_checked);
+}
+
+function missionRewardProgressText(data, mission) {
+  const source = {
+    ...(mission || {}),
+    ...(data?.mission || {}),
+  };
+  const path = String(source.path_title || "").trim();
+  const challenge = String(source.challenge_name || "").trim();
+
+  if (path && challenge) {
+    return t("ringoRewardSequence.mission.progressPathChallenge", { path, challenge });
   }
 
-  const amount = Number(step?.amount);
-  if (Number.isFinite(amount) && amount > 0) {
-    return t("ringoRewardSequence.local.xpValue", { count: amount });
+  if (challenge) {
+    return t("ringoRewardSequence.mission.progressChallenge", { challenge });
+  }
+
+  if (path) {
+    return t("ringoRewardSequence.mission.progressPath", { path });
   }
 
   return "";
 }
 
-function backendRewardSequenceSteps(data, mission) {
-  const sequence = data?.reward_sequence;
-  if (!Array.isArray(sequence)) return [];
-
-  return sequence
-    .filter((step) => {
-      return step && typeof step === "object" && SUPPORTED_REWARD_STEP_TYPES.has(step.type);
-    })
-    .map((step) => ({
-      type: step.type,
-      label: step.label ? String(step.label) : "",
-      title: step.title ? String(step.title) : rewardStepFallbackTitle(step.type, mission),
-      text: step.text || step.description || step.message
-        ? String(step.text || step.description || step.message)
-        : rewardStepFallbackText(step.type),
-      value: rewardStepValue(step),
-      sprite: step.mood || step.sprite_key,
-    }))
-    .filter((step) => step.title || step.text || step.value);
-}
-
 function buildRewardSequence(data, mission) {
-  const backendSteps = backendRewardSequenceSteps(data, mission);
-  if (backendSteps.length) return backendSteps;
+  const xpAwarded = missionRewardXpAwarded(data);
+  if (missionRewardAlreadyDone(data) || xpAwarded <= 0) return [];
 
-  const completedMission = data?.mission || {};
-  const xpEarned = Number(completedMission.xp_earned ?? mission.xp_reward ?? 0);
-  const todaySaved = Boolean(data?.checkin?.ok);
+  const intensity = missionRewardIntensity(data, mission);
+  const todaySaved = missionRewardTodaySafe(data, mission);
+  const progressText = missionRewardProgressText(data, mission);
+  const missionTitle = missionRewardTitle(data, mission);
+  const completionTitleKey = intensity === "bonus"
+    ? "bonusCompleteTitle"
+    : intensity === "tiny"
+      ? "tinyCompleteTitle"
+      : "completeTitle";
+  const nextTextKey = intensity === "bonus"
+    ? "bonusNextText"
+    : todaySaved
+      ? "todaySafeNextText"
+      : "nextText";
   const steps = [
     {
-      type: "ringo_message",
-      title: t("ringoRewardSequence.local.ringoTitle"),
-      text: data?.checkin?.already_checked
-        ? t("ringoRewardSequence.local.alreadySaved")
-        : t("ringoRewardSequence.local.ringoText"),
-      sprite: data?.checkin?.already_checked ? "happy" : "celebration",
+      type: "mission_completed",
+      title: t(`ringoRewardSequence.mission.${completionTitleKey}`),
+      text: t("ringoRewardSequence.mission.completeText", { mission: missionTitle }),
+      sprite: intensity === "bonus" ? "happy" : "celebration",
     },
     {
-      type: "mission_completed",
-      title: mission.title || completedMission.title || t("ringoRewardSequence.local.missionFallback"),
-      text: t("ringoRewardSequence.local.missionText"),
+      type: "xp_earned",
+      title: t("ringoRewardSequence.mission.xpTitle"),
+      text: t("ringoRewardSequence.mission.xpText"),
+      value: t("ringoRewardSequence.local.xpValue", { count: xpAwarded }),
     },
   ];
 
-  if (xpEarned > 0) {
+  if (progressText) {
     steps.push({
-      type: "xp_earned",
-      title: t("ringoRewardSequence.local.xpTitle"),
-      value: t("ringoRewardSequence.local.xpValue", { count: xpEarned }),
+      type: "progress_impact",
+      title: t("ringoRewardSequence.mission.progressTitle"),
+      text: progressText,
     });
   }
 
   if (todaySaved) {
     steps.push({
       type: "today_saved",
-      title: t("ringoRewardSequence.local.todaySavedTitle"),
-      text: t("ringoRewardSequence.local.todaySavedText"),
+      title: t("ringoRewardSequence.mission.todaySafeTitle"),
+      text: t("ringoRewardSequence.mission.todaySafeText"),
     });
   }
 
   steps.push({
     type: "next_choice",
-    title: t("ringoRewardSequence.local.nextTitle"),
-    text: t("ringoRewardSequence.local.nextText"),
+    title: t("ringoRewardSequence.mission.nextTitle"),
+    text: t(`ringoRewardSequence.mission.${nextTextKey}`),
   });
 
   return steps;
+}
+
+function missionCompletionNarrative(data, mission) {
+  if (missionRewardAlreadyDone(data)) {
+    return {
+      message: t("missions.narrative.alreadyCompleted", { mission: mission.title }),
+      mood: "calm",
+    };
+  }
+
+  const xpAwarded = missionRewardXpAwarded(data);
+  if (xpAwarded <= 0) {
+    return {
+      message: t("missions.narrative.completedNoXp", { mission: mission.title }),
+      mood: "proud",
+    };
+  }
+
+  return {
+    message: t("missions.narrative.completed", { mission: mission.title }),
+    mood: missionRewardIntensity(data, mission) === "bonus" ? "happy" : "proud",
+  };
 }
 
 function finishRewardSequence() {

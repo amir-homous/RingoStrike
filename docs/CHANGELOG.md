@@ -16,6 +16,23 @@ The project has moved beyond raw MVP. Core progression identity is implemented. 
 
 ## Latest Launch-Hardening Updates
 
+### Mission Reward Moment v1
+
+Added a frontend-only Mission Reward Moment after mission completion:
+
+- Mission completion can now show a lightweight reward overlay with mission-complete feedback, XP earned, and calm next-step messaging.
+- Reused the existing `RingoRewardSequence.vue`; no duplicate reward component was created.
+- The full reward moment appears only when `mission.xp_awarded > 0` and `mission.already_done !== true`.
+- Already-completed missions, missing XP, and zero-XP responses do not replay the full reward overlay; they fall back to calm completion copy instead of fake rewards.
+- Main and tiny missions can show Today Safe / streak-protected language when the response context supports it.
+- Bonus missions show bonus-complete XP language, but do not claim Today Safe and do not create a new bonus chain.
+- Optional explorer / next-action flow still appears after the reward moment is dismissed.
+- Added English and Persian localized copy while preserving RTL through the existing i18n/root direction behavior.
+- Consumes additive completion fields such as `mission.xp_awarded`, `mission.already_done`, and `mission.mission_intensity`.
+- Kept the change frontend-only with no backend, schema, mission mutation, XP/stat/progression ownership, reward economy, reminder delivery, Ringo Brain policy, or breaking API contract changes.
+- Validation passed: `npm --prefix frontend run build`, `npm --prefix frontend run test:router`, `npm --prefix frontend run test:localization`, and `git diff --check`.
+- Existing Vite large chunk warning remains.
+
 ### MissionCenter Optional Explorer Progress-Map Polish
 
 Refined the post-safe MissionCenter optional explorer into a calmer growth/progression map:

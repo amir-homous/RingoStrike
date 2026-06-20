@@ -51,6 +51,36 @@ The backend supports HttpOnly cookie auth and Bearer token fallback. The fronten
 
 `frontend/src/stores/session.js` is aligned with this cookie-based model and uses `/me` plus `/auth/logout`; it does not require `api.setToken()`.
 
+## Mission Reward Moment Display Contract
+
+Mission Reward Moment v1 is frontend-owned display behavior after mission completion. It does not own XP, stats, streak, check-in, achievement, activity, reward economy, or mission mutation logic.
+
+The display may consume additive fields from mission completion responses:
+
+```txt
+mission.xp_awarded
+mission.already_done
+mission.mission_intensity
+```
+
+Current frontend display responsibilities:
+
+- Reuse `RingoRewardSequence.vue` for the mission reward overlay.
+- Show the full reward moment only when `mission.xp_awarded > 0` and `mission.already_done !== true`.
+- Skip full reward replay for already-completed missions.
+- Use calm completion copy when XP is missing, zero, or otherwise unavailable.
+- Show Today Safe / streak-protected language for main/tiny missions only when appropriate for the completion context.
+- Show bonus-complete XP language for bonus missions without claiming Today Safe or creating a new bonus chain.
+- Resume the optional explorer / next-action flow after the reward moment is dismissed.
+- Use English and Persian localized copy through the existing i18n system; RTL remains controlled by the root language/direction behavior.
+
+Boundaries:
+
+- No backend reward calculation is performed in the frontend.
+- Missing additive fields must not fabricate XP or safe-day claims.
+- The reward moment must not introduce new API requirements beyond additive response consumption.
+- Already-done and no-XP completion responses should remain successful UI states, but not full reward overlays.
+
 ## MissionCenter Optional Explorer Display Contract
 
 The MissionCenter optional explorer is frontend-owned display behavior built from the existing `/me/today-missions` mission data.
