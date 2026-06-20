@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta, timezone
 
-from helpers import auth_headers, register_user
+from helpers import auth_headers, insert_challenge, register_user
+from services.stats_service import build_level_progress
 from utils.date_utils import ringo_day_metadata
 
 
@@ -20,6 +21,71 @@ def _after_next_reset_at():
         ringo_day_metadata()["next_reset_at"].replace("Z", "+00:00"),
     )
     return (next_reset + timedelta(minutes=1)).isoformat()
+
+
+def _start_first_fitness_challenge(client, headers):
+    paths_data = client.get("/paths", headers=headers).get_json()
+    fitness_path = next(item for item in paths_data["items"] if item["key"] == "fitness")
+
+    client.post(f"/paths/{fitness_path['path_id']}/start", headers=headers)
+    challenge_id = client.get(
+        f"/paths/{fitness_path['path_id']}/challenges",
+        headers=headers,
+    ).get_json()["items"][0]["challenge_id"]
+    join_data = client.post(
+        f"/challenges/{challenge_id}/join",
+        json={},
+        headers=headers,
+    ).get_json()
+
+    return {
+        "path_id": fitness_path["path_id"],
+        "challenge_id": challenge_id,
+        "enrollment_id": join_data["enrollment_id"],
+        "missions": client.get("/me/today-missions", headers=headers).get_json()["missions"],
+    }
+
+
+def _set_mission_xp(mission_id, xp_reward):
+    import database
+
+    conn = database.get_db_connection()
+    try:
+        conn.execute(
+            "UPDATE missions SET xp_reward = ? WHERE id = ?",
+            (xp_reward, mission_id),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def _insert_counted_checkin(user_id, enrollment_id, challenge_id):
+    import database
+    from utils.date_utils import utc_today_iso
+
+    conn = database.get_db_connection()
+    try:
+        conn.execute(
+            """
+            INSERT INTO checkins (
+                enrollment_id,
+                user_id,
+                challenge_id,
+                date,
+                status,
+                is_counted
+            )
+            VALUES (?, ?, ?, ?, 'Done', 1)
+            ON CONFLICT(enrollment_id, date) DO UPDATE SET
+                status = 'Done',
+                is_counted = 1
+            """,
+            (enrollment_id, user_id, challenge_id, utc_today_iso()),
+        )
+        conn.commit()
+    finally:
+        conn.close()
 
 
 def test_paths_seed_does_not_create_legacy_unlinked_challenges(client):
@@ -437,6 +503,287 @@ def test_today_missions_trigger_checkin_safely(client):
     assert stats_data["ok"] is True
     assert stats_data["stats"]["total_checkins"] == 1
     assert stats_data["stats"]["total_points"] >= 10
+
+
+def test_main_mission_awards_mission_xp_without_old_fixed_double_award(client):
+    user = register_user(client, username="MainMissionXp")
+    headers = auth_headers(user["access_token"])
+    setup = _start_first_fitness_challenge(client, headers)
+    main_mission = next(
+        mission for mission in setup["missions"]
+        if mission["mission_intensity"] == "main"
+    )
+    _set_mission_xp(main_mission["mission_id"], 17)
+
+    done_res = client.post(
+        f"/me/missions/{main_mission['mission_id']}/done",
+        headers=headers,
+    )
+
+    assert done_res.status_code == 200
+    done_data = done_res.get_json()
+    achievement_xp = done_data["checkin"]["rewards"]["achievement_xp_reward"]
+
+    assert done_data["mission"]["xp_earned"] == 17
+    assert done_data["mission"]["xp_awarded"] == 17
+    assert done_data["checkin"]["mode"] == "created"
+
+    stats_data = client.get("/me/stats", headers=headers).get_json()
+    progress = build_level_progress(17 + achievement_xp)
+
+    assert stats_data["stats"]["total_checkins"] == 1
+    assert stats_data["stats"]["current_streak"] == 1
+    assert stats_data["stats"]["total_points"] == 17 + achievement_xp
+    assert stats_data["stats"]["level"] == progress["level"]
+    assert stats_data["stats"]["progress_percent"] == progress["progress_percent"]
+
+
+def test_legacy_only_checkin_still_awards_fixed_xp(client):
+    user = register_user(client, username="LegacyOnlyXp")
+    headers = auth_headers(user["access_token"])
+    challenge_id = insert_challenge(
+        name="Legacy Only XP Challenge",
+        description="No missions are attached to this challenge.",
+        visibility="Public",
+    )
+
+    join_data = client.post(
+        f"/challenges/{challenge_id}/join",
+        json={},
+        headers=headers,
+    ).get_json()
+    checkin_res = client.post(
+        f"/me/challenges/{join_data['enrollment_id']}/checkin",
+        headers=headers,
+    )
+
+    assert checkin_res.status_code == 200
+    checkin_data = checkin_res.get_json()
+    achievement_xp = checkin_data["rewards"]["achievement_xp_reward"]
+
+    assert checkin_data["synced_mission_id"] is None
+    assert client.get("/me/stats", headers=headers).get_json()["stats"]["total_points"] == 10 + achievement_xp
+
+
+def test_tiny_mission_awards_mission_xp_and_satisfies_today_once(client):
+    user = register_user(client, username="TinyMissionXp")
+    headers = auth_headers(user["access_token"])
+    setup = _start_first_fitness_challenge(client, headers)
+    main_mission = next(
+        mission for mission in setup["missions"]
+        if mission["mission_intensity"] == "main"
+    )
+    tiny_mission = next(
+        mission for mission in setup["missions"]
+        if mission["mission_intensity"] == "tiny"
+        and mission["parent_mission_id"] == main_mission["mission_id"]
+    )
+    _set_mission_xp(tiny_mission["mission_id"], 7)
+
+    done_res = client.post(
+        f"/me/missions/{tiny_mission['mission_id']}/done",
+        headers=headers,
+    )
+
+    assert done_res.status_code == 200
+    done_data = done_res.get_json()
+    achievement_xp = done_data["checkin"]["rewards"]["achievement_xp_reward"]
+
+    assert done_data["mission"]["xp_earned"] == 7
+    assert done_data["mission"]["xp_awarded"] == 7
+    assert done_data["checkin"]["mode"] == "created"
+    assert any(step["type"] == "today_saved" for step in done_data["reward_sequence"])
+
+    stats_data = client.get("/me/stats", headers=headers).get_json()
+    missions = client.get("/me/today-missions", headers=headers).get_json()["missions"]
+    updated_main = next(m for m in missions if m["mission_id"] == main_mission["mission_id"])
+    updated_tiny = next(m for m in missions if m["mission_id"] == tiny_mission["mission_id"])
+
+    assert stats_data["stats"]["total_checkins"] == 1
+    assert stats_data["stats"]["total_points"] == 7 + achievement_xp
+    assert updated_main["status"] == "pending"
+    assert updated_tiny["status"] == "done"
+
+
+def test_bonus_mission_does_not_suppress_same_enrollment_legacy_checkin_xp(client):
+    user = register_user(client, username="BonusKeepsLegacyXp")
+    headers = auth_headers(user["access_token"])
+    setup = _start_first_fitness_challenge(client, headers)
+    bonus_mission = next(
+        mission for mission in setup["missions"]
+        if mission["mission_intensity"] == "bonus"
+    )
+    _set_mission_xp(bonus_mission["mission_id"], 6)
+    _insert_counted_checkin(
+        user["user_id"],
+        setup["enrollment_id"],
+        setup["challenge_id"],
+    )
+
+    done_res = client.post(
+        f"/me/missions/{bonus_mission['mission_id']}/done",
+        headers=headers,
+    )
+
+    assert done_res.status_code == 200
+    done_data = done_res.get_json()
+    achievement_xp = done_data["checkin"]["rewards"]["achievement_xp_reward"]
+
+    assert done_data["mission"]["xp_awarded"] == 6
+    assert done_data["checkin"]["mode"] == "not_applicable"
+    assert client.get("/me/stats", headers=headers).get_json()["stats"]["total_points"] == 16 + achievement_xp
+
+
+def test_bonus_mission_awards_xp_without_checkin_or_streak_ownership(client):
+    user = register_user(client, username="BonusMissionXp")
+    headers = auth_headers(user["access_token"])
+    setup = _start_first_fitness_challenge(client, headers)
+    bonus_mission = next(
+        mission for mission in setup["missions"]
+        if mission["mission_intensity"] == "bonus"
+    )
+    _set_mission_xp(bonus_mission["mission_id"], 6)
+
+    done_res = client.post(
+        f"/me/missions/{bonus_mission['mission_id']}/done",
+        headers=headers,
+    )
+
+    assert done_res.status_code == 200
+    done_data = done_res.get_json()
+
+    assert done_data["mission"]["xp_earned"] == 6
+    assert done_data["mission"]["xp_awarded"] == 6
+    assert done_data["checkin"]["mode"] == "not_applicable"
+    assert done_data["checkin"]["rewards"]["achievement_xp_reward"] == 0
+
+    stats_data = client.get("/me/stats", headers=headers).get_json()
+    activity_data = client.get("/me/activity", headers=headers).get_json()
+
+    assert stats_data["stats"]["total_points"] == 6
+    assert stats_data["stats"]["total_checkins"] == 0
+    assert stats_data["stats"]["current_streak"] == 0
+    assert [event for event in activity_data["events"] if event["type"] == "checkin"] == []
+
+
+def test_mission_completion_does_not_suppress_other_enrollment_legacy_xp(client):
+    user = register_user(client, username="MissionAndOtherLegacyXp")
+    headers = auth_headers(user["access_token"])
+    setup = _start_first_fitness_challenge(client, headers)
+    path_challenges = client.get(
+        f"/paths/{setup['path_id']}/challenges",
+        headers=headers,
+    ).get_json()["items"]
+    other_challenge = next(
+        item for item in path_challenges
+        if item["challenge_id"] != setup["challenge_id"]
+    )
+    other_join = client.post(
+        f"/challenges/{other_challenge['challenge_id']}/join",
+        json={},
+        headers=headers,
+    ).get_json()
+    main_mission = next(
+        mission for mission in setup["missions"]
+        if mission["mission_intensity"] == "main"
+    )
+    _set_mission_xp(main_mission["mission_id"], 17)
+
+    done_res = client.post(
+        f"/me/missions/{main_mission['mission_id']}/done",
+        headers=headers,
+    )
+    done_data = done_res.get_json()
+    achievement_xp = done_data["checkin"]["rewards"]["achievement_xp_reward"]
+    _insert_counted_checkin(
+        user["user_id"],
+        other_join["enrollment_id"],
+        other_challenge["challenge_id"],
+    )
+
+    assert done_res.status_code == 200
+    assert done_data["mission"]["xp_awarded"] == 17
+    assert client.get("/me/stats", headers=headers).get_json()["stats"]["total_points"] == 27 + achievement_xp
+
+
+def test_missing_mission_xp_uses_intensity_fallback(client):
+    user = register_user(client, username="MissionFallbackXp")
+    headers = auth_headers(user["access_token"])
+    setup = _start_first_fitness_challenge(client, headers)
+    main_mission = next(
+        mission for mission in setup["missions"]
+        if mission["mission_intensity"] == "main"
+    )
+    tiny_mission = next(
+        mission for mission in setup["missions"]
+        if mission["mission_intensity"] == "tiny"
+        and mission["parent_mission_id"] == main_mission["mission_id"]
+    )
+    _set_mission_xp(tiny_mission["mission_id"], 0)
+
+    done_res = client.post(
+        f"/me/missions/{tiny_mission['mission_id']}/done",
+        headers=headers,
+    )
+
+    assert done_res.status_code == 200
+    done_data = done_res.get_json()
+    achievement_xp = done_data["checkin"]["rewards"]["achievement_xp_reward"]
+
+    assert done_data["mission"]["xp_earned"] == 5
+    assert done_data["mission"]["xp_awarded"] == 5
+    assert client.get("/me/stats", headers=headers).get_json()["stats"]["total_points"] == 5 + achievement_xp
+
+
+def test_repeated_mission_done_is_idempotent_for_xp_activity_and_achievements(client):
+    user = register_user(client, username="MissionXpIdempotent")
+    headers = auth_headers(user["access_token"])
+    setup = _start_first_fitness_challenge(client, headers)
+    main_mission = next(
+        mission for mission in setup["missions"]
+        if mission["mission_intensity"] == "main"
+    )
+    _set_mission_xp(main_mission["mission_id"], 17)
+
+    first_res = client.post(
+        f"/me/missions/{main_mission['mission_id']}/done",
+        headers=headers,
+    )
+    first_data = first_res.get_json()
+    first_stats = client.get("/me/stats", headers=headers).get_json()["stats"]
+    first_activity = client.get("/me/activity", headers=headers).get_json()["events"]
+    first_achievements = client.get("/me/achievements", headers=headers).get_json()["achievements"]
+
+    repeat_res = client.post(
+        f"/me/missions/{main_mission['mission_id']}/done",
+        headers=headers,
+    )
+    repeat_data = repeat_res.get_json()
+    repeat_stats = client.get("/me/stats", headers=headers).get_json()["stats"]
+    repeat_activity = client.get("/me/activity", headers=headers).get_json()["events"]
+    repeat_achievements = client.get("/me/achievements", headers=headers).get_json()["achievements"]
+
+    first_checkin_events = [event for event in first_activity if event["type"] == "checkin"]
+    repeat_checkin_events = [event for event in repeat_activity if event["type"] == "checkin"]
+
+    assert first_res.status_code == 200
+    assert first_data["mission"]["xp_awarded"] == 17
+    assert repeat_res.status_code == 200
+    assert repeat_data["mission"]["xp_earned"] == 17
+    assert repeat_data["mission"]["xp_awarded"] == 0
+    assert repeat_data["mission"]["already_done"] is True
+    assert repeat_data["checkin"]["rewards"]["achievements"] == []
+    assert repeat_stats["total_points"] == first_stats["total_points"]
+    assert repeat_stats["total_checkins"] == first_stats["total_checkins"] == 1
+    assert len(repeat_checkin_events) == len(first_checkin_events) == 1
+    assert repeat_checkin_events[0]["xp_delta"] == 17
+    assert {
+        achievement["key"]: achievement["unlocked_at"]
+        for achievement in repeat_achievements
+    } == {
+        achievement["key"]: achievement["unlocked_at"]
+        for achievement in first_achievements
+    }
 
 
 def test_mission_reminder_rejects_time_after_next_daily_reset(client):

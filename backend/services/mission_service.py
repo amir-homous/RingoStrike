@@ -1,8 +1,10 @@
 from datetime import datetime, timedelta, timezone
 
 from database import get_db_connection
+from services.achievement_service import evaluate_and_unlock
 from services.enrollment_service import checkin
 from services.ringo_decision_service import decide_ringo_state
+from services.stats_service import resolve_mission_xp, sync_user_stats
 from utils.date_utils import ringo_day_metadata, utc_iso_z, utc_today_iso
 
 
@@ -248,6 +250,7 @@ def _find_user_mission_context(conn, user_id, mission_id):
             m.title,
             m.description,
             m.xp_reward,
+            COALESCE(m.mission_intensity, 'main') AS mission_intensity,
             m.challenge_id,
             c.name AS challenge_name,
             c.path_id,
@@ -371,7 +374,7 @@ def _build_reward_sequence(payload, today_missions, *, was_today_saved=False):
     mission = payload.get("mission") or {}
     mission_id = mission.get("mission_id")
     mission_title = mission.get("title") or "Mission"
-    xp_earned = int(mission.get("xp_earned") or 0)
+    xp_earned = int(mission.get("xp_awarded") or 0)
     already_checked = bool((payload.get("checkin") or {}).get("already_checked"))
     today_saved_by_current = _mission_satisfies_today(today_missions, mission_id)
 
@@ -443,7 +446,25 @@ def _upsert_mission_log(
         if not mission:
             return {"ok": False, "error": "mission_not_found"}, 404
 
-        xp_earned = int(mission["xp_reward"] or 0) if status == "done" else 0
+        previous_log = conn.execute(
+            """
+            SELECT status, xp_earned, updated_at
+            FROM mission_logs
+            WHERE user_id = ?
+              AND mission_id = ?
+              AND date = ?
+            LIMIT 1
+            """,
+            (user_id, mission_id, today),
+        ).fetchone()
+
+        was_done = bool(previous_log and previous_log["status"] == "done")
+        xp_earned = (
+            resolve_mission_xp(mission["xp_reward"], mission["mission_intensity"])
+            if status == "done"
+            else 0
+        )
+        xp_awarded = 0 if was_done and status == "done" else xp_earned
 
         event_at = utc_iso_z(datetime.now(timezone.utc))
         secured_at = datetime.now(timezone.utc).isoformat() if status == "done" else None
@@ -461,6 +482,39 @@ def _upsert_mission_log(
                 """,
                 (mission_id, today, user_id),
             ).fetchone()["n"] or 0)
+
+        if was_done and status == "done":
+            previous_at = _mission_log_timestamp(previous_log["updated_at"]) or event_at
+            previous_xp = int(previous_log["xp_earned"] or xp_earned)
+            return {
+                "ok": True,
+                "mission": {
+                    "mission_id": mission_id,
+                    "title": mission["title"],
+                    "description": mission["description"] or "",
+                    "status": "done",
+                    "date": today,
+                    "secured_at": previous_at,
+                    "done_at": previous_at,
+                    "skipped_at": None,
+                    "reminder_set_at": None,
+                    "status_updated_at": previous_at,
+                    "xp_earned": previous_xp,
+                    "xp_awarded": 0,
+                    "already_done": True,
+                    "mission_intensity": mission["mission_intensity"] or "main",
+                    "enrollment_id": mission["enrollment_id"],
+                    "challenge_id": mission["challenge_id"],
+                    "challenge_name": mission["challenge_name"],
+                    "path_id": mission["path_id"],
+                    "path_title": mission["path_title"],
+                    "reminder_at": None,
+                    "reminder_sent_at": None,
+                    "skip_reason": None,
+                    "today_done_before_you": done_before_you,
+                    "today_done_count": done_before_you + 1,
+                },
+            }, 200
 
         conn.execute(
             """
@@ -517,7 +571,10 @@ def _upsert_mission_log(
                 "skipped_at": event_at if status == "skipped" else None,
                 "reminder_set_at": event_at if status == "remind_later" else None,
                 "status_updated_at": event_at,
-                "xp_earned": xp_earned,
+                "xp_earned": xp_earned if status == "done" else 0,
+                "xp_awarded": xp_awarded,
+                "already_done": was_done if status == "done" else False,
+                "mission_intensity": mission["mission_intensity"] or "main",
                 "enrollment_id": mission["enrollment_id"],
                 "challenge_id": mission["challenge_id"],
                 "challenge_name": mission["challenge_name"],
@@ -548,10 +605,45 @@ def mark_mission_done(user_id, mission_id):
     if not payload.get("ok"):
         return payload, code
 
-    checkin_payload, checkin_code = checkin(
-        user_id,
-        payload["mission"]["enrollment_id"],
-    )
+    mission = payload["mission"]
+    mission_intensity = mission.get("mission_intensity") or "main"
+    already_done = bool(mission.get("already_done"))
+
+    if already_done:
+        current_stats = sync_user_stats(user_id)
+        checkin_payload = {
+            "ok": True,
+            "message": "Mission already completed",
+            "mode": "existing",
+            "already_checked": True,
+            "rewards": {
+                "xp_total": int(current_stats.get("total_points", 0)),
+                "achievements": [],
+                "achievement_xp_reward": 0,
+            },
+        }
+        checkin_code = 200
+    elif mission_intensity == "bonus":
+        current_stats = sync_user_stats(user_id)
+        achievement_result = evaluate_and_unlock(user_id)
+        current_stats = sync_user_stats(user_id)
+        checkin_payload = {
+            "ok": True,
+            "message": "Bonus mission recorded",
+            "mode": "not_applicable",
+            "already_checked": True,
+            "rewards": {
+                "xp_total": int(current_stats.get("total_points", 0)),
+                "achievements": achievement_result.get("newly_unlocked", []),
+                "achievement_xp_reward": int(achievement_result.get("xp_reward_total", 0)),
+            },
+        }
+        checkin_code = 200
+    else:
+        checkin_payload, checkin_code = checkin(
+            user_id,
+            mission["enrollment_id"],
+        )
 
     payload["checkin"] = checkin_payload
     payload["checkin_status_code"] = checkin_code
