@@ -174,6 +174,59 @@ Not fully verified:
 - Unknown/custom content fallback is design-validated but not exhaustively tested.
 
 
+## Optional explorer progress-map and RTL/root-background addendum
+
+Status: implemented and manually checked during frontend polish.
+
+Scope checked:
+
+- English MissionCenter optional explorer visual behavior.
+- Persian MissionCenter optional explorer visual behavior.
+- Path/challenge progress-surface cards.
+- Circular icon progress rings.
+- Reward-ready/building visual slots.
+- Earned/total XP summaries.
+- Mission icon fallback behavior.
+- Status-aware mission row colors.
+- Completed path/challenge visibility.
+- Persian/RTL root-background and layout stability around Dashboard/MissionCenter.
+
+Observed QA notes:
+
+- Post-safe optional explorer now behaves like a calm growth/progression map.
+- Completed paths/challenges can remain visible so completion feels acknowledged.
+- Due reminders still own focus.
+- Future reminders remain quiet until due.
+- Reward-ready/building states are frontend display states only.
+- The previous Persian/RTL white/blank root-background issue was addressed by ensuring dark full-viewport coverage for `html`, `body`, `#app`, and the app shell.
+- Existing low-opacity white glass highlights remain intentional parts of the dark UI, not light scrims.
+
+Validation commands/results:
+
+- `npm --prefix frontend run build` passed.
+- `npm --prefix frontend run test:router` passed.
+- `npm --prefix frontend run test:localization` passed.
+- `git diff --check` passed.
+- Existing Vite large chunk warning remains.
+
+Boundaries confirmed:
+
+- No backend changes.
+- No database changes.
+- No schema changes.
+- No migrations.
+- No API response shape changes.
+- No mission mutation behavior changes.
+- No XP, streak, achievement, check-in, activity, reminder delivery, or progression ownership changes.
+- No reward-claim backend logic.
+
+Not fully verified:
+
+- No screenshot artifact is attached.
+- No full mobile/desktop viewport matrix is attached.
+- No automated visual regression test asserts the optional explorer growth-map state.
+
+
 ## Fresh user 3-challenge flow
 
 Status: partially verified through manual development flow.

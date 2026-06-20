@@ -72,7 +72,7 @@ Current palette is dark graphite with translucent card surfaces and muted white 
 
 - local Vazirmatn `@font-face` for Persian mode
 - global `box-sizing`
-- dark body background from `--bg`
+- dark root, body, app, and shell background from `--bg`
 - white text color
 - system font stack for English/default UI
 - Vazirmatn font stack only when `html[lang="fa"]`
@@ -85,6 +85,23 @@ Typography behavior:
 - English (`lang="en"`) uses the existing system font stack.
 - Persian (`lang="fa"`) uses `frontend/src/assets/fonts/Vazirmatn.woff2`.
 - Font switching is tied to document `lang`; do not add component-local font overrides for ordinary UI text.
+- `html`, `body`, `#app`, and the app shell should keep full-height dark background coverage. This prevents exposed browser/root background in both LTR and RTL layouts.
+
+## Growth-Map Surfaces
+
+MissionCenter's optional explorer uses a restrained growth-map visual language after the required daily loop is safe.
+
+Use this pattern for similar progression surfaces:
+
+- Progress-surface cards should keep progress fills clipped inside the card, with the card as the `position: relative` / `overflow: hidden` boundary.
+- Progress fills should respect text direction without creating horizontal overflow: LTR fills start from the left, RTL fills start from the right.
+- Circular icon progress rings can show path/challenge completion while keeping the main row calm.
+- Reward-ready/building slots are visual status affordances only; they should feel premium but not imply backend reward-claim logic.
+- XP summaries should be compact: earned/total while in progress, earned/completed language when complete.
+- Mission rows can use mission-key icons and status-aware color accents, but status should win over intensity/bonus styling.
+- Completed paths/challenges may remain visible to reinforce completion and give users a sense of closed progress.
+
+Keep this style restrained: the optional explorer should feel like a calm progression map, not a noisy game board.
 
 ## Component System
 
@@ -163,6 +180,6 @@ Current asset consistency note: the sprite map resolves assets from `frontend/sr
 ## Implementation Gaps
 
 - Tailwind is listed in dependencies and `assets/main.css` contains Tailwind directives, but that file is not imported by `main.js`.
-- `frontend/src/style.css` is Vite starter styling and appears unused.
+- `frontend/src/style.css` is not currently imported by `main.js`, but it is kept as a safe dark root-shell stylesheet if it is imported later.
 - API docs view may visually and contractually lag behind the actual backend.
 - Full Mission Context UX is not complete yet. Current focus-mode polish improves attention and family-aware display, but future work is still needed for consistent path/challenge/mission context framing everywhere.

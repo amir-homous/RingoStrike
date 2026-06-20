@@ -84,6 +84,8 @@ The detailed product direction lives in:
 - First-run staged reveal for Ringo guidance, mission intro, mission card, and action education.
 - Post-first-win completion UX, including optional bonus framing, calm reminder copy, and Rest Mode after `Finish for today`.
 - Mission Status detail lists are collapsed by default during focus mode and can be revealed manually.
+- Post-safe optional explorer growth-map polish with progress-surface path/challenge cards, circular icon progress rings, frontend-only reward-ready/building slots, earned/total XP summaries, mission-key icons, and status-aware mission rows.
+- Completed optional paths/challenges can remain visible so users can feel completion while MissionCenter's single-focus loop remains intact.
 - `/paths` planning view with path picker, stage panels, mission previews, and today progress summary.
 - Ringo helper sprites and RingoCoach component.
 - Premium navigation with Paths in desktop/mobile navigation and Settings removed from visible navigation.
@@ -151,6 +153,7 @@ The detailed product direction lives in:
 - Added protected due reminder endpoint for n8n/cron automation: `POST /api/telegram/remind-due-missions`.
 - Added protected reminder diagnostics endpoint: `GET /api/telegram/reminder-diagnostics`.
 - Hardened VPS runtime around `systemd`, env-driven Flask binding, `FLASK_DEBUG=0`, and nginx `/api-proxy` routing to a localhost-only backend.
+- Hardened Persian/RTL dashboard and optional explorer rendering by ensuring full-viewport dark root/app background coverage and clipped direction-aware progress surfaces.
 
 
 ### Backend Test Coverage Added
@@ -229,6 +232,7 @@ These items should happen before expanding product scope:
 - Expand shared API response helper usage across existing routes.
 - Keep service-level leaderboard ordering coverage aligned if tie-breaker behavior changes.
 - Keep reminder automation monitored through diagnostics and n8n admin summaries.
+- Keep optional explorer progress-map polish display-only unless a future product issue explicitly designs backend reward claiming.
 
 
 ---

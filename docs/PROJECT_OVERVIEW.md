@@ -30,6 +30,7 @@ Product direction source:
 - Frontend mission focus mode that keeps the dashboard centered on Ringo, the current mission/reminder/completion state, and a compact progress strip while the daily loop still needs attention.
 - First-run staged reveal for the Mission Center so Ringo guidance, mission intro, mission card, and action education appear in a calm sequence.
 - Rest Mode after `Finish for today`, with sleeping Ringo, safe-day copy, optional future reminder timing, and an explicit `Show dashboard` escape hatch.
+- Post-safe optional explorer in MissionCenter with calm growth-map styling, path/challenge progress surfaces, icon progress rings, reward-ready/building display slots, earned/total XP summaries, mission-key icons, and status-aware mission rows.
 - Mission Status details are collapsed by default during focus mode and can be revealed manually with `Show mission status`.
 - Full `/paths` page for path selection, challenge stage previews, mission previews, and per-path progress summary.
 - Premium check-in reward moment with existing XP, streak, achievement, and frontend-only unlock hints.
@@ -43,6 +44,7 @@ Product direction source:
 - Profile visibility controls: public/private.
 - Frontend Persian/English language switching with persisted locale and automatic `lang`/`dir` updates.
 - Persian UI typography uses the local Vazirmatn variable WOFF2 font while English keeps the existing system font stack.
+- Full-viewport dark root/app background coverage for stable LTR/RTL dashboard rendering.
 - Frontend-only display localization for known seeded mission/path/challenge copy, improving Persian MissionCenter, onboarding, path/challenge preview, and Challenge Discovery surfaces while keeping backend seed data unchanged.
 - Telegram reminder connection settings, mission-level reminder scheduling, n8n-triggered due reminder delivery, and protected reminder diagnostics.
 - API docs page in the frontend.
@@ -151,7 +153,7 @@ Based on git history, the project has progressed through:
 3. XP, dashboard progression UX, activity timeline, achievements, and profile identity hub.
 4. Public identity foundations: public profiles, visibility, username normalization, avatar/profile settings, and shareable UX.
 5. Guided path/mission foundation: seeded MVP paths, path-specific challenges, daily missions, mission logs, RingoCoach state decisions, premium navigation, and Ringo helper sprites.
-6. Mission-family and focus-mode polish: main/tiny substitute behavior, bonus-as-optional momentum, staged first-run reveal, post-first-win copy, compact focus progress, collapsed mission status details, and Rest Mode.
+6. Mission-family, focus-mode, and optional-explorer polish: main/tiny substitute behavior, bonus-as-optional momentum, staged first-run reveal, post-first-win copy, compact focus progress, collapsed mission status details, Rest Mode, and post-safe optional growth-map exploration.
 
 ## Known Stabilization Needs
 
@@ -180,3 +182,5 @@ Based on git history, the project has progressed through:
 - Protected reminder diagnostics expose due/scheduled/sent/missing-Telegram/reminders-disabled operational state without sending messages or exposing secrets.
 - Mission-family agenda behavior treats linked `main` and `tiny` missions as substitutes while keeping `bonus` missions independently visible and optional.
 - Dashboard mission focus mode hides secondary sections until the daily focus is resolved or the user explicitly chooses `Show dashboard`; focus mode remains frontend-only and does not alter progression writes.
+- MissionCenter optional explorer progress-map polish remains frontend-only: completed groups can stay visible, due reminders still own focus, future reminders stay quiet until due, and reward-ready/building states do not imply backend reward claims.
+- Persian/RTL root-background and layout stability were hardened by ensuring dark coverage for the full root/app shell.
