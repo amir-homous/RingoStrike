@@ -1,5 +1,5 @@
 <template>
-  <section class="missionCenter">
+  <section class="missionCenter" :class="{ hasDailyMomentumBar: showDailyMomentumBar }">
     <RingoRewardSequence :steps="rewardSequenceSteps" :sprite="rewardSequenceSprite" @finish="finishRewardSequence" />
 
     <BaseCard v-if="restModeActive" class="restModeCard">
@@ -39,6 +39,12 @@
         <p>{{ t("missions.firstRunFocus.text") }}</p>
       </div>
 
+      <DailyMomentumBar v-if="showDailyMomentumBar" :today-safe="dailyMomentumTodaySafe"
+        :streak-count="dailyMomentumStreakCount" :path-groups="dailyMomentumPathGroups"
+        :actions="dailyMomentumActions" :show-explore-paths="showDailyMomentumExplorePaths"
+        @select-path="selectDailyMomentumPath" @action="handleDailyMomentumAction"
+        @explore-paths="exploreDailyMomentumPaths" @explain-strike="explainDailyMomentumStrike" />
+
       <div v-if="showFocusMissionCard" :id="`mission-${focusMission.mission_id}`" class="focusMission coachFocusMission"
         :class="{ firstRunRevealStep: props.firstRunFocus, firstRunRevealMission: props.firstRunFocus }">
         <MissionContextPanel :mission="focusMission" :heading="t('missions.ringoSuggestedMission')"
@@ -48,34 +54,44 @@
         <div v-if="showFocusMissionActions" class="missionActions primaryMissionActions">
           <BaseButton variant="primary" :loading="busyId === focusMission.mission_id && busyAction === 'done'"
             :disabled="missionHasStatus(focusMission, 'done')" @click="markDone(focusMission)">
+            <img v-if="missionActionIcon('done')" :src="missionActionIcon('done')" alt="" class="missionActionIcon"
+              aria-hidden="true" />
             {{ missionHasStatus(focusMission, "remind_later") ? t("missions.doItNow") : t("missions.doneCta") }}
-            <!-- <img :src="missionDoneIcon" alt="" class="missionActionIcon" aria-hidden="true" /> -->
           </BaseButton>
 
           <BaseButton variant="secondary" :loading="busyId === focusMission.mission_id && busyAction === 'remind'"
             :disabled="missionHasStatus(focusMission, 'done')" @click="remindLater(focusMission)">
+            <img v-if="missionActionIcon('remindLater')" :src="missionActionIcon('remindLater')" alt=""
+              class="missionActionIcon" aria-hidden="true" />
             {{ missionHasStatus(focusMission, "remind_later") ? t("missions.editReminder") : t("missions.remindLater")
             }}
-            <!-- <img :src="missionRemindIcon" alt="" class="missionActionIcon" aria-hidden="true" /> -->
           </BaseButton>
 
           <BaseButton v-if="shouldShowFocusSupportAction('make_smaller', focusMission)" variant="secondary"
             @click="handleFocusSupportAction('make_smaller', focusMission)">
+            <img v-if="missionActionIcon('makeSmaller')" :src="missionActionIcon('makeSmaller')" alt=""
+              class="missionActionIcon" aria-hidden="true" />
             {{ t("missions.ringoActions.make_smaller") }}
           </BaseButton>
 
           <BaseButton v-if="shouldShowFocusSupportAction('too_tired', focusMission)" variant="secondary"
             @click="handleFocusSupportAction('too_tired', focusMission)">
+            <img v-if="missionActionIcon('tooTired')" :src="missionActionIcon('tooTired')" alt=""
+              class="missionActionIcon" aria-hidden="true" />
             {{ t("missions.ringoActions.too_tired") }}
           </BaseButton>
 
           <BaseButton v-if="shouldShowFullVersionAction(focusMission)" variant="secondary"
             @click="focusMainMissionVariant(focusMission)">
+            <img v-if="missionActionIcon('makeBigger')" :src="missionActionIcon('makeBigger')" alt=""
+              class="missionActionIcon" aria-hidden="true" />
             {{ t("missions.ringoActions.useFullVersion") }}
           </BaseButton>
 
           <BaseButton variant="secondary" :loading="busyId === focusMission.mission_id && busyAction === 'skip'"
             :disabled="missionHasStatus(focusMission, 'done', 'skipped')" @click="skipMission(focusMission)">
+            <img v-if="missionActionIcon('skip')" :src="missionActionIcon('skip')" alt="" class="missionActionIcon"
+              aria-hidden="true" />
             {{ missionHasStatus(focusMission, "skipped") ? t("missions.skipped") : t("missions.skip") }}
           </BaseButton>
         </div>
@@ -163,7 +179,7 @@
         <span v-if="showTodaySavedBody">{{ t("missions.todaySavedBody") }}</span>
       </p> -->
 
-      <section v-if="selectedOptionalExplorerMission && !dueReminderFocusActive"
+      <section v-if="selectedOptionalExplorerMission && !dueReminderFocusActive" id="optional-explorer-selected"
         class="optionalNextStep optionalExplorerSelected">
         <div class="optionalNextCopy">
           <p class="eyebrow compact">{{ t("missions.optionalExplorerList.eyebrow") }}</p>
@@ -187,6 +203,8 @@
             :loading="busyId === selectedOptionalExplorerMission.mission_id && busyAction === 'done'"
             :disabled="missionHasStatus(selectedOptionalExplorerMission, 'done')"
             @click="markDone(selectedOptionalExplorerMission)">
+            <img v-if="missionActionIcon('done')" :src="missionActionIcon('done')" alt="" class="missionActionIcon"
+              aria-hidden="true" />
             {{ missionHasStatus(selectedOptionalExplorerMission, "remind_later") ? t("missions.doItNow") :
               t("missions.doneCta") }}
           </BaseButton>
@@ -195,17 +213,23 @@
             :loading="busyId === selectedOptionalExplorerMission.mission_id && busyAction === 'remind'"
             :disabled="missionHasStatus(selectedOptionalExplorerMission, 'done')"
             @click="remindLater(selectedOptionalExplorerMission)">
+            <img v-if="missionActionIcon('remindLater')" :src="missionActionIcon('remindLater')" alt=""
+              class="missionActionIcon" aria-hidden="true" />
             {{ missionHasStatus(selectedOptionalExplorerMission, "remind_later") ? t("missions.editReminder") :
               t("missions.remindLater") }}
           </BaseButton>
 
           <BaseButton v-if="shouldShowMissionItemTinyAction(selectedOptionalExplorerMission)" variant="secondary"
             @click="focusTinyMissionVariant(selectedOptionalExplorerMission)">
+            <img v-if="missionActionIcon('makeSmaller')" :src="missionActionIcon('makeSmaller')" alt=""
+              class="missionActionIcon" aria-hidden="true" />
             {{ t("missions.ringoActions.tryTinyVersion") }}
           </BaseButton>
 
           <BaseButton v-if="shouldShowFullVersionAction(selectedOptionalExplorerMission)" variant="secondary"
             @click="focusMainMissionVariant(selectedOptionalExplorerMission)">
+            <img v-if="missionActionIcon('makeBigger')" :src="missionActionIcon('makeBigger')" alt=""
+              class="missionActionIcon" aria-hidden="true" />
             {{ t("missions.ringoActions.useFullVersion") }}
           </BaseButton>
 
@@ -213,6 +237,8 @@
             :loading="busyId === selectedOptionalExplorerMission.mission_id && busyAction === 'skip'"
             :disabled="missionHasStatus(selectedOptionalExplorerMission, 'done', 'skipped')"
             @click="skipMission(selectedOptionalExplorerMission)">
+            <img v-if="missionActionIcon('skip')" :src="missionActionIcon('skip')" alt="" class="missionActionIcon"
+              aria-hidden="true" />
             {{ missionHasStatus(selectedOptionalExplorerMission, "skipped") ? t("missions.skipped") :
               t("missions.skip") }}
           </BaseButton>
@@ -274,8 +300,10 @@
           </div>
         </div>
 
-        <div class="optionalNextActions">
+        <div v-if="!showDailyMomentumBar" class="optionalNextActions">
           <BaseButton variant="primary" @click="finishForToday">
+            <img v-if="missionActionIcon('finishToday')" :src="missionActionIcon('finishToday')" alt=""
+              class="missionActionIcon" aria-hidden="true" />
             {{ t("missions.finishForToday") }}
           </BaseButton>
           <BaseButton variant="secondary" @click="backToOptionalChoices">
@@ -301,11 +329,15 @@
         </div>
 
         <div class="optionalNextActions">
-          <BaseButton variant="primary" @click="finishForToday">
+          <BaseButton v-if="!showDailyMomentumBar" variant="primary" @click="finishForToday">
+            <img v-if="missionActionIcon('finishToday')" :src="missionActionIcon('finishToday')" alt=""
+              class="missionActionIcon" aria-hidden="true" />
             {{ t("missions.finishForToday") }}
           </BaseButton>
           <BaseButton variant="secondary" :loading="busyId === optionalNextMission.mission_id && busyAction === 'done'"
             :disabled="missionHasStatus(optionalNextMission, 'done')" @click="markDone(optionalNextMission)">
+            <img v-if="missionActionIcon('done')" :src="missionActionIcon('done')" alt="" class="missionActionIcon"
+              aria-hidden="true" />
             {{
               normalizedMissionIntensity(optionalNextMission) === "bonus"
                 ? t("missions.bonusDoneCta")
@@ -316,29 +348,38 @@
             :loading="busyId === optionalNextMission.mission_id && busyAction === 'remind'"
             :disabled="missionHasStatus(optionalNextMission, 'done')"
             @click="remindOptionalNextMission(optionalNextMission)">
+            <img v-if="missionActionIcon('remindLater')" :src="missionActionIcon('remindLater')" alt=""
+              class="missionActionIcon" aria-hidden="true" />
             {{ missionHasStatus(optionalNextMission, "remind_later") ? t("missions.editReminder") :
               t("missions.remindLater") }}
           </BaseButton>
           <BaseButton v-if="shouldShowOptionalNextSupportAction('make_smaller', optionalNextMission)"
             variant="secondary" @click="handleOptionalNextSupportAction('make_smaller', optionalNextMission)">
+            <img v-if="missionActionIcon('makeSmaller')" :src="missionActionIcon('makeSmaller')" alt=""
+              class="missionActionIcon" aria-hidden="true" />
             {{ t("missions.ringoActions.make_smaller") }}
           </BaseButton>
           <BaseButton v-if="shouldShowOptionalNextSupportAction('too_tired', optionalNextMission)" variant="secondary"
             @click="handleOptionalNextSupportAction('too_tired', optionalNextMission)">
+            <img v-if="missionActionIcon('tooTired')" :src="missionActionIcon('tooTired')" alt=""
+              class="missionActionIcon" aria-hidden="true" />
             {{ t("missions.ringoActions.too_tired") }}
           </BaseButton>
           <BaseButton variant="secondary" :loading="busyId === optionalNextMission.mission_id && busyAction === 'skip'"
             :disabled="missionHasStatus(optionalNextMission, 'skipped')"
             @click="skipOptionalNextMission(optionalNextMission)">
+            <img v-if="missionActionIcon('skip')" :src="missionActionIcon('skip')" alt="" class="missionActionIcon"
+              aria-hidden="true" />
             {{ t("missions.skip") }}
           </BaseButton>
         </div>
       </section>
 
       <RemainingMissionExplorer v-if="showOptionalMissionExplorer" :missions="optionalExplorerMissions"
-        :selected-mission-id="selectedOptionalExplorerMissionId" @select="selectOptionalExplorerMission"
-        @select-path="selectOptionalExplorerPath" @select-challenge="selectOptionalExplorerChallenge"
-        @back="showOptionalExplorerRoot" @close="hideOptionalMissionExplorer" @finish="finishForToday" />
+        :selected-mission-id="selectedOptionalExplorerMissionId" :selected-path-id="selectedMomentumPathId"
+        :hide-actions="showDailyMomentumBar" @select="selectOptionalExplorerMission" @select-path="selectOptionalExplorerPath"
+        @select-challenge="selectOptionalExplorerChallenge" @back="showOptionalExplorerRoot"
+        @close="hideOptionalMissionExplorer" @finish="finishForToday" />
 
       <section v-if="showOptionalExplorerPrompt" class="optionalExplorerPrompt">
         <div class="optionalNextCopy">
@@ -349,15 +390,21 @@
 
         <div class="optionalExplorerActions">
           <BaseButton variant="primary" @click="finishForToday">
+            <img v-if="missionActionIcon('finishToday')" :src="missionActionIcon('finishToday')" alt=""
+              class="missionActionIcon" aria-hidden="true" />
             {{ t("missions.finishForToday") }}
           </BaseButton>
           <span v-if="futureReminderCount" class="optionalReminderQueue">
             {{ t("missions.futureReminderQueue", { count: futureReminderCount }) }}
           </span>
           <BaseButton v-if="optionalSuggestionAvailable" variant="secondary" @click="suggestOptionalStep">
+            <img v-if="missionActionIcon('optionalStep')" :src="missionActionIcon('optionalStep')" alt=""
+              class="missionActionIcon" aria-hidden="true" />
             {{ t("missions.suggestOptionalStep") }}
           </BaseButton>
           <BaseButton v-if="optionalExplorerMissions.length" variant="secondary" @click="viewRemainingMissions">
+            <img v-if="missionActionIcon('viewChoices')" :src="missionActionIcon('viewChoices')" alt=""
+              class="missionActionIcon" aria-hidden="true" />
             {{ t("missions.viewOptionalMissions") }}
           </BaseButton>
         </div>
@@ -365,6 +412,8 @@
 
       <div v-if="showCompletedChoices" class="completedChoices">
         <BaseButton v-if="!optionalNextMission" variant="primary" @click="finishForToday">
+          <img v-if="missionActionIcon('finishToday')" :src="missionActionIcon('finishToday')" alt=""
+            class="missionActionIcon" aria-hidden="true" />
           {{ t("missions.finishForToday") }}
         </BaseButton>
 
@@ -455,32 +504,44 @@
         <div v-if="showFocusMissionActions" class="missionActions primaryMissionActions">
           <BaseButton variant="primary" :loading="busyId === focusMission.mission_id && busyAction === 'done'"
             :disabled="missionHasStatus(focusMission, 'done')" @click="markDone(focusMission)">
+            <img v-if="missionActionIcon('done')" :src="missionActionIcon('done')" alt="" class="missionActionIcon"
+              aria-hidden="true" />
             {{ missionHasStatus(focusMission, "remind_later") ? t("missions.doItNow") : t("missions.doneCta") }}
           </BaseButton>
 
           <BaseButton variant="secondary" :loading="busyId === focusMission.mission_id && busyAction === 'remind'"
             :disabled="missionHasStatus(focusMission, 'done')" @click="remindLater(focusMission)">
+            <img v-if="missionActionIcon('remindLater')" :src="missionActionIcon('remindLater')" alt=""
+              class="missionActionIcon" aria-hidden="true" />
             {{ missionHasStatus(focusMission, "remind_later") ? t("missions.editReminder") : t("missions.remindLater")
             }}
           </BaseButton>
 
           <BaseButton v-if="shouldShowFocusSupportAction('make_smaller', focusMission)" variant="secondary"
             @click="handleFocusSupportAction('make_smaller', focusMission)">
+            <img v-if="missionActionIcon('makeSmaller')" :src="missionActionIcon('makeSmaller')" alt=""
+              class="missionActionIcon" aria-hidden="true" />
             {{ t("missions.ringoActions.make_smaller") }}
           </BaseButton>
 
           <BaseButton v-if="shouldShowFocusSupportAction('too_tired', focusMission)" variant="secondary"
             @click="handleFocusSupportAction('too_tired', focusMission)">
+            <img v-if="missionActionIcon('tooTired')" :src="missionActionIcon('tooTired')" alt=""
+              class="missionActionIcon" aria-hidden="true" />
             {{ t("missions.ringoActions.too_tired") }}
           </BaseButton>
 
           <BaseButton v-if="shouldShowFullVersionAction(focusMission)" variant="secondary"
             @click="focusMainMissionVariant(focusMission)">
+            <img v-if="missionActionIcon('makeBigger')" :src="missionActionIcon('makeBigger')" alt=""
+              class="missionActionIcon" aria-hidden="true" />
             {{ t("missions.ringoActions.useFullVersion") }}
           </BaseButton>
 
           <BaseButton variant="secondary" :loading="busyId === focusMission.mission_id && busyAction === 'skip'"
             :disabled="missionHasStatus(focusMission, 'done', 'skipped')" @click="skipMission(focusMission)">
+            <img v-if="missionActionIcon('skip')" :src="missionActionIcon('skip')" alt="" class="missionActionIcon"
+              aria-hidden="true" />
             {{ missionHasStatus(focusMission, "skipped") ? t("missions.skipped") : t("missions.skip") }}
           </BaseButton>
         </div>
@@ -778,28 +839,38 @@
                     <div v-if="showMissionItemActions(mission)" class="missionActions">
                       <BaseButton variant="primary" :loading="busyId === mission.mission_id && busyAction === 'done'"
                         :disabled="missionHasStatus(mission, 'done')" @click="markDone(mission)">
+                        <img v-if="missionActionIcon('done')" :src="missionActionIcon('done')" alt=""
+                          class="missionActionIcon" aria-hidden="true" />
                         {{ t("missions.doneCta") }}
                       </BaseButton>
 
                       <BaseButton variant="secondary"
                         :loading="busyId === mission.mission_id && busyAction === 'remind'"
                         :disabled="missionHasStatus(mission, 'done')" @click="remindLater(mission)">
+                        <img v-if="missionActionIcon('remindLater')" :src="missionActionIcon('remindLater')" alt=""
+                          class="missionActionIcon" aria-hidden="true" />
                         {{ missionHasStatus(mission, "remind_later") ? t("missions.editReminder") :
                           t("missions.remindLater") }}
                       </BaseButton>
 
                       <BaseButton variant="secondary" :loading="busyId === mission.mission_id && busyAction === 'skip'"
                         :disabled="missionHasStatus(mission, 'done', 'skipped')" @click="skipMission(mission)">
+                        <img v-if="missionActionIcon('skip')" :src="missionActionIcon('skip')" alt=""
+                          class="missionActionIcon" aria-hidden="true" />
                         {{ missionHasStatus(mission, "skipped") ? t("missions.skipped") : t("missions.skip") }}
                       </BaseButton>
 
                       <BaseButton v-if="shouldShowMissionItemTinyAction(mission)" variant="secondary"
                         @click="focusTinyMissionVariant(mission)">
+                        <img v-if="missionActionIcon('makeSmaller')" :src="missionActionIcon('makeSmaller')" alt=""
+                          class="missionActionIcon" aria-hidden="true" />
                         {{ t("missions.ringoActions.tryTinyVersion") }}
                       </BaseButton>
 
                       <BaseButton v-if="shouldShowFullVersionAction(mission)" variant="secondary"
                         @click="focusMainMissionVariant(mission)">
+                        <img v-if="missionActionIcon('makeBigger')" :src="missionActionIcon('makeBigger')" alt=""
+                          class="missionActionIcon" aria-hidden="true" />
                         {{ t("missions.ringoActions.useFullVersion") }}
                       </BaseButton>
                     </div>
@@ -898,6 +969,7 @@
 
 <script setup>
 import { computed, nextTick, onMounted, ref, watch } from "vue";
+import { useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 import api from "@/lib/api";
 import BaseButton from "@/components/ui/BaseButton.vue";
@@ -905,6 +977,7 @@ import BaseCard from "@/components/ui/BaseCard.vue";
 import UiState from "@/components/ui/UiState.vue";
 import RingoCoach from "@/components/ringo/RingoCoach.vue";
 import RingoRewardSequence from "@/components/ringo/RingoRewardSequence.vue";
+import DailyMomentumBar from "@/components/missions/DailyMomentumBar.vue";
 import MissionContextPanel from "@/components/missions/MissionContextPanel.vue";
 import PathSelection from "@/components/missions/PathSelection.vue";
 import RemainingMissionExplorer from "@/components/missions/RemainingMissionExplorer.vue";
@@ -913,6 +986,10 @@ import {
   localizeMissionList,
   localizeRingoState,
 } from "@/lib/ringoContentLocalization";
+import {
+  buildMissionPathGroups,
+} from "@/utils/missionMomentumUtils";
+import { resolveActionIcon } from "@/utils/actionIconUtils";
 
 
 // import missionDoneIcon from '../../assets/icons/actions/icon-action-continue.svg';
@@ -921,6 +998,7 @@ import {
 
 
 const { locale, t } = useI18n();
+const router = useRouter();
 const props = defineProps({
   firstRunFocus: { type: Boolean, default: false },
   focusModeActive: { type: Boolean, default: false },
@@ -934,6 +1012,7 @@ const date = ref("");
 const ringo = ref(null);
 const ringoGuidance = ref(null);
 const missions = ref([]);
+const pathCatalog = ref([]);
 const busyId = ref(null);
 const busyAction = ref("");
 const notice = ref("");
@@ -948,6 +1027,7 @@ const missionStatusExpanded = ref(false);
 const restModeActive = ref(false);
 const optionalExplorerExpanded = ref(false);
 const selectedOptionalExplorerMissionId = ref(null);
+const selectedMomentumPathId = ref("");
 const selectedTimelineMissionId = ref(null);
 const reminderPanelMissionId = ref(null);
 const busyReminderOption = ref("");
@@ -1637,6 +1717,7 @@ const futureReminderCount = computed(() => {
 const showOptionalExplorerPrompt = computed(() => {
   return Boolean(
     isTodaySaved.value
+    && !showDailyMomentumBar.value
     && !optionalNextMission.value
     && !optionalNextSuppressed.value
     && !dueReminderFocusActive.value
@@ -1675,6 +1756,7 @@ const selectedOptionalExplorerBody = computed(() => {
 const showCompletedChoices = computed(() => {
   return Boolean(
     isTodaySaved.value
+    && !showDailyMomentumBar.value
     && !dueReminderFocusActive.value
     && !optionalNextMission.value
     && !showOptionalExplorerPrompt.value
@@ -1958,12 +2040,182 @@ const todaySavedLabel = computed(() => {
 
 const isTodaySaved = computed(() => Boolean(ringoGuidance.value?.progress?.today_saved));
 
+const dailyMomentumTodaySafe = computed(() => {
+  const progress = ringoGuidance.value?.progress;
+  if (progress && Object.prototype.hasOwnProperty.call(progress, "today_saved")) {
+    return Boolean(progress.today_saved);
+  }
+
+  return localizedMissions.value.some((mission) => {
+    return normalizedMissionIntensity(mission) !== "bonus" && missionHasStatus(mission, "done");
+  });
+});
+
+const dailyMomentumStreakCount = computed(() => {
+  const progressCount = Number(ringoGuidance.value?.progress?.current_streak);
+  if (Number.isFinite(progressCount) && progressCount > 0) return progressCount;
+
+  const missionWithStreak = localizedMissions.value.find((mission) => {
+    return mission.challenge_streak
+      || mission.challenge_current_streak
+      || mission.current_streak;
+  });
+  const missionCount = Number(
+    missionWithStreak?.challenge_streak
+    ?? missionWithStreak?.challenge_current_streak
+    ?? missionWithStreak?.current_streak,
+  );
+
+  return Number.isFinite(missionCount) && missionCount > 0 ? missionCount : null;
+});
+
+const pathMetadataById = computed(() => {
+  const map = new Map();
+  pathCatalog.value.forEach((path) => {
+    if (path?.path_id === null || path?.path_id === undefined) return;
+    map.set(String(path.path_id), path);
+  });
+  return map;
+});
+
+const dailyMomentumMissions = computed(() => {
+  return effectiveMissionRepresentatives.value.map((mission) => {
+    const metadata = pathMetadataById.value.get(String(mission.path_id || ""));
+    if (!metadata) return mission;
+
+    return {
+      ...mission,
+      path_icon: metadata.icon || mission.path_icon || "",
+      path_color: metadata.color || mission.path_color || "",
+      path_key: metadata.key || mission.path_key || "",
+    };
+  });
+});
+
+const dailyMomentumPathGroups = computed(() => {
+  return buildMissionPathGroups(dailyMomentumMissions.value, {
+    path: t("missions.fallbackPath"),
+    challenge: t("missions.fallbackChallenge"),
+  });
+});
+
+const dailyMomentumActivePathIds = computed(() => {
+  return new Set(
+    dailyMomentumPathGroups.value
+      .map((path) => normalizedPathId(path.pathId || path.id))
+      .filter(Boolean),
+  );
+});
+
+const showDailyMomentumExplorePaths = computed(() => {
+  if (!pathCatalog.value.length) return false;
+  const activePathIds = dailyMomentumActivePathIds.value;
+
+  return pathCatalog.value.some((path) => {
+    const pathId = normalizedPathId(path?.path_id || path?.id);
+    return pathId && !activePathIds.has(pathId);
+  });
+});
+
+const dailyMomentumAllPathsComplete = computed(() => {
+  return dailyMomentumPathGroups.value.length > 0
+    && dailyMomentumPathGroups.value.every((path) => Number(path?.stats?.percent || 0) >= 100);
+});
+
+const dailyMomentumNextAction = computed(() => {
+  if (!dailyMomentumTodaySafe.value) {
+    const mission = pendingMissions.value.find((item) => normalizedMissionIntensity(item) !== "bonus")
+      || focusMission.value;
+
+    return mission
+      ? buildDailyMomentumAction("protect", mission)
+      : { mode: "protect", mission: null };
+  }
+
+  if (!optionalNextSuppressed.value && safeOptionalMissions.value.length) {
+    return buildDailyMomentumAction("optional", safeOptionalMissions.value[0]);
+  }
+
+  return { mode: "complete", mission: null };
+});
+
+const dailyMomentumActions = computed(() => {
+  const nextAction = dailyMomentumNextAction.value;
+
+  if (!dailyMomentumTodaySafe.value) {
+    return [{
+      key: "protect",
+      icon: "protect-today",
+      variant: "primary",
+      label: t("missions.dailyMomentum.actions.protect"),
+      mission: nextAction.mission,
+    }];
+  }
+
+  if (optionalExplorerExpanded.value || selectedOptionalExplorerMission.value) {
+    return [{
+      key: "finish",
+      icon: "finish-today",
+      variant: "primary",
+      label: t("missions.dailyMomentum.actions.finish"),
+    }, {
+      key: "hide_choices",
+      icon: "hide-choices",
+      variant: "secondary",
+      label: t("missions.dailyMomentum.actions.hideChoices"),
+    }];
+  }
+
+  if (nextAction.mode === "optional" && nextAction.mission && !dailyMomentumAllPathsComplete.value) {
+    const actions = [{
+      key: "view_choices",
+      icon: "view-choices",
+      variant: "primary",
+      label: t("missions.dailyMomentum.actions.viewChoices"),
+      mission: nextAction.mission,
+    }, {
+      key: "finish",
+      icon: "finish-today",
+      variant: "secondary",
+      label: t("missions.dailyMomentum.actions.finish"),
+    }];
+
+    return actions;
+  }
+
+  const actions = [{
+    key: "finish",
+    icon: "finish-today",
+    variant: "primary",
+    label: t("missions.dailyMomentum.actions.finish"),
+  }];
+
+  if (optionalExplorerMissions.value.length && !optionalNextSuppressed.value) {
+    actions.push({
+      key: "view_choices",
+      icon: "view-choices",
+      variant: "secondary",
+      label: t("missions.dailyMomentum.actions.viewChoices"),
+    });
+  }
+
+  return actions;
+});
+
+const showDailyMomentumBar = computed(() => {
+  return Boolean(!loading.value && !error.value && localizedMissions.value.length);
+});
+
 const showTodaySavedBody = computed(() => {
   if (optionalNextMission.value) return true;
   if (finishedForTodayNarrative.value) return false;
   if (agendaNarrative.value?.mood === "sleeping") return false;
 
   return guidanceAgenda.value?.next_action_type !== "done_for_today";
+});
+
+const missionReminderCount = computed(() => {
+  return localizedMissions.value.filter((mission) => missionHasStatus(mission, "remind_later")).length;
 });
 
 const missionFocusState = computed(() => {
@@ -1973,6 +2225,7 @@ const missionFocusState = computed(() => {
       reason: "loading",
       todaySafe: false,
       hasActionableSuggestion: false,
+      reminderCount: 0,
     };
   }
 
@@ -1982,6 +2235,7 @@ const missionFocusState = computed(() => {
       reason: "rest_mode",
       todaySafe: isTodaySaved.value,
       hasActionableSuggestion: false,
+      reminderCount: missionReminderCount.value,
     };
   }
 
@@ -2020,6 +2274,7 @@ const missionFocusState = computed(() => {
     active,
     reason,
     todaySafe: isTodaySaved.value,
+    reminderCount: missionReminderCount.value,
     hasActionableSuggestion: Boolean(
       hasDueReminder ||
       hasPendingPrimary ||
@@ -2273,6 +2528,7 @@ async function loadMissions() {
   restModeActive.value = false;
   optionalExplorerExpanded.value = false;
   selectedOptionalExplorerMissionId.value = null;
+  selectedMomentumPathId.value = "";
   showOtherMissions.value = true;
   optionalSuggestionRequested.value = false;
   selectedTimelineMissionId.value = null;
@@ -2282,10 +2538,11 @@ async function loadMissions() {
   skipReasonPanelMissionId.value = null;
 
   try {
-    const [missionsResult, guidanceResult, telegramResult] = await Promise.allSettled([
+    const [missionsResult, guidanceResult, telegramResult, pathsResult] = await Promise.allSettled([
       api.get("/me/today-missions"),
       api.get("/me/ringo/today"),
       api.get("/api/me/telegram/settings"),
+      api.get("/paths"),
     ]);
 
     if (missionsResult.status === "rejected") {
@@ -2302,6 +2559,9 @@ async function loadMissions() {
         ...(telegramResult.value?.data?.settings || {}),
       };
     }
+    pathCatalog.value = pathsResult.status === "fulfilled"
+      ? pathsResult.value?.data?.items || []
+      : [];
     date.value = data?.date || "";
     ringo.value = data?.ringo || null;
     if (ringo.value?.state !== dismissedCoachState.value) {
@@ -2316,6 +2576,7 @@ async function loadMissions() {
     });
   } catch (e) {
     ringoGuidance.value = null;
+    pathCatalog.value = [];
     error.value = e?.response?.data?.error || e?.message || String(e);
     emit("loaded", {
       error: error.value,
@@ -2967,6 +3228,141 @@ function finishRewardSequence() {
   showOtherMissions.value = true;
 }
 
+function missionActionIcon(key) {
+  return resolveActionIcon(key);
+}
+
+function normalizedPathId(value) {
+  const id = String(value ?? "").trim();
+  return id && id !== "null" && id !== "undefined" ? id : "";
+}
+
+function buildDailyMomentumAction(mode, mission) {
+  return {
+    mode,
+    mission,
+    title: mission?.title || t(`missions.dailyMomentum.next.${mode}.title`),
+    meta: dailyMomentumMissionMeta(mission),
+  };
+}
+
+function dailyMomentumMissionMeta(mission) {
+  if (!mission) return "";
+
+  const type = missionTypeLabel(mission);
+  const minutes = missionEstimatedMinutes(mission);
+  if (minutes) {
+    return t("missions.dailyMomentum.next.missionMetaWithTime", { type, minutes });
+  }
+
+  return t("missions.dailyMomentum.next.missionMeta", { type });
+}
+
+function selectDailyMomentumPath(path) {
+  if (!path?.key) return;
+
+  selectedMomentumPathId.value = path.key;
+  closeReminderPanel();
+  closeSkipReasonPanel();
+
+  if (optionalExplorerMissions.value.length) {
+    optionalExplorerExpanded.value = true;
+    selectedOptionalExplorerMissionId.value = null;
+    optionalSuggestionRequested.value = false;
+    showOtherMissions.value = false;
+    setInteractionNarrative("missions.dailyMomentum.narrative.pathSelected", "thinking", {
+      path: path.title || t("missions.fallbackPath"),
+    });
+    return;
+  }
+
+  const mission = path.missions?.find((item) => {
+    return normalizedMissionIntensity(item) !== "bonus" && missionHasStatus(item, "pending", "remind_later");
+  }) || path.missions?.[0];
+
+  if (mission?.mission_id) {
+    manualFocusMissionId.value = mission.mission_id;
+    setInteractionNarrative("missions.dailyMomentum.narrative.pathMissionFocused", "focus", {
+      path: path.title || t("missions.fallbackPath"),
+    });
+    focusMissionCard(mission);
+  }
+}
+
+function selectDailyMomentumNextAction(action) {
+  const mission = action?.mission;
+  if (!mission?.mission_id) return;
+
+  closeReminderPanel();
+  closeSkipReasonPanel();
+
+  if (dailyMomentumTodaySafe.value && action.mode === "optional") {
+    optionalExplorerExpanded.value = false;
+    selectedOptionalExplorerMissionId.value = mission.mission_id;
+    optionalSuggestionRequested.value = false;
+    setInteractionNarrative(selectedOptionalExplorerNarrativeKey(mission), selectedOptionalExplorerNarrativeMood(mission), {
+      mission: mission.title || t("missions.fallbackMission"),
+    });
+    nextTick(() => {
+      document
+        .getElementById("optional-explorer-selected")
+        ?.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+    return;
+  }
+
+  manualFocusMissionId.value = mission.mission_id;
+  optionalExplorerExpanded.value = false;
+  selectedOptionalExplorerMissionId.value = null;
+  setInteractionNarrative("missions.dailyMomentum.narrative.nextActionFocused", "focus", {
+    mission: mission.title || t("missions.fallbackMission"),
+  });
+  focusMissionCard(mission);
+}
+
+function handleDailyMomentumAction(action) {
+  if (!action?.key) return;
+
+  if (action.key === "finish") {
+    finishForToday();
+    return;
+  }
+
+  if (action.key === "view_choices") {
+    selectedMomentumPathId.value = "";
+    viewRemainingMissions();
+    return;
+  }
+
+  if (action.key === "hide_choices") {
+    hideOptionalMissionExplorer();
+    showOptionalExplorerRoot();
+    return;
+  }
+
+  if (action.key === "protect") {
+    selectDailyMomentumNextAction({
+      mode: "protect",
+      mission: action.mission || dailyMomentumNextAction.value?.mission,
+    });
+  }
+}
+
+function exploreDailyMomentumPaths() {
+  router.push("/paths").catch(() => {
+    setInteractionNarrative("missions.dailyMomentum.narrative.explorePaths", "thinking");
+  });
+}
+
+function explainDailyMomentumStrike() {
+  setInteractionNarrative(
+    dailyMomentumTodaySafe.value
+      ? "missions.dailyMomentum.narrative.strikeSafe"
+      : "missions.dailyMomentum.narrative.strikeNotSafe",
+    dailyMomentumTodaySafe.value ? "happy" : "focus",
+  );
+}
+
 function finishForToday() {
   optionalNextSuppressed.value = true;
   optionalSuggestionRequested.value = false;
@@ -2974,6 +3370,7 @@ function finishForToday() {
   restModeActive.value = true;
   optionalExplorerExpanded.value = false;
   selectedOptionalExplorerMissionId.value = null;
+  selectedMomentumPathId.value = "";
   missionStatusExpanded.value = false;
   showOtherMissions.value = true;
   setInteractionNarrative("missions.finishedForTodayMessage", "sleeping");
@@ -2998,6 +3395,7 @@ function viewRemainingMissions() {
 function hideOptionalMissionExplorer() {
   optionalExplorerExpanded.value = false;
   selectedOptionalExplorerMissionId.value = null;
+  selectedMomentumPathId.value = "";
 }
 
 function selectOptionalExplorerPath(path) {
@@ -4202,15 +4600,18 @@ onMounted(loadMissions);
 }
 
 .missionActionIcon {
-  width: 20px;
-  height: 20px;
+  width: 16px;
+  height: 16px;
   flex: 0 0 auto;
   display: block;
   object-fit: contain;
+  margin-inline-end: 7px;
+  filter: brightness(0) invert(1);
+  opacity: 0.86;
 }
 
 .missionActionButtonPrimary .missionActionIcon {
-  filter: drop-shadow(0 0 10px rgba(110, 229, 255, 0.18));
+  filter: brightness(0) invert(1) drop-shadow(0 0 10px rgba(110, 229, 255, 0.18));
 }
 
 
@@ -4222,6 +4623,16 @@ onMounted(loadMissions);
   min-width: 0;
   max-width: 100%;
   overflow-x: clip;
+}
+
+.missionCenter.hasDailyMomentumBar {
+  padding-bottom: 104px;
+}
+
+@media (max-width: 880px) {
+  .missionCenter.hasDailyMomentumBar {
+    padding-bottom: 176px;
+  }
 }
 
 .missionList {
