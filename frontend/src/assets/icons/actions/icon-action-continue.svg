@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" aria-hidden="true" role="img">
+  <title>Continue</title>
+  <desc>A guided forward step icon.</desc>
+  <style>
+    .primary { stroke: #EAF8FF; }
+    .muted { stroke: #A9B8C8; }
+    .accent { stroke: #6EE5FF; }
+    .positive { stroke: #4ADE80; }
+    .warm { stroke: #F8C86A; }
+  </style>
+  <g stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <path class="muted" d="M4.2 12h13.15" opacity="0.75"/>
+    <path class="accent" d="M13.7 7.95 17.75 12l-4.05 4.05"/>
+    <path class="primary" d="M5.8 7.25c1.4-1.8 3.45-2.65 5.65-2.35" opacity="0.5"/>
+    <path class="primary" d="M5.8 16.75c1.4 1.8 3.45 2.65 5.65 2.35" opacity="0.5"/>
+  </g>
+</svg>

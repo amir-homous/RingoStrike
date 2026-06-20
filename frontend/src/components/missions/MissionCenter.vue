@@ -49,12 +49,14 @@
           <BaseButton variant="primary" :loading="busyId === focusMission.mission_id && busyAction === 'done'"
             :disabled="missionHasStatus(focusMission, 'done')" @click="markDone(focusMission)">
             {{ missionHasStatus(focusMission, "remind_later") ? t("missions.doItNow") : t("missions.doneCta") }}
+            <!-- <img :src="missionDoneIcon" alt="" class="missionActionIcon" aria-hidden="true" /> -->
           </BaseButton>
 
           <BaseButton variant="secondary" :loading="busyId === focusMission.mission_id && busyAction === 'remind'"
             :disabled="missionHasStatus(focusMission, 'done')" @click="remindLater(focusMission)">
             {{ missionHasStatus(focusMission, "remind_later") ? t("missions.editReminder") : t("missions.remindLater")
             }}
+            <!-- <img :src="missionRemindIcon" alt="" class="missionActionIcon" aria-hidden="true" /> -->
           </BaseButton>
 
           <BaseButton v-if="shouldShowFocusSupportAction('make_smaller', focusMission)" variant="secondary"
@@ -911,6 +913,12 @@ import {
   localizeMissionList,
   localizeRingoState,
 } from "@/lib/ringoContentLocalization";
+
+
+// import missionDoneIcon from '../../assets/icons/actions/icon-action-continue.svg';
+// import missionRemindIcon from '../../assets/icons/actions/icon-action-remind.svg';
+// import missionSkipIcon from '../../assets/icons/actions/icon-action-skip.svg';
+
 
 const { locale, t } = useI18n();
 const props = defineProps({
@@ -2980,8 +2988,10 @@ function selectOptionalExplorerPath(path) {
   selectedOptionalExplorerMissionId.value = null;
   closeReminderPanel();
   closeSkipReasonPanel();
-  setInteractionNarrative("missions.narrative.optionalPathSelected", "thinking", {
+  const stats = path?.stats || {};
+  setInteractionNarrative(optionalPathNarrativeKey(stats), "thinking", {
     path: path?.title || t("missions.fallbackPath"),
+    count: optionalGroupNarrativeCount(stats),
   });
 }
 
@@ -2989,8 +2999,10 @@ function selectOptionalExplorerChallenge(challenge) {
   selectedOptionalExplorerMissionId.value = null;
   closeReminderPanel();
   closeSkipReasonPanel();
-  setInteractionNarrative("missions.narrative.optionalChallengeSelected", "thinking", {
+  const stats = challenge?.stats || {};
+  setInteractionNarrative(optionalChallengeNarrativeKey(stats), "thinking", {
     challenge: challenge?.title || t("missions.fallbackChallenge"),
+    count: optionalGroupNarrativeCount(stats),
   });
 }
 
@@ -3739,6 +3751,55 @@ function isFutureReminder(mission) {
   return missionHasStatus(mission, "remind_later") && reminderTimestamp(mission) > Date.now();
 }
 
+function optionalActionableCount(stats = {}) {
+  return Number(stats.pending || 0);
+}
+
+function optionalGroupNarrativeCount(stats = {}) {
+  if (optionalGroupHasOnlyFutureReminders(stats)) return Number(stats.futureReminders || 0);
+  return optionalActionableCount(stats);
+}
+
+function optionalGroupIsCompleteForNow(stats = {}) {
+  return Number(stats.total || 0) > 0
+    && Number(stats.percent || 0) >= 100
+    && !Number(stats.pending || 0)
+    && !Number(stats.reminderDue || 0)
+    && !Number(stats.futureReminders || 0)
+    && !Number(stats.skipped || 0);
+}
+
+function optionalGroupHasOnlyFutureReminders(stats = {}) {
+  return !Number(stats.pending || 0)
+    && !Number(stats.reminderDue || 0)
+    && Number(stats.futureReminders || 0) > 0
+    && !Number(stats.skipped || 0);
+}
+
+function optionalPathNarrativeKey(stats = {}) {
+  if (optionalGroupIsCompleteForNow(stats)) return "missions.narrative.optionalPathComplete";
+  if (optionalGroupHasOnlyFutureReminders(stats)) return "missions.narrative.optionalPathFutureReminders";
+
+  const count = optionalActionableCount(stats);
+  if (count === 1) return "missions.narrative.optionalPathOneStep";
+  if (count > 1) return "missions.narrative.optionalPathManySteps";
+  if (Number(stats.done || 0) > 0) return "missions.narrative.optionalPathPartial";
+
+  return "missions.narrative.optionalPathSelected";
+}
+
+function optionalChallengeNarrativeKey(stats = {}) {
+  if (optionalGroupIsCompleteForNow(stats)) return "missions.narrative.optionalChallengeComplete";
+  if (optionalGroupHasOnlyFutureReminders(stats)) return "missions.narrative.optionalChallengeFutureReminders";
+
+  const count = optionalActionableCount(stats);
+  if (count === 1) return "missions.narrative.optionalChallengeOneStep";
+  if (count > 1) return "missions.narrative.optionalChallengeManySteps";
+  if (Number(stats.done || 0) > 0) return "missions.narrative.optionalChallengePartial";
+
+  return "missions.narrative.optionalChallengeSelected";
+}
+
 function selectedOptionalExplorerNarrativeKey(mission) {
   if (missionHasStatus(mission, "remind_later")) {
     return isReminderDue(mission)
@@ -4117,14 +4178,41 @@ onMounted(loadMissions);
 </script>
 
 <style scoped>
+.missionActionButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.missionActionIcon {
+  width: 20px;
+  height: 20px;
+  flex: 0 0 auto;
+  display: block;
+  object-fit: contain;
+}
+
+.missionActionButtonPrimary .missionActionIcon {
+  filter: drop-shadow(0 0 10px rgba(110, 229, 255, 0.18));
+}
+
+
 .missionCenter {
   display: grid;
   gap: var(--s-16);
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: clip;
 }
 
 .missionList {
   display: grid;
   gap: var(--s-16);
+  min-width: 0;
+  max-width: 100%;
 }
 
 .restModeCard {
@@ -4132,11 +4220,13 @@ onMounted(loadMissions);
   overflow: hidden;
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
+  width: 100%;
   gap: var(--s-20);
   align-items: center;
   min-height: 360px;
   padding: 28px;
   border-color: rgba(110, 229, 255, 0.13);
+
   background:
     radial-gradient(circle at 16% 18%, rgba(110, 229, 255, 0.12), transparent 30%),
     radial-gradient(circle at 84% 0%, rgba(74, 222, 128, 0.08), transparent 32%),
@@ -4497,10 +4587,15 @@ onMounted(loadMissions);
 .optionalExplorerPrompt {
   display: grid;
   gap: var(--s-10);
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
   padding: 12px;
   border: 1px solid rgba(110, 229, 255, 0.14);
   border-radius: 18px;
   background: rgba(110, 229, 255, 0.05);
+  overflow: hidden;
 }
 
 .optionalExplorerActions {
@@ -4508,6 +4603,8 @@ onMounted(loadMissions);
   flex-wrap: wrap;
   gap: var(--s-8);
   align-items: center;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .optionalReminderQueue {
@@ -4907,7 +5004,8 @@ onMounted(loadMissions);
   height: clamp(520px, 72vh, 760px);
   min-height: 520px;
   margin-inline: auto;
-  padding: 34px 112px 34px 12px;
+  padding-block: 34px;
+  padding-inline: 12px 112px;
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 18px;
   background:
@@ -4924,9 +5022,8 @@ onMounted(loadMissions);
 .timelineRail::before {
   content: "";
   position: absolute;
-  top: 34px;
-  bottom: 34px;
-  left: 63px;
+  inset-block: 34px;
+  inset-inline-start: 63px;
   width: 3px;
   border-radius: 999px;
   background: linear-gradient(180deg,
@@ -4939,8 +5036,7 @@ onMounted(loadMissions);
 .timelineResetLabels {
   position: absolute;
   inset-block: 14px;
-  right: 14px;
-  left: auto;
+  inset-inline-end: 14px;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
@@ -4949,18 +5045,18 @@ onMounted(loadMissions);
   font-size: var(--cap);
   font-weight: 820;
   line-height: 1.35;
-  text-align: right;
+  text-align: end;
 }
 
 .timelineTrack {
   position: absolute;
-  inset: 34px 15px 34px 0;
+  inset-block: 34px;
+  inset-inline: 0 15px;
 }
 
 .timelineGuide {
   position: absolute;
-  left: 0;
-  right: 0;
+  inset-inline: 0;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -4972,7 +5068,7 @@ onMounted(loadMissions);
 .timelineGuideLine {
   flex: 1;
   height: 1px;
-  margin-left: 74px;
+  margin-inline-start: 74px;
   background: linear-gradient(90deg, rgba(255, 255, 255, 0.10), rgba(255, 255, 255, 0.025));
 }
 
@@ -4981,13 +5077,12 @@ onMounted(loadMissions);
   color: rgba(255, 255, 255, 0.38);
   font-size: var(--cap);
   font-weight: 820;
-  text-align: right;
+  text-align: end;
 }
 
 .timelineNow {
   position: absolute;
-  left: -10px;
-  right: 0;
+  inset-inline: -10px 0;
   z-index: 0;
   display: flex;
   align-items: center;
@@ -5000,15 +5095,15 @@ onMounted(loadMissions);
 .timelineNow::before {
   content: "";
   flex: 1;
-  margin-left: 74px;
+  margin-inline-start: 74px;
   height: 1px;
   background: rgba(133, 147, 150, 0.7);
 }
 
 .timelineNow span {
   width: auto;
-  margin-left: 0px;
-  margin-right: -8px;
+  margin-inline-start: 0;
+  margin-inline-end: -8px;
   padding: 3px 7px;
   border: 1px solid rgba(110, 229, 255, 0.24);
   border-radius: 999px;
@@ -5016,13 +5111,13 @@ onMounted(loadMissions);
   background: rgba(5, 10, 18, 0.80);
   font-size: var(--cap);
   font-weight: 900;
-  text-align: right;
+  text-align: end;
   white-space: nowrap;
 }
 
 .timelineCluster {
   position: absolute;
-  left: 47px;
+  inset-inline-start: 47px;
   z-index: 3;
   display: inline-flex;
   align-items: center;
@@ -5033,12 +5128,12 @@ onMounted(loadMissions);
 }
 
 .timelineCluster.multi {
-  padding-left: 40px;
+  padding-inline-start: 40px;
 }
 
 .timelineClusterTypes {
   position: absolute;
-  left: 0;
+  inset-inline-start: 0;
   top: 50%;
   z-index: 2;
   display: block;
@@ -5920,7 +6015,8 @@ onMounted(loadMissions);
     max-width: none;
     height: min(78vh, 720px);
     min-height: 520px;
-    padding: 34px 86px 34px 10px;
+    padding-block: 34px;
+    padding-inline: 10px 86px;
   }
 
   .timelineRail.compact {
@@ -5929,7 +6025,7 @@ onMounted(loadMissions);
   }
 
   .timelineRail::before {
-    left: 45px;
+    inset-inline-start: 45px;
   }
 
   .timelineResetLabels {
@@ -5937,15 +6033,15 @@ onMounted(loadMissions);
   }
 
   .timelineNow::before {
-    margin-left: 56px;
+    margin-inline-start: 56px;
   }
 
   .timelineCluster {
-    left: 31px;
+    inset-inline-start: 31px;
   }
 
   .timelineGuideLine {
-    margin-left: 56px;
+    margin-inline-start: 56px;
   }
 
   .timelineGuideLabel {

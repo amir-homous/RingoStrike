@@ -9,7 +9,11 @@
 <style scoped>
 .app{
   min-height: 100vh;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
   padding: var(--s-24) var(--px);
+  background: var(--bg);
   overflow-x: clip;
 }
 .container{
