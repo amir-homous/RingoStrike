@@ -16,6 +16,24 @@ The project has moved beyond raw MVP. Core progression identity is implemented. 
 
 ## Latest Launch-Hardening Updates
 
+### Daily Momentum Bar v1
+
+Added a frontend-only Daily Momentum Bar as the compact daily strike/path/action dock:
+
+- Added a bottom daily status/action surface showing today's strike safety, streak count, today-only path progress rings, and contextual actions.
+- Kept `compactProgressStrip` as the top/global XP-level/status strip while the Daily Momentum Bar owns the daily strike/path/action dock.
+- Path icons prefer DB-backed path icon metadata when available, with frontend asset fallback.
+- Path progress rings use today-only mission/path progress and path colors where available.
+- Added a lightweight Explore Paths action circle that appears when `/paths` catalog data includes paths not represented in current momentum data; v1 routes to the existing Paths page and does not add a modal or backend discovery flow.
+- Added action icon support from `frontend/src/assets/action-icons/`; black PNG icons are rendered white on dark UI through CSS filtering.
+- Mission action buttons now support icons for done, remind later, make smaller, too tired, skip, finish today, view choices, protect today, and hide choices. Full-version icon support is prepared for `make-bigger.png` when that asset exists.
+- Centralized safe-state action ownership in the Daily Momentum Bar; optional explorer content remains available, but duplicate optional continuation footer actions are hidden while the bar owns actions.
+- Added a compact reminder chip in `compactProgressStrip` only when the existing frontend mission reminder count is greater than zero.
+- Persian/RTL and mobile layout were checked during polish.
+- Kept the change frontend-only with no backend, schema, migration, API response shape, XP/stat/progression, check-in/streak, mission mutation, reward economy, path-level, analytics, or reminder delivery changes.
+- Validation passed: `npm --prefix frontend run build`, `npm --prefix frontend run test:router`, `npm --prefix frontend run test:localization`, and `git diff --check`.
+- Existing Vite large chunk warning remains.
+
 ### Mission Reward Moment v1
 
 Added a frontend-only Mission Reward Moment after mission completion:

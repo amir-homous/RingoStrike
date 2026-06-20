@@ -276,6 +276,66 @@ Not fully verified:
 - No automated visual regression test asserts the reward overlay state.
 
 
+## Daily Momentum Bar v1 addendum
+
+Status: implemented and manually checked during frontend polish.
+
+Scope checked:
+
+- English desktop layout.
+- Persian/RTL layout.
+- Mobile layout.
+- Not-safe daily state.
+- Safe daily state.
+- View choices behavior.
+- Hidden duplicate Optional Explorer footer actions while the Momentum Bar owns actions.
+- Reminder chip behavior in `compactProgressStrip`.
+
+Observed QA notes:
+
+- Daily Momentum Bar now provides a compact daily status/action surface.
+- It shows today safety, streak count, today-only path progress rings, and contextual actions.
+- It works alongside the existing `compactProgressStrip`, which remains the top/global XP-level/status strip.
+- Daily Momentum Bar owns the bottom daily strike/path/action dock.
+- Path icons prefer DB-backed path icon metadata where available.
+- Path progress rings use today's available path progress and path colors where available.
+- Explore Paths appears as a neutral action circle when existing `/paths` catalog data includes unrepresented paths.
+- Explore Paths v1 routes to the existing Paths page and does not implement a new modal or backend discovery flow.
+- Action icons resolve from `frontend/src/assets/action-icons/`, with black PNG assets rendered white by default through CSS filtering.
+- Mission action buttons support icons for done, remind later, make smaller, too tired, skip, finish today, view choices, protect today, and hide choices.
+- The old duplicate Optional Continuation action area is hidden when the Momentum Bar owns actions.
+- Optional Explorer content remains available, but action ownership is centralized in the Momentum Bar.
+- `compactProgressStrip` shows a reminder chip only when reminder count is greater than zero.
+
+Validation commands/results:
+
+- `npm --prefix frontend run build` passed.
+- `npm --prefix frontend run test:router` passed.
+- `npm --prefix frontend run test:localization` passed.
+- `git diff --check` passed.
+- Existing Vite large chunk warning remains.
+
+Boundaries confirmed:
+
+- No backend changes.
+- No database changes.
+- No schema changes.
+- No migrations.
+- No API response shape changes.
+- No XP, stat, streak, achievement, check-in, activity, reminder delivery, reward economy, or progression ownership changes.
+- No mission mutation behavior changes.
+- No path-level system.
+- No historical analytics.
+- No full Explore Paths modal or backend discovery flow.
+- No Ringo Brain decision policy changes.
+
+Not fully verified:
+
+- No screenshot artifact is attached.
+- No automated visual regression test asserts every Momentum Bar state.
+- No full device-matrix QA beyond the manual desktop/mobile and EN/FA checks listed above.
+
+
 ## Fresh user 3-challenge flow
 
 Status: partially verified through manual development flow.

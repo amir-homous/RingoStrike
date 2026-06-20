@@ -103,6 +103,29 @@ Boundaries:
 - Due reminders still own MissionCenter focus. Future reminders remain quiet until due.
 - Frontend icon assets are display-only and must not become API contract requirements.
 
+## Daily Momentum Bar Display Contract
+
+Daily Momentum Bar v1 is frontend-owned display/action orchestration in MissionCenter. It consumes existing frontend mission, path catalog, and Ringo guidance data; it does not own backend progression, XP, streak, check-in, reward economy, or mission mutation behavior.
+
+Current frontend display responsibilities:
+
+- Show a compact daily strike/path/action dock with today safety, streak count, today-only path progress rings, and contextual actions.
+- Keep `compactProgressStrip` as the top/global XP-level/status strip; the Daily Momentum Bar is the bottom daily strike/path/action dock.
+- Resolve path icons from DB-backed path icon metadata where available, using `frontend/src/assets/path-icons/{path.icon}.png` with fallback behavior.
+- Derive path progress rings from today's available mission/path data and use path colors where available.
+- Resolve action icons from `frontend/src/assets/action-icons/`; black PNGs are rendered white by CSS filtering, and missing icons must not reserve empty slots.
+- Support mission/action icons for done, remind later, make smaller, too tired, skip, finish today, view choices, protect today, hide choices, and full-version/make-bigger when that asset exists.
+- Show Explore Paths as a neutral action circle only when `/paths` catalog data includes paths not represented in current momentum data.
+- Route Explore Paths v1 to the existing `/paths` page. It does not create a new backend discovery flow or modal.
+- Hide duplicate Optional Explorer footer actions while the Daily Momentum Bar owns safe-state actions.
+- Allow `compactProgressStrip` to show a reminder chip only when the existing frontend reminder count is greater than zero.
+
+Boundaries:
+
+- No API response shape changes are required by Daily Momentum Bar v1.
+- Explore Paths v1 is navigation-only and must not imply path joining, challenge discovery mutation, or backend recommendation ownership.
+- Reminder chip display uses already-loaded frontend mission reminder state; it must not add reminder endpoints or notification behavior.
+
 ## Auth Endpoints
 
 ### `POST /auth/register`
