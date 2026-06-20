@@ -35,6 +35,10 @@ Product direction source:
 - Full `/paths` page for path selection, challenge stage previews, mission previews, and per-path progress summary.
 - Premium check-in reward moment with existing XP, streak, achievement, and frontend-only unlock hints.
 - Frontend-only Mission Reward Moment v1 after mission completion, reusing `RingoRewardSequence.vue` for earned mission XP while falling back to calm completion copy for already-done or no-XP responses.
+- Frontend-only Daily Momentum Bar v1 as the compact daily strike/path/action dock, working alongside `compactProgressStrip` as the top/global XP-level/status strip.
+- Today-only path progress rings with DB-backed path icons, path-color accents, contextual daily actions, and a lightweight Explore Paths action that routes to the existing Paths page.
+- Action icon support from `frontend/src/assets/action-icons/`, including white-on-dark rendering for black PNG assets and safe text-only fallback.
+- Reminder chip in `compactProgressStrip` only when existing frontend reminder count is greater than zero.
 - Frontend-only progressive disclosure for early dashboard sections based on existing check-in stats.
 - Enrollment history and challenge leaderboard.
 - XP, level, current streak, longest streak, and progress calculations.
@@ -156,6 +160,7 @@ Based on git history, the project has progressed through:
 5. Guided path/mission foundation: seeded MVP paths, path-specific challenges, daily missions, mission logs, RingoCoach state decisions, premium navigation, and Ringo helper sprites.
 6. Mission-family, focus-mode, and optional-explorer polish: main/tiny substitute behavior, bonus-as-optional momentum, staged first-run reveal, post-first-win copy, compact focus progress, collapsed mission status details, Rest Mode, and post-safe optional growth-map exploration.
 7. Mission Reward Moment v1: frontend-only mission completion feedback that reuses the existing reward sequence, differentiates main/tiny/bonus copy, skips full replay for already-done/no-XP responses, and keeps progression ownership in the existing backend systems.
+8. Daily Momentum Bar v1: frontend-only compact daily strike/path/action dock that shows today safety, streak count, today-only path rings, contextual actions, Explore Paths navigation, and reminder chip display while preserving backend/API/schema/progression ownership.
 
 ## Known Stabilization Needs
 
@@ -186,4 +191,5 @@ Based on git history, the project has progressed through:
 - Dashboard mission focus mode hides secondary sections until the daily focus is resolved or the user explicitly chooses `Show dashboard`; focus mode remains frontend-only and does not alter progression writes.
 - MissionCenter optional explorer progress-map polish remains frontend-only: completed groups can stay visible, due reminders still own focus, future reminders stay quiet until due, and reward-ready/building states do not imply backend reward claims.
 - Mission Reward Moment v1 remains frontend-only: it consumes additive mission completion fields such as `mission.xp_awarded`, `mission.already_done`, and `mission.mission_intensity`, but does not change backend XP/stat/progression logic, mission mutation behavior, schema, reminder delivery, or Ringo Brain policy.
+- Daily Momentum Bar v1 remains frontend-only: it consumes existing mission/path/guidance data, centralizes daily action display in MissionCenter, hides duplicate optional continuation actions, and does not change backend XP/stat/progression logic, mission mutation behavior, schema, reminder delivery, API response shapes, path levels, historical analytics, or Ringo Brain policy.
 - Persian/RTL root-background and layout stability were hardened by ensuring dark coverage for the full root/app shell.

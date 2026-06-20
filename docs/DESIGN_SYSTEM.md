@@ -117,6 +117,21 @@ Design rules:
 - Let the optional explorer / next-action state return after dismissal without turning the reward into a blocking loop.
 - Keep EN/FA copy aligned, with RTL handled by the existing i18n/root direction behavior.
 
+## Daily Momentum Bar
+
+Daily Momentum Bar v1 is the compact daily strike/path/action dock. It should feel like a premium dark-glass control surface, not a row of separate boxy buttons.
+
+Design rules:
+
+- Keep `compactProgressStrip` visually distinct as the top/global XP-level/status strip. The Daily Momentum Bar is the bottom daily strike/path/action dock.
+- Use restrained dark glass, subtle borders, soft internal glow, and path-color accents only where they clarify progress.
+- Keep path controls icon-first: circular buttons, centered DB-backed path icons, and SVG progress rings from today's path progress.
+- Keep path rings subtle and non-noisy. Use dim neutral rings at 0%, path-colored arcs for partial progress, and a soft complete glow at 100%.
+- Treat Explore Paths as a neutral action circle, not a progress ring. In v1 it routes to the existing Paths page and should not imply a new discovery modal.
+- Render black PNG action icons white by default on dark UI through CSS filtering, with text-only fallback when an icon is missing.
+- Keep action labels concise: `Protect today`, `View choices`, `Finish today`, and `Hide choices`.
+- Preserve RTL and mobile containment; the dock should remain centered/bounded and must not cover the mobile bottom navigation.
+
 ## Component System
 
 UI primitives:

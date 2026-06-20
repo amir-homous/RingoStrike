@@ -46,7 +46,8 @@
           </BaseCard> -->
 
           <div v-if="showMissionFocusMode && stats" class="missionFocusProgress">
-            <CompactProgressStrip :stats="stats" :today-safe="missionFocusState.todaySafe" />
+            <CompactProgressStrip :stats="stats" :today-safe="missionFocusState.todaySafe"
+              :reminder-count="missionFocusState.reminderCount" />
 
             <!-- <BaseButton variant="secondary" @click="showDashboardFromFocus">
               {{ t("dashboard.showDashboard") }}
@@ -280,6 +281,7 @@ const missionFocusState = ref({
   reason: "loading",
   todaySafe: false,
   hasActionableSuggestion: false,
+  reminderCount: 0,
 });
 const missionCenterStatus = ref({
   loaded: false,
@@ -610,6 +612,7 @@ function handleMissionFocusState(payload) {
     reason: payload?.reason || "",
     todaySafe: Boolean(payload?.todaySafe),
     hasActionableSuggestion: Boolean(payload?.hasActionableSuggestion),
+    reminderCount: Number(payload?.reminderCount || 0),
   };
 
   if (missionFocusState.value.active && !missionFocusDismissed.value) {
@@ -646,11 +649,19 @@ onMounted(loadDashboard);
 }
 
 .missionFocusProgress {
+  position: sticky;
+  top: calc(78px + env(safe-area-inset-top));
+  z-index: 26;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   min-width: 0;
   max-width: 100%;
+  padding: 6px 0 8px;
+  border-radius: 20px;
+  background: linear-gradient(180deg, rgba(6, 11, 20, 0.72), rgba(6, 11, 20, 0.38));
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.16);
+  backdrop-filter: blur(14px);
 }
 
 .dashboardRevealActive .dashboardRevealItem {

@@ -87,6 +87,8 @@ The detailed product direction lives in:
 - Post-safe optional explorer growth-map polish with progress-surface path/challenge cards, circular icon progress rings, frontend-only reward-ready/building slots, earned/total XP summaries, mission-key icons, and status-aware mission rows.
 - Completed optional paths/challenges can remain visible so users can feel completion while MissionCenter's single-focus loop remains intact.
 - Mission Reward Moment v1 after mission completion, reusing `RingoRewardSequence.vue` and consuming additive mission completion fields for earned XP display without changing backend progression ownership.
+- Daily Momentum Bar v1 as a frontend-only compact daily strike/path/action dock showing today safety, streak count, today-only path progress rings, contextual actions, and lightweight Explore Paths navigation while `compactProgressStrip` remains the top/global XP-level/status strip.
+- Action icon support from `frontend/src/assets/action-icons/`, DB-backed path icon display, optional explorer duplicate footer action cleanup, and reminder chip display in `compactProgressStrip` only when reminder count is greater than zero.
 - `/paths` planning view with path picker, stage panels, mission previews, and today progress summary.
 - Ringo helper sprites and RingoCoach component.
 - Premium navigation with Paths in desktop/mobile navigation and Settings removed from visible navigation.
@@ -156,6 +158,7 @@ The detailed product direction lives in:
 - Hardened VPS runtime around `systemd`, env-driven Flask binding, `FLASK_DEBUG=0`, and nginx `/api-proxy` routing to a localhost-only backend.
 - Hardened Persian/RTL dashboard and optional explorer rendering by ensuring full-viewport dark root/app background coverage and clipped direction-aware progress surfaces.
 - Added frontend-only Mission Reward Moment v1 with EN/FA copy, main/tiny/bonus reward framing, already-done/no-XP replay protection, and no backend, schema, XP/stat/progression, mission mutation, reminder, or Ringo Brain policy changes.
+- Added frontend-only Daily Momentum Bar v1 with today safety, streak count, today-only path rings, contextual daily actions, Explore Paths navigation to the existing Paths page, action icon support, reminder chip display, and duplicate optional continuation action cleanup. No backend, schema, migrations, API response shape, XP/stat/progression, check-in/streak, mission mutation, reward economy, path-level, historical analytics, full Explore Paths modal, or Ringo Brain policy changes were made.
 
 
 ### Backend Test Coverage Added
@@ -236,6 +239,7 @@ These items should happen before expanding product scope:
 - Keep reminder automation monitored through diagnostics and n8n admin summaries.
 - Keep optional explorer progress-map polish display-only unless a future product issue explicitly designs backend reward claiming.
 - Keep Mission Reward Moment display-only unless a future product issue explicitly designs backend reward economy changes.
+- Keep Daily Momentum Bar display/action orchestration frontend-only unless a future product issue explicitly designs new backend discovery, path-level, analytics, or progression behavior. Explore Paths v1 is navigation to the existing Paths page only.
 
 
 ---
