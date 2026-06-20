@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" aria-hidden="true" role="img">
+  <title>Remind later</title>
+  <desc>A gentle clock and bell reminder icon.</desc>
+  <style>
+    .primary { stroke: #EAF8FF; }
+    .muted { stroke: #A9B8C8; }
+    .accent { stroke: #6EE5FF; }
+    .positive { stroke: #4ADE80; }
+    .warm { stroke: #F8C86A; }
+  </style>
+  <g stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <circle class="accent" cx="11" cy="12.3" r="6.8" opacity="0.85"/>
+    <path class="primary" d="M11 8.8v3.8l2.35 1.45"/>
+    <path class="warm" d="M16.85 5.65c1.55.85 2.4 2.15 2.55 3.85"/>
+    <path class="warm" d="M18.65 11.25c.85 1.15.6 2.45-.25 3.25" opacity="0.75"/>
+    <path class="muted" d="M8.7 20.1h4.6" opacity="0.7"/>
+  </g>
+</svg>

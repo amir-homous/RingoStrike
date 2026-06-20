@@ -51,6 +51,28 @@ The backend supports HttpOnly cookie auth and Bearer token fallback. The fronten
 
 `frontend/src/stores/session.js` is aligned with this cookie-based model and uses `/me` plus `/auth/logout`; it does not require `api.setToken()`.
 
+## MissionCenter Optional Explorer Display Contract
+
+The MissionCenter optional explorer is frontend-owned display behavior built from the existing `/me/today-missions` mission data.
+
+Current frontend display responsibilities:
+
+- Group optional missions by path and challenge for the post-safe explorer.
+- Derive path/challenge progress, completed counts, reminder counts, and earned/total XP summaries from grouped mission rows.
+- Render path/challenge progress-surface cards and circular icon progress rings.
+- Render reward-ready/building slots as frontend display states only.
+- Resolve path/challenge/mission icons from frontend assets. Mission row icons are resolved by mission key from `frontend/src/assets/missions-icons/` with a frontend default asset fallback.
+- Keep completed path/challenge groups visible when useful so users can feel completion.
+- Use status-aware mission row styling for pending/ready, done, future reminder, due reminder, skipped, and optional bonus states.
+
+Boundaries:
+
+- Reward-ready/building labels do not claim a backend reward.
+- Optional explorer XP summaries do not change XP ownership. XP, streak, achievements, check-ins, activity, and stats remain owned by the existing backend check-in/progression services.
+- The optional explorer must not introduce new mission mutation behavior or rely on new API response shape.
+- Due reminders still own MissionCenter focus. Future reminders remain quiet until due.
+- Frontend icon assets are display-only and must not become API contract requirements.
+
 ## Auth Endpoints
 
 ### `POST /auth/register`

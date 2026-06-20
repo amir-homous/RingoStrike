@@ -634,6 +634,11 @@ onMounted(loadDashboard);
 .dashboardStack {
   display: grid;
   gap: var(--s-16);
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: clip;
 }
 
 .scrollAnchor {
@@ -643,8 +648,9 @@ onMounted(loadDashboard);
 .missionFocusProgress {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: var(--s-12);
   align-items: center;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .dashboardRevealActive .dashboardRevealItem {

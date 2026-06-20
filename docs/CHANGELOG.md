@@ -16,6 +16,24 @@ The project has moved beyond raw MVP. Core progression identity is implemented. 
 
 ## Latest Launch-Hardening Updates
 
+### MissionCenter Optional Explorer Progress-Map Polish
+
+Refined the post-safe MissionCenter optional explorer into a calmer growth/progression map:
+
+- Path and challenge rows now use progress-surface visual treatment with clipped card-local fills.
+- Path/challenge icon rings now communicate progress without changing mission behavior.
+- Path/challenge rows now include frontend-only reward-ready/building visual slots.
+- Path/challenge rows now show earned XP vs total available XP, derived from grouped mission data.
+- Mission rows now support frontend mission icons resolved by mission key, with frontend asset fallback.
+- Mission row status colors were polished for pending/ready, done, reminder waiting, reminder due, skipped, and optional bonus states.
+- Completed paths/challenges can remain visible so users can feel completion instead of losing the completed context.
+- Ringo guidance copy better reflects completed, partial, reminder-only, and optional group states.
+- Preserved the single-focus MissionCenter loop: due reminders still own focus, future reminders remain quiet until due, and optional exploration remains post-safe.
+- Fixed Persian/RTL layout and root-background stability by ensuring full viewport dark background coverage for `html`, `body`, `#app`, and the app shell.
+- Kept the change frontend-only with no backend, schema, migration, API response shape, mission mutation, XP, streak, achievement, check-in, activity, reminder delivery, progression ownership, or reward-claim backend logic changes.
+- Validation passed: `npm --prefix frontend run build`, `npm --prefix frontend run test:router`, `npm --prefix frontend run test:localization`, and `git diff --check`.
+- Existing Vite large chunk warning remains.
+
 ### Frontend-Only Seeded Content Display Localization
 
 Implemented frontend-only display localization for known seeded RingoStrike content:

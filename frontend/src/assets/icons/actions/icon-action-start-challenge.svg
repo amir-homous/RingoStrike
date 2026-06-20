@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" aria-hidden="true" role="img">
+  <title>Start challenge</title>
+  <desc>A meaningful challenge start icon with forward momentum.</desc>
+  <style>
+    .primary { stroke: #EAF8FF; }
+    .muted { stroke: #A9B8C8; }
+    .accent { stroke: #6EE5FF; }
+    .positive { stroke: #4ADE80; }
+    .warm { stroke: #F8C86A; }
+  </style>
+  <g stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <path class="primary" d="M6 19.25V5.2" opacity="0.82"/>
+    <path class="accent" d="M6 5.75h8.15l-1.35 2.65 1.35 2.65H6"/>
+    <path class="warm" d="M17.6 5.05v3.5"/>
+    <path class="warm" d="M15.85 6.8h3.5"/>
+    <path class="accent" d="M10.3 16.05h7.25" opacity="0.9"/>
+    <path class="accent" d="M15.25 13.85l2.3 2.2-2.3 2.2" opacity="0.9"/>
+  </g>
+</svg>
