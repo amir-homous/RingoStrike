@@ -19,10 +19,10 @@
         <span class="pathRing" aria-hidden="true">
           <svg class="pathRingSvg" viewBox="0 0 80 80" focusable="false">
             <circle class="ringTrack" cx="40" cy="40" r="35" :stroke="ringTrackColor(path)"
-              :stroke-width="ringStrokeWidth" />
-            <circle class="ringValue" cx="40" cy="40" r="35" :stroke="pathRingColor(path)"
-              :stroke-width="ringStrokeWidth" :stroke-dasharray="ringCircumference"
-              :stroke-dashoffset="ringDashOffset(path)" />
+              :stroke-width="ringStrokeWidth" pathLength="100" />
+            <circle class="ringValue" :class="{ empty: ringPercent(path) <= 0 }" cx="40" cy="40" r="35"
+              :stroke="pathRingColor(path)" :stroke-width="ringStrokeWidth" pathLength="100"
+              :stroke-dasharray="ringDashArray(path)" />
           </svg>
           <span class="pathIcon">
             <img v-if="path.iconUrl" :src="path.iconUrl" alt="" />
@@ -77,9 +77,7 @@ const props = defineProps({
 defineEmits(["select-path", "action", "explain-strike", "explore-paths"]);
 const { t } = useI18n();
 
-const ringRadius = 35;
 const ringStrokeWidth = 4;
-const ringCircumference = 2 * Math.PI * ringRadius;
 const exploreIcon = resolveActionIcon("explorePaths");
 
 const visiblePathGroups = computed(() => {
@@ -141,9 +139,13 @@ function ringTrackColor(path) {
     : "rgba(255, 255, 255, 0.105)";
 }
 
-function ringDashOffset(path) {
+function ringPercent(path) {
   const percent = Math.min(100, Math.max(0, Number(path?.stats?.percent || 0)));
-  return ringCircumference * (1 - (percent / 100));
+  return Number.isFinite(percent) ? percent : 0;
+}
+
+function ringDashArray(path) {
+  return `${ringPercent(path)} 100`;
 }
 </script>
 
@@ -312,7 +314,7 @@ function ringDashOffset(path) {
   z-index: 1;
   overflow: visible;
   pointer-events: none;
-  transform: rotate(90deg);
+  transform: rotate(-90deg);
 }
 
 .ringTrack,
@@ -324,7 +326,11 @@ function ringDashOffset(path) {
 
 .ringValue {
   filter: drop-shadow(0 0 8px color-mix(in srgb, currentColor 30%, transparent));
-  transition: stroke-dashoffset 220ms ease, opacity 180ms ease;
+  transition: stroke-dasharray 220ms ease, opacity 180ms ease;
+}
+
+.ringValue.empty {
+  opacity: 0;
 }
 
 .pathRingButton.complete .ringValue {

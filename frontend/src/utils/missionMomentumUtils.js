@@ -258,12 +258,12 @@ function boundedPercent(percent) {
   return Math.min(100, Math.max(0, Number(percent) || 0));
 }
 
-function resolvePathIcon(name) {
+export function resolvePathIcon(name) {
   return iconFromModules(pathIconModules, name)
     || iconFromModules(pathIconModules, "default_path_icon");
 }
 
-function resolveChallengeIcon(challengeId) {
+export function resolveChallengeIcon(challengeId) {
   return iconFromModules(challengeIconModules, challengeId)
     || iconFromModules(challengeIconModules, "default_challenge_icon");
 }
