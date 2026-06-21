@@ -54,7 +54,7 @@
             </BaseButton> -->
           </div>
 
-          <MissionCenter :key="missionCenterKey" :first-run-focus="showFirstRunFocus"
+          <MissionCenter :key="missionCenterKey" :stats="stats" :first-run-focus="showFirstRunFocus"
             :focus-mode-active="showMissionFocusMode" @checked-in="handleMissionCheckin"
             @loaded="handleMissionCenterLoaded" @first-run-complete="dismissFirstRunFocus"
             @focus-state-change="handleMissionFocusState" @show-dashboard="showDashboardFromFocus" />
@@ -474,9 +474,14 @@ function showDashboardFromFocus() {
   }
 }
 
-async function loadDashboard() {
+async function loadDashboard(options = {}) {
+  const silent = Boolean(options?.silent);
+
   error.value = "";
-  loading.value = true;
+
+  if (!silent) {
+    loading.value = true;
+  }
 
   try {
     const data = await loadDashboardData(api, new Date().toLocaleDateString());
@@ -491,9 +496,12 @@ async function loadDashboard() {
     console.error(e);
     error.value = e?.response?.data?.error || e?.message || String(e);
   } finally {
-    loading.value = false;
+    if (!silent) {
+      loading.value = false;
+    }
   }
 }
+
 
 async function checkin(enrollmentId) {
   checkingId.value = enrollmentId;
@@ -563,39 +571,41 @@ async function checkin(enrollmentId) {
   }
 }
 
-async function handleMissionCheckin(payload) {
-  const enrollmentId = payload?.mission?.enrollment_id;
+// async function handleMissionCheckin() {
+//   const oldStats = stats.value ? { ...stats.value } : null;
+
+//   await loadDashboard({ silent: true });
+
+//   const oldPoints = Number(oldStats?.total_points ?? oldStats?.xp);
+//   const newPoints = Number(stats.value?.total_points ?? stats.value?.xp);
+//   const xpEarned = Number.isFinite(oldPoints) && Number.isFinite(newPoints)
+//     ? Math.max(0, newPoints - oldPoints)
+//     : 0;
+
+//   if (xpEarned > 0) {
+//     pushToast(`+${xpEarned} XP`, "success");
+//     pushToast(`🔥 ${t("dashboard.streakMaintained")}`, "success");
+//   }
+// }
+
+async function handleMissionCheckin(payload = {}) {
   const oldStats = stats.value ? { ...stats.value } : null;
 
-  await loadDashboard();
-  missionCenterKey.value += 1;
+  await loadDashboard({ silent: true });
 
-  const checkedChallenge = challenges.value.find(
-    (challenge) => challenge.enrollment_id === enrollmentId,
-  );
+  if (payload?.source === "mission_completion") return;
+  if (!oldStats || !stats.value) return;
 
-  const rewardPayload = buildRewardMomentPayload(
-    payload?.checkin?.rewards,
-    oldStats,
-    checkedChallenge,
-    {
-      mission: payload?.mission,
-      securedAt: payload?.mission?.secured_at || new Date().toISOString(),
-    },
-  );
-  rewardMoment.value = rewardPayload;
-
-  const oldPoints = Number(oldStats?.total_points ?? oldStats?.xp);
-  const newPoints = Number(stats.value?.total_points ?? stats.value?.xp);
-  const xpEarned = Number.isFinite(oldPoints) && Number.isFinite(newPoints)
-    ? Math.max(0, newPoints - oldPoints)
-    : 0;
-
-  if (xpEarned > 0) {
-    pushToast(`+${xpEarned} XP`, "success");
-    pushToast(`🔥 ${t("dashboard.streakMaintained")}`, "success");
+  if (stats.value.level > oldStats.level) {
+    rewardMoment.value = {
+      type: "level",
+      title: t("dashboard.rewards.levelTitle"),
+      text: t("dashboard.rewards.levelText", { level: stats.value.level }),
+    };
   }
 }
+
+
 
 function handleMissionCenterLoaded(payload) {
   missionCenterStatus.value = {

@@ -1,6 +1,7 @@
 <template>
   <section class="missionCenter" :class="{ hasDailyMomentumBar: showDailyMomentumBar }">
-    <RingoRewardSequence :steps="rewardSequenceSteps" :sprite="rewardSequenceSprite" @finish="finishRewardSequence" />
+    <RingoRewardSequence :steps="rewardSequenceSteps" :sprite="rewardSequenceSprite"
+      @action="handleRewardSequenceAction" @finish="finishRewardSequence" />
 
     <BaseCard v-if="restModeActive" class="restModeCard">
       <div class="restModeSprite" aria-hidden="true">
@@ -40,10 +41,10 @@
       </div>
 
       <DailyMomentumBar v-if="showDailyMomentumBar" :today-safe="dailyMomentumTodaySafe"
-        :streak-count="dailyMomentumStreakCount" :path-groups="dailyMomentumPathGroups"
-        :actions="dailyMomentumActions" :show-explore-paths="showDailyMomentumExplorePaths"
-        @select-path="selectDailyMomentumPath" @action="handleDailyMomentumAction"
-        @explore-paths="exploreDailyMomentumPaths" @explain-strike="explainDailyMomentumStrike" />
+        :streak-count="dailyMomentumStreakCount" :path-groups="dailyMomentumPathGroups" :actions="dailyMomentumActions"
+        :show-explore-paths="showDailyMomentumExplorePaths" @select-path="selectDailyMomentumPath"
+        @action="handleDailyMomentumAction" @explore-paths="exploreDailyMomentumPaths"
+        @explain-strike="explainDailyMomentumStrike" />
 
       <div v-if="showFocusMissionCard" :id="`mission-${focusMission.mission_id}`" class="focusMission coachFocusMission"
         :class="{ firstRunRevealStep: props.firstRunFocus, firstRunRevealMission: props.firstRunFocus }">
@@ -377,9 +378,9 @@
 
       <RemainingMissionExplorer v-if="showOptionalMissionExplorer" :missions="optionalExplorerMissions"
         :selected-mission-id="selectedOptionalExplorerMissionId" :selected-path-id="selectedMomentumPathId"
-        :hide-actions="showDailyMomentumBar" @select="selectOptionalExplorerMission" @select-path="selectOptionalExplorerPath"
-        @select-challenge="selectOptionalExplorerChallenge" @back="showOptionalExplorerRoot"
-        @close="hideOptionalMissionExplorer" @finish="finishForToday" />
+        :hide-actions="showDailyMomentumBar" @select="selectOptionalExplorerMission"
+        @select-path="selectOptionalExplorerPath" @select-challenge="selectOptionalExplorerChallenge"
+        @back="showOptionalExplorerRoot" @close="hideOptionalMissionExplorer" @finish="finishForToday" />
 
       <section v-if="showOptionalExplorerPrompt" class="optionalExplorerPrompt">
         <div class="optionalNextCopy">
@@ -990,6 +991,11 @@ import {
   buildMissionPathGroups,
 } from "@/utils/missionMomentumUtils";
 import { resolveActionIcon } from "@/utils/actionIconUtils";
+import {
+  buildRewardDelta,
+  buildMissionCompletionRewardSteps,
+  buildRewardSnapshot,
+} from "@/utils/rewardSequenceBuilder";
 
 
 // import missionDoneIcon from '../../assets/icons/actions/icon-action-continue.svg';
@@ -1002,6 +1008,7 @@ const router = useRouter();
 const props = defineProps({
   firstRunFocus: { type: Boolean, default: false },
   focusModeActive: { type: Boolean, default: false },
+  stats: { type: Object, default: null },
 });
 
 const emit = defineEmits(["checked-in", "loaded", "first-run-complete", "focus-state-change", "show-dashboard"]);
@@ -2600,8 +2607,14 @@ async function runMissionAction(mission, action, request, options = {}) {
   busyAction.value = action;
   error.value = "";
 
+  const shouldBuildReward = action === "done";
+  const rewardBeforeSnapshot = shouldBuildReward
+    ? buildCurrentRewardSnapshot(mission)
+    : null;
+
   try {
     const { data } = await request();
+
     notice.value = options.successNotice || (action === "done"
       ? data?.checkin?.already_checked
         ? t("missions.alreadySecuredNotice")
@@ -2609,39 +2622,63 @@ async function runMissionAction(mission, action, request, options = {}) {
       : action === "remind"
         ? t("missions.reminderNotice")
         : t("missions.skipNotice"));
+
     noticeType.value = action === "done"
       ? "success"
       : action === "remind"
         ? "reminder"
         : "muted";
 
-    if (data?.checkin?.ok) {
-      emit("checked-in", {
-        ...data,
-        mission: {
-          ...mission,
-          ...(data?.mission || {}),
-          title: mission.title,
-          description: mission.description,
-          challenge_name: mission.challenge_name,
-          path_title: mission.path_title,
-        },
-      });
-    }
-
-    if (action === "done") {
-      rewardSequenceSteps.value = buildRewardSequence(data, mission);
-      rewardSequenceSprite.value = missionRewardIntensity(data, mission) === "bonus" ? "happy" : "celebration";
-    }
+    const completedMission = {
+      ...(mission || {}),
+      ...(data?.mission || {}),
+      title: mission.title,
+      description: mission.description,
+      key: data?.mission?.key || data?.mission?.mission_key || mission.key || mission.mission_key || "",
+      challenge_name: data?.mission?.challenge_name || mission.challenge_name,
+      path_title: data?.mission?.path_title || mission.path_title,
+    };
 
     applyMissionResponse(data, mission);
     completeFirstRunFocus();
+
     await loadMissions();
+
+    if (shouldBuildReward) {
+      const rewardAfterSnapshot = buildCurrentRewardSnapshot(completedMission, data);
+      const rewardDelta = buildRewardDelta(rewardBeforeSnapshot, rewardAfterSnapshot, data);
+      const rewardResult = buildMissionCompletionRewardSteps(rewardDelta, data, { t });
+
+      rewardSequenceSteps.value = rewardResult.steps;
+      rewardSequenceSprite.value = missionRewardIntensity(data, mission) === "bonus"
+        ? "happy"
+        : "celebration";
+
+      if (import.meta.env.DEV) {
+        console.debug("[reward-sequence]", {
+          alreadyDone: rewardResult.normalized.alreadyDone,
+          xpAwarded: rewardResult.normalized.xpAwarded,
+          backendSteps: rewardResult.backendSteps.length,
+          frontendSteps: rewardResult.frontendSteps.length,
+          finalSteps: rewardResult.steps.length,
+        });
+      }
+    }
+
+    if (data?.checkin?.ok) {
+      emit("checked-in", {
+        ...data,
+        source: "mission_completion",
+        mission: completedMission,
+      });
+    }
+
     if (action === "remind") {
       preferMainMissionAfterReminder(mission);
       selectedTimelineMissionId.value = mission.mission_id;
       showTelegramPromptAfterReminder();
     }
+
     if (options.narrative) {
       setNarrative(options.narrative);
     } else if (action === "done") {
@@ -2649,6 +2686,7 @@ async function runMissionAction(mission, action, request, options = {}) {
     }
   } catch (e) {
     const errorCode = e?.response?.data?.error || e?.message || String(e);
+
     if (action === "remind" && errorCode === "reminder_after_next_reset") {
       error.value = "";
       notice.value = t("missions.remindOptions.afterResetBlockedNotice");
@@ -2664,7 +2702,6 @@ async function runMissionAction(mission, action, request, options = {}) {
     busySkipReason.value = "";
   }
 }
-
 
 
 function markDone(mission) {
@@ -3096,11 +3133,6 @@ function missionRewardAlreadyDone(data) {
   return Boolean(data?.mission?.already_done);
 }
 
-function backendRewardHasStep(data, type) {
-  const sequence = data?.reward_sequence;
-  return Array.isArray(sequence) && sequence.some((step) => step?.type === type);
-}
-
 function missionRewardIntensity(data, mission) {
   return normalizedMissionIntensity({
     ...(mission || {}),
@@ -3108,97 +3140,19 @@ function missionRewardIntensity(data, mission) {
   });
 }
 
-function missionRewardTitle(data, mission) {
-  return data?.mission?.title || mission?.title || t("ringoRewardSequence.local.missionFallback");
-}
-
-function missionRewardTodaySafe(data, mission) {
-  const intensity = missionRewardIntensity(data, mission);
-  if (intensity === "bonus") return false;
-  if (backendRewardHasStep(data, "today_saved")) return true;
-
-  return Boolean(data?.checkin?.ok && !data?.checkin?.already_checked);
-}
-
-function missionRewardProgressText(data, mission) {
-  const source = {
-    ...(mission || {}),
-    ...(data?.mission || {}),
-  };
-  const path = String(source.path_title || "").trim();
-  const challenge = String(source.challenge_name || "").trim();
-
-  if (path && challenge) {
-    return t("ringoRewardSequence.mission.progressPathChallenge", { path, challenge });
-  }
-
-  if (challenge) {
-    return t("ringoRewardSequence.mission.progressChallenge", { challenge });
-  }
-
-  if (path) {
-    return t("ringoRewardSequence.mission.progressPath", { path });
-  }
-
-  return "";
-}
-
-function buildRewardSequence(data, mission) {
-  const xpAwarded = missionRewardXpAwarded(data);
-  if (missionRewardAlreadyDone(data) || xpAwarded <= 0) return [];
-
-  const intensity = missionRewardIntensity(data, mission);
-  const todaySaved = missionRewardTodaySafe(data, mission);
-  const progressText = missionRewardProgressText(data, mission);
-  const missionTitle = missionRewardTitle(data, mission);
-  const completionTitleKey = intensity === "bonus"
-    ? "bonusCompleteTitle"
-    : intensity === "tiny"
-      ? "tinyCompleteTitle"
-      : "completeTitle";
-  const nextTextKey = intensity === "bonus"
-    ? "bonusNextText"
-    : todaySaved
-      ? "todaySafeNextText"
-      : "nextText";
-  const steps = [
-    {
-      type: "mission_completed",
-      title: t(`ringoRewardSequence.mission.${completionTitleKey}`),
-      text: t("ringoRewardSequence.mission.completeText", { mission: missionTitle }),
-      sprite: intensity === "bonus" ? "happy" : "celebration",
+function buildCurrentRewardSnapshot(mission, completionResult = null) {
+  return buildRewardSnapshot({
+    missions: localizedMissions.value,
+    pathGroups: dailyMomentumPathGroups.value,
+    stats: props.stats,
+    guidanceProgress: ringoGuidance.value?.progress || null,
+    mission,
+    completionResult,
+    fallbacks: {
+      path: t("missions.fallbackPath"),
+      challenge: t("missions.fallbackChallenge"),
     },
-    {
-      type: "xp_earned",
-      title: t("ringoRewardSequence.mission.xpTitle"),
-      text: t("ringoRewardSequence.mission.xpText"),
-      value: t("ringoRewardSequence.local.xpValue", { count: xpAwarded }),
-    },
-  ];
-
-  if (progressText) {
-    steps.push({
-      type: "progress_impact",
-      title: t("ringoRewardSequence.mission.progressTitle"),
-      text: progressText,
-    });
-  }
-
-  if (todaySaved) {
-    steps.push({
-      type: "today_saved",
-      title: t("ringoRewardSequence.mission.todaySafeTitle"),
-      text: t("ringoRewardSequence.mission.todaySafeText"),
-    });
-  }
-
-  steps.push({
-    type: "next_choice",
-    title: t("ringoRewardSequence.mission.nextTitle"),
-    text: t(`ringoRewardSequence.mission.${nextTextKey}`),
   });
-
-  return steps;
 }
 
 function missionCompletionNarrative(data, mission) {
@@ -3226,6 +3180,18 @@ function missionCompletionNarrative(data, mission) {
 function finishRewardSequence() {
   rewardSequenceSteps.value = [];
   showOtherMissions.value = true;
+}
+
+function handleRewardSequenceAction(action) {
+  if (action?.key === "finish_today") {
+    finishForToday();
+    return;
+  }
+
+  if (action?.key === "view_choices") {
+    selectedMomentumPathId.value = "";
+    viewRemainingMissions();
+  }
 }
 
 function missionActionIcon(key) {

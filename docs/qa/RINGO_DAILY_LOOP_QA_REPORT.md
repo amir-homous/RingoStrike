@@ -114,7 +114,7 @@ Boundaries confirmed:
 - No mission mutation behavior changes.
 - No XP, streak, achievement, check-in, reminder delivery, or progression logic changes.
 - No dashboard redesign.
-- No contextual reward sequence implementation.
+- No full universal Mission Context UX layer. The later Staged Mission Reward Sequence v2 addendum documents the implemented mission-completion reward sequence.
 - No Telegram mission-specific deep-link restoration.
 
 Not fully verified:
@@ -122,7 +122,7 @@ Not fully verified:
 - No fresh automated end-to-end test log is attached for Mission Context UX Phase 1.
 - No full mobile viewport matrix was completed for every mission context state.
 - No screen-reader/accessibility pass was completed for the new context layer.
-- Full contextual reward sequence and Telegram mission-specific deep-link restoration remain future work.
+- Universal Mission Context UX coverage and Telegram mission-specific deep-link restoration remain future work. The later Staged Mission Reward Sequence v2 addendum documents the implemented mission-completion reward sequence.
 
 
 ## Frontend-only seeded content display localization addendum
@@ -336,6 +336,68 @@ Not fully verified:
 - No full device-matrix QA beyond the manual desktop/mobile and EN/FA checks listed above.
 
 
+## Staged Mission Reward Sequence v2 addendum
+
+Status: implemented and manually checked during frontend polish.
+
+Scope checked:
+
+- Main mission reward.
+- Tiny mission reward where applicable.
+- Bonus mission reward where applicable.
+- Already-done replay behavior.
+- Backend reward-sequence normalization.
+- Frontend fallback mission/XP/final-choice steps.
+- Strike secured step when today becomes safe.
+- XP/level progress movement and level-up wrap behavior.
+- Path strengthened and challenge strengthened steps when before/after deltas are available.
+- Challenge secured/check-in step when a new challenge check-in is recorded.
+- Mission icon resolution by `mission.key`.
+- English and Persian localized reward copy.
+- RTL behavior through the existing i18n/root direction system.
+- Legacy Dashboard reward-card suppression after mission completion.
+
+Observed QA notes:
+
+- Mission completion now opens a staged reward sequence instead of a static mission reward card.
+- The frontend normalizes backend `response.reward_sequence`, including `mission_completed` -> `mission_complete` and `next_choice` -> `final_choice`.
+- Supported backend step types such as `xp_earned` and `ringo_message` are preserved.
+- Newly completed XP missions have guaranteed frontend fallback steps: mission complete, XP earned, and final choice.
+- Before/after reward snapshots are used where available; missing deltas are skipped rather than invented.
+- XP level-up wrap avoids visual backward motion by animating old -> 100 and then 0 -> new when exact old/new progress and levels are available.
+- Mission icons resolve from `frontend/src/assets/missions-icons/{mission.key}.png` with `default_missions_icon.png` fallback.
+- Challenge secured copy clarifies that today's check-in was recorded, separate from challenge strengthened/progress-moved copy.
+- The legacy Dashboard `RewardMoment` card is suppressed for mission-completion reward flows while silent dashboard stat refresh remains intact.
+- Persian/RTL copy and layout were polished, and reduced-motion behavior is respected where implemented.
+
+Validation commands/results:
+
+- `npm --prefix frontend run build` passed.
+- `npm --prefix frontend run test:router` passed.
+- `npm --prefix frontend run test:localization` passed.
+- `git diff --check` passed.
+- Existing Vite large chunk warning remains.
+
+Boundaries confirmed:
+
+- No backend changes.
+- No database changes.
+- No schema changes.
+- No API contract changes.
+- No mission mutation behavior changes.
+- No XP, stat, streak, achievement, check-in, activity, reminder delivery, reward economy, or progression ownership changes.
+- No reward inventory.
+- No coins/chests.
+- No path levels.
+- No historical analytics.
+
+Not fully verified:
+
+- No screenshot artifact is attached.
+- No automated visual regression test asserts every staged reward state.
+- No full device-matrix QA beyond the manual desktop/mobile and EN/FA checks listed above.
+
+
 ## Fresh user 3-challenge flow
 
 Status: partially verified through manual development flow.
@@ -440,8 +502,9 @@ Expected behavior:
 Observed QA notes:
 
 - `RingoRewardSequence` uses a modal overlay with step progress and a finish/continue action.
-- Supported backend reward step types are filtered before rendering.
-- Local fallback steps include Ringo message, mission completed, XP earned when available, Today Saved when applicable, and next choice.
+- Backend reward step types are normalized before rendering.
+- Frontend fallback steps guarantee mission complete, XP earned, and final choice for newly completed XP missions.
+- Strike secured, path strengthened, challenge strengthened, challenge secured, and level-up steps appear only when the relevant completion context or before/after delta exists.
 
 Not fully verified:
 

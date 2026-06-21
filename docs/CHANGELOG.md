@@ -16,6 +16,26 @@ The project has moved beyond raw MVP. Core progression identity is implemented. 
 
 ## Latest Launch-Hardening Updates
 
+### Staged Mission Reward Sequence v2
+
+Expanded mission completion feedback into a frontend-only staged reward sequence:
+
+- Mission completion now opens a staged reward sequence instead of a simple static reward card.
+- Added before/after reward snapshot support where current frontend mission/path/challenge/stat data is available.
+- Added frontend normalization for backend `response.reward_sequence`, including `mission_completed` -> `mission_complete` and `next_choice` -> `final_choice` step mappings.
+- Preserved supported backend step types such as `xp_earned` and `ringo_message`.
+- Guaranteed frontend fallback steps for newly completed XP missions: mission complete, XP earned, and final choice.
+- Added staged support for mission complete, strike secured, XP earned, level up, path strengthened, challenge strengthened, challenge secured, and final choice steps.
+- XP/level progress animation can move from old to new values, including level-up wrap behavior that avoids visually going backward.
+- Path strengthened and challenge strengthened steps render only when before/after deltas are available; missing deltas are skipped rather than invented.
+- Mission completion steps resolve mission icons from `frontend/src/assets/missions-icons/{mission.key}.png`, with `default_missions_icon.png` fallback.
+- Added `challenge_secured` messaging when a new challenge check-in is recorded.
+- Suppressed the legacy Dashboard `RewardMoment` card for mission-completion reward flows so the staged sequence is the only mission-completion overlay.
+- Polished English/Persian copy, RTL stability, and reduced-motion behavior where implemented.
+- Kept the change frontend-only with no backend, schema, API contract, mission mutation, XP/streak/check-in/progression ownership, reward inventory, coins/chests, path-level, or historical analytics changes.
+- Validation passed: `npm --prefix frontend run build`, `npm --prefix frontend run test:router`, `npm --prefix frontend run test:localization`, and `git diff --check`.
+- Existing Vite large chunk warning remains.
+
 ### Daily Momentum Bar v1
 
 Added a frontend-only Daily Momentum Bar as the compact daily strike/path/action dock:
