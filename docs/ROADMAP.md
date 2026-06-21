@@ -86,7 +86,7 @@ The detailed product direction lives in:
 - Mission Status detail lists are collapsed by default during focus mode and can be revealed manually.
 - Post-safe optional explorer growth-map polish with progress-surface path/challenge cards, circular icon progress rings, frontend-only reward-ready/building slots, earned/total XP summaries, mission-key icons, and status-aware mission rows.
 - Completed optional paths/challenges can remain visible so users can feel completion while MissionCenter's single-focus loop remains intact.
-- Mission Reward Moment v1 after mission completion, reusing `RingoRewardSequence.vue` and consuming additive mission completion fields for earned XP display without changing backend progression ownership.
+- Staged Mission Reward Sequence v2 after mission completion, reusing `RingoRewardSequence.vue`, normalizing backend reward steps, consuming additive mission completion fields and before/after snapshots where available, and displaying mission/XP/strike/level/path/challenge/final-choice feedback without changing backend progression ownership.
 - Daily Momentum Bar v1 as a frontend-only compact daily strike/path/action dock showing today safety, streak count, today-only path progress rings, contextual actions, and lightweight Explore Paths navigation while `compactProgressStrip` remains the top/global XP-level/status strip.
 - Action icon support from `frontend/src/assets/action-icons/`, DB-backed path icon display, optional explorer duplicate footer action cleanup, and reminder chip display in `compactProgressStrip` only when reminder count is greater than zero.
 - `/paths` planning view with path picker, stage panels, mission previews, and today progress summary.
@@ -158,6 +158,7 @@ The detailed product direction lives in:
 - Hardened VPS runtime around `systemd`, env-driven Flask binding, `FLASK_DEBUG=0`, and nginx `/api-proxy` routing to a localhost-only backend.
 - Hardened Persian/RTL dashboard and optional explorer rendering by ensuring full-viewport dark root/app background coverage and clipped direction-aware progress surfaces.
 - Added frontend-only Mission Reward Moment v1 with EN/FA copy, main/tiny/bonus reward framing, already-done/no-XP replay protection, and no backend, schema, XP/stat/progression, mission mutation, reminder, or Ringo Brain policy changes.
+- Added frontend-only Staged Mission Reward Sequence v2 with backend reward-sequence normalization, before/after reward snapshots where available, guaranteed mission/XP/final-choice fallback steps for newly completed XP missions, strike secured, XP/level wrap animation, path/challenge strengthened, challenge secured, mission-key icon fallback, legacy Dashboard reward-card suppression, EN/FA copy, RTL polish, and no backend, schema, API contract, XP/streak/check-in/progression, mission mutation, reward inventory, coins/chests, path-level, or historical analytics changes.
 - Added frontend-only Daily Momentum Bar v1 with today safety, streak count, today-only path rings, contextual daily actions, Explore Paths navigation to the existing Paths page, action icon support, reminder chip display, and duplicate optional continuation action cleanup. No backend, schema, migrations, API response shape, XP/stat/progression, check-in/streak, mission mutation, reward economy, path-level, historical analytics, full Explore Paths modal, or Ringo Brain policy changes were made.
 
 
@@ -223,7 +224,7 @@ These items should happen before expanding product scope:
 
 - Keep invalid challenge join payload coverage as route behavior evolves.
 - Add frontend smoke coverage for `/paths`, MissionCenter, mission done/remind/skip, and duplicate mission/check-in behavior.
-- Continue validating mission context clarity after the focus-mode work. A full Mission Context UX layer, universal path -> challenge -> mission breadcrumbs, and contextual reward sequence are still planned work.
+- Continue validating mission context clarity after the focus-mode work. The staged mission reward sequence now covers mission completion reward framing, but a full universal Mission Context UX layer and universal path -> challenge -> mission breadcrumbs are still planned work.
 - Frontend-only seeded content display localization is implemented for known mission/path/challenge copy; continue maintaining localization key coverage as seeded content expands. Future content work can include fuller localization for custom content, a CMS/content-management approach if the product scales, and AI-generated copy only later after deterministic copy is stable.
 - Add tests for `/auth/logout` edge cases if token blacklist/session invalidation is introduced later.
 - Resolve or document remaining GitHub Actions frontend build instability if it reappears.
@@ -238,7 +239,7 @@ These items should happen before expanding product scope:
 - Keep service-level leaderboard ordering coverage aligned if tie-breaker behavior changes.
 - Keep reminder automation monitored through diagnostics and n8n admin summaries.
 - Keep optional explorer progress-map polish display-only unless a future product issue explicitly designs backend reward claiming.
-- Keep Mission Reward Moment display-only unless a future product issue explicitly designs backend reward economy changes.
+- Keep Staged Mission Reward Sequence display-only unless a future product issue explicitly designs backend reward economy changes.
 - Keep Daily Momentum Bar display/action orchestration frontend-only unless a future product issue explicitly designs new backend discovery, path-level, analytics, or progression behavior. Explore Paths v1 is navigation to the existing Paths page only.
 
 

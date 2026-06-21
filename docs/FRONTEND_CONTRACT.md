@@ -51,9 +51,9 @@ The backend supports HttpOnly cookie auth and Bearer token fallback. The fronten
 
 `frontend/src/stores/session.js` is aligned with this cookie-based model and uses `/me` plus `/auth/logout`; it does not require `api.setToken()`.
 
-## Mission Reward Moment Display Contract
+## Staged Mission Reward Sequence Display Contract
 
-Mission Reward Moment v1 is frontend-owned display behavior after mission completion. It does not own XP, stats, streak, check-in, achievement, activity, reward economy, or mission mutation logic.
+Staged Mission Reward Sequence v2 is frontend-owned presentation after mission completion. It does not own XP, stats, streak, check-in, achievement, activity, reward economy, or mission mutation logic.
 
 The display may consume additive fields from mission completion responses:
 
@@ -61,25 +61,37 @@ The display may consume additive fields from mission completion responses:
 mission.xp_awarded
 mission.already_done
 mission.mission_intensity
+mission.key
+response.reward_sequence
 ```
 
 Current frontend display responsibilities:
 
-- Reuse `RingoRewardSequence.vue` for the mission reward overlay.
-- Show the full reward moment only when `mission.xp_awarded > 0` and `mission.already_done !== true`.
-- Skip full reward replay for already-completed missions.
-- Use calm completion copy when XP is missing, zero, or otherwise unavailable.
-- Show Today Safe / streak-protected language for main/tiny missions only when appropriate for the completion context.
-- Show bonus-complete XP language for bonus missions without claiming Today Safe or creating a new bonus chain.
-- Resume the optional explorer / next-action flow after the reward moment is dismissed.
+- Use `RingoRewardSequence.vue` for the staged mission reward overlay.
+- Prefer before/after reward snapshots where available to derive XP, level, strike, path, and challenge deltas.
+- Normalize backend `response.reward_sequence` before rendering.
+- Map backend step types `mission_completed` -> `mission_complete` and `next_choice` -> `final_choice`.
+- Preserve supported backend step types such as `xp_earned` and `ringo_message`.
+- Guarantee frontend fallback steps for newly completed XP missions: `mission_complete`, `xp_earned`, and `final_choice`.
+- Show `strike_secured` when today's required progress becomes safe.
+- Support XP/level progress animation from old -> new values, with level-up wrap rendered as old -> 100 then 0 -> new when exact old/new progress and levels are available.
+- Support `path_strengthened` and `challenge_strengthened` only when before/after deltas are available.
+- Support `challenge_secured` when a new non-bonus challenge check-in is recorded by the mission completion response.
+- Resolve mission completion icons from `frontend/src/assets/missions-icons/{mission.key}.png`, with `default_missions_icon.png` fallback.
+- Resolve challenge reward icons from `frontend/src/assets/challenge-icons/{challenge_id}.png`, with `default_challenge_icon.png` fallback.
+- Suppress the legacy Dashboard `RewardMoment` card for mission-completion reward flows so the staged sequence is the mission-completion overlay.
+- Resume the optional explorer / next-action flow after the sequence is dismissed.
 - Use English and Persian localized copy through the existing i18n system; RTL remains controlled by the root language/direction behavior.
+- Respect reduced-motion preferences where animation is implemented.
 
 Boundaries:
 
 - No backend reward calculation is performed in the frontend.
-- Missing additive fields must not fabricate XP or safe-day claims.
-- The reward moment must not introduce new API requirements beyond additive response consumption.
-- Already-done and no-XP completion responses should remain successful UI states, but not full reward overlays.
+- Missing additive fields or deltas must not fabricate XP, safe-day, path, challenge, streak, or level claims.
+- The reward sequence must not introduce new API requirements beyond additive response consumption.
+- Already-done and no-XP completion responses should remain successful UI states, but not fake reward overlays.
+- Backend still owns mission completion, XP, check-in, streak, achievement, activity, and stats logic.
+- No schema, API contract, mission mutation, reward inventory, coins/chests, path levels, or historical analytics behavior is introduced by this display layer.
 
 ## MissionCenter Optional Explorer Display Contract
 
@@ -677,7 +689,7 @@ When `today_saved` is `true`, unresolved reminders and skipped missions may stil
 
 Frontend guidance:
 
-- Use this endpoint to lead the Ringo-first dashboard with Ringo mood, message, suggested mission, action choices, Today Saved state, and reward sequence placeholder.
+- Use this endpoint to lead the Ringo-first dashboard with Ringo mood, message, suggested mission, action choices, Today Saved state, and the frontend staged reward sequence entry point.
 - Continue using `/me/missions/:mission_id/done`, `/remind-later`, and `/skip` for mission mutations.
 - Keep `/me/today-missions` compatibility while the dashboard migrates progressively.
 
@@ -801,7 +813,7 @@ Success:
 
 The `today_saved` step is included only for the first completion that satisfies today: either a completed `main` mission or a completed linked `tiny` mission whose `parent_mission_id` points to a main mission. If today was already saved before the current completion, the backend does not repeat `today_saved`; it returns bonus/optional progress copy using supported reward step types. Parent main missions are not automatically marked done when a linked tiny mission is completed.
 
-Frontend `MissionCenter.vue` emits the returned payload to `Dashboard.vue`, which reloads dashboard data and shows RewardMoment from the returned check-in reward data.
+Frontend `MissionCenter.vue` uses the returned payload for the staged mission reward sequence and emits a mission-completion source flag to `Dashboard.vue`. `Dashboard.vue` still reloads dashboard data silently, but suppresses the legacy Dashboard `RewardMoment` card for mission-completion reward flows.
 
 ### `POST /me/missions/:mission_id/remind-later`
 

@@ -103,19 +103,26 @@ Use this pattern for similar progression surfaces:
 
 Keep this style restrained: the optional explorer should feel like a calm progression map, not a noisy game board.
 
-## Mission Reward Moments
+## Staged Mission Reward Sequence
 
-Mission Reward Moment v1 uses the existing `RingoRewardSequence.vue` visual pattern after mission completion. It should feel calm, premium, cinematic, and emotionally meaningful, not casino-like or noisy.
+Staged Mission Reward Sequence v2 uses `RingoRewardSequence.vue` after mission completion. It should feel calm, premium, cinematic, and emotionally meaningful, not casino-like or noisy.
 
 Design rules:
 
 - Reuse the existing reward sequence language and motion pattern instead of creating a separate reward component family.
-- Show earned mission XP only when the completion response reports positive XP and is not already done.
-- Use calm completion copy for already-done or zero/missing-XP responses.
-- Main/tiny completions may carry Today Safe / streak-protected language when the mission context supports it.
+- Mission completion should show the mission icon, mission title, and clear completion copy.
+- Mission icons should resolve from `frontend/src/assets/missions-icons/{mission.key}.png` and fall back to `default_missions_icon.png` without broken image states.
+- Show earned mission XP only when the completion response and/or before/after snapshots support it.
+- Use calm completion copy for already-done or zero/missing-XP responses; do not fake a reward.
+- Main/tiny completions may carry Today Safe / strike-protected language when the mission context supports it.
 - Bonus completions should feel like optional extra momentum and must not claim Today Safe or imply a new bonus chain.
+- Challenge secured/check-in copy should clarify ownership: the check-in was recorded for today. It is distinct from challenge strengthened/progress-moved copy.
+- Animations should communicate meaningful before/after progress. XP level-up wrap should animate old -> 100, then 0 -> new instead of visually going backward.
+- Path and challenge strengthened steps should appear only when there is real before/after delta data.
 - Let the optional explorer / next-action state return after dismissal without turning the reward into a blocking loop.
 - Keep EN/FA copy aligned, with RTL handled by the existing i18n/root direction behavior.
+- Respect reduced-motion preferences.
+- Icons must remain visible on the dark UI; black PNG assets should be filtered or otherwise treated so they do not disappear.
 
 ## Daily Momentum Bar
 
@@ -152,7 +159,7 @@ Feature components:
 - activity: timeline, timeline items, day grouping, empty state
 - challenges: challenge card
 - missions: MissionCenter, PathSelection, focus-mode mission surfaces, collapsed mission status details, and Rest Mode
-- feedback: RewardMoment for check-ins, Mission Reward Moment via `RingoRewardSequence.vue`, and JoinSuccessMoment for softer challenge-start transitions
+- feedback: RewardMoment for legacy check-in flows, Staged Mission Reward Sequence via `RingoRewardSequence.vue`, and JoinSuccessMoment for softer challenge-start transitions
 - guided: reusable first-path empty state
 - onboarding: welcome, identity path selection, and suggested challenge steps
 - profile: hero card, stats grid, settings card/modal, avatar, consistency heatmap

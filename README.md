@@ -20,7 +20,7 @@ The product combines:
 * progression identity
 * Ringo-led daily missions
 * mission focus mode
-* mission reward moments
+* staged mission reward sequences
 * Daily Momentum Bar
 * post-safe optional explorer growth map
 * frontend display localization for known seeded mission/path/challenge content
@@ -73,7 +73,7 @@ The long-term goal is to create a platform where:
 * Ringo-led paths and daily missions
 * Mission reminders, skips, and completion state
 * Mission-family behavior for main/tiny substitutes and optional bonus momentum
-* Frontend-only mission reward moment that displays earned mission XP without changing backend progression ownership
+* Frontend-only staged mission reward sequence that displays mission completion, earned XP, strike/check-in/path/challenge impact where available, and next choice without changing backend progression ownership
 * Frontend-only Daily Momentum Bar that shows today safety, streak count, today-only path rings, and contextual actions without changing backend progression ownership
 
 ---
@@ -129,7 +129,7 @@ The long-term goal is to create a platform where:
 * Daily Momentum Bar as the compact daily strike/path/action dock, with `compactProgressStrip` remaining the top/global XP-level/status strip
 * First-run staged reveal and calm Rest Mode after finishing for today
 * Optional explorer progress-map polish with path/challenge progress surfaces, icon rings, XP summaries, mission icons, and status-aware mission rows
-* Mission Reward Moment v1 after eligible mission completions, reusing the existing reward sequence with EN/FA copy and calm no-XP/already-done fallbacks
+* Staged Mission Reward Sequence v2 after eligible mission completions, normalizing backend reward steps, using before/after reward snapshots where available, resolving mission icons by `mission.key`, and preserving calm no-XP/already-done fallbacks
 * DB-backed path icons, today-only path progress rings, action icons from `frontend/src/assets/action-icons/`, and lightweight Explore Paths navigation to the existing Paths page
 * Reminder chip in the compact progress strip only when there are active reminder counts to show
 * Reward-driven interactions
