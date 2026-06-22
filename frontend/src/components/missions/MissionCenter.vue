@@ -46,6 +46,9 @@
         @action="handleDailyMomentumAction" @explore-paths="exploreDailyMomentumPaths"
         @explain-strike="explainDailyMomentumStrike" />
 
+      <ExplorePathsPanel :open="explorePathsPanelOpen" :paths="dailyMomentumExplorePathItems"
+        @close="closeExplorePathsPanel" @open-paths="openPathsFromExplorePanel" />
+
       <div v-if="showFocusMissionCard" :id="`mission-${focusMission.mission_id}`" class="focusMission coachFocusMission"
         :class="{ firstRunRevealStep: props.firstRunFocus, firstRunRevealMission: props.firstRunFocus }">
         <MissionContextPanel :mission="focusMission" :heading="t('missions.ringoSuggestedMission')"
@@ -979,16 +982,20 @@ import UiState from "@/components/ui/UiState.vue";
 import RingoCoach from "@/components/ringo/RingoCoach.vue";
 import RingoRewardSequence from "@/components/ringo/RingoRewardSequence.vue";
 import DailyMomentumBar from "@/components/missions/DailyMomentumBar.vue";
+import ExplorePathsPanel from "@/components/missions/ExplorePathsPanel.vue";
 import MissionContextPanel from "@/components/missions/MissionContextPanel.vue";
 import PathSelection from "@/components/missions/PathSelection.vue";
 import RemainingMissionExplorer from "@/components/missions/RemainingMissionExplorer.vue";
 import { resolveRingoSprite } from "@/constants/ringoSprites";
 import {
+  localizeChallenge,
+  localizePath,
   localizeMissionList,
   localizeRingoState,
 } from "@/lib/ringoContentLocalization";
 import {
   buildMissionPathGroups,
+  resolvePathIcon,
 } from "@/utils/missionMomentumUtils";
 import { resolveActionIcon } from "@/utils/actionIconUtils";
 import {
@@ -1035,6 +1042,7 @@ const restModeActive = ref(false);
 const optionalExplorerExpanded = ref(false);
 const selectedOptionalExplorerMissionId = ref(null);
 const selectedMomentumPathId = ref("");
+const explorePathsPanelOpen = ref(false);
 const selectedTimelineMissionId = ref(null);
 const reminderPanelMissionId = ref(null);
 const busyReminderOption = ref("");
@@ -2109,19 +2117,44 @@ const dailyMomentumPathGroups = computed(() => {
 const dailyMomentumActivePathIds = computed(() => {
   return new Set(
     dailyMomentumPathGroups.value
-      .map((path) => normalizedPathId(path.pathId || path.id))
+      .flatMap((path) => [
+        normalizedPathId(path.pathId || path.id),
+        normalizedPathId(path.key),
+      ])
       .filter(Boolean),
   );
 });
 
-const showDailyMomentumExplorePaths = computed(() => {
-  if (!pathCatalog.value.length) return false;
+const dailyMomentumUnexploredPaths = computed(() => {
+  if (!pathCatalog.value.length) return [];
   const activePathIds = dailyMomentumActivePathIds.value;
 
-  return pathCatalog.value.some((path) => {
-    const pathId = normalizedPathId(path?.path_id || path?.id);
-    return pathId && !activePathIds.has(pathId);
+  return pathCatalog.value.filter((path) => {
+    const pathIds = [
+      normalizedPathId(path?.path_id || path?.id),
+      normalizedPathId(path?.key),
+    ].filter(Boolean);
+    return pathIds.length && !pathIds.some((pathId) => activePathIds.has(pathId));
   });
+});
+
+const dailyMomentumExplorePathItems = computed(() => {
+  return dailyMomentumUnexploredPaths.value.map((path) => {
+    const localizedPath = localizePath(path, locale.value) || path;
+    const challengePreview = pathChallengePreview(path);
+
+    return {
+      ...localizedPath,
+      color: localizedPath.color || path.color || "#f7d774",
+      iconUrl: resolvePathIcon(localizedPath.icon || path.icon || path.key || ""),
+      challengeCount: pathChallengeCount(path, challengePreview),
+      challengePreview,
+    };
+  });
+});
+
+const showDailyMomentumExplorePaths = computed(() => {
+  return dailyMomentumTodaySafe.value && dailyMomentumUnexploredPaths.value.length > 0;
 });
 
 const dailyMomentumAllPathsComplete = computed(() => {
@@ -2211,6 +2244,12 @@ const dailyMomentumActions = computed(() => {
 
 const showDailyMomentumBar = computed(() => {
   return Boolean(!loading.value && !error.value && localizedMissions.value.length);
+});
+
+watch(showDailyMomentumExplorePaths, (canExplore) => {
+  if (!canExplore) {
+    explorePathsPanelOpen.value = false;
+  }
 });
 
 const showTodaySavedBody = computed(() => {
@@ -2536,6 +2575,7 @@ async function loadMissions() {
   optionalExplorerExpanded.value = false;
   selectedOptionalExplorerMissionId.value = null;
   selectedMomentumPathId.value = "";
+  explorePathsPanelOpen.value = false;
   showOtherMissions.value = true;
   optionalSuggestionRequested.value = false;
   selectedTimelineMissionId.value = null;
@@ -3203,6 +3243,39 @@ function normalizedPathId(value) {
   return id && id !== "null" && id !== "undefined" ? id : "";
 }
 
+function pathChallengePreview(path) {
+  const raw = Array.isArray(path?.challengePreview)
+    ? path.challengePreview
+    : Array.isArray(path?.preview_challenges)
+      ? path.preview_challenges
+      : Array.isArray(path?.challenges)
+        ? path.challenges
+        : [];
+
+  return raw
+    .map((challenge) => {
+      if (typeof challenge === "string") return localizeChallenge({ name: challenge }, locale.value).name || challenge;
+      const localizedChallenge = localizeChallenge(challenge, locale.value) || challenge;
+      return localizedChallenge.name || localizedChallenge.title || "";
+    })
+    .filter(Boolean)
+    .slice(0, 2);
+}
+
+function pathChallengeCount(path, preview = []) {
+  const candidates = [
+    path?.available_challenge_count,
+    path?.available_challenges_count,
+    path?.challenge_count,
+    path?.challenges_count,
+    Array.isArray(path?.challenges) ? path.challenges.length : null,
+    preview.length,
+  ];
+
+  const count = candidates.map((value) => Number(value)).find((value) => Number.isFinite(value) && value > 0);
+  return count || 0;
+}
+
 function buildDailyMomentumAction(mode, mission) {
   return {
     mode,
@@ -3227,6 +3300,7 @@ function dailyMomentumMissionMeta(mission) {
 function selectDailyMomentumPath(path) {
   if (!path?.key) return;
 
+  explorePathsPanelOpen.value = false;
   selectedMomentumPathId.value = path.key;
   closeReminderPanel();
   closeSkipReasonPanel();
@@ -3289,6 +3363,8 @@ function selectDailyMomentumNextAction(action) {
 function handleDailyMomentumAction(action) {
   if (!action?.key) return;
 
+  explorePathsPanelOpen.value = false;
+
   if (action.key === "finish") {
     finishForToday();
     return;
@@ -3315,9 +3391,19 @@ function handleDailyMomentumAction(action) {
 }
 
 function exploreDailyMomentumPaths() {
-  router.push("/paths").catch(() => {
-    setInteractionNarrative("missions.dailyMomentum.narrative.explorePaths", "thinking");
-  });
+  if (!showDailyMomentumExplorePaths.value) return;
+
+  explorePathsPanelOpen.value = true;
+  setInteractionNarrative("missions.dailyMomentum.narrative.explorePaths", "thinking");
+}
+
+function closeExplorePathsPanel() {
+  explorePathsPanelOpen.value = false;
+}
+
+function openPathsFromExplorePanel() {
+  explorePathsPanelOpen.value = false;
+  router.push({ path: "/paths", query: { source: "momentum" } }).catch(() => { });
 }
 
 function explainDailyMomentumStrike() {
