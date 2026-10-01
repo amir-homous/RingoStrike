@@ -436,6 +436,8 @@ def test_protected_endpoints_reject_missing_auth(client):
         "/me/activity",
         "/me/achievements",
         "/me/profile",
+        "/me/space",
+        "/me/space/rewards",
         "/api/me/profile/settings",
     ]
 
@@ -457,6 +459,8 @@ def test_protected_endpoints_reject_invalid_bearer_token(client):
         "/me/activity",
         "/me/achievements",
         "/me/profile",
+        "/me/space",
+        "/me/space/rewards",
         "/api/me/profile/settings",
     ]
 

@@ -52,6 +52,9 @@ Current convention:
 | `POST /me/missions/<mission_id>/done` | `routes/mission_routes.py` | `services/mission_service.py`, `services/enrollment_service.py` | Writes mission log and delegates to existing check-in pipeline. |
 | `POST /me/missions/<mission_id>/remind-later` | `routes/mission_routes.py` | `services/mission_service.py` | Route validates JSON object shape; service validates ISO-ish reminder time. |
 | `POST /me/missions/<mission_id>/skip` | `routes/mission_routes.py` | `services/mission_service.py` | Writes skipped mission log. Does not check in. |
+| `GET /me/space` | `routes/living_space_routes.py` | `services/living_space_service.py` | Authenticated Living Space state, zones, unlocked objects, locked previews, next rewards, and unseen reward status. |
+| `GET /me/space/rewards` | `routes/living_space_routes.py` | `services/living_space_service.py` | Authenticated Living Space reward state list for unlocked and locked preview rewards. |
+| `POST /me/space/rewards/<reward_id>/seen` | `routes/living_space_routes.py` | `services/living_space_service.py` | Marks an unlocked user reward seen without changing unlock state. |
 | `GET /challenges` | `routes/challenge_routes.py` | `services/challenge_service.py` | Authenticated challenge discovery with joined state. |
 | `POST /challenges/<challenge_id>/join` | `routes/challenge_routes.py` | `services/challenge_service.py` | Route validates JSON/join-code shape; service owns join policy. |
 | `GET /me/enrollments/<enrollment_id>` | `routes/challenge_routes.py` | `services/challenge_service.py` | Enrollment detail used by enrollment view and dashboard metadata hydration. |
