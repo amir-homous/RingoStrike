@@ -10,15 +10,49 @@
       <RingoMoodFigure class="pathRingo" :mood="pathMood" :alt="t('onboarding.path.title')" size="md" floating />
     </div>
 
-    <div class="pathGrid">
-      <button v-for="path in paths" :key="path" type="button" class="pathCard"
-        :class="{ selected: selectedPaths.includes(path) }" @click="togglePath(path)">
-        <span class="pathIcon" aria-hidden="true"></span>
-        <span class="pathLabel">{{ t(`onboarding.paths.${path}.label`) }}</span>
-        <span class="pathSuggestion">
-          {{ t(`onboarding.paths.${path}.outcome`) }}
-        </span>
-      </button>
+    <div class="pathExperience">
+      <div class="pathGrid">
+        <button
+          v-for="path in pathOptions"
+          :key="path.key"
+          type="button"
+          class="pathCard"
+          :class="{ selected: selectedPaths.includes(path.key), previewed: previewPath === path.key }"
+          @mouseenter="previewPath = path.key"
+          @focus="previewPath = path.key"
+          @click="togglePath(path.key)"
+        >
+          <span class="pathIcon" :style="{ '--path-color': path.color || '#67e8f9' }" aria-hidden="true">
+            {{ path.iconLabel }}
+          </span>
+          <span class="pathLabel">{{ path.title }}</span>
+          <span class="pathZone">{{ t("onboarding.path.roomZone", { zone: path.zoneTitle }) }}</span>
+          <span class="pathSuggestion">
+            {{ path.outcome }}
+          </span>
+        </button>
+      </div>
+
+      <div class="roomPreview" :aria-label="t('onboarding.path.roomPreviewLabel')">
+        <p class="previewTitle">{{ t("onboarding.path.roomPreviewTitle") }}</p>
+
+        <div class="previewRoom">
+          <SpaceZone
+            v-for="zone in previewZones"
+            :key="zone.zone_key"
+            :zone="zone"
+            :active="activeZoneKey === zone.zone_key"
+            @select="selectZone(zone)"
+          />
+        </div>
+
+        <p v-if="activePreviewOption" class="previewHint">
+          {{ t("onboarding.path.previewHint", {
+            path: activePreviewOption.title,
+            reward: activePreviewOption.firstRewardTitle,
+          }) }}
+        </p>
+      </div>
     </div>
 
     <div class="actions">
@@ -30,28 +64,104 @@
 </template>
 
 <script setup>
-import { computed } from "vue";
+import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
 
 import BaseButton from "@/components/ui/BaseButton.vue";
 import RingoMoodFigure from "@/components/ringo/RingoMoodFigure.vue";
+import SpaceZone from "@/components/space/SpaceZone.vue";
 import { resolveRingoMood } from "@/constants/ringoSprites";
-import { IDENTITY_PATHS } from "@/lib/guidedExperience";
+import { localizePath } from "@/lib/ringoContentLocalization";
 
 const props = defineProps({
   modelValue: { type: Array, default: () => [] },
+  backendPaths: { type: Array, default: () => [] },
+  spaceState: { type: Object, default: null },
 });
 
 const emit = defineEmits(["update:modelValue", "continue"]);
 
-const { t } = useI18n();
-const paths = IDENTITY_PATHS;
+const { locale, t } = useI18n();
 const selectedPaths = computed(() => Array.isArray(props.modelValue) ? props.modelValue : []);
+const previewPath = ref("");
+
+const CANONICAL_PATHS = ["career", "creativity", "fitness", "learning", "sleep"];
+
+const PATH_TO_ZONE = {
+  career: "work_desk",
+  creativity: "creative_corner",
+  fitness: "fitness_corner",
+  learning: "learning_corner",
+  sleep: "sleep_corner",
+};
 
 const pathMood = computed(() => {
   return selectedPaths.value.length
     ? resolveRingoMood("onboardingPathSelected")
     : resolveRingoMood("onboardingPath");
+});
+
+const pathOptions = computed(() => {
+  return CANONICAL_PATHS.map((key) => {
+    const backendPath = props.backendPaths.find((path) => path.key === key) || { key };
+    const localized = localizePath(backendPath, locale.value) || backendPath;
+    const zone = previewZones.value.find((item) => item.path_key === key);
+    const firstReward = [
+      ...(zone?.unlocked_objects || []),
+      ...(zone?.locked_preview_objects || []),
+    ][0];
+
+    return {
+      ...localized,
+      key,
+      title: localized.title || t(`onboarding.paths.${key}.label`),
+      outcome: t(`onboarding.paths.${key}.outcome`),
+      color: localized.color || "#67e8f9",
+      iconLabel: String(localized.icon || localized.title || key).slice(0, 1).toUpperCase(),
+      zoneTitle: zone?.title || t(`onboarding.paths.${key}.zone`),
+      zoneKey: PATH_TO_ZONE[key],
+      firstRewardTitle: firstReward?.title || t("onboarding.path.firstRewardFallback"),
+    };
+  });
+});
+
+const activePreviewKey = computed(() => {
+  return previewPath.value || selectedPaths.value[0] || "career";
+});
+
+const activePreviewOption = computed(() => {
+  return pathOptions.value.find((path) => path.key === activePreviewKey.value) || pathOptions.value[0];
+});
+
+const activeZoneKey = computed(() => {
+  return PATH_TO_ZONE[activePreviewKey.value] || "";
+});
+
+const previewZones = computed(() => {
+  const apiZones = Array.isArray(props.spaceState?.zones) ? props.spaceState.zones : [];
+
+  return CANONICAL_PATHS.map((key) => {
+    const zoneKey = PATH_TO_ZONE[key];
+    const apiZone = apiZones.find((zone) => zone.zone_key === zoneKey);
+
+    if (apiZone) return apiZone;
+
+    return {
+      path_key: key,
+      zone_key: zoneKey,
+      title: t(`onboarding.paths.${key}.zone`),
+      has_unseen_rewards: false,
+      unlocked_objects: [],
+      locked_preview_objects: [
+        {
+          id: `${key}-preview`,
+          key: `${key}-preview`,
+          title: t(`onboarding.paths.${key}.firstReward`),
+          unlocked: false,
+        },
+      ],
+    };
+  });
 });
 
 function togglePath(path) {
@@ -61,6 +171,15 @@ function togglePath(path) {
   }
 
   emit("update:modelValue", [path]);
+  previewPath.value = path;
+}
+
+function selectZone(zone) {
+  const option = pathOptions.value.find((path) => path.zoneKey === zone.zone_key);
+  if (!option) return;
+
+  previewPath.value = option.key;
+  emit("update:modelValue", [option.key]);
 }
 </script>
 
@@ -115,6 +234,11 @@ h1 {
   gap: var(--s-12);
 }
 
+.pathExperience {
+  display: grid;
+  gap: var(--s-16);
+}
+
 .pathCard {
   min-height: 146px;
   display: grid;
@@ -131,6 +255,7 @@ h1 {
 }
 
 .pathCard:hover,
+.pathCard.previewed,
 .pathCard.selected {
   transform: translateY(-2px);
   border-color: rgba(110, 229, 255, 0.28);
@@ -138,21 +263,65 @@ h1 {
 }
 
 .pathIcon {
-  width: 12px;
-  height: 12px;
-  border-radius: 999px;
-  background: #67e8f9;
-  box-shadow: 0 0 20px rgba(103, 232, 249, 0.50);
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 12px;
+  color: rgba(6, 11, 20, 0.88);
+  background: var(--path-color, #67e8f9);
+  box-shadow: 0 0 20px color-mix(in srgb, var(--path-color, #67e8f9) 40%, transparent);
+  font-weight: 950;
 }
 
 .pathLabel {
   font-weight: 850;
 }
 
+.pathZone {
+  color: rgba(110, 229, 255, 0.74);
+  font-size: 0.76rem;
+  font-weight: 800;
+}
+
 .pathSuggestion {
   color: rgba(255, 255, 255, 0.56);
   font-size: 0.88rem;
   line-height: 1.55;
+}
+
+.roomPreview {
+  display: grid;
+  gap: var(--s-12);
+  padding: 14px;
+  border-radius: 20px;
+  background:
+    radial-gradient(circle at 12% 0%, rgba(110, 229, 255, 0.08), transparent 34%),
+    rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+}
+
+.previewTitle,
+.previewHint {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.66);
+  line-height: 1.55;
+}
+
+.previewTitle {
+  color: rgba(255, 255, 255, 0.86);
+  font-size: 0.84rem;
+  font-weight: 850;
+}
+
+.previewRoom {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.previewRoom :deep(.spaceZone) {
+  min-height: 112px;
 }
 
 .actions {
@@ -162,6 +331,10 @@ h1 {
 
 @media (max-width: 980px) {
   .pathGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .previewRoom {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
@@ -181,6 +354,10 @@ h1 {
   }
 
   .pathGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .previewRoom {
     grid-template-columns: 1fr;
   }
 

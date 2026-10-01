@@ -28,7 +28,13 @@
       <template v-if="!loadError">
         <StepWelcome v-if="step === 1" @start="step = 2" />
 
-        <StepPath v-else-if="step === 2" v-model="selectedPaths" @continue="continueToSuggestion" />
+        <StepPath
+          v-else-if="step === 2"
+          v-model="selectedPaths"
+          :backend-paths="paths"
+          :space-state="spaceState"
+          @continue="continueToSuggestion"
+        />
 
         <ChallengeSuggestion v-else-if="step === 3" :path="selectedPath" :paths="selectedPaths"
           :challenge="localizedSuggestedChallenge" :challenges="localizedSuggestedChallenges" :joining="joining" :error="joinError"
@@ -120,6 +126,7 @@ const challenges = ref([]);
 const paths = ref([]);
 const pathChallenges = ref([]);
 const pathChallengeGroups = ref([]);
+const spaceState = ref(null);
 const loading = ref(false);
 const joining = ref(false);
 const loadError = ref("");
@@ -128,6 +135,11 @@ const todayMissionState = ref(null);
 const onboardingUserKey = ref("");
 
 const IDENTITY_TO_BACKEND_PATH = {
+  career: "career",
+  creativity: "creativity",
+  fitness: "fitness",
+  learning: "learning",
+  sleep: "sleep",
   focus: "career",
   body: "fitness",
   learning: "learning",
@@ -188,12 +200,14 @@ async function loadChallenges() {
   loadError.value = "";
 
   try {
-    const [{ data: challengeData }, { data: pathData }] = await Promise.all([
+    const [{ data: challengeData }, { data: pathData }, spaceResponse] = await Promise.all([
       api.get("/challenges"),
       api.get("/paths"),
+      api.get("/me/space").catch(() => null),
     ]);
     challenges.value = challengeData.items || [];
     paths.value = pathData.items || [];
+    spaceState.value = spaceResponse?.data || null;
   } catch (error) {
     loadError.value = error?.response?.data?.error || error?.message || String(error);
     challenges.value = [];
@@ -230,9 +244,10 @@ async function resumeOnboarding() {
   }
 
   const savedPath = getIdentityPath(onboardingUserKey.value);
+  const normalizedSavedPath = IDENTITY_TO_BACKEND_PATH[savedPath] || savedPath;
 
   if (savedPath) {
-    selectedPaths.value = [savedPath];
+    selectedPaths.value = [normalizedSavedPath];
     step.value = 3;
   } else {
     step.value = 1;
@@ -327,6 +342,12 @@ async function startSuggestedPath(selectedIds = []) {
   joining.value = true;
 
   try {
+    const selectedBackendPath = selectedBackendPaths.value[0] || null;
+
+    if (selectedBackendPath?.path_id) {
+      await api.post(`/paths/${selectedBackendPath.path_id}/start`, {});
+    }
+
     await submitJoinFlow({
       apiClient: api,
       router,
