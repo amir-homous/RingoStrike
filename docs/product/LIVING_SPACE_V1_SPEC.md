@@ -308,6 +308,192 @@ Today is safe. Want to stop here or take a bonus step?
 
 ---
 
+## Responsive And Camera Contract
+
+Living Space should use one canonical room/world composition across devices, with different camera/view behavior rather than separate desktop and mobile rooms.
+
+Core rule:
+
+```txt
+One Room. Multiple Cameras.
+```
+
+Do not build a separate reward layout or separate room identity for mobile. Reward slots, object state, zone ownership, and progression meaning stay canonical. Only the viewport/camera presentation changes.
+
+### Desktop
+
+Desktop is the primary full-room presentation:
+
+- Show most or all five zones at once.
+- Keep Ringo readable near the emotional center of the room.
+- Support hover and click interactions.
+- Preserve the cinematic sense of looking at the user's whole progression space.
+- Keep enough breathing room that the scene does not become a dashboard collage.
+
+### Tablet / Wide Layout
+
+Tablet and wide layouts may use a tighter crop of the same room:
+
+- Preserve the same world coordinates and object slots.
+- Allow edge zones to crop slightly when needed.
+- Keep the selected/active zone fully readable.
+- Prefer camera/crop adaptation over shrinking every object until it becomes unreadable.
+
+### Mobile Portrait
+
+Mobile portrait should use a focused-zone experience rather than trying to fit the entire room at tiny scale.
+
+Recommended behavior:
+
+- Show Ringo and the most relevant/selected zone clearly.
+- Let the user tap a zone control or room affordance to move focus to another zone.
+- Camera movement should be guided and deterministic; free pan/drag is not required for v1.
+- Each zone should be designed with a mobile-safe crop so its important starter objects, reward slots, and active mission context remain readable.
+- Mobile should prioritize the current daily step and active zone while still allowing access to the wider room.
+
+### Mobile Landscape
+
+Landscape may expose a wider or near-full-room view as an optional enhancement.
+
+Do not require rotation and do not block portrait users with a `Please rotate your device` gate.
+
+Landscape is a bonus presentation mode, not a requirement for core use.
+
+### Camera Map Requirement
+
+The visual architecture should define:
+
+- one canonical room coordinate system
+- one desktop full-room camera
+- one tablet/wide adaptive camera strategy
+- one mobile overview/focused camera strategy
+- five mobile zone camera targets, one per path zone
+- UI-safe areas so object details and mission panels do not cover important room content
+
+Each reward definition keeps one canonical fixed slot. Responsive behavior changes the view of that slot, not the slot itself.
+
+### Asset And Performance Direction
+
+Living Space v1 should remain a layered 2.5D scene rather than requiring a realtime 3D/WebGL room.
+
+Preferred scene model:
+
+```txt
+Base Room
++ Zone/Reward Objects
++ Local Shadow/Glow Layers
++ Ringo
++ Interaction Effects
++ UI
+```
+
+This allows the same persistent reward state to be composed at runtime without generating a complete room image for every possible reward combination.
+
+Mobile may reduce effect density, particle count, blur, glow strength, or offscreen asset loading while preserving the same art direction and progression state.
+
+---
+
+## Time-Of-Day Lighting Contract
+
+The Living Space should feel alive over the user's day, but time-of-day must remain independent from reward/progression state.
+
+Core rule:
+
+```txt
+Progression changes objects.
+Time changes atmosphere.
+```
+
+### v1 Lighting States
+
+Living Space v1 should support two primary lighting states:
+
+- Day
+- Night
+
+The active state should follow the user's local time / timezone when that information is available to the frontend. Do not use server time as the visual source of truth for the user's room atmosphere.
+
+A simple initial split is acceptable, for example:
+
+```txt
+06:00-18:00  Day
+18:00-06:00  Night
+```
+
+Exact thresholds may be tuned later without changing the reward model.
+
+### Future Lighting States
+
+The visual system should be future-safe for four states:
+
+- Morning
+- Day
+- Evening
+- Night
+
+A future refinement could use approximate windows such as:
+
+```txt
+06:00-10:00  Morning
+10:00-17:00  Day
+17:00-21:00  Evening
+21:00-06:00  Night
+```
+
+Do not require all four states in the first production implementation.
+
+### Lighting Layer Model
+
+Time-of-day should be composed from reusable layers instead of separate fully rendered room permutations.
+
+Recommended split:
+
+1. Outside/environment state
+   - sky brightness/color
+   - exterior visibility
+   - distant city/tree/window state
+2. Global room lighting state
+   - day ambience
+   - night ambience
+3. Object-local lighting
+   - desk lamps
+   - bedside lamps
+   - reward glows
+   - other unlocked light-emitting objects
+
+Reward objects keep the same canonical asset/slot. A light-emitting reward may use a separate local glow overlay or equivalent presentation layer.
+
+Example behavior:
+
+- A desk lamp remains the same unlocked reward in day and night.
+- Its glow can be subtle during Day and stronger during Night.
+- The app should not re-render the entire room just because one reward emits light.
+
+### Readability Rule
+
+Lighting can change mood, but it must never hide progression state.
+
+```txt
+Lighting may change atmosphere.
+Lighting must never hide progression.
+```
+
+Therefore:
+
+- unlocked objects must remain readable in every time state
+- locked previews must remain distinguishable from unlocked objects
+- the active/selected zone must retain sufficient contrast
+- night mode must not make an unlocked zone look locked or inactive
+- local glows should stay restrained and premium rather than becoming reward spam
+
+### Future Ambient Identity
+
+Later versions may let mature zones subtly influence local atmosphere, for example a richer Creative Corner or calmer Recovery Corner. This is not required for v1 and should not create a second progression calculation.
+
+For v1, global Day/Night is the only required time-based atmospheric variation.
+
+---
+
 ## Conceptual Data Model
 
 V1 can use fixed object slots. Do not build drag-and-drop, free placement, rotation, or a full inventory editor yet.
@@ -506,6 +692,9 @@ Minimum frontend coverage:
 - mission completion shows first reward unlock when provided
 - refreshed dashboard still shows the unlocked object
 - RTL/Persian text does not break zone panels
+- desktop full-room and mobile focused-zone camera states preserve the same canonical reward slots
+- mobile portrait remains fully usable without requiring device rotation
+- Day/Night lighting state changes atmosphere without changing reward ownership or hiding progression state
 
 ---
 
