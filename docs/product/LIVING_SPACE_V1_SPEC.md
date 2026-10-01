@@ -55,13 +55,15 @@ The first implementation should prove this loop before building deeper customiza
 
 Living Space v1 has one room with five clickable zones:
 
-| Zone | Path | Role |
-| --- | --- | --- |
-| Work Desk | Career | focus, work, projects, professional growth |
-| Creative Corner | Creativity | ideas, art, making, self-expression |
-| Fitness Corner | Fitness | movement, energy, body |
-| Learning Corner | Learning | study, curiosity, skill growth |
-| Sleep Corner | Sleep / Recovery | rest, calm, recovery |
+| Zone | Backend path key | Display path | Zone key | Role |
+| --- | --- | --- | --- | --- |
+| Work Desk | `career` | Career | `work_desk` | focus, work, projects, professional growth |
+| Creative Corner | `creativity` | Creativity | `creative_corner` | ideas, art, making, self-expression |
+| Fitness Corner | `fitness` | Fitness | `fitness_corner` | movement, energy, body |
+| Learning Corner | `learning` | Learning | `learning_corner` | study, curiosity, skill growth |
+| Sleep Corner | `sleep` | Sleep / Recovery | `sleep_corner` | rest, calm, recovery |
+
+The backend path keys must match the current seeded paths in `backend/services/path_seed_service.py`: `fitness`, `learning`, `career`, `creativity`, and `sleep`.
 
 Ringo can sit centrally or move contextually, but Ringo should not be treated as a sixth zone.
 
@@ -118,6 +120,14 @@ Which part of your life do you want to grow first?
 The user's first choice is a first focus, not a permanent lock.
 
 After selection, Ringo immediately recommends a first mission using the existing mission system where possible.
+
+Implementation contract:
+
+- First focus selection uses the existing path start flow: `POST /paths/:id/start`.
+- Starting a path does not permanently lock the user to that path.
+- If the frontend joins a suggested first challenge after path selection, it should continue using the existing challenge join flow.
+- Living Space v1 should not add a separate onboarding backend.
+- The selected path should be treated as the first highlighted room zone for preview and mission recommendation, not as the only zone the user can ever grow.
 
 ---
 
@@ -225,6 +235,23 @@ A reward can be unlocked by several source types:
 
 Do not bind every object directly to raw XP. XP can contribute to progression, but objects should explain the meaningful behavior that unlocked them.
 
+### First Reward Unlock Rule
+
+For v1, the first reward for a path unlocks when the user completes their first non-bonus mission for that path.
+
+Precise backend rule:
+
+- Trigger from successful `POST /me/missions/:id/done`.
+- Use the completed mission's `path_id` through `missions -> challenges -> paths`.
+- Unlock only the first `reward_definitions` row for that path where `unlock_condition_type = 'first_path_mission_done'`.
+- Count `main` and linked `tiny` missions because both can save the day through the existing mission/check-in pipeline.
+- Do not count `bonus` missions for the first reward unlock.
+- Do not unlock again when the mission was already done for that day.
+- Enforce idempotency with a unique `user_rewards(user_id, reward_id)` constraint or equivalent service guard.
+- Store `source_type = 'mission_reward'` and `source_id = mission_id` for the first unlock.
+
+This keeps the rule simple, deterministic, and tied to real progress without adding a second economy.
+
 ---
 
 ## Object Meaning
@@ -300,6 +327,38 @@ V1 can use fixed object slots. Do not build drag-and-drop, free placement, rotat
 - unlock_condition_value
 - stage
 - slot_key
+
+Canonical v1 reward definition keys:
+
+| Path key | Zone key | Reward key | Slot key | Unlock condition |
+| --- | --- | --- | --- | --- |
+| `career` | `work_desk` | `career_planner` | `work_desk_first_reward` | `first_path_mission_done` |
+| `career` | `work_desk` | `career_desk_lamp` | `work_desk_consistency` | `early_consistency` |
+| `career` | `work_desk` | `career_monitor` | `work_desk_progress` | `path_progress_milestone` |
+| `career` | `work_desk` | `career_project_board` | `work_desk_achievement` | `achievement_unlocked` |
+| `career` | `work_desk` | `career_trophy` | `work_desk_major` | `major_path_milestone` |
+| `creativity` | `creative_corner` | `creativity_sketchbook` | `creative_corner_first_reward` | `first_path_mission_done` |
+| `creativity` | `creative_corner` | `creativity_desk_lamp` | `creative_corner_consistency` | `early_consistency` |
+| `creativity` | `creative_corner` | `creativity_easel_upgrade` | `creative_corner_progress` | `path_progress_milestone` |
+| `creativity` | `creative_corner` | `creativity_art_wall` | `creative_corner_achievement` | `achievement_unlocked` |
+| `creativity` | `creative_corner` | `creativity_trophy` | `creative_corner_major` | `major_path_milestone` |
+| `fitness` | `fitness_corner` | `fitness_water_bottle` | `fitness_corner_first_reward` | `first_path_mission_done` |
+| `fitness` | `fitness_corner` | `fitness_dumbbells` | `fitness_corner_consistency` | `early_consistency` |
+| `fitness` | `fitness_corner` | `fitness_better_mat` | `fitness_corner_progress` | `path_progress_milestone` |
+| `fitness` | `fitness_corner` | `fitness_training_bench` | `fitness_corner_achievement` | `achievement_unlocked` |
+| `fitness` | `fitness_corner` | `fitness_trophy` | `fitness_corner_major` | `major_path_milestone` |
+| `learning` | `learning_corner` | `learning_first_book` | `learning_corner_first_reward` | `first_path_mission_done` |
+| `learning` | `learning_corner` | `learning_study_lamp` | `learning_corner_consistency` | `early_consistency` |
+| `learning` | `learning_corner` | `learning_book_stack` | `learning_corner_progress` | `path_progress_milestone` |
+| `learning` | `learning_corner` | `learning_bookshelf` | `learning_corner_achievement` | `achievement_unlocked` |
+| `learning` | `learning_corner` | `learning_trophy` | `learning_corner_major` | `major_path_milestone` |
+| `sleep` | `sleep_corner` | `sleep_pillow` | `sleep_corner_first_reward` | `first_path_mission_done` |
+| `sleep` | `sleep_corner` | `sleep_bedside_lamp` | `sleep_corner_consistency` | `early_consistency` |
+| `sleep` | `sleep_corner` | `sleep_blanket` | `sleep_corner_progress` | `path_progress_milestone` |
+| `sleep` | `sleep_corner` | `sleep_moon_decoration` | `sleep_corner_achievement` | `achievement_unlocked` |
+| `sleep` | `sleep_corner` | `sleep_trophy` | `sleep_corner_major` | `major_path_milestone` |
+
+Only the `first_path_mission_done` rewards must unlock in the first backend implementation. The other definitions can be seeded as locked previews so v1 has a visible growth direction.
 
 ### user_rewards
 
