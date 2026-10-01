@@ -6,6 +6,7 @@ from services.path_seed_service import (
     archive_legacy_unlinked_challenges,
     ensure_mvp_paths_and_missions,
 )
+from services.living_space_service import ensure_reward_definitions
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_NAME = os.getenv("DB_PATH") or os.path.join(BASE_DIR, "users.db")
@@ -315,9 +316,64 @@ def init_db():
     c.execute("CREATE INDEX IF NOT EXISTS idx_telegram_connections_code ON telegram_connections(code)")
     c.execute("CREATE INDEX IF NOT EXISTS idx_telegram_connections_status ON telegram_connections(status)")
 
+    c.execute("""
+    CREATE TABLE IF NOT EXISTS reward_definitions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        key TEXT NOT NULL UNIQUE,
+        title TEXT NOT NULL,
+        description TEXT,
+        path_id INTEGER NOT NULL,
+        zone_key TEXT NOT NULL,
+        object_type TEXT,
+        asset_key TEXT,
+        rarity TEXT NOT NULL DEFAULT 'common',
+        unlock_condition_type TEXT NOT NULL,
+        unlock_condition_value TEXT,
+        stage INTEGER NOT NULL DEFAULT 1,
+        slot_key TEXT NOT NULL,
+        status TEXT CHECK(status IN ('Active', 'Archived')) DEFAULT 'Active',
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        updated_at TEXT,
+        UNIQUE(path_id, slot_key),
+        FOREIGN KEY(path_id) REFERENCES paths(id) ON DELETE CASCADE
+    )
+    """)
+
+    c.execute("""
+    CREATE TABLE IF NOT EXISTS user_rewards (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        reward_id INTEGER NOT NULL,
+        unlocked_at TEXT NOT NULL DEFAULT (datetime('now')),
+        source_type TEXT,
+        source_id INTEGER,
+        is_seen INTEGER NOT NULL DEFAULT 0,
+        UNIQUE(user_id, reward_id),
+        FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY(reward_id) REFERENCES reward_definitions(id) ON DELETE CASCADE
+    )
+    """)
+
+    c.execute("""
+    CREATE TABLE IF NOT EXISTS user_space (
+        user_id INTEGER PRIMARY KEY,
+        theme TEXT NOT NULL DEFAULT 'default',
+        current_stage INTEGER NOT NULL DEFAULT 1,
+        updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+        FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+    )
+    """)
+
+    c.execute("CREATE INDEX IF NOT EXISTS idx_reward_definitions_path_zone ON reward_definitions(path_id, zone_key, status)")
+    c.execute("CREATE INDEX IF NOT EXISTS idx_reward_definitions_condition ON reward_definitions(unlock_condition_type, status)")
+    c.execute("CREATE INDEX IF NOT EXISTS idx_user_rewards_user ON user_rewards(user_id)")
+    c.execute("CREATE INDEX IF NOT EXISTS idx_user_rewards_reward ON user_rewards(reward_id)")
+    c.execute("CREATE INDEX IF NOT EXISTS idx_user_rewards_user_seen ON user_rewards(user_id, is_seen)")
+
     # Paths/Missions are now the canonical MVP seed. Keeping challenge-only
     # seed rows here creates stale unlinked challenges in fresh databases.
     ensure_mvp_paths_and_missions(conn)
+    ensure_reward_definitions(conn)
     archive_legacy_unlinked_challenges(conn)
 
     conn.commit()
