@@ -211,6 +211,12 @@
     <RewardFeedback :items="rewardToasts" />
 
     <RewardMoment :open="!!rewardMoment" :reward="rewardMoment" @close="rewardMoment = null" />
+
+    <RewardUnlockMoment
+      :open="!!spaceRewardMoment"
+      :reward="spaceRewardMoment"
+      @close="handleSpaceRewardClose"
+    />
   </AppContainer>
 </template>
 
@@ -236,6 +242,7 @@ import RecentProgressFeed from "@/components/progress/RecentProgressFeed.vue";
 import ChallengeCard from "@/components/challenges/ChallengeCard.vue";
 import RewardFeedback from "@/components/feedback/RewardFeedback.vue";
 import RewardMoment from "@/components/feedback/RewardMoment.vue";
+import RewardUnlockMoment from "@/components/space/RewardUnlockMoment.vue";
 import ActivityTimeline from "@/components/activity/ActivityTimeline.vue";
 import AchievementPreview from "@/components/achievements/AchievementPreview.vue";
 import {
@@ -273,6 +280,7 @@ const challenges = ref([]);
 const stats = ref(null);
 const rewardToasts = ref([]);
 const rewardMoment = ref(null);
+const spaceRewardMoment = ref(null);
 const xpPulse = ref(false);
 const activityEvents = ref([]);
 const achievements = ref([]);
@@ -598,6 +606,7 @@ async function handleMissionCheckin(payload = {}) {
   await loadDashboard({ silent: true });
 
   if (payload?.living_space_reward) {
+    spaceRewardMoment.value = payload.living_space_reward;
     spaceRefreshKey.value += 1;
   }
 
@@ -610,6 +619,19 @@ async function handleMissionCheckin(payload = {}) {
       title: t("dashboard.rewards.levelTitle"),
       text: t("dashboard.rewards.levelText", { level: stats.value.level }),
     };
+  }
+}
+
+async function handleSpaceRewardClose(reward) {
+  spaceRewardMoment.value = null;
+
+  if (!reward?.id) return;
+
+  try {
+    await api.post(`/me/space/rewards/${reward.id}/seen`);
+    spaceRefreshKey.value += 1;
+  } catch (e) {
+    console.warn("Could not mark space reward seen", e);
   }
 }
 
