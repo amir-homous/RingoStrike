@@ -45,6 +45,29 @@ def test_living_space_state_endpoint_returns_locked_previews(client):
     assert len(data["locked_preview_objects"]) == 25
     assert len(data["next_rewards"]) == 5
     assert data["has_unseen_rewards"] is False
+    assert [zone["path_key"] for zone in data["zones"]] == [
+        "career",
+        "creativity",
+        "fitness",
+        "learning",
+        "sleep",
+    ]
+    assert [zone["zone_key"] for zone in data["zones"]] == [
+        "work_desk",
+        "creative_corner",
+        "fitness_corner",
+        "learning_corner",
+        "sleep_corner",
+    ]
+    assert [reward["key"] for reward in data["next_rewards"]] == [
+        "career_planner",
+        "creativity_sketchbook",
+        "fitness_water_bottle",
+        "learning_first_book",
+        "sleep_pillow",
+    ]
+    assert data["zones"][0]["next_reward"]["key"] == "career_planner"
+    assert data["zones"][0]["has_unseen_rewards"] is False
 
 
 def test_living_space_reward_seen_endpoint_preserves_unlock(client):
@@ -59,15 +82,24 @@ def test_living_space_reward_seen_endpoint_preserves_unlock(client):
         f"/me/space/rewards/{reward_id}/seen",
         headers=headers,
     )
+    repeat_seen_res = client.post(
+        f"/me/space/rewards/{reward_id}/seen",
+        headers=headers,
+    )
     space_res = client.get("/me/space", headers=headers)
 
     rewards_data = rewards_res.get_json()
     seen_data = seen_res.get_json()
+    repeat_seen_data = repeat_seen_res.get_json()
     space_data = space_res.get_json()
     unlocked = [
         reward for reward in space_data["rewards"]
         if reward["unlocked"]
     ]
+    fitness_zone = next(
+        zone for zone in space_data["zones"]
+        if zone["path_key"] == "fitness"
+    )
 
     assert rewards_res.status_code == 200
     assert rewards_data["ok"] is True
@@ -76,10 +108,18 @@ def test_living_space_reward_seen_endpoint_preserves_unlock(client):
     assert seen_res.status_code == 200
     assert seen_data["reward"]["key"] == "fitness_water_bottle"
     assert seen_data["reward"]["is_seen"] is True
+    assert repeat_seen_res.status_code == 200
+    assert repeat_seen_data["reward"]["key"] == "fitness_water_bottle"
+    assert repeat_seen_data["reward"]["is_seen"] is True
     assert space_res.status_code == 200
     assert space_data["has_unseen_rewards"] is False
     assert [reward["key"] for reward in unlocked] == ["fitness_water_bottle"]
     assert unlocked[0]["is_seen"] is True
+    assert fitness_zone["has_unseen_rewards"] is False
+    assert [reward["key"] for reward in fitness_zone["unlocked_objects"]] == [
+        "fitness_water_bottle",
+    ]
+    assert fitness_zone["next_reward"]["key"] == "fitness_dumbbells"
 
 
 def test_living_space_seen_rejects_locked_reward(client):
