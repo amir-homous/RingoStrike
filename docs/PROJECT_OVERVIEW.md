@@ -12,6 +12,7 @@ Product direction source:
 
 - [Product Direction Master Notes](product/PRODUCT_DIRECTION_MASTER_NOTES.md)
 - [MVP Relaunch Phases](product/MVP_RELAUNCH_PHASES.md)
+- [Living Space v1 Spec](product/LIVING_SPACE_V1_SPEC.md)
 - [GitHub Issue Pack](product/GITHUB_ISSUE_PACK.md)
 
 ## Current Capabilities
@@ -113,6 +114,7 @@ Register/Login
   -> User completes a small self-improvement action
   -> Existing check-in/stats/achievement pipeline
   -> Ringo reacts and rewards the moment
+  -> Visible progress appears in Living Space, when a room reward unlocks
   -> Next gentle step or rest
 ```
 
@@ -126,11 +128,12 @@ Register/Login
   -> Ringo-guided Today's Mission
   -> Mission Done / Check-in
   -> Ringo Moment / Reward Moment
+  -> Living Space reward unlock, when available
   -> Next Step
   -> Paths/Dashboard/Profile as supporting surfaces
 ```
 
-The product has shifted from a dashboard-based MVP toward a Ringo-first companion experience where the next action is emotionally clear and small enough to complete. The dashboard remains important, but it should feel like Ringo's home. MissionCenter, paths, challenges, stats, and profiles support the companion loop instead of competing with it.
+The product has shifted from a dashboard-based MVP toward a Ringo-first companion experience where the next action is emotionally clear and small enough to complete. The dashboard remains important, but it should feel like Ringo's home. Living Space v1 is the planned next expression of that home: one visible progress room where real progress can unlock persistent objects in five path zones. MissionCenter, paths, challenges, stats, achievements, and profiles support the companion loop instead of competing with it.
 
 ## Current Architecture Strengths
 
@@ -150,6 +153,7 @@ Based on git history, the project has progressed through:
 4. Public identity foundations: public profiles, visibility, username normalization, avatar/profile settings, and shareable UX.
 5. Guided path/mission foundation: seeded MVP paths, path-specific challenges, daily missions, mission logs, RingoCoach state decisions, premium navigation, and Ringo helper sprites.
 6. Mission-family and focus-mode polish: main/tiny substitute behavior, bonus-as-optional momentum, staged first-run reveal, post-first-win copy, compact focus progress, collapsed mission status details, and Rest Mode.
+7. Living Space v1 product planning: visible progress room, five path zones, fixed reward slots, first reward persistence, and explicit non-goals before UI coding.
 
 ## Known Stabilization Needs
 

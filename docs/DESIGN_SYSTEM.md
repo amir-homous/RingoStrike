@@ -43,6 +43,12 @@ Preferred pattern:
 Path -> Today's Mission -> Check-in -> Reward -> Next Step
 ```
 
+Living Space extension:
+
+```txt
+Path -> Today's Mission -> Check-in -> Reward Unlock -> Visible Room Change -> Next Step
+```
+
 Design principles:
 
 - Reduce first-time cognitive load.
@@ -51,6 +57,7 @@ Design principles:
 - Avoid noisy animations, casino-like effects, or pressure-based streak messaging.
 - Reveal advanced systems gradually: leaderboard, achievements, public profile, and Telegram reminders should support the core loop, not compete with it.
 - Use RingoCoach as the primary guidance surface when the backend returns a Ringo decision. It should feel like contextual coaching, not a separate notification feed.
+- Treat Living Space as a calm visible-progress layer, not a noisy customization game. Room changes should feel earned, persistent, and emotionally legible.
 
 ## Active CSS Tokens
 
@@ -111,6 +118,7 @@ Feature components:
 - onboarding: welcome, identity path selection, and suggested challenge steps
 - profile: hero card, stats grid, settings card/modal, avatar, consistency heatmap
 - progress: hero progress, compact focus strip, next goal, recent feed, stats grid, XP bar
+- space, planned: LivingSpace, SpaceZone, SpaceObject, SpaceZonePanel, and RewardUnlockMoment for Living Space v1 after the implementation contract is ready
 
 ## Frontend Pages
 
@@ -154,6 +162,8 @@ Current asset consistency note: the sprite map resolves assets from `frontend/sr
 - Treat `Finish for today` as a successful ending. It should land on the calm Rest Mode screen rather than dumping the user into dense dashboard sections.
 - Reveal the full dashboard only after focus mode is resolved or the user explicitly chooses `Show dashboard`; use subtle stagger/fade motion and honor reduced-motion preferences.
 - Keep `/paths` as the richer path planning surface: path picker, active path status, challenge stage panels, mission previews, and daily path summary.
+- For Living Space v1, use one room with five readable path zones and fixed object slots. Ringo remains the guide layer across the room, not a room zone.
+- Locked room rewards may appear as ghost/silhouette previews, but avoid shop, inventory, drag/drop, city-map, or heavy social visual patterns in v1.
 - Keep progressive disclosure subtle: reveal deeper sections after existing check-in stats make them meaningful, without blocking direct routes.
 - Make public profile views shareable but privacy-safe.
 - Avoid adding separate visual languages for each feature.

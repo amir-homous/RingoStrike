@@ -22,12 +22,15 @@ Product direction references:
 
 - [Product Direction Master Notes](product/PRODUCT_DIRECTION_MASTER_NOTES.md)
 - [MVP Relaunch Phases](product/MVP_RELAUNCH_PHASES.md)
+- [Living Space v1 Spec](product/LIVING_SPACE_V1_SPEC.md)
+- [Living Space v1 Issue Breakdown](product/LIVING_SPACE_V1_ISSUE_BREAKDOWN.md)
 - [GitHub Issue Pack](product/GITHUB_ISSUE_PACK.md)
 
 The supporting product principles remain:
 
 - small daily actions create visible progress
 - check-ins create momentum and identity
+- real progress should create visible persistent changes in the user's space
 - achievements and XP reward consistency without casino-style noise
 - public identity is shareable but privacy-aware
 - social features should reinforce momentum, not toxic competition
@@ -44,6 +47,12 @@ Primary implemented loop:
 Ringo guidance -> Today's Mission -> Mission Done / Check-in -> Ringo Moment / Reward -> Next gentle step
 ```
 
+Target Living Space loop:
+
+```txt
+Ringo guidance -> Mission Done / Check-in -> Reward unlock -> Room object appears -> Next gentle step
+```
+
 Implementation guidance:
 
 - Lead with Ringo's emotional state, message, and one clear next step before exposing system detail.
@@ -51,6 +60,8 @@ Implementation guidance:
 - Reuse existing challenge, enrollment, check-in, stats, achievement, and activity systems.
 - Do not duplicate XP/streak/achievement logic.
 - Do not rewrite the dashboard; MissionCenter is the primary daily surface and older sections are supporting/progressive surfaces.
+- Treat Living Space v1 as a visible-progress Home layer on top of existing path/mission/check-in/reward systems.
+- Keep Ringo as the guide layer across the room, not as a sixth room zone.
 - Delay complex social, mobile, widget, and advanced automation work until the guided loop is validated.
 
 ## Implemented Backend Systems
@@ -97,7 +108,7 @@ Implementation guidance:
 
 ## Source Of Truth Rules
 
-- Product decision truth is in `docs/product/`, especially `PRODUCT_DIRECTION_MASTER_NOTES.md`, `MVP_RELAUNCH_PHASES.md`, and `GITHUB_ISSUE_PACK.md`.
+- Product decision truth is in `docs/product/`, especially `PRODUCT_DIRECTION_MASTER_NOTES.md`, `MVP_RELAUNCH_PHASES.md`, `LIVING_SPACE_V1_SPEC.md`, `LIVING_SPACE_V1_ISSUE_BREAKDOWN.md`, and `GITHUB_ISSUE_PACK.md`.
 - Database truth is in `backend/database.py`; service queries reveal actual field usage.
 - API truth is in `backend/routes/*.py` plus endpoints registered directly by `backend/auth.py` and `backend/app.py`.
 - Frontend route truth is in `frontend/src/router/index.js`.
@@ -113,6 +124,8 @@ Implementation guidance:
 - Treat path, challenge, mission, check-in, stats, achievement, activity, and profile systems as supporting infrastructure for Ringo.
 - For Ringo-related product behavior, follow `docs/product/` before inventing new direction.
 - Keep deterministic product decisions in code and services. AI-assisted language should come later and remain structured, validated, and fallback-safe.
+- Do not start Living Space UI implementation until the data/API contract is clear enough to keep reward persistence deterministic.
+- For Living Space v1, preserve the core rule: real progress creates visible change. Do not add shop, inventory, drag/drop room editing, city maps, friend visits, heavy social, or a second progression economy.
 
 ## Critical Engineering Notes
 
@@ -123,6 +136,7 @@ Implementation guidance:
 - When adding Persian UI text, keep `lang="fa"`/`dir="rtl"` behavior centralized through `frontend/src/i18n/index.js`.
 - Keep guided progression UX frontend-first while it is being validated. Reuse current challenge/enrollment/check-in responses; do not add onboarding, recommendation, XP, streak, or achievement backend logic unless a later issue explicitly requires it.
 - For path/mission work, keep mission state in `mission_logs` and canonical progression in check-ins/stats/achievements. Avoid adding a second progression economy.
+- Living Space rewards should be additive persistence on top of existing progression. If schema/API work begins, document actual tables/endpoints only after they exist.
 - `frontend/src/constants/ringoSprites.js` resolves Ringo sprites from `frontend/src/assets/ringo/` with fallback aliases for missing or unknown keys. Keep `RINGO_SPRITE_KEYS`, backend `sprite_key` values, and actual asset filenames aligned.
 - Dashboard mission focus mode is frontend-owned: `MissionCenter.vue` emits `focus-state-change`, `Dashboard.vue` hides secondary dashboard sections while focus is active, and `CompactProgressStrip.vue` provides minimal level/XP/streak context without duplicating progression calculations.
 - `MissionCenter.vue` owns first-run staged reveal, mission status expansion, post-first-win copy, and Rest Mode. `Finish for today` enters the calm Rest Mode card; `Show dashboard` explicitly unlocks the full dashboard.
@@ -155,4 +169,6 @@ The project has moved beyond the older v0.3 dashboard/profile milestone. Public 
 - profile settings and avatar/bio fields
 - public consistency and public achievements endpoints
 
-The next highest-value work is launch hardening and operations polish: keep reminder automation monitored, verify frontend production builds use `/api-proxy`, run the launch QA checklist, add/maintain mission-path-reminder smoke coverage, add a migration/backup plan, and continue reducing profile/API contract overlap.
+The next product-planning priority is Living Space v1 documentation and implementation-contract hardening before UI coding. Living Space should turn Home into one visible progress room with five path zones, fixed reward slots, first path preview/selection, mission recommendation, first reward unlock persistence, and room object appearance.
+
+The next engineering priority after the contract is clear is additive backend reward persistence and authenticated space state endpoints. Schema/API/QA docs should be updated only after implementation exists. Launch hardening remains active in parallel: keep reminder automation monitored, verify frontend production builds use `/api-proxy`, run the launch QA checklist, add/maintain mission-path-reminder smoke coverage, add a migration/backup plan, and continue reducing profile/API contract overlap.

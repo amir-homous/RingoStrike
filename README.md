@@ -20,6 +20,7 @@ The product combines:
 * progression identity
 * Ringo-led daily missions
 * mission focus mode
+* Living Space planning for visible progress at Home
 * Telegram reminder automation
 * social momentum architecture
 
@@ -43,6 +44,7 @@ The long-term goal is to create a platform where:
 
 * consistency becomes identity
 * progress becomes shareable
+* real progress creates visible change
 * momentum becomes social
 * growth feels cinematic
 
@@ -69,6 +71,7 @@ The long-term goal is to create a platform where:
 * Ringo-led paths and daily missions
 * Mission reminders, skips, and completion state
 * Mission-family behavior for main/tiny substitutes and optional bonus momentum
+* Living Space v1 product contract for persistent room rewards
 
 ---
 
@@ -121,6 +124,7 @@ The long-term goal is to create a platform where:
 * Ringo-led MissionCenter with focus-mode dashboard gating
 * Compact progress strip during focused daily loops
 * First-run staged reveal and calm Rest Mode after finishing for today
+* Living Space direction for five path zones and visible Home progress
 * Reward-driven interactions
 * Responsive layouts
 * Emotionally intelligent UX
@@ -193,6 +197,7 @@ src/
 │   ├── profile/
 │   ├── progress/
 │   ├── ringo/
+│   ├── space/      # planned Living Space components
 │   └── ui/
 ├── i18n/
 ├── views/
@@ -206,6 +211,7 @@ The frontend is built around:
 * reusable progression components
 * emotional feedback systems
 * Ringo/MissionCenter guided daily focus
+* future Living Space visible-progress components
 * English/Persian localization with RTL support
 * scalable identity/social architecture
 
@@ -243,10 +249,12 @@ Current stage:
 * companion-first guided progression
 * identity-focused UX
 * mission focus and completion-flow hardening
+* Living Space v1 implementation contract
 * pre-launch operational polish
 
 Future direction:
 
+* visible progress Home / Living Space
 * social momentum layer
 * fuller Mission Context UX
 * contextual path/challenge/mission reward framing
@@ -364,11 +372,13 @@ DO:
 * avoid duplicate logic
 * preserve design language
 * think future-safe
+* keep Living Space additive to existing progression systems
 
 DO NOT:
 
 * tightly couple systems
 * duplicate XP/streak logic
+* create a second progression economy
 * redesign working UX unnecessarily
 * create disconnected features
 
@@ -378,10 +388,11 @@ DO NOT:
 
 RingoStrike is evolving toward:
 
-> “A social progression ecosystem powered by emotionally intelligent gamification.”
+> “A living progression ecosystem powered by emotionally intelligent gamification.”
 
 Future systems may include:
 
+* visible Living Space progression
 * public progression identity
 * social feeds
 * shared momentum systems

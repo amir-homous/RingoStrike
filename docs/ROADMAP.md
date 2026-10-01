@@ -235,12 +235,18 @@ These items should happen before expanding product scope:
 
 Goal:
 
-Reduce first-time user confusion by shifting the primary experience from dashboard browsing to a Ringo-first daily companion loop.
+Reduce first-time user confusion by shifting the primary experience from dashboard browsing to a Ringo-first daily companion loop, then make that progress visible through Living Space v1.
 
 Core loop:
 
 ```txt
 Ringo understands state -> Main/Tiny/Bonus mission -> Small action -> Ringo Moment -> Next gentle step
+```
+
+Living Space extension:
+
+```txt
+Ringo understands state -> Mission completed -> Reward unlock -> Room object appears -> Next gentle step
 ```
 
 Why:
@@ -255,6 +261,9 @@ Planned work:
 - Keep existing path, challenge, mission, check-in, stats, achievement, and activity systems as the supporting infrastructure.
 - Refine simplified early navigation/progressive disclosure without blocking direct routes.
 - Expand the reward moment and join success moment only when existing backend responses provide enough data.
+- Finalize the Living Space v1 implementation contract before UI coding.
+- Use Living Space v1 to turn Home into one visible progress room with five clickable path zones.
+- Persist the first path reward unlock and show the unlocked object in the correct fixed room slot.
 - Improve first-run onboarding after the identity path flow is validated.
 - Consider reminder connection prompts after the first reward/check-in moment, not before.
 
@@ -262,9 +271,16 @@ Non-goals:
 
 - No backend rewrite.
 - No duplicate progression logic.
+- No second progression economy for Living Space.
+- No shop, inventory editor, drag/drop room builder, city map, friend-room visits, or heavy social systems in Living Space v1.
 - No complex skill tree yet.
 - No native mobile app yet.
 - No heavy social systems yet.
+
+Living Space v1 references:
+
+- [Living Space v1 Spec](product/LIVING_SPACE_V1_SPEC.md)
+- [Living Space v1 Issue Breakdown](product/LIVING_SPACE_V1_ISSUE_BREAKDOWN.md)
 
 ---
 
@@ -280,14 +296,16 @@ Near-term product sequence:
 2. Ringo Brain v1: add a deterministic decision layer for user state, Ringo mood, suggested mission, mission intensity, tone, actions, and reward sequence type.
 3. Main/Tiny/Bonus missions: show a focused daily set so the user always knows what is enough today.
 4. Ringo Moment reward sequence: turn mission completion into a step-by-step emotional reward ritual instead of one static result card.
-5. Ringo Pulse feed: add a warm lightweight activity/community pulse, with privacy-aware defaults.
-6. AI-assisted language layer: later, after the rule-based Ringo Brain exists, use AI for safe wording variation and personalized language only.
+5. Living Space v1: make real progress create persistent visible change in the user's Home.
+6. Ringo Pulse feed: add a warm lightweight activity/community pulse, with privacy-aware defaults.
+7. AI-assisted language layer: later, after the rule-based Ringo Brain exists, use AI for safe wording variation and personalized language only.
 
 Implementation principles:
 
 - First Ringo, then system.
 - Preserve existing functionality and avoid rewrites.
 - Extend or wrap existing services before replacing them.
+- Keep Living Space reward persistence additive to current path/mission/check-in/stats/achievement systems.
 - Keep AI out of product decisions until deterministic Ringo Brain behavior is stable.
 
 Reference: [MVP Relaunch Phases](product/MVP_RELAUNCH_PHASES.md).

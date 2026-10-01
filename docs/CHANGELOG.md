@@ -16,6 +16,16 @@ The project has moved beyond raw MVP. Core progression identity is implemented. 
 
 ## Latest Launch-Hardening Updates
 
+### Living Space v1 Documentation Alignment
+
+Aligned the main project docs around Living Space v1 as the next visible-progress Home direction:
+
+- Added Living Space v1 references to AI context, project overview, roadmap, design system, and README.
+- Clarified the core rule: real progress should create persistent visible change in the user's space.
+- Positioned Living Space as an additive layer on top of existing path, mission, check-in, stats, achievement, and reward systems.
+- Preserved v1 non-goals: no shop, inventory editor, drag/drop room builder, city map, friend visits, heavy social, or second progression economy.
+- Kept schema/API/QA documentation deferred until actual implementation exists.
+
 ### Mission Focus Mode
 
 Added frontend mission focus gating so the dashboard stays calm while the daily loop still has a meaningful next state:
