@@ -59,6 +59,8 @@
             @loaded="handleMissionCenterLoaded" @first-run-complete="dismissFirstRunFocus"
             @focus-state-change="handleMissionFocusState" @show-dashboard="showDashboardFromFocus" />
 
+          <LivingSpace v-if="showFullDashboard" class="dashboardRevealItem" :refresh-key="spaceRefreshKey" />
+
           <!-- Legacy Today Mission is now a fallback when Mission Center has no actionable mission. -->
           <div v-if="showFullDashboard && showLegacyTodayMission" id="today-mission"
             class="scrollAnchor dashboardRevealItem">
@@ -223,6 +225,7 @@ import BaseCard from "@/components/ui/BaseCard.vue";
 import BaseButton from "@/components/ui/BaseButton.vue";
 import UiState from "@/components/ui/UiState.vue";
 import MissionCenter from "@/components/missions/MissionCenter.vue";
+import LivingSpace from "@/components/space/LivingSpace.vue";
 import TodayMission from "@/components/dashboard/TodayMission.vue";
 import PostCheckinNextAction from "@/components/guided/PostCheckinNextAction.vue";
 import CompactProgressStrip from "@/components/progress/CompactProgressStrip.vue";
@@ -290,6 +293,7 @@ const missionCenterStatus = ref({
   error: "",
 });
 const missionCenterKey = ref(0);
+const spaceRefreshKey = ref(0);
 const showOnboardingFallback = computed(() => {
   if (typeof window === "undefined") return false;
 
@@ -592,6 +596,10 @@ async function handleMissionCheckin(payload = {}) {
   const oldStats = stats.value ? { ...stats.value } : null;
 
   await loadDashboard({ silent: true });
+
+  if (payload?.living_space_reward) {
+    spaceRefreshKey.value += 1;
+  }
 
   if (payload?.source === "mission_completion") return;
   if (!oldStats || !stats.value) return;
