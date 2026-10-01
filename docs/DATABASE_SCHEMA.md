@@ -356,6 +356,77 @@ Indexes:
 - `idx_user_achievements_user` on `(user_id)`
 - `idx_user_achievements_achievement` on `(achievement_id)`
 
+## `reward_definitions`
+
+```sql
+CREATE TABLE IF NOT EXISTS reward_definitions (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  key TEXT NOT NULL UNIQUE,
+  title TEXT NOT NULL,
+  description TEXT,
+  path_id INTEGER NOT NULL,
+  zone_key TEXT NOT NULL,
+  object_type TEXT,
+  asset_key TEXT,
+  rarity TEXT NOT NULL DEFAULT 'common',
+  unlock_condition_type TEXT NOT NULL,
+  unlock_condition_value TEXT,
+  stage INTEGER NOT NULL DEFAULT 1,
+  slot_key TEXT NOT NULL,
+  status TEXT CHECK(status IN ('Active', 'Archived')) DEFAULT 'Active',
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT,
+  UNIQUE(path_id, slot_key),
+  FOREIGN KEY(path_id) REFERENCES paths(id) ON DELETE CASCADE
+);
+```
+
+Seeded and updated by `living_space_service.ensure_reward_definitions()` after canonical paths and missions are seeded. Living Space v1 seeds 25 deterministic rewards: five rewards for each of `career`, `creativity`, `fitness`, `learning`, and `sleep`.
+
+Indexes:
+
+- `idx_reward_definitions_path_zone` on `(path_id, zone_key, status)`
+- `idx_reward_definitions_condition` on `(unlock_condition_type, status)`
+
+## `user_rewards`
+
+```sql
+CREATE TABLE IF NOT EXISTS user_rewards (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL,
+  reward_id INTEGER NOT NULL,
+  unlocked_at TEXT NOT NULL DEFAULT (datetime('now')),
+  source_type TEXT,
+  source_id INTEGER,
+  is_seen INTEGER NOT NULL DEFAULT 0,
+  UNIQUE(user_id, reward_id),
+  FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY(reward_id) REFERENCES reward_definitions(id) ON DELETE CASCADE
+);
+```
+
+Stores persistent Living Space reward unlocks. The unique `(user_id, reward_id)` constraint is the primary idempotency guard.
+
+Indexes:
+
+- `idx_user_rewards_user` on `(user_id)`
+- `idx_user_rewards_reward` on `(reward_id)`
+- `idx_user_rewards_user_seen` on `(user_id, is_seen)`
+
+## `user_space`
+
+```sql
+CREATE TABLE IF NOT EXISTS user_space (
+  user_id INTEGER PRIMARY KEY,
+  theme TEXT NOT NULL DEFAULT 'default',
+  current_stage INTEGER NOT NULL DEFAULT 1,
+  updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+  FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+```
+
+Stores per-user Living Space state for the fixed v1 room. V1 does not include free object placement, inventory, shop, or room editor fields.
+
 ## `telegram_connections`
 
 ```sql
@@ -402,6 +473,7 @@ Indexes:
 `init_db()` currently performs startup-time schema setup and lightweight migrations. It also calls:
 
 - `ensure_mvp_paths_and_missions(conn)` to seed path/challenge/mission definitions.
+- `ensure_reward_definitions(conn)` to seed deterministic Living Space v1 reward definitions.
 - `archive_legacy_unlinked_challenges(conn)` to archive active challenges that are not linked to current seeded path/mission data.
 
 This keeps local development databases moving, but it is not a replacement for a production migration system.
