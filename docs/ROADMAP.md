@@ -261,9 +261,9 @@ Planned work:
 - Keep existing path, challenge, mission, check-in, stats, achievement, and activity systems as the supporting infrastructure.
 - Refine simplified early navigation/progressive disclosure without blocking direct routes.
 - Expand the reward moment and join success moment only when existing backend responses provide enough data.
-- Finalize the Living Space v1 implementation contract before UI coding.
-- Use Living Space v1 to turn Home into one visible progress room with five clickable path zones.
-- Persist the first path reward unlock and show the unlocked object in the correct fixed room slot.
+- Keep Living Space v1 aligned as one visible progress room with five clickable path zones.
+- Preserve deterministic first path reward unlock persistence and fixed room object placement.
+- Use the Living Space v1 QA checklist before treating the Home room flow as release-ready.
 - Improve first-run onboarding after the identity path flow is validated.
 - Consider reminder connection prompts after the first reward/check-in moment, not before.
 
@@ -281,6 +281,7 @@ Living Space v1 references:
 
 - [Living Space v1 Spec](product/LIVING_SPACE_V1_SPEC.md)
 - [Living Space v1 Issue Breakdown](product/LIVING_SPACE_V1_ISSUE_BREAKDOWN.md)
+- [Living Space v1 QA Checklist](qa/LIVING_SPACE_V1_QA_CHECKLIST.md)
 
 ---
 

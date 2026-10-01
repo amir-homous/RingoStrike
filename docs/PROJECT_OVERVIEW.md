@@ -153,7 +153,7 @@ Based on git history, the project has progressed through:
 4. Public identity foundations: public profiles, visibility, username normalization, avatar/profile settings, and shareable UX.
 5. Guided path/mission foundation: seeded MVP paths, path-specific challenges, daily missions, mission logs, RingoCoach state decisions, premium navigation, and Ringo helper sprites.
 6. Mission-family and focus-mode polish: main/tiny substitute behavior, bonus-as-optional momentum, staged first-run reveal, post-first-win copy, compact focus progress, collapsed mission status details, and Rest Mode.
-7. Living Space v1 product planning: visible progress room, five path zones, fixed reward slots, first reward persistence, and explicit non-goals before UI coding.
+7. Living Space v1 implementation: visible progress room, five path zones, fixed reward slots, first reward persistence, path preview, reward unlock moment, QA checklist, and explicit non-goals for v2 creep.
 
 ## Known Stabilization Needs
 

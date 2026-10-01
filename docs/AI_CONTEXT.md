@@ -98,11 +98,12 @@ Implementation guidance:
 - The language switcher lives in `frontend/src/components/i18n/LanguageSwitcher.vue`, persists the selected locale in `localStorage.ringostrike_locale`, and updates `document.documentElement.lang` and `dir`.
 - Persian mode uses the local Vazirmatn variable WOFF2 font from `frontend/src/assets/fonts/Vazirmatn.woff2`; English mode keeps the existing system font stack.
 - Component groups for UI primitives, progress, achievements, activity, challenge cards, profile, and feedback.
-- Guided progression surfaces now include Dashboard MissionCenter, backend RingoCoach decisions, `/paths` path planning, path selection from MissionCenter, lightweight `/onboarding` identity path flow, progressive dashboard disclosure, premium check-in RewardMoment, and JoinSuccessMoment after successful challenge joins.
+- Guided progression surfaces now include Dashboard MissionCenter, backend RingoCoach decisions, `/paths` path planning, path selection from MissionCenter, lightweight `/onboarding` identity path flow, progressive dashboard disclosure, premium check-in RewardMoment, JoinSuccessMoment after successful challenge joins, and Living Space visible-progress room feedback.
 - `MissionCenter.vue` calls `/me/today-missions`; mission done calls `/me/missions/:id/done`, which writes a mission log and delegates to the existing check-in pipeline.
 - `PathSelection.vue` starts a path and then joins the first related challenge when one is available. Path start and challenge join remain separate API operations.
 - RewardMoment displays existing backend check-in rewards only and can surface frontend-only feature unlock hints for Activity, Achievements, and Public Profile. Leaderboard unlock hints are intentionally skipped for v1 because there is no dedicated global leaderboard route yet.
 - JoinSuccessMoment keeps the join API unchanged and gives users a softer transition from onboarding/challenge discovery to the daily mission loop before they open dense enrollment details.
+- Living Space v1 is implemented through `frontend/src/components/space/`, Dashboard placement below MissionCenter, onboarding path-zone preview, `RewardUnlockMoment.vue`, and authenticated `/me/space` API calls.
 - Public profile page consumes `/api/public/profile/:username`, `/consistency`, and `/achievements`.
 - API docs view has been brought closer to the backend contract, but route files remain the final source of truth.
 
@@ -124,7 +125,7 @@ Implementation guidance:
 - Treat path, challenge, mission, check-in, stats, achievement, activity, and profile systems as supporting infrastructure for Ringo.
 - For Ringo-related product behavior, follow `docs/product/` before inventing new direction.
 - Keep deterministic product decisions in code and services. AI-assisted language should come later and remain structured, validated, and fallback-safe.
-- Do not start Living Space UI implementation until the data/API contract is clear enough to keep reward persistence deterministic.
+- Preserve the Living Space v1 implementation contract now that schema, API, frontend room rendering, reward unlock, persistence tests, and QA checklist exist.
 - For Living Space v1, preserve the core rule: real progress creates visible change. Do not add shop, inventory, drag/drop room editing, city maps, friend visits, heavy social, or a second progression economy.
 
 ## Critical Engineering Notes
@@ -136,7 +137,7 @@ Implementation guidance:
 - When adding Persian UI text, keep `lang="fa"`/`dir="rtl"` behavior centralized through `frontend/src/i18n/index.js`.
 - Keep guided progression UX frontend-first while it is being validated. Reuse current challenge/enrollment/check-in responses; do not add onboarding, recommendation, XP, streak, or achievement backend logic unless a later issue explicitly requires it.
 - For path/mission work, keep mission state in `mission_logs` and canonical progression in check-ins/stats/achievements. Avoid adding a second progression economy.
-- Living Space rewards should be additive persistence on top of existing progression. If schema/API work begins, document actual tables/endpoints only after they exist.
+- Living Space rewards are additive persistence on top of existing progression. Actual tables are documented in `docs/DATABASE_SCHEMA.md`, actual endpoints in `docs/FRONTEND_CONTRACT.md` and `docs/API_ENDPOINT_OWNERSHIP.md`, and the repeatable QA script in `docs/qa/LIVING_SPACE_V1_QA_CHECKLIST.md`.
 - `frontend/src/constants/ringoSprites.js` resolves Ringo sprites from `frontend/src/assets/ringo/` with fallback aliases for missing or unknown keys. Keep `RINGO_SPRITE_KEYS`, backend `sprite_key` values, and actual asset filenames aligned.
 - Dashboard mission focus mode is frontend-owned: `MissionCenter.vue` emits `focus-state-change`, `Dashboard.vue` hides secondary dashboard sections while focus is active, and `CompactProgressStrip.vue` provides minimal level/XP/streak context without duplicating progression calculations.
 - `MissionCenter.vue` owns first-run staged reveal, mission status expansion, post-first-win copy, and Rest Mode. `Finish for today` enters the calm Rest Mode card; `Show dashboard` explicitly unlocks the full dashboard.
@@ -169,6 +170,6 @@ The project has moved beyond the older v0.3 dashboard/profile milestone. Public 
 - profile settings and avatar/bio fields
 - public consistency and public achievements endpoints
 
-The next product-planning priority is Living Space v1 documentation and implementation-contract hardening before UI coding. Living Space should turn Home into one visible progress room with five path zones, fixed reward slots, first path preview/selection, mission recommendation, first reward unlock persistence, and room object appearance.
+Living Space v1 is now an implemented Home layer for visible progress: one room, five fixed path zones, onboarding path preview, authenticated space state endpoints, deterministic first reward unlocks from real mission completion, seen-state persistence, and a repeatable QA checklist.
 
-The next engineering priority after the contract is clear is additive backend reward persistence and authenticated space state endpoints. Schema/API/QA docs should be updated only after implementation exists. Launch hardening remains active in parallel: keep reminder automation monitored, verify frontend production builds use `/api-proxy`, run the launch QA checklist, add/maintain mission-path-reminder smoke coverage, add a migration/backup plan, and continue reducing profile/API contract overlap.
+The next engineering priority is Living Space hardening and launch readiness rather than new room systems: keep schema/API/QA docs aligned, run the Living Space QA checklist before release review, preserve idempotent reward persistence, and avoid v2 features such as shops, inventory, drag/drop editing, city maps, public room visits, heavy social, or a second progression economy. Launch hardening remains active in parallel: keep reminder automation monitored, verify frontend production builds use `/api-proxy`, run the launch QA checklist, add/maintain mission-path-reminder smoke coverage, add a migration/backup plan, and continue reducing profile/API contract overlap.

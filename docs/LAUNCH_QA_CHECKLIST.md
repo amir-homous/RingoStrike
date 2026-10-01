@@ -322,6 +322,19 @@ Check these pages on desktop and mobile width:
  Profile.
  Public profile.
  API docs.
+ Living Space on Dashboard.
+ Onboarding path preview.
+
+Living Space v1 checks:
+
+ Use `docs/qa/LIVING_SPACE_V1_QA_CHECKLIST.md` for the repeatable room QA script.
+ Empty room loads for a fresh authenticated user.
+ Five fixed path zones render.
+ Onboarding path preview highlights the correct zone.
+ Mission completion can show the Living Space reward unlock moment.
+ Dismissing the unlock marks the reward seen when supported.
+ Reloading Dashboard keeps the unlocked room object visible.
+ Duplicate mission completion does not duplicate room rewards.
 
 Mobile checks:
 
@@ -347,6 +360,7 @@ Before launch, confirm:
  Backend tests pass.
  Frontend build passes.
  Manual QA checklist is completed.
+ Living Space v1 QA checklist is completed when this release includes Home/Living Space changes.
  Known critical bugs are fixed.
  Public/private profile behavior is safe.
  Check-in, leaderboard, achievements, and stats are reliable.
