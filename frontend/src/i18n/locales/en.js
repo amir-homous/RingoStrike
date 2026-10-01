@@ -89,6 +89,21 @@ export default {
     zoneComplete: "This zone has no locked previews left.",
     nextReward: "Next visible change: {reward}",
   },
+  spaceUnlock: {
+    eyebrow: "Room reward",
+    title: "Your room changed",
+    body: "{reward} appeared in your {zone}.",
+    defaultDescription: "Unlocked by real progress.",
+    continue: "Place it in the room",
+    room: "room",
+    zones: {
+      workDesk: "Work Desk",
+      creativeCorner: "Creative Corner",
+      fitnessCorner: "Fitness Corner",
+      learningCorner: "Learning Corner",
+      sleepCorner: "Sleep Corner",
+    },
+  },
   paths: {
     eyebrow: "Growth paths",
     title: "Choose a path for your next identity.",

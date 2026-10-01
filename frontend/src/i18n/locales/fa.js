@@ -89,6 +89,21 @@ export default {
     zoneComplete: "این بخش پیش‌نمایش قفل‌شده دیگری ندارد.",
     nextReward: "تغییر قابل دیدن بعدی: {reward}",
   },
+  spaceUnlock: {
+    eyebrow: "پاداش اتاق",
+    title: "اتاقت تغییر کرد",
+    body: "{reward} در {zone} ظاهر شد.",
+    defaultDescription: "با پیشرفت واقعی باز شد.",
+    continue: "قرارش بده توی اتاق",
+    room: "اتاق",
+    zones: {
+      workDesk: "میز کار",
+      creativeCorner: "گوشه خلاقیت",
+      fitnessCorner: "گوشه حرکت",
+      learningCorner: "گوشه یادگیری",
+      sleepCorner: "گوشه خواب",
+    },
+  },
   paths: {
     eyebrow: "مسیرهای رشد",
     title: "یک مسیر برای هویت بعدی‌ات انتخاب کن.",
