@@ -160,9 +160,99 @@ def unlock_reward(user_id: int, reward_id: int, *, source_type: str | None = Non
         )
         conn.commit()
 
+        reward_payload = _reward_payload(reward)
+        reward_payload.update({
+            "source_type": source_type,
+            "source_id": source_id,
+            "is_seen": False,
+        })
+
         return {
             "ok": True,
-            "reward": _reward_payload(reward),
+            "reward": reward_payload,
+            "newly_unlocked": cursor.rowcount == 1,
+        }, 200
+    finally:
+        conn.close()
+
+
+def unlock_first_path_reward_for_mission(user_id: int, mission_id: int):
+    from database import get_db_connection
+
+    conn = get_db_connection()
+    try:
+        ensure_reward_definitions(conn)
+        mission = conn.execute(
+            """
+            SELECT
+                m.id AS mission_id,
+                m.mission_intensity,
+                c.path_id,
+                p.key AS path_key
+            FROM missions m
+            JOIN challenges c ON c.id = m.challenge_id
+            JOIN paths p ON p.id = c.path_id
+            WHERE m.id = ?
+            """,
+            (mission_id,),
+        ).fetchone()
+        if not mission:
+            return {"ok": False, "error": "mission_not_found"}, 404
+
+        if (mission["mission_intensity"] or "main") == "bonus":
+            return {
+                "ok": True,
+                "reward": None,
+                "newly_unlocked": False,
+            }, 200
+
+        reward = conn.execute(
+            """
+            SELECT rd.*, p.key AS path_key
+            FROM reward_definitions rd
+            JOIN paths p ON p.id = rd.path_id
+            WHERE rd.path_id = ?
+              AND rd.unlock_condition_type = 'first_path_mission_done'
+              AND rd.status = 'Active'
+            ORDER BY rd.stage ASC, rd.id ASC
+            LIMIT 1
+            """,
+            (mission["path_id"],),
+        ).fetchone()
+        if not reward:
+            return {"ok": True, "reward": None, "newly_unlocked": False}, 200
+
+        conn.execute(
+            """
+            INSERT OR IGNORE INTO user_space (user_id)
+            VALUES (?)
+            """,
+            (user_id,),
+        )
+        cursor = conn.execute(
+            """
+            INSERT OR IGNORE INTO user_rewards (
+                user_id,
+                reward_id,
+                source_type,
+                source_id
+            )
+            VALUES (?, ?, 'mission_reward', ?)
+            """,
+            (user_id, reward["id"], mission_id),
+        )
+        conn.commit()
+
+        reward_payload = _reward_payload(reward)
+        reward_payload.update({
+            "source_type": "mission_reward",
+            "source_id": mission_id,
+            "is_seen": False,
+        })
+
+        return {
+            "ok": True,
+            "reward": reward_payload,
             "newly_unlocked": cursor.rowcount == 1,
         }, 200
     finally:
