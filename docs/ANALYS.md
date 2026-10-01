@@ -23,6 +23,9 @@ Rationale:
 - Activity feed is derived from check-ins and achievements on read rather than persisted as an event table; this is simple now but couples feed behavior to current query logic.
 - Frontend views call backend endpoints directly; Pinia is not consistently used as a stable state boundary.
 - Guided progression now spans path state, mission logs, enrollments, check-ins, and dashboard reward display. This is appropriate for the product, but it increases the need for end-to-end smoke coverage around duplicate mission/check-in submissions.
+- MissionCenter optional explorer now derives richer display metadata from grouped mission rows. This is appropriate frontend composition, but future work should keep reward-ready/building states display-only unless backend reward-claim ownership is explicitly designed.
+- Staged Mission Reward Sequence v2 now consumes additive mission completion fields, backend `reward_sequence`, and frontend before/after snapshots where available for frontend reward display only. Future work should preserve the boundary that XP/stat/progression ownership stays in backend services.
+- Daily Momentum Bar v1 composes existing frontend mission/path/guidance data into a compact strike/path/action dock. Future work should keep this display/action orchestration separate from backend XP, streak, check-in, mission mutation, path-level, analytics, and discovery ownership unless a new contract is explicitly designed.
 
 ### Duplication Hotspots
 
@@ -160,6 +163,11 @@ Issues:
 
 ### Completed Stabilization
 
+0. Frontend-only seeded content display localization is implemented for known mission/path/challenge copy through helpers such as `missionDisplayCopy.js` and `ringoContentLocalization.js`; Persian onboarding challenge selection and Persian MissionCenter seeded mission display were visually checked, `npm --prefix frontend run build` passed, `npm --prefix frontend run test:router` passed, and `git diff --check` passed. Unknown/custom backend content still falls back by design, and localization key coverage must be maintained as seeded content expands.
+0. MissionCenter optional explorer progress-map polish is implemented as a frontend-only refinement: progress-surface path/challenge cards, icon progress rings, reward-ready/building display slots, earned/total XP summaries, mission-key icons, status-aware mission rows, completed-group visibility, improved Ringo optional-state copy, and Persian/RTL root-background stability. Validation passed with `npm --prefix frontend run build`, `npm --prefix frontend run test:router`, `npm --prefix frontend run test:localization`, and `git diff --check`.
+0. Mission Reward Moment v1 is implemented as a frontend-only enhancement after mission completion: it reuses `RingoRewardSequence.vue`, shows earned mission XP only for positive non-replayed completion responses, differentiates main/tiny/bonus copy, falls back to calm completion copy for already-done or missing/zero-XP responses, and preserves backend XP/stat/progression ownership. Validation passed with `npm --prefix frontend run build`, `npm --prefix frontend run test:router`, `npm --prefix frontend run test:localization`, and `git diff --check`; the existing Vite large chunk warning remains.
+0. Staged Mission Reward Sequence v2 is implemented as a frontend-only enhancement after mission completion: it normalizes backend `response.reward_sequence`, maps `mission_completed` -> `mission_complete` and `next_choice` -> `final_choice`, guarantees mission/XP/final-choice fallback steps for newly completed XP missions, uses before/after reward snapshots where available, supports strike secured, XP/level wrap animation, path/challenge strengthened, challenge secured, mission-key icon fallback, legacy Dashboard reward-card suppression, EN/FA copy, RTL polish, and reduced-motion behavior where implemented. Validation passed with `npm --prefix frontend run build`, `npm --prefix frontend run test:router`, `npm --prefix frontend run test:localization`, and `git diff --check`; the existing Vite large chunk warning remains.
+0. Daily Momentum Bar v1 is implemented as a frontend-only compact daily status/action surface: it shows today safety, streak count, today-only path progress rings, contextual actions, a lightweight Explore Paths entry to `/paths`, action icons from `frontend/src/assets/action-icons/`, a reminder chip in `compactProgressStrip` only when count is greater than zero, and centralized daily action ownership while keeping Optional Explorer content available. Validation passed with `npm --prefix frontend run build`, `npm --prefix frontend run test:router`, `npm --prefix frontend run test:localization`, and `git diff --check`; the existing Vite large chunk warning remains.
 1. Production secret requirements are enforced outside development.
 2. Active JWT signing/verification uses centralized `Config.JWT_SECRET`.
 3. Debug endpoints are blocked outside development.
@@ -179,6 +187,7 @@ Issues:
 5. Normalize profile update endpoints into one clear contract.
 7. Add explicit database migrations instead of ad hoc startup migrations.
 8. Keep public challenge/member visibility documented as the product policy evolves.
+9. Run a QA/microcopy/localization polish pass for seeded Persian content display, especially onboarding challenge copy, MissionCenter seeded mission copy, missing fallback behavior, and localization helper coverage as seed content expands.
 
 ### Optional - Future Improvement
 

@@ -1,3 +1,9 @@
+import {
+  getChallengeDisplayCopy,
+  getMissionDisplayCopy,
+  getPathDisplayCopy,
+} from "./missionDisplayCopy.js";
+
 const FA_PATHS = {
   fitness: {
     title: "تناسب و انرژی",
@@ -183,13 +189,26 @@ function shouldLocalize(locale) {
 
 export function localizePath(item, locale) {
   if (!item || !shouldLocalize(locale)) return item;
-  const copy = FA_PATHS[item.key];
+  const displayCopy = getPathDisplayCopy(item, locale);
+  const fallbackCopy = FA_PATHS[item.key];
+  const copy = displayCopy.found
+    ? { title: displayCopy.title, description: displayCopy.description }
+    : fallbackCopy;
+
   return copy ? { ...item, ...copy } : item;
 }
 
 export function localizeChallenge(item, locale) {
   if (!item || !shouldLocalize(locale)) return item;
-  const copy = FA_CHALLENGES[item.name];
+  const displayCopy = getChallengeDisplayCopy(item, locale);
+  const fallbackCopy = FA_CHALLENGES[item.name];
+  const copy = displayCopy.found
+    ? {
+      name: displayCopy.name,
+      description: displayCopy.description,
+      ringo_intro: displayCopy.ringo_intro,
+    }
+    : fallbackCopy;
   const missions = Array.isArray(item.missions)
     ? item.missions.map((mission) => localizeMission(mission, locale))
     : item.missions;
@@ -199,10 +218,13 @@ export function localizeChallenge(item, locale) {
 
 export function localizeMission(item, locale) {
   if (!item || !shouldLocalize(locale)) return item;
-  const copy = FA_MISSIONS[item.key];
-  if (!copy) return item;
+  const displayCopy = getMissionDisplayCopy(item, locale);
+  const fallbackCopy = FA_MISSIONS[item.key];
+  if (!displayCopy.found && !fallbackCopy) return item;
 
-  const [title, description] = copy;
+  const [fallbackTitle, fallbackDescription] = fallbackCopy || [];
+  const title = displayCopy.found ? displayCopy.title : fallbackTitle;
+  const description = displayCopy.found ? displayCopy.description : fallbackDescription;
   const challenge = item.challenge_name
     ? localizeChallenge({ name: item.challenge_name }, locale)
     : null;

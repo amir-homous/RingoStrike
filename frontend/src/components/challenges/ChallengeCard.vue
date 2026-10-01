@@ -27,8 +27,8 @@
             </span>
           </div>
 
-          <p v-if="challenge.description && !compact" class="desc">
-            {{ challenge.description }}
+          <p v-if="displayChallenge?.description && !compact" class="desc">
+            {{ displayChallenge.description }}
           </p>
         </div>
 
@@ -163,6 +163,7 @@ import { useI18n } from "vue-i18n";
 import BaseCard from "@/components/ui/BaseCard.vue";
 import BaseButton from "@/components/ui/BaseButton.vue";
 import { getChallengePathKey } from "@/lib/guidedExperience";
+import { localizeChallenge } from "@/lib/ringoContentLocalization";
 
 const props = defineProps({
   challenge: { type: Object, required: true },
@@ -175,10 +176,17 @@ const props = defineProps({
 
 defineEmits(["checkin", "join"]);
 
-const { t } = useI18n();
+const { locale, t } = useI18n();
+
+const displayChallenge = computed(() => {
+  return localizeChallenge(props.challenge, locale.value);
+});
 
 const title = computed(() => {
-  return props.challenge.name || props.challenge.enrollment_name || props.challenge.challenge_name || t("common.challenge");
+  return displayChallenge.value?.name
+    || displayChallenge.value?.enrollment_name
+    || displayChallenge.value?.challenge_name
+    || t("common.challenge");
 });
 
 const pathKey = computed(() => {

@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" aria-hidden="true" role="img">
+  <title>Skip</title>
+  <desc>A soft shame-free skip action icon.</desc>
+  <style>
+    .primary { stroke: #EAF8FF; }
+    .muted { stroke: #A9B8C8; }
+    .accent { stroke: #6EE5FF; }
+    .positive { stroke: #4ADE80; }
+    .warm { stroke: #F8C86A; }
+  </style>
+  <g stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <path class="primary" d="M5.3 7.15 10.8 12l-5.5 4.85V7.15Z"/>
+    <path class="accent" d="M11.7 7.15 17.2 12l-5.5 4.85V7.15Z" opacity="0.95"/>
+    <path class="muted" d="M19.3 6.7v10.6" opacity="0.8"/>
+  </g>
+</svg>

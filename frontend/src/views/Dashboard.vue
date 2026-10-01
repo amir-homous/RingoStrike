@@ -46,14 +46,15 @@
           </BaseCard> -->
 
           <div v-if="showMissionFocusMode && stats" class="missionFocusProgress">
-            <CompactProgressStrip :stats="stats" :today-safe="missionFocusState.todaySafe" />
+            <CompactProgressStrip :stats="stats" :today-safe="missionFocusState.todaySafe"
+              :reminder-count="missionFocusState.reminderCount" />
 
-            <BaseButton variant="secondary" @click="showDashboardFromFocus">
+            <!-- <BaseButton variant="secondary" @click="showDashboardFromFocus">
               {{ t("dashboard.showDashboard") }}
-            </BaseButton>
+            </BaseButton> -->
           </div>
 
-          <MissionCenter :key="missionCenterKey" :first-run-focus="showFirstRunFocus"
+          <MissionCenter :key="missionCenterKey" :stats="stats" :first-run-focus="showFirstRunFocus"
             :focus-mode-active="showMissionFocusMode" @checked-in="handleMissionCheckin"
             @loaded="handleMissionCenterLoaded" @first-run-complete="dismissFirstRunFocus"
             @focus-state-change="handleMissionFocusState" @show-dashboard="showDashboardFromFocus" />
@@ -141,8 +142,7 @@
 
           <!-- 7. Achievements: after activity has enough meaning -->
           <AchievementPreview v-if="showFullDashboard && guidedState.features.achievements.unlocked"
-            class="dashboardRevealItem"
-            :achievements="achievements" />
+            class="dashboardRevealItem" :achievements="achievements" />
 
           <!-- 8. Leaderboard: lower priority because it is enrollment-scoped for now -->
           <BaseCard v-if="showFullDashboard && showLeaderboardPreview" id="leaderboard"
@@ -281,6 +281,7 @@ const missionFocusState = ref({
   reason: "loading",
   todaySafe: false,
   hasActionableSuggestion: false,
+  reminderCount: 0,
 });
 const missionCenterStatus = ref({
   loaded: false,
@@ -473,9 +474,14 @@ function showDashboardFromFocus() {
   }
 }
 
-async function loadDashboard() {
+async function loadDashboard(options = {}) {
+  const silent = Boolean(options?.silent);
+
   error.value = "";
-  loading.value = true;
+
+  if (!silent) {
+    loading.value = true;
+  }
 
   try {
     const data = await loadDashboardData(api, new Date().toLocaleDateString());
@@ -490,9 +496,12 @@ async function loadDashboard() {
     console.error(e);
     error.value = e?.response?.data?.error || e?.message || String(e);
   } finally {
-    loading.value = false;
+    if (!silent) {
+      loading.value = false;
+    }
   }
 }
+
 
 async function checkin(enrollmentId) {
   checkingId.value = enrollmentId;
@@ -562,39 +571,41 @@ async function checkin(enrollmentId) {
   }
 }
 
-async function handleMissionCheckin(payload) {
-  const enrollmentId = payload?.mission?.enrollment_id;
+// async function handleMissionCheckin() {
+//   const oldStats = stats.value ? { ...stats.value } : null;
+
+//   await loadDashboard({ silent: true });
+
+//   const oldPoints = Number(oldStats?.total_points ?? oldStats?.xp);
+//   const newPoints = Number(stats.value?.total_points ?? stats.value?.xp);
+//   const xpEarned = Number.isFinite(oldPoints) && Number.isFinite(newPoints)
+//     ? Math.max(0, newPoints - oldPoints)
+//     : 0;
+
+//   if (xpEarned > 0) {
+//     pushToast(`+${xpEarned} XP`, "success");
+//     pushToast(`🔥 ${t("dashboard.streakMaintained")}`, "success");
+//   }
+// }
+
+async function handleMissionCheckin(payload = {}) {
   const oldStats = stats.value ? { ...stats.value } : null;
 
-  await loadDashboard();
-  missionCenterKey.value += 1;
+  await loadDashboard({ silent: true });
 
-  const checkedChallenge = challenges.value.find(
-    (challenge) => challenge.enrollment_id === enrollmentId,
-  );
+  if (payload?.source === "mission_completion") return;
+  if (!oldStats || !stats.value) return;
 
-  const rewardPayload = buildRewardMomentPayload(
-    payload?.checkin?.rewards,
-    oldStats,
-    checkedChallenge,
-    {
-      mission: payload?.mission,
-      securedAt: payload?.mission?.secured_at || new Date().toISOString(),
-    },
-  );
-  rewardMoment.value = rewardPayload;
-
-  const oldPoints = Number(oldStats?.total_points ?? oldStats?.xp);
-  const newPoints = Number(stats.value?.total_points ?? stats.value?.xp);
-  const xpEarned = Number.isFinite(oldPoints) && Number.isFinite(newPoints)
-    ? Math.max(0, newPoints - oldPoints)
-    : 0;
-
-  if (xpEarned > 0) {
-    pushToast(`+${xpEarned} XP`, "success");
-    pushToast(`🔥 ${t("dashboard.streakMaintained")}`, "success");
+  if (stats.value.level > oldStats.level) {
+    rewardMoment.value = {
+      type: "level",
+      title: t("dashboard.rewards.levelTitle"),
+      text: t("dashboard.rewards.levelText", { level: stats.value.level }),
+    };
   }
 }
+
+
 
 function handleMissionCenterLoaded(payload) {
   missionCenterStatus.value = {
@@ -611,6 +622,7 @@ function handleMissionFocusState(payload) {
     reason: payload?.reason || "",
     todaySafe: Boolean(payload?.todaySafe),
     hasActionableSuggestion: Boolean(payload?.hasActionableSuggestion),
+    reminderCount: Number(payload?.reminderCount || 0),
   };
 
   if (missionFocusState.value.active && !missionFocusDismissed.value) {
@@ -635,6 +647,11 @@ onMounted(loadDashboard);
 .dashboardStack {
   display: grid;
   gap: var(--s-16);
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: clip;
 }
 
 .scrollAnchor {
@@ -642,10 +659,19 @@ onMounted(loadDashboard);
 }
 
 .missionFocusProgress {
+  position: sticky;
+  top: calc(78px + env(safe-area-inset-top));
+  z-index: 26;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: var(--s-12);
   align-items: center;
+  min-width: 0;
+  max-width: 100%;
+  padding: 6px 0 8px;
+  border-radius: 20px;
+  background: linear-gradient(180deg, rgba(6, 11, 20, 0.72), rgba(6, 11, 20, 0.38));
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.16);
+  backdrop-filter: blur(14px);
 }
 
 .dashboardRevealActive .dashboardRevealItem {

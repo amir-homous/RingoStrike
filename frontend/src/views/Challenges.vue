@@ -259,9 +259,14 @@ import {
   isInviteOnlyChallenge,
   submitJoinFlow,
 } from "./challengeFlow";
+import {
+  localizeChallenge,
+  localizeMission,
+  localizePath,
+} from "@/lib/ringoContentLocalization";
 
 const router = useRouter();
-const { t } = useI18n();
+const { locale, t } = useI18n();
 
 const loading = ref(true);
 const loadError = ref("");
@@ -286,14 +291,18 @@ const fallbackPathOptions = ["focus", "body", "learning", "mind", "consistency"]
 
 const pathOptions = computed(() => {
   if (pathItems.value.length) {
-    return pathItems.value.map((path) => ({
-      key: path.key || String(path.path_id),
-      path_id: path.path_id,
-      title: path.title,
-      description: path.description,
-      color: path.color,
-      user_status: path.user_status,
-    }));
+    return pathItems.value.map((path) => {
+      const displayPath = localizePath(path, locale.value);
+
+      return {
+        key: path.key || String(path.path_id),
+        path_id: path.path_id,
+        title: displayPath?.title || path.title,
+        description: displayPath?.description || path.description,
+        color: path.color,
+        user_status: path.user_status,
+      };
+    });
   }
 
   return fallbackPathOptions.map((key) => ({
@@ -356,7 +365,9 @@ const selectedMissionTitle = computed(() => {
     || selectedPathChallenge.value?.missions?.[0]
     || null;
 
-  if (mission?.title) return mission.title;
+  const displayMission = localizeMission(mission, locale.value);
+
+  if (displayMission?.title) return displayMission.title;
   if (selectedPath.value && !selectedPathItem.value?.path_id) {
     return t(`challenges.selectedPath.${selectedPath.value}.mission`);
   }
@@ -364,8 +375,10 @@ const selectedMissionTitle = computed(() => {
 });
 
 const selectedChallengeName = computed(() => {
-  return selectedPathChallenge.value?.name ||
-    selectedPathChallenge.value?.challenge_name ||
+  const displayChallenge = localizeChallenge(selectedPathChallenge.value, locale.value);
+
+  return displayChallenge?.name ||
+    displayChallenge?.challenge_name ||
     getSuggestedChallengeName(selectedPath.value);
 });
 
@@ -614,8 +627,11 @@ async function join(challenge) {
       codes: codes.value,
     });
     await load();
+    const displayChallenge = localizeChallenge(challenge, locale.value);
     joinSuccess.value = {
       ...result,
+      challengeName: displayChallenge?.name || result.challengeName,
+      challengeDescription: displayChallenge?.description || result.challengeDescription,
       source: "challenges",
     };
   } catch (e) {

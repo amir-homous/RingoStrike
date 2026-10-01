@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" aria-hidden="true" role="img">
+  <title>Too tired</title>
+  <desc>A compassionate low-energy rest icon.</desc>
+  <style>
+    .primary { stroke: #EAF8FF; }
+    .muted { stroke: #A9B8C8; }
+    .accent { stroke: #6EE5FF; }
+    .positive { stroke: #4ADE80; }
+    .warm { stroke: #F8C86A; }
+  </style>
+  <g stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <path class="accent" d="M16.3 4.65c-1.1.9-1.8 2.25-1.8 3.78 0 2.73 2.22 4.95 4.95 4.95.28 0 .55-.02.82-.07A7.55 7.55 0 1 1 16.3 4.65Z"/>
+    <path class="muted" d="M6.4 16.9c1.55 1.25 3.35 1.85 5.25 1.75" opacity="0.72"/>
+    <path class="warm" d="M5.75 7.1h3.35" opacity="0.82"/>
+    <path class="warm" d="M7.42 5.45v3.35" opacity="0.82"/>
+  </g>
+</svg>

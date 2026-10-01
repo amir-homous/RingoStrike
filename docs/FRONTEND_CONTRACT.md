@@ -51,6 +51,93 @@ The backend supports HttpOnly cookie auth and Bearer token fallback. The fronten
 
 `frontend/src/stores/session.js` is aligned with this cookie-based model and uses `/me` plus `/auth/logout`; it does not require `api.setToken()`.
 
+## Staged Mission Reward Sequence Display Contract
+
+Staged Mission Reward Sequence v2 is frontend-owned presentation after mission completion. It does not own XP, stats, streak, check-in, achievement, activity, reward economy, or mission mutation logic.
+
+The display may consume additive fields from mission completion responses:
+
+```txt
+mission.xp_awarded
+mission.already_done
+mission.mission_intensity
+mission.key
+response.reward_sequence
+```
+
+Current frontend display responsibilities:
+
+- Use `RingoRewardSequence.vue` for the staged mission reward overlay.
+- Prefer before/after reward snapshots where available to derive XP, level, strike, path, and challenge deltas.
+- Normalize backend `response.reward_sequence` before rendering.
+- Map backend step types `mission_completed` -> `mission_complete` and `next_choice` -> `final_choice`.
+- Preserve supported backend step types such as `xp_earned` and `ringo_message`.
+- Guarantee frontend fallback steps for newly completed XP missions: `mission_complete`, `xp_earned`, and `final_choice`.
+- Show `strike_secured` when today's required progress becomes safe.
+- Support XP/level progress animation from old -> new values, with level-up wrap rendered as old -> 100 then 0 -> new when exact old/new progress and levels are available.
+- Support `path_strengthened` and `challenge_strengthened` only when before/after deltas are available.
+- Support `challenge_secured` when a new non-bonus challenge check-in is recorded by the mission completion response.
+- Resolve mission completion icons from `frontend/src/assets/missions-icons/{mission.key}.png`, with `default_missions_icon.png` fallback.
+- Resolve challenge reward icons from `frontend/src/assets/challenge-icons/{challenge_id}.png`, with `default_challenge_icon.png` fallback.
+- Suppress the legacy Dashboard `RewardMoment` card for mission-completion reward flows so the staged sequence is the mission-completion overlay.
+- Resume the optional explorer / next-action flow after the sequence is dismissed.
+- Use English and Persian localized copy through the existing i18n system; RTL remains controlled by the root language/direction behavior.
+- Respect reduced-motion preferences where animation is implemented.
+
+Boundaries:
+
+- No backend reward calculation is performed in the frontend.
+- Missing additive fields or deltas must not fabricate XP, safe-day, path, challenge, streak, or level claims.
+- The reward sequence must not introduce new API requirements beyond additive response consumption.
+- Already-done and no-XP completion responses should remain successful UI states, but not fake reward overlays.
+- Backend still owns mission completion, XP, check-in, streak, achievement, activity, and stats logic.
+- No schema, API contract, mission mutation, reward inventory, coins/chests, path levels, or historical analytics behavior is introduced by this display layer.
+
+## MissionCenter Optional Explorer Display Contract
+
+The MissionCenter optional explorer is frontend-owned display behavior built from the existing `/me/today-missions` mission data.
+
+Current frontend display responsibilities:
+
+- Group optional missions by path and challenge for the post-safe explorer.
+- Derive path/challenge progress, completed counts, reminder counts, and earned/total XP summaries from grouped mission rows.
+- Render path/challenge progress-surface cards and circular icon progress rings.
+- Render reward-ready/building slots as frontend display states only.
+- Resolve path/challenge/mission icons from frontend assets. Mission row icons are resolved by mission key from `frontend/src/assets/missions-icons/` with a frontend default asset fallback.
+- Keep completed path/challenge groups visible when useful so users can feel completion.
+- Use status-aware mission row styling for pending/ready, done, future reminder, due reminder, skipped, and optional bonus states.
+
+Boundaries:
+
+- Reward-ready/building labels do not claim a backend reward.
+- Optional explorer XP summaries do not change XP ownership. XP, streak, achievements, check-ins, activity, and stats remain owned by the existing backend check-in/progression services.
+- The optional explorer must not introduce new mission mutation behavior or rely on new API response shape.
+- Due reminders still own MissionCenter focus. Future reminders remain quiet until due.
+- Frontend icon assets are display-only and must not become API contract requirements.
+
+## Daily Momentum Bar Display Contract
+
+Daily Momentum Bar v1 is frontend-owned display/action orchestration in MissionCenter. It consumes existing frontend mission, path catalog, and Ringo guidance data; it does not own backend progression, XP, streak, check-in, reward economy, or mission mutation behavior.
+
+Current frontend display responsibilities:
+
+- Show a compact daily strike/path/action dock with today safety, streak count, today-only path progress rings, and contextual actions.
+- Keep `compactProgressStrip` as the top/global XP-level/status strip; the Daily Momentum Bar is the bottom daily strike/path/action dock.
+- Resolve path icons from DB-backed path icon metadata where available, using `frontend/src/assets/path-icons/{path.icon}.png` with fallback behavior.
+- Derive path progress rings from today's available mission/path data and use path colors where available.
+- Resolve action icons from `frontend/src/assets/action-icons/`; black PNGs are rendered white by CSS filtering, and missing icons must not reserve empty slots.
+- Support mission/action icons for done, remind later, make smaller, too tired, skip, finish today, view choices, protect today, hide choices, and full-version/make-bigger when that asset exists.
+- Show Explore Paths as a neutral action circle only when `/paths` catalog data includes paths not represented in current momentum data.
+- Route Explore Paths v1 to the existing `/paths` page. It does not create a new backend discovery flow or modal.
+- Hide duplicate Optional Explorer footer actions while the Daily Momentum Bar owns safe-state actions.
+- Allow `compactProgressStrip` to show a reminder chip only when the existing frontend reminder count is greater than zero.
+
+Boundaries:
+
+- No API response shape changes are required by Daily Momentum Bar v1.
+- Explore Paths v1 is navigation-only and must not imply path joining, challenge discovery mutation, or backend recommendation ownership.
+- Reminder chip display uses already-loaded frontend mission reminder state; it must not add reminder endpoints or notification behavior.
+
 ## Auth Endpoints
 
 ### `POST /auth/register`
@@ -602,7 +689,7 @@ When `today_saved` is `true`, unresolved reminders and skipped missions may stil
 
 Frontend guidance:
 
-- Use this endpoint to lead the Ringo-first dashboard with Ringo mood, message, suggested mission, action choices, Today Saved state, and reward sequence placeholder.
+- Use this endpoint to lead the Ringo-first dashboard with Ringo mood, message, suggested mission, action choices, Today Saved state, and the frontend staged reward sequence entry point.
 - Continue using `/me/missions/:mission_id/done`, `/remind-later`, and `/skip` for mission mutations.
 - Keep `/me/today-missions` compatibility while the dashboard migrates progressively.
 
@@ -632,6 +719,35 @@ While focus mode is active, `Dashboard.vue` hides the large dashboard sections a
 `MissionCenter.vue` keeps mission timeline/status details collapsed by default during focus mode. Users can reveal them explicitly with `Show mission status`. `Finish for today` enters a calm frontend-only Rest Mode card, optionally showing nearest future reminder timing from existing mission `reminder_at` values. `Show dashboard` emits `show-dashboard` so `Dashboard.vue` can reveal the full dashboard with reduced-motion-safe styling.
 
 This is distinct from the still-planned Mission Context UX layer. The current implementation improves focus, family-aware display, and completion tone, but it does not provide a universal path -> challenge -> mission breadcrumb system or backend mission context model.
+
+### Seeded Content Display Localization Contract
+
+Known seeded mission/path/challenge content may be localized at the frontend display layer. This is a display contract only and does not change backend API response shapes.
+
+Current frontend helpers involved:
+
+- `frontend/src/lib/missionDisplayCopy.js`
+- `frontend/src/lib/ringoContentLocalization.js`
+
+Used by current/affected surfaces such as:
+
+- MissionCenter / MissionContextPanel seeded mission display
+- onboarding suggested challenge cards
+- onboarding handoff mission titles where available
+- path/challenge preview copy where available
+- Challenge Discovery cards for known seeded challenge content
+
+Contract rules:
+
+- Raw backend mission/path/challenge values remain logic inputs.
+- Known seeded content can be mapped to localized display copy in the frontend.
+- Unknown or custom backend content must fall back to backend-provided title/name/description.
+- English behavior should remain unchanged or equivalent.
+- No API response shape change is required for this phase.
+- No backend localization or backend seed-data change is required for this phase.
+- No CMS or AI-generated copy is part of this phase.
+
+This display-localization layer must not affect onboarding completion, path start, challenge join, mission mutation, XP, streak, achievement, check-in, reminder delivery, or progression behavior.
 
 ### `POST /me/missions/:mission_id/done`
 
@@ -697,7 +813,7 @@ Success:
 
 The `today_saved` step is included only for the first completion that satisfies today: either a completed `main` mission or a completed linked `tiny` mission whose `parent_mission_id` points to a main mission. If today was already saved before the current completion, the backend does not repeat `today_saved`; it returns bonus/optional progress copy using supported reward step types. Parent main missions are not automatically marked done when a linked tiny mission is completed.
 
-Frontend `MissionCenter.vue` emits the returned payload to `Dashboard.vue`, which reloads dashboard data and shows RewardMoment from the returned check-in reward data.
+Frontend `MissionCenter.vue` uses the returned payload for the staged mission reward sequence and emits a mission-completion source flag to `Dashboard.vue`. `Dashboard.vue` still reloads dashboard data silently, but suppresses the legacy Dashboard `RewardMoment` card for mission-completion reward flows.
 
 ### `POST /me/missions/:mission_id/remind-later`
 

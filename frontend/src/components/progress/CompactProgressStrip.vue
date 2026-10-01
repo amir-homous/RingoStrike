@@ -9,6 +9,10 @@
       <span>{{ t("progress.compactStreak", { count: streak }) }}</span>
       <span>{{ t("common.level", { level }) }}</span>
       <span>{{ t("progress.compactToNext", { percent: progressPercent, level: nextLevel }) }}</span>
+      <span v-if="reminderCount > 0" class="reminderChip" :aria-label="t('progress.compactReminders', { count: reminderCount })">
+        <img v-if="reminderIcon" :src="reminderIcon" alt="" aria-hidden="true" />
+        {{ reminderCount }}
+      </span>
     </div>
 
     <div class="miniXpBar" aria-hidden="true">
@@ -21,10 +25,12 @@
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import BaseCard from "@/components/ui/BaseCard.vue";
+import { resolveActionIcon } from "@/utils/actionIconUtils";
 
 const props = defineProps({
   stats: { type: Object, required: true },
   todaySafe: { type: Boolean, default: false },
+  reminderCount: { type: Number, default: 0 },
 });
 
 const { t } = useI18n();
@@ -32,6 +38,11 @@ const { t } = useI18n();
 const level = computed(() => Number(props.stats?.level || 1));
 const nextLevel = computed(() => level.value + 1);
 const streak = computed(() => Number(props.stats?.current_streak || 0));
+const reminderIcon = resolveActionIcon("remindLater");
+const reminderCount = computed(() => {
+  const value = Number(props.reminderCount || 0);
+  return Number.isFinite(value) && value > 0 ? Math.round(value) : 0;
+});
 const progressPercent = computed(() => {
   const value = Number(props.stats?.progress_percent || 0);
   if (!Number.isFinite(value)) return 0;
@@ -90,6 +101,32 @@ const progressPercent = computed(() => {
   content: "·";
   margin-inline-start: 8px;
   color: rgba(255, 255, 255, 0.32);
+}
+
+.progressMeta .reminderChip {
+  display: inline-flex;
+  gap: 5px;
+  align-items: center;
+  min-height: 22px;
+  padding: 3px 8px;
+  border: 1px solid rgba(247, 215, 116, 0.22);
+  border-radius: 999px;
+  color: rgba(253, 230, 138, 0.95);
+  background: rgba(247, 215, 116, 0.08);
+  font-weight: 850;
+}
+
+.progressMeta .reminderChip::after {
+  content: none;
+}
+
+.reminderChip img {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
+  object-fit: contain;
+  filter: brightness(0) invert(1);
+  opacity: 0.86;
 }
 
 .miniXpBar {

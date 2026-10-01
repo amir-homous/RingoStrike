@@ -66,9 +66,337 @@ The following flows were manually reasoned through and tested during development
 - Using Optional Next Step.
 - Expanding Optional Missions.
 - Persian mode checks.
+- Mission Context UX Phase 1 main/tiny/bonus clarity checks.
+- Mission Context UX Phase 1 after-done/detail card check.
+- Persian RTL visual check for the new mission context copy.
 - Frontend build checks.
+- Frontend router smoke check.
+- Git diff whitespace check.
 
 These checks were useful for validating the main loop shape, but they should not be treated as a replacement for repeatable automated smoke coverage.
+
+## Mission Context UX Phase 1 addendum
+
+Status: implemented and manually checked after merge into `dev`.
+
+Scope checked:
+
+- Main mission context state.
+- Tiny mission context state.
+- Bonus mission context state.
+- After-done/detail card state.
+- Persian RTL visual behavior for the new context layer.
+
+Observed QA notes:
+
+- `MissionContextPanel.vue` appears as a display-only clarity layer inside MissionCenter.
+- Path/challenge breadcrumb appears when available.
+- Mission intensity/time display appears when available.
+- “What counts” instruction copy appears for mission clarity.
+- “Why this helps” copy appears for mission purpose clarity.
+- Tiny mission framing is no-shame and keeps the smaller step valid.
+- Bonus mission framing remains optional.
+- Optional bonus action hierarchy keeps `Finish for today` primary when today is already safe.
+- Existing MissionCenter actions, focus mode, CompactProgressStrip, RewardMoment behavior, Rest Mode, and `Show dashboard` behavior are preserved.
+
+Validation commands/results:
+
+- `npm --prefix frontend run build` passed.
+- `npm --prefix frontend run test:router` passed.
+- `git diff --check` passed.
+- Existing Vite large chunk warning remains.
+
+Boundaries confirmed:
+
+- No backend changes.
+- No database changes.
+- No API changes.
+- No mission mutation behavior changes.
+- No XP, streak, achievement, check-in, reminder delivery, or progression logic changes.
+- No dashboard redesign.
+- No full universal Mission Context UX layer. The later Staged Mission Reward Sequence v2 addendum documents the implemented mission-completion reward sequence.
+- No Telegram mission-specific deep-link restoration.
+
+Not fully verified:
+
+- No fresh automated end-to-end test log is attached for Mission Context UX Phase 1.
+- No full mobile viewport matrix was completed for every mission context state.
+- No screen-reader/accessibility pass was completed for the new context layer.
+- Universal Mission Context UX coverage and Telegram mission-specific deep-link restoration remain future work. The later Staged Mission Reward Sequence v2 addendum documents the implemented mission-completion reward sequence.
+
+
+## Frontend-only seeded content display localization addendum
+
+Status: implemented and partially manually checked after merge into `dev`.
+
+Scope checked:
+
+- Persian MissionCenter seeded mission display.
+- Persian onboarding challenge selection.
+- Known seeded challenge/path/mission display copy where available.
+- Fallback behavior by design for unknown/custom backend content.
+
+Observed QA notes:
+
+- Known seeded mission/path/challenge copy can now be localized at the frontend display layer.
+- `missionDisplayCopy.js` and `ringoContentLocalization.js` are the display-localization helpers.
+- Persian onboarding and Challenge Discovery surfaces now avoid several obvious English seed-content leaks.
+- Unknown/custom backend content still falls back to backend-provided title/name/description.
+- Raw backend values remain logic inputs.
+
+Validation commands/results:
+
+- `npm --prefix frontend run build` passed.
+- `npm --prefix frontend run test:router` passed.
+- `git diff --check` passed.
+- Existing Vite large chunk warning remains.
+
+Boundaries confirmed:
+
+- No backend changes.
+- No database changes.
+- No schema changes.
+- No API changes.
+- No seed data changes.
+- No onboarding completion logic changes.
+- No path start logic changes.
+- No challenge join logic changes.
+- No mission mutation behavior changes.
+- No XP, streak, achievement, check-in, reminder delivery, or progression logic changes.
+- No CMS.
+- No AI-generated copy.
+
+Not fully verified:
+
+- No full audit of every seeded mission/path/challenge key.
+- No full mobile viewport matrix for onboarding/challenge discovery after localization.
+- No automated test currently asserts localization fallback coverage for every known seeded key.
+- Unknown/custom content fallback is design-validated but not exhaustively tested.
+
+
+## Optional explorer progress-map and RTL/root-background addendum
+
+Status: implemented and manually checked during frontend polish.
+
+Scope checked:
+
+- English MissionCenter optional explorer visual behavior.
+- Persian MissionCenter optional explorer visual behavior.
+- Path/challenge progress-surface cards.
+- Circular icon progress rings.
+- Reward-ready/building visual slots.
+- Earned/total XP summaries.
+- Mission icon fallback behavior.
+- Status-aware mission row colors.
+- Completed path/challenge visibility.
+- Persian/RTL root-background and layout stability around Dashboard/MissionCenter.
+
+Observed QA notes:
+
+- Post-safe optional explorer now behaves like a calm growth/progression map.
+- Completed paths/challenges can remain visible so completion feels acknowledged.
+- Due reminders still own focus.
+- Future reminders remain quiet until due.
+- Reward-ready/building states are frontend display states only.
+- The previous Persian/RTL white/blank root-background issue was addressed by ensuring dark full-viewport coverage for `html`, `body`, `#app`, and the app shell.
+- Existing low-opacity white glass highlights remain intentional parts of the dark UI, not light scrims.
+
+Validation commands/results:
+
+- `npm --prefix frontend run build` passed.
+- `npm --prefix frontend run test:router` passed.
+- `npm --prefix frontend run test:localization` passed.
+- `git diff --check` passed.
+- Existing Vite large chunk warning remains.
+
+Boundaries confirmed:
+
+- No backend changes.
+- No database changes.
+- No schema changes.
+- No migrations.
+- No API response shape changes.
+- No mission mutation behavior changes.
+- No XP, streak, achievement, check-in, activity, reminder delivery, or progression ownership changes.
+- No reward-claim backend logic.
+
+Not fully verified:
+
+- No screenshot artifact is attached.
+- No full mobile/desktop viewport matrix is attached.
+- No automated visual regression test asserts the optional explorer growth-map state.
+
+
+## Mission Reward Moment v1 addendum
+
+Status: implemented and manually checked during frontend polish.
+
+Scope checked:
+
+- Main mission completion reward.
+- Tiny mission completion reward.
+- Bonus mission completion reward.
+- Already-done and no-XP completion behavior.
+- English and Persian localized reward copy.
+- RTL behavior through the existing i18n/root direction system.
+
+Observed QA notes:
+
+- Mission completion can show a lightweight reward moment after successful completion.
+- The reward moment reuses `RingoRewardSequence.vue`; no duplicate reward component was created.
+- The full reward moment appears only when `mission.xp_awarded > 0` and `mission.already_done !== true`.
+- Already-completed missions do not replay the full reward overlay.
+- Missing or zero XP falls back to calm completion copy instead of fake rewards.
+- Main/tiny missions can show Today Safe / streak-protected language when appropriate.
+- Bonus missions show bonus-complete XP language, but do not claim Today Safe and do not create a new bonus chain.
+- Optional explorer / next-action flow still appears after the reward moment is dismissed.
+
+Validation commands/results:
+
+- `npm --prefix frontend run build` passed.
+- `npm --prefix frontend run test:router` passed.
+- `npm --prefix frontend run test:localization` passed.
+- `git diff --check` passed.
+- Existing Vite large chunk warning remains.
+
+Boundaries confirmed:
+
+- No backend changes.
+- No database changes.
+- No schema changes.
+- No API contract breaking changes.
+- No mission mutation behavior changes.
+- No XP, stat, streak, achievement, check-in, activity, reminder delivery, reward economy, or progression ownership changes.
+- No Ringo Brain decision policy changes.
+
+Not fully verified:
+
+- No screenshot artifact is attached.
+- No full mobile/desktop viewport matrix is attached.
+- No automated visual regression test asserts the reward overlay state.
+
+
+## Daily Momentum Bar v1 addendum
+
+Status: implemented and manually checked during frontend polish.
+
+Scope checked:
+
+- English desktop layout.
+- Persian/RTL layout.
+- Mobile layout.
+- Not-safe daily state.
+- Safe daily state.
+- View choices behavior.
+- Hidden duplicate Optional Explorer footer actions while the Momentum Bar owns actions.
+- Reminder chip behavior in `compactProgressStrip`.
+
+Observed QA notes:
+
+- Daily Momentum Bar now provides a compact daily status/action surface.
+- It shows today safety, streak count, today-only path progress rings, and contextual actions.
+- It works alongside the existing `compactProgressStrip`, which remains the top/global XP-level/status strip.
+- Daily Momentum Bar owns the bottom daily strike/path/action dock.
+- Path icons prefer DB-backed path icon metadata where available.
+- Path progress rings use today's available path progress and path colors where available.
+- Explore Paths appears as a neutral action circle when existing `/paths` catalog data includes unrepresented paths.
+- Explore Paths v1 routes to the existing Paths page and does not implement a new modal or backend discovery flow.
+- Action icons resolve from `frontend/src/assets/action-icons/`, with black PNG assets rendered white by default through CSS filtering.
+- Mission action buttons support icons for done, remind later, make smaller, too tired, skip, finish today, view choices, protect today, and hide choices.
+- The old duplicate Optional Continuation action area is hidden when the Momentum Bar owns actions.
+- Optional Explorer content remains available, but action ownership is centralized in the Momentum Bar.
+- `compactProgressStrip` shows a reminder chip only when reminder count is greater than zero.
+
+Validation commands/results:
+
+- `npm --prefix frontend run build` passed.
+- `npm --prefix frontend run test:router` passed.
+- `npm --prefix frontend run test:localization` passed.
+- `git diff --check` passed.
+- Existing Vite large chunk warning remains.
+
+Boundaries confirmed:
+
+- No backend changes.
+- No database changes.
+- No schema changes.
+- No migrations.
+- No API response shape changes.
+- No XP, stat, streak, achievement, check-in, activity, reminder delivery, reward economy, or progression ownership changes.
+- No mission mutation behavior changes.
+- No path-level system.
+- No historical analytics.
+- No full Explore Paths modal or backend discovery flow.
+- No Ringo Brain decision policy changes.
+
+Not fully verified:
+
+- No screenshot artifact is attached.
+- No automated visual regression test asserts every Momentum Bar state.
+- No full device-matrix QA beyond the manual desktop/mobile and EN/FA checks listed above.
+
+
+## Staged Mission Reward Sequence v2 addendum
+
+Status: implemented and manually checked during frontend polish.
+
+Scope checked:
+
+- Main mission reward.
+- Tiny mission reward where applicable.
+- Bonus mission reward where applicable.
+- Already-done replay behavior.
+- Backend reward-sequence normalization.
+- Frontend fallback mission/XP/final-choice steps.
+- Strike secured step when today becomes safe.
+- XP/level progress movement and level-up wrap behavior.
+- Path strengthened and challenge strengthened steps when before/after deltas are available.
+- Challenge secured/check-in step when a new challenge check-in is recorded.
+- Mission icon resolution by `mission.key`.
+- English and Persian localized reward copy.
+- RTL behavior through the existing i18n/root direction system.
+- Legacy Dashboard reward-card suppression after mission completion.
+
+Observed QA notes:
+
+- Mission completion now opens a staged reward sequence instead of a static mission reward card.
+- The frontend normalizes backend `response.reward_sequence`, including `mission_completed` -> `mission_complete` and `next_choice` -> `final_choice`.
+- Supported backend step types such as `xp_earned` and `ringo_message` are preserved.
+- Newly completed XP missions have guaranteed frontend fallback steps: mission complete, XP earned, and final choice.
+- Before/after reward snapshots are used where available; missing deltas are skipped rather than invented.
+- XP level-up wrap avoids visual backward motion by animating old -> 100 and then 0 -> new when exact old/new progress and levels are available.
+- Mission icons resolve from `frontend/src/assets/missions-icons/{mission.key}.png` with `default_missions_icon.png` fallback.
+- Challenge secured copy clarifies that today's check-in was recorded, separate from challenge strengthened/progress-moved copy.
+- The legacy Dashboard `RewardMoment` card is suppressed for mission-completion reward flows while silent dashboard stat refresh remains intact.
+- Persian/RTL copy and layout were polished, and reduced-motion behavior is respected where implemented.
+
+Validation commands/results:
+
+- `npm --prefix frontend run build` passed.
+- `npm --prefix frontend run test:router` passed.
+- `npm --prefix frontend run test:localization` passed.
+- `git diff --check` passed.
+- Existing Vite large chunk warning remains.
+
+Boundaries confirmed:
+
+- No backend changes.
+- No database changes.
+- No schema changes.
+- No API contract changes.
+- No mission mutation behavior changes.
+- No XP, stat, streak, achievement, check-in, activity, reminder delivery, reward economy, or progression ownership changes.
+- No reward inventory.
+- No coins/chests.
+- No path levels.
+- No historical analytics.
+
+Not fully verified:
+
+- No screenshot artifact is attached.
+- No automated visual regression test asserts every staged reward state.
+- No full device-matrix QA beyond the manual desktop/mobile and EN/FA checks listed above.
+
 
 ## Fresh user 3-challenge flow
 
@@ -174,8 +502,9 @@ Expected behavior:
 Observed QA notes:
 
 - `RingoRewardSequence` uses a modal overlay with step progress and a finish/continue action.
-- Supported backend reward step types are filtered before rendering.
-- Local fallback steps include Ringo message, mission completed, XP earned when available, Today Saved when applicable, and next choice.
+- Backend reward step types are normalized before rendering.
+- Frontend fallback steps guarantee mission complete, XP earned, and final choice for newly completed XP missions.
+- Strike secured, path strengthened, challenge strengthened, challenge secured, and level-up steps appear only when the relevant completion context or before/after delta exists.
 
 Not fully verified:
 
@@ -268,12 +597,13 @@ Not fully verified:
 
 ## Known issues and follow-ups
 
-- Add repeatable frontend smoke coverage for MissionCenter, `/paths`, mission done, remind later, skip reason, reward sequence, and Today Saved.
+- Add repeatable frontend smoke coverage for MissionCenter, MissionContextPanel, `/paths`, mission done, remind later, skip reason, reward sequence, and Today Saved.
 - Add a documented QA script for a fresh user starting multiple challenges and exercising the full daily loop.
 - Verify actual database persistence for skip reasons in a targeted backend or integration test.
 - Verify multi-day reset behavior for Today Saved, deferred missions, skipped missions, and optional mission ranking.
 - Run a focused mobile viewport pass for the Ringo daily card, reminder options, skip reasons, reward overlay, and optional mission list.
 - Run an accessibility pass for the reward overlay and panel focus behavior.
+- Continue localized-copy QA as seeded content expands, especially onboarding, Challenge Discovery, MissionCenter, missing-field fallbacks, and unknown/custom backend content.
 - Continue cleaning Persian copy outside the daily loop.
 - Keep Ringo sprite assets, `frontend/src/constants/ringoSprites.js`, and backend `sprite_key` values aligned before relying on clean launch builds.
 - Expand production/deployment smoke checks after any VPS deployment.
@@ -290,6 +620,7 @@ The current implementation appears aligned with the product direction:
 - Reminder and skip flows are conversational and non-shaming.
 - Reward sequence and Today Saved support the emotional loop.
 - Optional next actions are present but secondary.
+- Mission Context UX Phase 1 improves mission clarity without changing backend/API/database/progression behavior.
 
 However, QA confidence is still development-level rather than release-candidate-level. The loop needs repeatable smoke tests, a documented fresh-user test script, mobile/accessibility passes, and targeted persistence checks before it should be treated as fully launch-verified.
 

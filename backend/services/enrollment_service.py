@@ -1,6 +1,6 @@
 from database import get_db_connection
 from utils.date_utils import utc_today_iso
-from services.stats_service import sync_user_stats
+from services.stats_service import resolve_mission_xp, sync_user_stats
 from services.achievement_service import evaluate_and_unlock
 
 
@@ -26,7 +26,8 @@ def _sync_first_mission_done_from_checkin(conn, user_id, enrollment_id, date_iso
         SELECT
             m.id AS mission_id,
             m.challenge_id,
-            m.xp_reward
+            m.xp_reward,
+            COALESCE(m.mission_intensity, 'main') AS mission_intensity
         FROM enrollments e
         JOIN challenges c ON c.id = e.challenge_id
         JOIN missions m ON m.challenge_id = c.id
@@ -79,7 +80,7 @@ def _sync_first_mission_done_from_checkin(conn, user_id, enrollment_id, date_iso
             mission["challenge_id"],
             mission["mission_id"],
             date_iso,
-            int(mission["xp_reward"] or 0),
+            resolve_mission_xp(mission["xp_reward"], mission["mission_intensity"]),
         ),
     )
 
