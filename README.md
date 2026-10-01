@@ -20,10 +20,7 @@ The product combines:
 * progression identity
 * Ringo-led daily missions
 * mission focus mode
-* staged mission reward sequences
-* Daily Momentum Bar
-* post-safe optional explorer growth map
-* frontend display localization for known seeded mission/path/challenge content
+* Living Space planning for visible progress at Home
 * Telegram reminder automation
 * social momentum architecture
 
@@ -47,6 +44,7 @@ The long-term goal is to create a platform where:
 
 * consistency becomes identity
 * progress becomes shareable
+* real progress creates visible change
 * momentum becomes social
 * growth feels cinematic
 
@@ -73,8 +71,7 @@ The long-term goal is to create a platform where:
 * Ringo-led paths and daily missions
 * Mission reminders, skips, and completion state
 * Mission-family behavior for main/tiny substitutes and optional bonus momentum
-* Frontend-only staged mission reward sequence that displays mission completion, earned XP, strike/check-in/path/challenge impact where available, and next choice without changing backend progression ownership
-* Frontend-only Daily Momentum Bar that shows today safety, streak count, today-only path rings, and contextual actions without changing backend progression ownership
+* Living Space v1 product contract for persistent room rewards
 
 ---
 
@@ -126,18 +123,12 @@ The long-term goal is to create a platform where:
 * Modular Vue component system
 * Ringo-led MissionCenter with focus-mode dashboard gating
 * Compact progress strip during focused daily loops
-* Daily Momentum Bar as the compact daily strike/path/action dock, with `compactProgressStrip` remaining the top/global XP-level/status strip
 * First-run staged reveal and calm Rest Mode after finishing for today
-* Optional explorer progress-map polish with path/challenge progress surfaces, icon rings, XP summaries, mission icons, and status-aware mission rows
-* Staged Mission Reward Sequence v2 after eligible mission completions, normalizing backend reward steps, using before/after reward snapshots where available, resolving mission icons by `mission.key`, and preserving calm no-XP/already-done fallbacks
-* DB-backed path icons, today-only path progress rings, action icons from `frontend/src/assets/action-icons/`, and lightweight Explore Paths navigation to the existing Paths page
-* Reminder chip in the compact progress strip only when there are active reminder counts to show
+* Living Space direction for five path zones and visible Home progress
 * Reward-driven interactions
 * Responsive layouts
 * Emotionally intelligent UX
 * English/Persian i18n with RTL support
-* Full-root dark background coverage for stable LTR/RTL rendering
-* seeded mission/path/challenge display localization without backend seed-data changes
 
 ---
 
@@ -206,6 +197,7 @@ src/
 │   ├── profile/
 │   ├── progress/
 │   ├── ringo/
+│   ├── space/      # planned Living Space components
 │   └── ui/
 ├── i18n/
 ├── views/
@@ -219,6 +211,7 @@ The frontend is built around:
 * reusable progression components
 * emotional feedback systems
 * Ringo/MissionCenter guided daily focus
+* future Living Space visible-progress components
 * English/Persian localization with RTL support
 * scalable identity/social architecture
 
@@ -256,14 +249,15 @@ Current stage:
 * companion-first guided progression
 * identity-focused UX
 * mission focus and completion-flow hardening
+* Living Space v1 implementation contract
 * pre-launch operational polish
 
 Future direction:
 
+* visible progress Home / Living Space
 * social momentum layer
 * fuller Mission Context UX
 * contextual path/challenge/mission reward framing
-* fuller localization coverage for future custom content and CMS/content-management if the product scales
 * AI insights
 * seasonal progression systems
 
@@ -378,11 +372,13 @@ DO:
 * avoid duplicate logic
 * preserve design language
 * think future-safe
+* keep Living Space additive to existing progression systems
 
 DO NOT:
 
 * tightly couple systems
 * duplicate XP/streak logic
+* create a second progression economy
 * redesign working UX unnecessarily
 * create disconnected features
 
@@ -392,10 +388,11 @@ DO NOT:
 
 RingoStrike is evolving toward:
 
-> “A social progression ecosystem powered by emotionally intelligent gamification.”
+> “A living progression ecosystem powered by emotionally intelligent gamification.”
 
 Future systems may include:
 
+* visible Living Space progression
 * public progression identity
 * social feeds
 * shared momentum systems

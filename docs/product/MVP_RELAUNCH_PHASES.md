@@ -16,6 +16,7 @@ Deliverables:
 - Ringo Brain Strategy document
 - Mission Design System document
 - Reward Sequence document
+- Living Space v1 Spec
 - Ringo Pulse / Feed concept document
 - MVP Relaunch Roadmap document
 
@@ -135,8 +136,9 @@ After completing a mission, the user should see rewards one by one:
 5. path progress
 6. streak / today saved
 7. achievement unlock if any
-8. Ringo Pulse / community update if available
-9. next action choice
+8. space reward unlock if any
+9. Ringo Pulse / community update if available
+10. next action choice
 
 Important:
 
@@ -148,7 +150,35 @@ It should not block core check-in logic if reward rendering fails.
 
 ---
 
-## Phase 5 — Ringo Pulse: Lightweight Activity Feed
+## Phase 5 — Living Space v1: Visible Progress Home
+
+Goal:
+
+Turn Home into a living progression space where real user progress creates persistent visible changes.
+
+Reference spec:
+
+- [Living Space v1 Spec](LIVING_SPACE_V1_SPEC.md)
+
+Main changes:
+
+- Add one base room with five clickable path zones.
+- Show locked/ghost previews for path rewards before the first focus choice.
+- Let the user choose a first focus path without permanently locking them in.
+- Persist the first small set of room rewards.
+- Show newly unlocked rewards after mission completion.
+- Make unlocked objects appear in fixed zone slots.
+- Let each object explain why it was unlocked.
+
+Important:
+
+Do not build a shop, inventory editor, drag-and-drop room builder, city map, friend-room visits, or heavy social features in v1.
+
+Reuse existing path, mission, check-in, XP, streak, achievement, and Ringo Moment systems. Living Space should make progress visible, not create a second progression economy.
+
+---
+
+## Phase 6 — Ringo Pulse: Lightweight Activity Feed
 
 Goal:
 
@@ -177,7 +207,7 @@ MVP version can start with simple public/anonymous events.
 
 ---
 
-## Phase 6 — Reminder & Postpone UX
+## Phase 7 — Reminder & Postpone UX
 
 Goal:
 
@@ -197,7 +227,7 @@ Reminder messages should not feel robotic.
 
 ---
 
-## Phase 7 — AI-Assisted Ringo Language Layer
+## Phase 8 — AI-Assisted Ringo Language Layer
 
 Goal:
 
@@ -213,7 +243,7 @@ AI outputs should be structured, validated, and fallback-safe.
 
 ---
 
-## Phase 8 — Portfolio / University Case Study
+## Phase 9 — Portfolio / University Case Study
 
 Goal:
 
@@ -227,6 +257,7 @@ Deliverables:
 - character design
 - Ringo Brain architecture
 - reward sequence UX
+- visible progress / Living Space UX
 - mission system
 - screenshots
 - motion/interaction mockups

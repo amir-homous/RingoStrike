@@ -16,95 +16,15 @@ The project has moved beyond raw MVP. Core progression identity is implemented. 
 
 ## Latest Launch-Hardening Updates
 
-### Staged Mission Reward Sequence v2
+### Living Space v1 Documentation Alignment
 
-Expanded mission completion feedback into a frontend-only staged reward sequence:
+Aligned the main project docs around Living Space v1 as the next visible-progress Home direction:
 
-- Mission completion now opens a staged reward sequence instead of a simple static reward card.
-- Added before/after reward snapshot support where current frontend mission/path/challenge/stat data is available.
-- Added frontend normalization for backend `response.reward_sequence`, including `mission_completed` -> `mission_complete` and `next_choice` -> `final_choice` step mappings.
-- Preserved supported backend step types such as `xp_earned` and `ringo_message`.
-- Guaranteed frontend fallback steps for newly completed XP missions: mission complete, XP earned, and final choice.
-- Added staged support for mission complete, strike secured, XP earned, level up, path strengthened, challenge strengthened, challenge secured, and final choice steps.
-- XP/level progress animation can move from old to new values, including level-up wrap behavior that avoids visually going backward.
-- Path strengthened and challenge strengthened steps render only when before/after deltas are available; missing deltas are skipped rather than invented.
-- Mission completion steps resolve mission icons from `frontend/src/assets/missions-icons/{mission.key}.png`, with `default_missions_icon.png` fallback.
-- Added `challenge_secured` messaging when a new challenge check-in is recorded.
-- Suppressed the legacy Dashboard `RewardMoment` card for mission-completion reward flows so the staged sequence is the only mission-completion overlay.
-- Polished English/Persian copy, RTL stability, and reduced-motion behavior where implemented.
-- Kept the change frontend-only with no backend, schema, API contract, mission mutation, XP/streak/check-in/progression ownership, reward inventory, coins/chests, path-level, or historical analytics changes.
-- Validation passed: `npm --prefix frontend run build`, `npm --prefix frontend run test:router`, `npm --prefix frontend run test:localization`, and `git diff --check`.
-- Existing Vite large chunk warning remains.
-
-### Daily Momentum Bar v1
-
-Added a frontend-only Daily Momentum Bar as the compact daily strike/path/action dock:
-
-- Added a bottom daily status/action surface showing today's strike safety, streak count, today-only path progress rings, and contextual actions.
-- Kept `compactProgressStrip` as the top/global XP-level/status strip while the Daily Momentum Bar owns the daily strike/path/action dock.
-- Path icons prefer DB-backed path icon metadata when available, with frontend asset fallback.
-- Path progress rings use today-only mission/path progress and path colors where available.
-- Added a lightweight Explore Paths action circle that appears when `/paths` catalog data includes paths not represented in current momentum data; v1 routes to the existing Paths page and does not add a modal or backend discovery flow.
-- Added action icon support from `frontend/src/assets/action-icons/`; black PNG icons are rendered white on dark UI through CSS filtering.
-- Mission action buttons now support icons for done, remind later, make smaller, too tired, skip, finish today, view choices, protect today, and hide choices. Full-version icon support is prepared for `make-bigger.png` when that asset exists.
-- Centralized safe-state action ownership in the Daily Momentum Bar; optional explorer content remains available, but duplicate optional continuation footer actions are hidden while the bar owns actions.
-- Added a compact reminder chip in `compactProgressStrip` only when the existing frontend mission reminder count is greater than zero.
-- Persian/RTL and mobile layout were checked during polish.
-- Kept the change frontend-only with no backend, schema, migration, API response shape, XP/stat/progression, check-in/streak, mission mutation, reward economy, path-level, analytics, or reminder delivery changes.
-- Validation passed: `npm --prefix frontend run build`, `npm --prefix frontend run test:router`, `npm --prefix frontend run test:localization`, and `git diff --check`.
-- Existing Vite large chunk warning remains.
-
-### Mission Reward Moment v1
-
-Added a frontend-only Mission Reward Moment after mission completion:
-
-- Mission completion can now show a lightweight reward overlay with mission-complete feedback, XP earned, and calm next-step messaging.
-- Reused the existing `RingoRewardSequence.vue`; no duplicate reward component was created.
-- The full reward moment appears only when `mission.xp_awarded > 0` and `mission.already_done !== true`.
-- Already-completed missions, missing XP, and zero-XP responses do not replay the full reward overlay; they fall back to calm completion copy instead of fake rewards.
-- Main and tiny missions can show Today Safe / streak-protected language when the response context supports it.
-- Bonus missions show bonus-complete XP language, but do not claim Today Safe and do not create a new bonus chain.
-- Optional explorer / next-action flow still appears after the reward moment is dismissed.
-- Added English and Persian localized copy while preserving RTL through the existing i18n/root direction behavior.
-- Consumes additive completion fields such as `mission.xp_awarded`, `mission.already_done`, and `mission.mission_intensity`.
-- Kept the change frontend-only with no backend, schema, mission mutation, XP/stat/progression ownership, reward economy, reminder delivery, Ringo Brain policy, or breaking API contract changes.
-- Validation passed: `npm --prefix frontend run build`, `npm --prefix frontend run test:router`, `npm --prefix frontend run test:localization`, and `git diff --check`.
-- Existing Vite large chunk warning remains.
-
-### MissionCenter Optional Explorer Progress-Map Polish
-
-Refined the post-safe MissionCenter optional explorer into a calmer growth/progression map:
-
-- Path and challenge rows now use progress-surface visual treatment with clipped card-local fills.
-- Path/challenge icon rings now communicate progress without changing mission behavior.
-- Path/challenge rows now include frontend-only reward-ready/building visual slots.
-- Path/challenge rows now show earned XP vs total available XP, derived from grouped mission data.
-- Mission rows now support frontend mission icons resolved by mission key, with frontend asset fallback.
-- Mission row status colors were polished for pending/ready, done, reminder waiting, reminder due, skipped, and optional bonus states.
-- Completed paths/challenges can remain visible so users can feel completion instead of losing the completed context.
-- Ringo guidance copy better reflects completed, partial, reminder-only, and optional group states.
-- Preserved the single-focus MissionCenter loop: due reminders still own focus, future reminders remain quiet until due, and optional exploration remains post-safe.
-- Fixed Persian/RTL layout and root-background stability by ensuring full viewport dark background coverage for `html`, `body`, `#app`, and the app shell.
-- Kept the change frontend-only with no backend, schema, migration, API response shape, mission mutation, XP, streak, achievement, check-in, activity, reminder delivery, progression ownership, or reward-claim backend logic changes.
-- Validation passed: `npm --prefix frontend run build`, `npm --prefix frontend run test:router`, `npm --prefix frontend run test:localization`, and `git diff --check`.
-- Existing Vite large chunk warning remains.
-
-### Frontend-Only Seeded Content Display Localization
-
-Implemented frontend-only display localization for known seeded RingoStrike content:
-
-- Added/extended `frontend/src/lib/missionDisplayCopy.js` for known seeded mission display copy.
-- Added/extended `frontend/src/lib/ringoContentLocalization.js` for known seeded path/challenge/Ringo content.
-- Localized known seeded Persian mission display copy in MissionCenter / `MissionContextPanel.vue`.
-- Localized onboarding suggested challenge cards and onboarding handoff mission titles where available.
-- Localized path/challenge preview copy where available.
-- Localized Challenge Discovery cards for known seeded challenge content.
-- Reused/extended frontend localization helpers instead of changing backend seed data.
-- Preserved fallback to backend-provided title/name/description for unknown or custom content.
-- Preserved English behavior as unchanged or equivalent.
-- Validation passed: `npm --prefix frontend run build`, `npm --prefix frontend run test:router`, and `git diff --check`.
-- Existing Vite large chunk warning remains.
-- Kept the change frontend-only with no backend, API, database, schema, migration, seed data, onboarding completion, path start, challenge join, mission mutation, XP, streak, achievement, check-in, reminder delivery, CMS, AI-generated copy, or progression logic changes.
+- Added Living Space v1 references to AI context, project overview, roadmap, design system, and README.
+- Clarified the core rule: real progress should create persistent visible change in the user's space.
+- Positioned Living Space as an additive layer on top of existing path, mission, check-in, stats, achievement, and reward systems.
+- Preserved v1 non-goals: no shop, inventory editor, drag/drop room builder, city map, friend visits, heavy social, or second progression economy.
+- Kept schema/API/QA documentation deferred until actual implementation exists.
 
 ### Mission Focus Mode
 

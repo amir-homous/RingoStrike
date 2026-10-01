@@ -43,6 +43,12 @@ Preferred pattern:
 Path -> Today's Mission -> Check-in -> Reward -> Next Step
 ```
 
+Living Space extension:
+
+```txt
+Path -> Today's Mission -> Check-in -> Reward Unlock -> Visible Room Change -> Next Step
+```
+
 Design principles:
 
 - Reduce first-time cognitive load.
@@ -51,6 +57,7 @@ Design principles:
 - Avoid noisy animations, casino-like effects, or pressure-based streak messaging.
 - Reveal advanced systems gradually: leaderboard, achievements, public profile, and Telegram reminders should support the core loop, not compete with it.
 - Use RingoCoach as the primary guidance surface when the backend returns a Ringo decision. It should feel like contextual coaching, not a separate notification feed.
+- Treat Living Space as a calm visible-progress layer, not a noisy customization game. Room changes should feel earned, persistent, and emotionally legible.
 
 ## Active CSS Tokens
 
@@ -72,7 +79,7 @@ Current palette is dark graphite with translucent card surfaces and muted white 
 
 - local Vazirmatn `@font-face` for Persian mode
 - global `box-sizing`
-- dark root, body, app, and shell background from `--bg`
+- dark body background from `--bg`
 - white text color
 - system font stack for English/default UI
 - Vazirmatn font stack only when `html[lang="fa"]`
@@ -85,59 +92,6 @@ Typography behavior:
 - English (`lang="en"`) uses the existing system font stack.
 - Persian (`lang="fa"`) uses `frontend/src/assets/fonts/Vazirmatn.woff2`.
 - Font switching is tied to document `lang`; do not add component-local font overrides for ordinary UI text.
-- `html`, `body`, `#app`, and the app shell should keep full-height dark background coverage. This prevents exposed browser/root background in both LTR and RTL layouts.
-
-## Growth-Map Surfaces
-
-MissionCenter's optional explorer uses a restrained growth-map visual language after the required daily loop is safe.
-
-Use this pattern for similar progression surfaces:
-
-- Progress-surface cards should keep progress fills clipped inside the card, with the card as the `position: relative` / `overflow: hidden` boundary.
-- Progress fills should respect text direction without creating horizontal overflow: LTR fills start from the left, RTL fills start from the right.
-- Circular icon progress rings can show path/challenge completion while keeping the main row calm.
-- Reward-ready/building slots are visual status affordances only; they should feel premium but not imply backend reward-claim logic.
-- XP summaries should be compact: earned/total while in progress, earned/completed language when complete.
-- Mission rows can use mission-key icons and status-aware color accents, but status should win over intensity/bonus styling.
-- Completed paths/challenges may remain visible to reinforce completion and give users a sense of closed progress.
-
-Keep this style restrained: the optional explorer should feel like a calm progression map, not a noisy game board.
-
-## Staged Mission Reward Sequence
-
-Staged Mission Reward Sequence v2 uses `RingoRewardSequence.vue` after mission completion. It should feel calm, premium, cinematic, and emotionally meaningful, not casino-like or noisy.
-
-Design rules:
-
-- Reuse the existing reward sequence language and motion pattern instead of creating a separate reward component family.
-- Mission completion should show the mission icon, mission title, and clear completion copy.
-- Mission icons should resolve from `frontend/src/assets/missions-icons/{mission.key}.png` and fall back to `default_missions_icon.png` without broken image states.
-- Show earned mission XP only when the completion response and/or before/after snapshots support it.
-- Use calm completion copy for already-done or zero/missing-XP responses; do not fake a reward.
-- Main/tiny completions may carry Today Safe / strike-protected language when the mission context supports it.
-- Bonus completions should feel like optional extra momentum and must not claim Today Safe or imply a new bonus chain.
-- Challenge secured/check-in copy should clarify ownership: the check-in was recorded for today. It is distinct from challenge strengthened/progress-moved copy.
-- Animations should communicate meaningful before/after progress. XP level-up wrap should animate old -> 100, then 0 -> new instead of visually going backward.
-- Path and challenge strengthened steps should appear only when there is real before/after delta data.
-- Let the optional explorer / next-action state return after dismissal without turning the reward into a blocking loop.
-- Keep EN/FA copy aligned, with RTL handled by the existing i18n/root direction behavior.
-- Respect reduced-motion preferences.
-- Icons must remain visible on the dark UI; black PNG assets should be filtered or otherwise treated so they do not disappear.
-
-## Daily Momentum Bar
-
-Daily Momentum Bar v1 is the compact daily strike/path/action dock. It should feel like a premium dark-glass control surface, not a row of separate boxy buttons.
-
-Design rules:
-
-- Keep `compactProgressStrip` visually distinct as the top/global XP-level/status strip. The Daily Momentum Bar is the bottom daily strike/path/action dock.
-- Use restrained dark glass, subtle borders, soft internal glow, and path-color accents only where they clarify progress.
-- Keep path controls icon-first: circular buttons, centered DB-backed path icons, and SVG progress rings from today's path progress.
-- Keep path rings subtle and non-noisy. Use dim neutral rings at 0%, path-colored arcs for partial progress, and a soft complete glow at 100%.
-- Treat Explore Paths as a neutral action circle, not a progress ring. In v1 it routes to the existing Paths page and should not imply a new discovery modal.
-- Render black PNG action icons white by default on dark UI through CSS filtering, with text-only fallback when an icon is missing.
-- Keep action labels concise: `Protect today`, `View choices`, `Finish today`, and `Hide choices`.
-- Preserve RTL and mobile containment; the dock should remain centered/bounded and must not cover the mobile bottom navigation.
 
 ## Component System
 
@@ -159,11 +113,12 @@ Feature components:
 - activity: timeline, timeline items, day grouping, empty state
 - challenges: challenge card
 - missions: MissionCenter, PathSelection, focus-mode mission surfaces, collapsed mission status details, and Rest Mode
-- feedback: RewardMoment for legacy check-in flows, Staged Mission Reward Sequence via `RingoRewardSequence.vue`, and JoinSuccessMoment for softer challenge-start transitions
+- feedback: RewardMoment for check-ins and JoinSuccessMoment for softer challenge-start transitions
 - guided: reusable first-path empty state
 - onboarding: welcome, identity path selection, and suggested challenge steps
 - profile: hero card, stats grid, settings card/modal, avatar, consistency heatmap
 - progress: hero progress, compact focus strip, next goal, recent feed, stats grid, XP bar
+- space, planned: LivingSpace, SpaceZone, SpaceObject, SpaceZonePanel, and RewardUnlockMoment for Living Space v1 after the implementation contract is ready
 
 ## Frontend Pages
 
@@ -207,16 +162,17 @@ Current asset consistency note: the sprite map resolves assets from `frontend/sr
 - Treat `Finish for today` as a successful ending. It should land on the calm Rest Mode screen rather than dumping the user into dense dashboard sections.
 - Reveal the full dashboard only after focus mode is resolved or the user explicitly chooses `Show dashboard`; use subtle stagger/fade motion and honor reduced-motion preferences.
 - Keep `/paths` as the richer path planning surface: path picker, active path status, challenge stage panels, mission previews, and daily path summary.
+- For Living Space v1, use one room with five readable path zones and fixed object slots. Ringo remains the guide layer across the room, not a room zone.
+- Locked room rewards may appear as ghost/silhouette previews, but avoid shop, inventory, drag/drop, city-map, or heavy social visual patterns in v1.
 - Keep progressive disclosure subtle: reveal deeper sections after existing check-in stats make them meaningful, without blocking direct routes.
 - Make public profile views shareable but privacy-safe.
 - Avoid adding separate visual languages for each feature.
 - Keep empty states hopeful and action-oriented.
 - Keep animations subtle and purposeful.
-- Keep reward moments calm and restrained: mission rewards can feel cinematic and premium without loud casino-style escalation.
 
 ## Implementation Gaps
 
 - Tailwind is listed in dependencies and `assets/main.css` contains Tailwind directives, but that file is not imported by `main.js`.
-- `frontend/src/style.css` is not currently imported by `main.js`, but it is kept as a safe dark root-shell stylesheet if it is imported later.
+- `frontend/src/style.css` is Vite starter styling and appears unused.
 - API docs view may visually and contractually lag behind the actual backend.
 - Full Mission Context UX is not complete yet. Current focus-mode polish improves attention and family-aware display, but future work is still needed for consistent path/challenge/mission context framing everywhere.

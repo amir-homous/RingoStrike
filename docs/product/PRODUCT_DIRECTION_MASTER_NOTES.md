@@ -42,7 +42,7 @@ It should not feel like:
 
 The technical systems exist to make Ringo feel alive, useful, caring, and emotionally meaningful.
 
-Paths, challenges, missions, stats, reminders, achievements, feed events, and AI features should all support the feeling that Ringo understands the user and guides them toward the next small step.
+Paths, challenges, missions, stats, reminders, achievements, feed events, living space rewards, and AI features should all support the feeling that Ringo understands the user and guides them toward the next small step.
 
 ---
 
@@ -61,6 +61,7 @@ Ringo should:
 - celebrate small wins
 - respond gently to missed days
 - guide the user through reward moments
+- make progress visible in the user's living space
 - narrate community progress
 - create emotional continuity
 
@@ -117,7 +118,7 @@ User opens app → sees missions → completes mission → checks in → stats u
 
 The desired emotional loop is:
 
-User opens app → Ringo understands the user’s state → Ringo gives one clear next step → user completes it → Ringo reacts emotionally → rewards appear step by step → user feels progress → user wants to return tomorrow
+User opens app → Ringo understands the user’s state → Ringo gives one clear next step → user completes it → Ringo reacts emotionally → rewards appear step by step → the user's living space changes → user feels progress → user wants to return tomorrow
 
 ---
 
@@ -244,7 +245,7 @@ Possible sequence:
 4. XP earned
 5. Path progress
 6. Streak / Today Saved
-7. Achievement / reward unlock
+7. Achievement / space reward unlock
 8. Ringo Pulse / friend/community update
 9. Next choice: finish today or continue with bonus mission
 
@@ -291,19 +292,61 @@ Sensitive missions should not be exposed publicly by default.
 
 ---
 
-# 11. UI/UX Direction
+# 11. Living Space Decision
+
+Home should become a living space of progress, not only a dashboard.
+
+Reference:
+
+- [Living Space v1 Spec](LIVING_SPACE_V1_SPEC.md)
+
+Core rule:
+
+```txt
+Real progress -> visible change
+```
+
+The user should start with a sparse but usable room. As they complete missions, keep consistency, grow in paths, and unlock achievements, objects should appear in the room.
+
+Living Space v1 should include one room with five path zones:
+
+- Work Desk / Career
+- Creative Corner / Creativity
+- Fitness Corner / Fitness
+- Learning Corner / Learning
+- Sleep Corner / Sleep and Recovery
+
+Ringo is not a sixth zone. Ringo is the guide layer across the whole room.
+
+Important v1 rules:
+
+- Use fixed object slots.
+- Keep the reward matrix small.
+- Unlock the first reward after a meaningful first mission.
+- Let each object explain why it was unlocked.
+- Use existing path, mission, check-in, stats, achievement, and reward moment systems.
+- Do not build a shop, inventory editor, drag-and-drop customization, city map, or friend room visits in v1.
+
+Future social/profile direction:
+
+A user's profile can later include `Visit Space`, where others can understand their growth identity visually. This should come after the private v1 loop proves that room progress feels meaningful.
+
+---
+
+# 12. UI/UX Direction
 
 The dashboard should become Ringo’s home.
 
 Main dashboard structure:
 
 1. Ringo character + contextual message
-2. Today’s Step / Main Mission
+2. Today's Step / Main Mission
 3. Tiny Mission fallback
 4. Optional Bonus Mission
-5. Path progress preview
-6. Streak / Today Saved status
-7. Small Ringo Pulse preview
+5. Living Space path zones and visible progress
+6. Path progress preview
+7. Streak / Today Saved status
+8. Small Ringo Pulse preview
 
 The app should not overwhelm new users with:
 
@@ -319,7 +362,7 @@ Deeper systems should unlock gradually.
 
 ---
 
-# 12. Portfolio / University Value
+# 13. Portfolio / University Value
 
 RingoStrike can become a strong university portfolio project if presented as:
 
@@ -331,6 +374,7 @@ The case study should highlight:
 - character design
 - emotional UX
 - gamification
+- visible progress / Living Space
 - adaptive missions
 - reward sequence design
 - AI strategy
@@ -341,7 +385,7 @@ The case study should highlight:
 
 ---
 
-# 13. Development Principle
+# 14. Development Principle
 
 Do not rewrite existing code unnecessarily.
 

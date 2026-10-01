@@ -22,12 +22,15 @@ Product direction references:
 
 - [Product Direction Master Notes](product/PRODUCT_DIRECTION_MASTER_NOTES.md)
 - [MVP Relaunch Phases](product/MVP_RELAUNCH_PHASES.md)
+- [Living Space v1 Spec](product/LIVING_SPACE_V1_SPEC.md)
+- [Living Space v1 Issue Breakdown](product/LIVING_SPACE_V1_ISSUE_BREAKDOWN.md)
 - [GitHub Issue Pack](product/GITHUB_ISSUE_PACK.md)
 
 The supporting product principles remain:
 
 - small daily actions create visible progress
 - check-ins create momentum and identity
+- real progress should create visible persistent changes in the user's space
 - achievements and XP reward consistency without casino-style noise
 - public identity is shareable but privacy-aware
 - social features should reinforce momentum, not toxic competition
@@ -44,6 +47,12 @@ Primary implemented loop:
 Ringo guidance -> Today's Mission -> Mission Done / Check-in -> Ringo Moment / Reward -> Next gentle step
 ```
 
+Target Living Space loop:
+
+```txt
+Ringo guidance -> Mission Done / Check-in -> Reward unlock -> Room object appears -> Next gentle step
+```
+
 Implementation guidance:
 
 - Lead with Ringo's emotional state, message, and one clear next step before exposing system detail.
@@ -51,6 +60,8 @@ Implementation guidance:
 - Reuse existing challenge, enrollment, check-in, stats, achievement, and activity systems.
 - Do not duplicate XP/streak/achievement logic.
 - Do not rewrite the dashboard; MissionCenter is the primary daily surface and older sections are supporting/progressive surfaces.
+- Treat Living Space v1 as a visible-progress Home layer on top of existing path/mission/check-in/reward systems.
+- Keep Ringo as the guide layer across the room, not as a sixth room zone.
 - Delay complex social, mobile, widget, and advanced automation work until the guided loop is validated.
 
 ## Implemented Backend Systems
@@ -86,23 +97,9 @@ Implementation guidance:
 - Frontend i18n is implemented with `vue-i18n` in `frontend/src/i18n/`, currently supporting English (`en`) and Persian (`fa`).
 - The language switcher lives in `frontend/src/components/i18n/LanguageSwitcher.vue`, persists the selected locale in `localStorage.ringostrike_locale`, and updates `document.documentElement.lang` and `dir`.
 - Persian mode uses the local Vazirmatn variable WOFF2 font from `frontend/src/assets/fonts/Vazirmatn.woff2`; English mode keeps the existing system font stack.
-- Frontend-only seeded content display localization is implemented through helpers such as `frontend/src/lib/missionDisplayCopy.js` and `frontend/src/lib/ringoContentLocalization.js`. Known seeded mission/path/challenge copy can be localized for display while raw backend values remain logic inputs. Unknown or custom backend content falls back safely to backend-provided title/name/description.
 - Component groups for UI primitives, progress, achievements, activity, challenge cards, profile, and feedback.
 - Guided progression surfaces now include Dashboard MissionCenter, backend RingoCoach decisions, `/paths` path planning, path selection from MissionCenter, lightweight `/onboarding` identity path flow, progressive dashboard disclosure, premium check-in RewardMoment, and JoinSuccessMoment after successful challenge joins.
 - `MissionCenter.vue` calls `/me/today-missions`; mission done calls `/me/missions/:id/done`, which writes a mission log and delegates to the existing check-in pipeline.
-- Staged Mission Reward Sequence v2 is a frontend-only mission-completion enhancement. It reuses `RingoRewardSequence.vue` after mission completion, normalizes backend `response.reward_sequence`, and uses before/after reward snapshots where available.
-- Backend reward step mappings handled by the frontend include `mission_completed` -> `mission_complete` and `next_choice` -> `final_choice`; supported step types include `xp_earned` and `ringo_message`.
-- For newly completed XP missions, frontend fallback steps guarantee mission complete, XP earned, and final choice. Missing deltas are skipped rather than invented.
-- Staged Mission Reward Sequence v2 supports strike secured, XP/level progress movement, level-up wrap without visual backward motion, path strengthened, challenge strengthened, and challenge secured/check-in steps when the necessary completion context exists.
-- Mission completion icons resolve from `frontend/src/assets/missions-icons/{mission.key}.png` with `default_missions_icon.png` fallback.
-- The legacy Dashboard `RewardMoment` card is suppressed for mission-completion reward flows; Dashboard still reloads stats silently.
-- Staged Mission Reward Sequence v2 consumes additive completion fields such as `mission.xp_awarded`, `mission.already_done`, `mission.mission_intensity`, `mission.key`, and `response.reward_sequence`. It does not own XP, streak, achievement, check-in, stats, reward economy, or mission mutation behavior.
-- Daily Momentum Bar v1 is a frontend-only compact strike/path/action dock in MissionCenter. It uses existing mission, path catalog, and Ringo guidance data to show today safety, streak count, today-only path progress rings, path-color accents, contextual actions, and a lightweight Explore Paths entry that routes to the existing `/paths` page.
-- Daily Momentum Bar v1 does not own XP, stats, streak, check-in, progression, reward economy, or mission mutation behavior. It orchestrates display/actions only, while `compactProgressStrip` remains the top/global XP-level/status strip.
-- Daily Momentum Bar path icons prefer DB-backed path icon metadata where available. Action icons are resolved from `frontend/src/assets/action-icons/`, with black PNGs rendered white by CSS filtering and missing icons falling back to text-only buttons.
-- The optional explorer remains available as content/status/path/challenge/mission information, but duplicate optional continuation footer actions are hidden while the Daily Momentum Bar owns the safe-state actions.
-- `compactProgressStrip` can show a reminder chip only when the existing frontend reminder count is greater than zero; this uses current mission reminder state and does not add backend fields or endpoints.
-- MissionCenter's post-safe optional explorer is a frontend-only growth-map surface. It groups existing mission data into path/challenge cards with progress surfaces, icon progress rings, reward-ready/building display slots, earned/total XP summaries, mission-key icons, and status-aware mission rows. These are display states only and do not imply backend reward claims or new progression ownership.
 - `PathSelection.vue` starts a path and then joins the first related challenge when one is available. Path start and challenge join remain separate API operations.
 - RewardMoment displays existing backend check-in rewards only and can surface frontend-only feature unlock hints for Activity, Achievements, and Public Profile. Leaderboard unlock hints are intentionally skipped for v1 because there is no dedicated global leaderboard route yet.
 - JoinSuccessMoment keeps the join API unchanged and gives users a softer transition from onboarding/challenge discovery to the daily mission loop before they open dense enrollment details.
@@ -111,7 +108,7 @@ Implementation guidance:
 
 ## Source Of Truth Rules
 
-- Product decision truth is in `docs/product/`, especially `PRODUCT_DIRECTION_MASTER_NOTES.md`, `MVP_RELAUNCH_PHASES.md`, and `GITHUB_ISSUE_PACK.md`.
+- Product decision truth is in `docs/product/`, especially `PRODUCT_DIRECTION_MASTER_NOTES.md`, `MVP_RELAUNCH_PHASES.md`, `LIVING_SPACE_V1_SPEC.md`, `LIVING_SPACE_V1_ISSUE_BREAKDOWN.md`, and `GITHUB_ISSUE_PACK.md`.
 - Database truth is in `backend/database.py`; service queries reveal actual field usage.
 - API truth is in `backend/routes/*.py` plus endpoints registered directly by `backend/auth.py` and `backend/app.py`.
 - Frontend route truth is in `frontend/src/router/index.js`.
@@ -127,6 +124,8 @@ Implementation guidance:
 - Treat path, challenge, mission, check-in, stats, achievement, activity, and profile systems as supporting infrastructure for Ringo.
 - For Ringo-related product behavior, follow `docs/product/` before inventing new direction.
 - Keep deterministic product decisions in code and services. AI-assisted language should come later and remain structured, validated, and fallback-safe.
+- Do not start Living Space UI implementation until the data/API contract is clear enough to keep reward persistence deterministic.
+- For Living Space v1, preserve the core rule: real progress creates visible change. Do not add shop, inventory, drag/drop room editing, city maps, friend visits, heavy social, or a second progression economy.
 
 ## Critical Engineering Notes
 
@@ -134,17 +133,13 @@ Implementation guidance:
 - Cookies remain the preferred auth path; `localStorage.ringo_token` is only a callback-token fallback and is cleared on logout.
 - `frontend/src/components/AuthForm.vue` should stay aligned with `frontend/src/lib/api.js`; avoid hard-coded backend origins or auth payload logging.
 - Frontend translations should stay frontend-only. Do not change backend response shapes to support locale text; translate display labels at the component/i18n layer and keep raw backend values for logic.
-- Known seeded content display localization should use frontend helpers such as `missionDisplayCopy.js` and `ringoContentLocalization.js`; do not change backend seed data for this phase. Unknown/custom content must fall back to backend values.
 - When adding Persian UI text, keep `lang="fa"`/`dir="rtl"` behavior centralized through `frontend/src/i18n/index.js`.
 - Keep guided progression UX frontend-first while it is being validated. Reuse current challenge/enrollment/check-in responses; do not add onboarding, recommendation, XP, streak, or achievement backend logic unless a later issue explicitly requires it.
 - For path/mission work, keep mission state in `mission_logs` and canonical progression in check-ins/stats/achievements. Avoid adding a second progression economy.
+- Living Space rewards should be additive persistence on top of existing progression. If schema/API work begins, document actual tables/endpoints only after they exist.
 - `frontend/src/constants/ringoSprites.js` resolves Ringo sprites from `frontend/src/assets/ringo/` with fallback aliases for missing or unknown keys. Keep `RINGO_SPRITE_KEYS`, backend `sprite_key` values, and actual asset filenames aligned.
 - Dashboard mission focus mode is frontend-owned: `MissionCenter.vue` emits `focus-state-change`, `Dashboard.vue` hides secondary dashboard sections while focus is active, and `CompactProgressStrip.vue` provides minimal level/XP/streak context without duplicating progression calculations.
 - `MissionCenter.vue` owns first-run staged reveal, mission status expansion, post-first-win copy, and Rest Mode. `Finish for today` enters the calm Rest Mode card; `Show dashboard` explicitly unlocks the full dashboard.
-- Staged Mission Reward Sequence v2 should stay frontend-only. It may display mission XP, Today Safe / strike-protected language for main/tiny completions when appropriate, challenge secured/check-in ownership when the response records a new check-in, and bonus-complete XP language for bonus completions, but bonus rewards must not claim Today Safe or create a bonus chain.
-- Daily Momentum Bar v1 should stay frontend-only. Keep Explore Paths v1 as lightweight navigation to `/paths` until a later issue explicitly designs a discovery modal or backend flow.
-- The optional explorer must preserve MissionCenter's single-focus contract: due reminders still own focus, future reminders stay quiet until due, and post-safe optional exploration remains calm and non-blocking.
-- Root/background coverage is part of RTL/LTR stability: `html`, `body`, `#app`, and `AppContainer` should keep the dark app background and full-height shell so uncovered points never expose a browser/light background.
 - Mission focus mode is not the full Mission Context UX system. It improves dashboard focus and mission-family presentation, but complete path -> challenge -> mission breadcrumb/context clarity remains future product work unless code later proves otherwise.
 - `frontend/src/views/Login.vue` is a Telegram-oriented view and is not the active `/login` route while local username/password auth remains the primary flow.
 - `GET /me/stats` is owned by `stats_routes.py` and delegates to `stats_service.py`.
@@ -174,4 +169,6 @@ The project has moved beyond the older v0.3 dashboard/profile milestone. Public 
 - profile settings and avatar/bio fields
 - public consistency and public achievements endpoints
 
-The next highest-value work is launch hardening and operations polish plus QA/microcopy/localization polish for seeded Persian content display: keep reminder automation monitored, verify frontend production builds use `/api-proxy`, run the launch QA checklist, add/maintain mission-path-reminder smoke coverage, add a migration/backup plan, and continue reducing profile/API contract overlap.
+The next product-planning priority is Living Space v1 documentation and implementation-contract hardening before UI coding. Living Space should turn Home into one visible progress room with five path zones, fixed reward slots, first path preview/selection, mission recommendation, first reward unlock persistence, and room object appearance.
+
+The next engineering priority after the contract is clear is additive backend reward persistence and authenticated space state endpoints. Schema/API/QA docs should be updated only after implementation exists. Launch hardening remains active in parallel: keep reminder automation monitored, verify frontend production builds use `/api-proxy`, run the launch QA checklist, add/maintain mission-path-reminder smoke coverage, add a migration/backup plan, and continue reducing profile/API contract overlap.

@@ -84,11 +84,6 @@ The detailed product direction lives in:
 - First-run staged reveal for Ringo guidance, mission intro, mission card, and action education.
 - Post-first-win completion UX, including optional bonus framing, calm reminder copy, and Rest Mode after `Finish for today`.
 - Mission Status detail lists are collapsed by default during focus mode and can be revealed manually.
-- Post-safe optional explorer growth-map polish with progress-surface path/challenge cards, circular icon progress rings, frontend-only reward-ready/building slots, earned/total XP summaries, mission-key icons, and status-aware mission rows.
-- Completed optional paths/challenges can remain visible so users can feel completion while MissionCenter's single-focus loop remains intact.
-- Staged Mission Reward Sequence v2 after mission completion, reusing `RingoRewardSequence.vue`, normalizing backend reward steps, consuming additive mission completion fields and before/after snapshots where available, and displaying mission/XP/strike/level/path/challenge/final-choice feedback without changing backend progression ownership.
-- Daily Momentum Bar v1 as a frontend-only compact daily strike/path/action dock showing today safety, streak count, today-only path progress rings, contextual actions, and lightweight Explore Paths navigation while `compactProgressStrip` remains the top/global XP-level/status strip.
-- Action icon support from `frontend/src/assets/action-icons/`, DB-backed path icon display, optional explorer duplicate footer action cleanup, and reminder chip display in `compactProgressStrip` only when reminder count is greater than zero.
 - `/paths` planning view with path picker, stage panels, mission previews, and today progress summary.
 - Ringo helper sprites and RingoCoach component.
 - Premium navigation with Paths in desktop/mobile navigation and Settings removed from visible navigation.
@@ -143,7 +138,6 @@ The detailed product direction lives in:
 - Removed stale frontend route/file clutter around the legacy login import and stray `Untitled` view snippet.
 - Aligned auth callback token storage with the shared API client Bearer fallback, constrained callback redirects to internal paths, and cleared stored callback tokens on logout.
 - Added frontend-only Persian/English i18n with `vue-i18n`, persisted locale selection, automatic `lang`/`dir` updates, and a header language switcher.
-- Added frontend-only seeded content display localization for known mission/path/challenge copy through helpers such as `missionDisplayCopy.js` and `ringoContentLocalization.js`, improving Persian MissionCenter, onboarding, path/challenge previews, and Challenge Discovery surfaces while preserving backend seed data.
 - Added Persian-only Vazirmatn typography through the active global CSS layer while preserving the existing English system font stack.
 - Added guided Today Mission dashboard focus and a reusable first-path empty state for users without active enrollments.
 - Added lightweight frontend-only onboarding with identity path selection and suggested first challenge mapping.
@@ -156,10 +150,6 @@ The detailed product direction lives in:
 - Added protected due reminder endpoint for n8n/cron automation: `POST /api/telegram/remind-due-missions`.
 - Added protected reminder diagnostics endpoint: `GET /api/telegram/reminder-diagnostics`.
 - Hardened VPS runtime around `systemd`, env-driven Flask binding, `FLASK_DEBUG=0`, and nginx `/api-proxy` routing to a localhost-only backend.
-- Hardened Persian/RTL dashboard and optional explorer rendering by ensuring full-viewport dark root/app background coverage and clipped direction-aware progress surfaces.
-- Added frontend-only Mission Reward Moment v1 with EN/FA copy, main/tiny/bonus reward framing, already-done/no-XP replay protection, and no backend, schema, XP/stat/progression, mission mutation, reminder, or Ringo Brain policy changes.
-- Added frontend-only Staged Mission Reward Sequence v2 with backend reward-sequence normalization, before/after reward snapshots where available, guaranteed mission/XP/final-choice fallback steps for newly completed XP missions, strike secured, XP/level wrap animation, path/challenge strengthened, challenge secured, mission-key icon fallback, legacy Dashboard reward-card suppression, EN/FA copy, RTL polish, and no backend, schema, API contract, XP/streak/check-in/progression, mission mutation, reward inventory, coins/chests, path-level, or historical analytics changes.
-- Added frontend-only Daily Momentum Bar v1 with today safety, streak count, today-only path rings, contextual daily actions, Explore Paths navigation to the existing Paths page, action icon support, reminder chip display, and duplicate optional continuation action cleanup. No backend, schema, migrations, API response shape, XP/stat/progression, check-in/streak, mission mutation, reward economy, path-level, historical analytics, full Explore Paths modal, or Ringo Brain policy changes were made.
 
 
 ### Backend Test Coverage Added
@@ -224,8 +214,7 @@ These items should happen before expanding product scope:
 
 - Keep invalid challenge join payload coverage as route behavior evolves.
 - Add frontend smoke coverage for `/paths`, MissionCenter, mission done/remind/skip, and duplicate mission/check-in behavior.
-- Continue validating mission context clarity after the focus-mode work. The staged mission reward sequence now covers mission completion reward framing, but a full universal Mission Context UX layer and universal path -> challenge -> mission breadcrumbs are still planned work.
-- Frontend-only seeded content display localization is implemented for known mission/path/challenge copy; continue maintaining localization key coverage as seeded content expands. Future content work can include fuller localization for custom content, a CMS/content-management approach if the product scales, and AI-generated copy only later after deterministic copy is stable.
+- Continue validating mission context clarity after the focus-mode work. A full Mission Context UX layer, universal path -> challenge -> mission breadcrumbs, and contextual reward sequence are still planned work.
 - Add tests for `/auth/logout` edge cases if token blacklist/session invalidation is introduced later.
 - Resolve or document remaining GitHub Actions frontend build instability if it reappears.
 - Run deployment smoke script after every production/pre-launch deployment.
@@ -238,9 +227,6 @@ These items should happen before expanding product scope:
 - Expand shared API response helper usage across existing routes.
 - Keep service-level leaderboard ordering coverage aligned if tie-breaker behavior changes.
 - Keep reminder automation monitored through diagnostics and n8n admin summaries.
-- Keep optional explorer progress-map polish display-only unless a future product issue explicitly designs backend reward claiming.
-- Keep Staged Mission Reward Sequence display-only unless a future product issue explicitly designs backend reward economy changes.
-- Keep Daily Momentum Bar display/action orchestration frontend-only unless a future product issue explicitly designs new backend discovery, path-level, analytics, or progression behavior. Explore Paths v1 is navigation to the existing Paths page only.
 
 
 ---
@@ -249,12 +235,18 @@ These items should happen before expanding product scope:
 
 Goal:
 
-Reduce first-time user confusion by shifting the primary experience from dashboard browsing to a Ringo-first daily companion loop.
+Reduce first-time user confusion by shifting the primary experience from dashboard browsing to a Ringo-first daily companion loop, then make that progress visible through Living Space v1.
 
 Core loop:
 
 ```txt
 Ringo understands state -> Main/Tiny/Bonus mission -> Small action -> Ringo Moment -> Next gentle step
+```
+
+Living Space extension:
+
+```txt
+Ringo understands state -> Mission completed -> Reward unlock -> Room object appears -> Next gentle step
 ```
 
 Why:
@@ -269,6 +261,9 @@ Planned work:
 - Keep existing path, challenge, mission, check-in, stats, achievement, and activity systems as the supporting infrastructure.
 - Refine simplified early navigation/progressive disclosure without blocking direct routes.
 - Expand the reward moment and join success moment only when existing backend responses provide enough data.
+- Finalize the Living Space v1 implementation contract before UI coding.
+- Use Living Space v1 to turn Home into one visible progress room with five clickable path zones.
+- Persist the first path reward unlock and show the unlocked object in the correct fixed room slot.
 - Improve first-run onboarding after the identity path flow is validated.
 - Consider reminder connection prompts after the first reward/check-in moment, not before.
 
@@ -276,9 +271,16 @@ Non-goals:
 
 - No backend rewrite.
 - No duplicate progression logic.
+- No second progression economy for Living Space.
+- No shop, inventory editor, drag/drop room builder, city map, friend-room visits, or heavy social systems in Living Space v1.
 - No complex skill tree yet.
 - No native mobile app yet.
 - No heavy social systems yet.
+
+Living Space v1 references:
+
+- [Living Space v1 Spec](product/LIVING_SPACE_V1_SPEC.md)
+- [Living Space v1 Issue Breakdown](product/LIVING_SPACE_V1_ISSUE_BREAKDOWN.md)
 
 ---
 
@@ -294,14 +296,16 @@ Near-term product sequence:
 2. Ringo Brain v1: add a deterministic decision layer for user state, Ringo mood, suggested mission, mission intensity, tone, actions, and reward sequence type.
 3. Main/Tiny/Bonus missions: show a focused daily set so the user always knows what is enough today.
 4. Ringo Moment reward sequence: turn mission completion into a step-by-step emotional reward ritual instead of one static result card.
-5. Ringo Pulse feed: add a warm lightweight activity/community pulse, with privacy-aware defaults.
-6. AI-assisted language layer: later, after the rule-based Ringo Brain exists, use AI for safe wording variation and personalized language only.
+5. Living Space v1: make real progress create persistent visible change in the user's Home.
+6. Ringo Pulse feed: add a warm lightweight activity/community pulse, with privacy-aware defaults.
+7. AI-assisted language layer: later, after the rule-based Ringo Brain exists, use AI for safe wording variation and personalized language only.
 
 Implementation principles:
 
 - First Ringo, then system.
 - Preserve existing functionality and avoid rewrites.
 - Extend or wrap existing services before replacing them.
+- Keep Living Space reward persistence additive to current path/mission/check-in/stats/achievement systems.
 - Keep AI out of product decisions until deterministic Ringo Brain behavior is stable.
 
 Reference: [MVP Relaunch Phases](product/MVP_RELAUNCH_PHASES.md).
