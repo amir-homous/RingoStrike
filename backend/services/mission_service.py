@@ -3,6 +3,7 @@ from datetime import datetime, timedelta, timezone
 from database import get_db_connection
 from services.achievement_service import evaluate_and_unlock
 from services.enrollment_service import checkin
+from services.living_space_service import unlock_first_path_reward_for_mission
 from services.ringo_decision_service import decide_ringo_state
 from services.stats_service import resolve_mission_xp, sync_user_stats
 from utils.date_utils import ringo_day_metadata, utc_iso_z, utc_today_iso
@@ -645,8 +646,18 @@ def mark_mission_done(user_id, mission_id):
             mission["enrollment_id"],
         )
 
+    living_space_reward = None
+    if not already_done and mission_intensity != "bonus":
+        living_space_payload, _ = unlock_first_path_reward_for_mission(
+            user_id,
+            mission_id,
+        )
+        if living_space_payload.get("ok"):
+            living_space_reward = living_space_payload.get("reward")
+
     payload["checkin"] = checkin_payload
     payload["checkin_status_code"] = checkin_code
+    payload["living_space_reward"] = living_space_reward
     today_missions_payload, _ = get_today_missions(user_id)
     today_missions = today_missions_payload.get("missions") if today_missions_payload.get("ok") else []
     payload["reward_sequence"] = _build_reward_sequence(

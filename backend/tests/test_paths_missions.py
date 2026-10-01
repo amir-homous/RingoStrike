@@ -635,7 +635,10 @@ def test_bonus_mission_does_not_suppress_same_enrollment_legacy_checkin_xp(clien
 
 
 def test_bonus_mission_awards_xp_without_checkin_or_streak_ownership(client):
+    import database
+
     user = register_user(client, username="BonusMissionXp")
+    user_id = user["user_id"]
     headers = auth_headers(user["access_token"])
     setup = _start_first_fitness_challenge(client, headers)
     bonus_mission = next(
@@ -659,10 +662,24 @@ def test_bonus_mission_awards_xp_without_checkin_or_streak_ownership(client):
 
     stats_data = client.get("/me/stats", headers=headers).get_json()
     activity_data = client.get("/me/activity", headers=headers).get_json()
+    conn = database.get_db_connection()
+    try:
+        living_reward_count = conn.execute(
+            """
+            SELECT CAST(COUNT(*) AS INTEGER) AS n
+            FROM user_rewards
+            WHERE user_id = ?
+            """,
+            (user_id,),
+        ).fetchone()["n"]
+    finally:
+        conn.close()
 
     assert stats_data["stats"]["total_points"] == 6
     assert stats_data["stats"]["total_checkins"] == 0
     assert stats_data["stats"]["current_streak"] == 0
+    assert done_data["living_space_reward"] is None
+    assert living_reward_count == 0
     assert [event for event in activity_data["events"] if event["type"] == "checkin"] == []
 
 
@@ -736,7 +753,10 @@ def test_missing_mission_xp_uses_intensity_fallback(client):
 
 
 def test_repeated_mission_done_is_idempotent_for_xp_activity_and_achievements(client):
+    import database
+
     user = register_user(client, username="MissionXpIdempotent")
+    user_id = user["user_id"]
     headers = auth_headers(user["access_token"])
     setup = _start_first_fitness_challenge(client, headers)
     main_mission = next(
@@ -763,15 +783,33 @@ def test_repeated_mission_done_is_idempotent_for_xp_activity_and_achievements(cl
     repeat_activity = client.get("/me/activity", headers=headers).get_json()["events"]
     repeat_achievements = client.get("/me/achievements", headers=headers).get_json()["achievements"]
 
+    conn = database.get_db_connection()
+    try:
+        living_rewards = conn.execute(
+            """
+            SELECT rd.key, ur.source_type, ur.source_id
+            FROM user_rewards ur
+            JOIN reward_definitions rd ON rd.id = ur.reward_id
+            WHERE ur.user_id = ?
+            """,
+            (user_id,),
+        ).fetchall()
+    finally:
+        conn.close()
+
     first_checkin_events = [event for event in first_activity if event["type"] == "checkin"]
     repeat_checkin_events = [event for event in repeat_activity if event["type"] == "checkin"]
 
     assert first_res.status_code == 200
     assert first_data["mission"]["xp_awarded"] == 17
+    assert first_data["living_space_reward"]["key"] == "fitness_water_bottle"
+    assert first_data["living_space_reward"]["source_type"] == "mission_reward"
+    assert first_data["living_space_reward"]["source_id"] == main_mission["mission_id"]
     assert repeat_res.status_code == 200
     assert repeat_data["mission"]["xp_earned"] == 17
     assert repeat_data["mission"]["xp_awarded"] == 0
     assert repeat_data["mission"]["already_done"] is True
+    assert repeat_data["living_space_reward"] is None
     assert repeat_data["checkin"]["rewards"]["achievements"] == []
     assert repeat_stats["total_points"] == first_stats["total_points"]
     assert repeat_stats["total_checkins"] == first_stats["total_checkins"] == 1
@@ -784,6 +822,9 @@ def test_repeated_mission_done_is_idempotent_for_xp_activity_and_achievements(cl
         achievement["key"]: achievement["unlocked_at"]
         for achievement in first_achievements
     }
+    assert [row["key"] for row in living_rewards] == ["fitness_water_bottle"]
+    assert living_rewards[0]["source_type"] == "mission_reward"
+    assert living_rewards[0]["source_id"] == main_mission["mission_id"]
 
 
 def test_mission_reminder_rejects_time_after_next_daily_reset(client):
@@ -1349,6 +1390,8 @@ def test_linked_tiny_mission_completion_reward_sequence_saves_today(client):
     step_types = [step["type"] for step in done_data["reward_sequence"]]
 
     assert done_data["mission"]["mission_id"] == tiny_mission["mission_id"]
+    assert done_data["living_space_reward"]["key"] == "fitness_water_bottle"
+    assert done_data["living_space_reward"]["source_id"] == tiny_mission["mission_id"]
     assert "today_saved" in step_types
     assert done_data["reward_sequence"][1]["title"] == tiny_mission["title"]
 
