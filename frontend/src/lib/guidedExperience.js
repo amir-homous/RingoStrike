@@ -3,6 +3,10 @@ export const IDENTITY_PATH_KEY = "ringostrike_identity_path";
 export const ONBOARDING_SKIPPED_KEY = "ringostrike_onboarding_skipped";
 
 export const PATH_TO_CHALLENGE_NAME = {
+  career: "Deep Work Sprint",
+  creativity: "Creative Spark",
+  fitness: "Move Your Body",
+  sleep: "Mind Reset",
   focus: "Deep Work Sprint",
   body: "Move Your Body",
   learning: "Learn One Thing",
@@ -19,9 +23,13 @@ const CHALLENGE_NAME_TO_PATH = Object.entries(PATH_TO_CHALLENGE_NAME).reduce(
 );
 
 export const IDENTITY_PATHS = [
+  "career",
+  "creativity",
+  "fitness",
   "focus",
   "body",
   "learning",
+  "sleep",
   "mind",
   "consistency",
 ];
