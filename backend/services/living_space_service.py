@@ -28,6 +28,14 @@ REWARD_DEFS = [
     ("sleep", "sleep_corner", "sleep_trophy", "Recovery Trophy", "A major Sleep milestone marker.", "trophy", "sleep_trophy", "epic", "major_path_milestone", None, 1, "sleep_corner_major"),
 ]
 
+ZONE_DEFS = [
+    ("career", "work_desk", "Work Desk"),
+    ("creativity", "creative_corner", "Creative Corner"),
+    ("fitness", "fitness_corner", "Fitness Corner"),
+    ("learning", "learning_corner", "Learning Corner"),
+    ("sleep", "sleep_corner", "Sleep Corner"),
+]
+
 
 def ensure_reward_definitions(conn):
     for reward in REWARD_DEFS:
@@ -302,6 +310,9 @@ def get_user_space_state(user_id: int):
             (user_id,),
         ).fetchall()
 
+        rewards = [_user_reward_payload(row) for row in reward_rows]
+        zones = _build_zones(rewards)
+
         return {
             "ok": True,
             "space": {
@@ -310,7 +321,72 @@ def get_user_space_state(user_id: int):
                 "current_stage": int(space["current_stage"] or 1),
                 "updated_at": space["updated_at"],
             },
-            "rewards": [_user_reward_payload(row) for row in reward_rows],
+            "zones": zones,
+            "unlocked_objects": [
+                reward for reward in rewards
+                if reward["unlocked"]
+            ],
+            "locked_preview_objects": [
+                reward for reward in rewards
+                if not reward["unlocked"]
+            ],
+            "next_rewards": [
+                zone["next_reward"] for zone in zones
+                if zone["next_reward"]
+            ],
+            "has_unseen_rewards": any(
+                reward["unlocked"] and not reward["is_seen"]
+                for reward in rewards
+            ),
+            "rewards": rewards,
+        }, 200
+    finally:
+        conn.close()
+
+
+def mark_reward_seen(user_id: int, reward_id: int):
+    from database import get_db_connection
+
+    conn = get_db_connection()
+    try:
+        reward = conn.execute(
+            """
+            SELECT
+                rd.*,
+                p.key AS path_key,
+                ur.unlocked_at,
+                ur.source_type,
+                ur.source_id,
+                ur.is_seen
+            FROM user_rewards ur
+            JOIN reward_definitions rd ON rd.id = ur.reward_id
+            JOIN paths p ON p.id = rd.path_id
+            WHERE ur.user_id = ?
+              AND ur.reward_id = ?
+            """,
+            (user_id, reward_id),
+        ).fetchone()
+
+        if not reward:
+            return {"ok": False, "error": "reward_not_unlocked"}, 404
+
+        conn.execute(
+            """
+            UPDATE user_rewards
+            SET is_seen = 1
+            WHERE user_id = ?
+              AND reward_id = ?
+            """,
+            (user_id, reward_id),
+        )
+        conn.commit()
+
+        updated_reward = dict(reward)
+        updated_reward["is_seen"] = 1
+
+        return {
+            "ok": True,
+            "reward": _user_reward_payload(updated_reward),
         }, 200
     finally:
         conn.close()
@@ -344,3 +420,34 @@ def _user_reward_payload(row):
         "is_seen": bool(row["is_seen"]),
     })
     return payload
+
+
+def _build_zones(rewards):
+    rewards_by_zone = {}
+    for reward in rewards:
+        rewards_by_zone.setdefault(reward["zone_key"], []).append(reward)
+
+    zones = []
+    for path_key, zone_key, title in ZONE_DEFS:
+        zone_rewards = rewards_by_zone.get(zone_key, [])
+        unlocked = [
+            reward for reward in zone_rewards
+            if reward["unlocked"]
+        ]
+        locked = [
+            reward for reward in zone_rewards
+            if not reward["unlocked"]
+        ]
+        zones.append({
+            "path_key": path_key,
+            "zone_key": zone_key,
+            "title": title,
+            "unlocked_objects": unlocked,
+            "locked_preview_objects": locked,
+            "next_reward": locked[0] if locked else None,
+            "has_unseen_rewards": any(
+                reward["unlocked"] and not reward["is_seen"]
+                for reward in unlocked
+            ),
+        })
+    return zones

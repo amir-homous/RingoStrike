@@ -18,6 +18,7 @@ from routes.health_routes import health_bp
 from routes.telegram_routes import telegram_bp
 from routes.path_routes import path_bp
 from routes.mission_routes import mission_bp
+from routes.living_space_routes import living_space_bp
 
 
 load_dotenv()
@@ -80,6 +81,7 @@ def create_app() -> Flask:
     app.register_blueprint(telegram_bp)
     app.register_blueprint(path_bp)
     app.register_blueprint(mission_bp)
+    app.register_blueprint(living_space_bp)
 
 
     

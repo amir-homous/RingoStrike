@@ -406,6 +406,58 @@ Success:
 
 Active frontend behavior in `PathSelection.vue`: after starting a path, the frontend loads the path challenges and joins the first challenge when available through `POST /challenges/:challenge_id/join`. The path API itself does not enroll the user in a challenge.
 
+## Living Space APIs
+
+Living Space APIs are additive authenticated endpoints for the v1 visible-progress room. They expose persistent room reward state and locked previews without creating a shop, inventory editor, drag/drop placement system, public room visits, or a second progression economy.
+
+### `GET /me/space`
+
+Auth: required.
+
+Returns the user's room state, five canonical zones, unlocked room objects, locked preview objects, next rewards, and unseen reward status.
+
+```json
+{
+  "ok": true,
+  "space": {
+    "user_id": 1,
+    "theme": "default",
+    "current_stage": 1,
+    "updated_at": "2026-10-01 20:00:00"
+  },
+  "zones": [
+    {
+      "path_key": "fitness",
+      "zone_key": "fitness_corner",
+      "title": "Fitness Corner",
+      "unlocked_objects": [],
+      "locked_preview_objects": [],
+      "next_reward": null,
+      "has_unseen_rewards": false
+    }
+  ],
+  "unlocked_objects": [],
+  "locked_preview_objects": [],
+  "next_rewards": [],
+  "has_unseen_rewards": false,
+  "rewards": []
+}
+```
+
+Reward objects include `id`, `key`, `title`, `description`, `path_key`, `zone_key`, `object_type`, `asset_key`, `rarity`, `unlock_condition_type`, `stage`, `slot_key`, `unlocked`, `unlocked_at`, `source_type`, `source_id`, and `is_seen`.
+
+### `GET /me/space/rewards`
+
+Auth: required.
+
+Returns the flat Living Space reward state list and `has_unseen_rewards`. This is useful for panels, previews, and unlock badges when the frontend does not need the full zone grouping.
+
+### `POST /me/space/rewards/:reward_id/seen`
+
+Auth: required.
+
+Marks an already-unlocked reward seen for the authenticated user. It does not unlock locked rewards and does not change XP, streaks, missions, achievements, or check-ins.
+
 ### `GET /paths/:path_id/challenges`
 
 Auth: optional.
