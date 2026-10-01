@@ -20,7 +20,7 @@ The product combines:
 * progression identity
 * Ringo-led daily missions
 * mission focus mode
-* Living Space planning for visible progress at Home
+* Living Space v1 for visible progress at Home
 * Telegram reminder automation
 * social momentum architecture
 
@@ -71,7 +71,7 @@ The long-term goal is to create a platform where:
 * Ringo-led paths and daily missions
 * Mission reminders, skips, and completion state
 * Mission-family behavior for main/tiny substitutes and optional bonus momentum
-* Living Space v1 product contract for persistent room rewards
+* Living Space v1 persistent room rewards
 
 ---
 
@@ -124,7 +124,7 @@ The long-term goal is to create a platform where:
 * Ringo-led MissionCenter with focus-mode dashboard gating
 * Compact progress strip during focused daily loops
 * First-run staged reveal and calm Rest Mode after finishing for today
-* Living Space direction for five path zones and visible Home progress
+* Living Space room with five path zones, locked previews, and persistent unlocked objects
 * Reward-driven interactions
 * Responsive layouts
 * Emotionally intelligent UX
@@ -197,7 +197,7 @@ src/
 │   ├── profile/
 │   ├── progress/
 │   ├── ringo/
-│   ├── space/      # planned Living Space components
+│   ├── space/      # Living Space room, zones, objects, and unlock moment
 │   └── ui/
 ├── i18n/
 ├── views/
@@ -211,7 +211,7 @@ The frontend is built around:
 * reusable progression components
 * emotional feedback systems
 * Ringo/MissionCenter guided daily focus
-* future Living Space visible-progress components
+* Living Space visible-progress room components
 * English/Persian localization with RTL support
 * scalable identity/social architecture
 
@@ -249,12 +249,12 @@ Current stage:
 * companion-first guided progression
 * identity-focused UX
 * mission focus and completion-flow hardening
-* Living Space v1 implementation contract
+* Living Space v1 visible-progress Home layer
 * pre-launch operational polish
 
 Future direction:
 
-* visible progress Home / Living Space
+* deeper visible progress Home / Living Space iterations
 * social momentum layer
 * fuller Mission Context UX
 * contextual path/challenge/mission reward framing
@@ -392,7 +392,7 @@ RingoStrike is evolving toward:
 
 Future systems may include:
 
-* visible Living Space progression
+* deeper Living Space progression
 * public progression identity
 * social feeds
 * shared momentum systems

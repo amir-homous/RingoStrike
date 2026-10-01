@@ -118,7 +118,7 @@ Feature components:
 - onboarding: welcome, identity path selection, and suggested challenge steps
 - profile: hero card, stats grid, settings card/modal, avatar, consistency heatmap
 - progress: hero progress, compact focus strip, next goal, recent feed, stats grid, XP bar
-- space, planned: LivingSpace, SpaceZone, SpaceObject, SpaceZonePanel, and RewardUnlockMoment for Living Space v1 after the implementation contract is ready
+- space: LivingSpace, SpaceZone, SpaceObject, SpaceZonePanel, and RewardUnlockMoment for Living Space v1 visible progress
 
 ## Frontend Pages
 
