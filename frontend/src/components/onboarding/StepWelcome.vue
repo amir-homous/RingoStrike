@@ -6,7 +6,7 @@
       <h1>{{ t("onboarding.welcome.title") }}</h1>
 
       <p class="body">
-        {{ t("onboarding.welcome.body") }}
+        <OnboardingTypewriterText :text="t('onboarding.welcome.body')" />
       </p>
 
       <BaseButton
@@ -33,6 +33,7 @@ import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 
 import BaseButton from "@/components/ui/BaseButton.vue";
+import OnboardingTypewriterText from "@/components/onboarding/OnboardingTypewriterText.vue";
 import RingoMoodFigure from "@/components/ringo/RingoMoodFigure.vue";
 import { resolveRingoMood } from "@/constants/ringoSprites";
 

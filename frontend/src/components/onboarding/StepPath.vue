@@ -4,7 +4,7 @@
       <div class="stepHeader">
         <p class="eyebrow">{{ t("onboarding.path.eyebrow") }}</p>
         <h1>{{ t("onboarding.path.title") }}</h1>
-        <p>{{ t("onboarding.path.body") }}</p>
+        <p><OnboardingTypewriterText :text="t('onboarding.path.body')" /></p>
       </div>
 
       <RingoMoodFigure class="pathRingo" :mood="pathMood" :alt="t('onboarding.path.title')" size="md" floating />
@@ -47,10 +47,14 @@
         </div>
 
         <p v-if="activePreviewOption" class="previewHint">
-          {{ t("onboarding.path.previewHint", {
-            path: activePreviewOption.title,
-            reward: activePreviewOption.firstRewardTitle,
-          }) }}
+          <OnboardingTypewriterText
+            :text="t('onboarding.path.previewHint', {
+              path: activePreviewOption.title,
+              reward: activePreviewOption.firstRewardTitle,
+            })"
+            :speed="12"
+            :start-delay="40"
+          />
         </p>
       </div>
     </div>
@@ -68,6 +72,7 @@ import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
 
 import BaseButton from "@/components/ui/BaseButton.vue";
+import OnboardingTypewriterText from "@/components/onboarding/OnboardingTypewriterText.vue";
 import RingoMoodFigure from "@/components/ringo/RingoMoodFigure.vue";
 import SpaceZone from "@/components/space/SpaceZone.vue";
 import { resolveRingoMood } from "@/constants/ringoSprites";

@@ -5,10 +5,10 @@
         <p class="eyebrow">{{ t("onboarding.suggestion.eyebrow") }}</p>
         <h1>{{ t("onboarding.suggestion.title") }}</h1>
         <p>
-          {{ t("onboarding.suggestion.body", { path: pathLabel }) }}
+          <OnboardingTypewriterText :text="t('onboarding.suggestion.body', { path: pathLabel })" />
         </p>
         <p class="laterNotice">
-          {{ t("onboarding.suggestion.laterNotice") }}
+          <OnboardingTypewriterText :text="t('onboarding.suggestion.laterNotice')" :start-delay="420" />
         </p>
       </div>
 
@@ -127,6 +127,7 @@ import { useI18n } from "vue-i18n";
 
 import BaseButton from "@/components/ui/BaseButton.vue";
 import BaseCard from "@/components/ui/BaseCard.vue";
+import OnboardingTypewriterText from "@/components/onboarding/OnboardingTypewriterText.vue";
 import RingoMoodFigure from "@/components/ringo/RingoMoodFigure.vue";
 import { resolveRingoMood } from "@/constants/ringoSprites";
 import { localizeChallenge } from "@/lib/ringoContentLocalization";
