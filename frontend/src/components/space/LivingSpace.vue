@@ -40,7 +40,9 @@
         v-if="displayActiveZone"
         :mode="shellMode"
         :zone="displayActiveZone"
+        :checking-id="checkingId"
         @change-mode="changeShellMode"
+        @checkin="$emit('checkin', $event)"
         @close="closePanel"
       />
     </div>
@@ -61,7 +63,10 @@ import SpaceZonePanel from "./SpaceZonePanel.vue";
 const props = defineProps({
   refreshKey: { type: Number, default: 0 },
   challenges: { type: Array, default: () => [] },
+  checkingId: { type: [Number, String, null], default: null },
 });
+
+defineEmits(["checkin"]);
 
 const { locale, t } = useI18n();
 
@@ -205,6 +210,7 @@ function buildZoneAction(zone) {
         status: "done_today",
         streak: challenge.current_streak ?? challenge.currentStreak ?? 0,
         totalCheckins: challenge.total_checkins ?? challenge.totalCheckins ?? 0,
+        todayChecked: true,
       },
     };
   }
@@ -226,6 +232,7 @@ function buildZoneAction(zone) {
       status: "ready_today",
       streak: challenge.current_streak ?? challenge.currentStreak ?? 0,
       totalCheckins: challenge.total_checkins ?? challenge.totalCheckins ?? 0,
+      todayChecked: false,
     },
   };
 }
