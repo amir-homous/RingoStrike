@@ -830,7 +830,7 @@ def test_repeated_mission_done_is_idempotent_for_xp_activity_and_achievements(cl
 def test_second_challenge_in_same_path_does_not_repeat_living_space_reward(client):
     import database
 
-    user = register_user(client, username="MissionSecondChallengeSpaceReward")
+    user = register_user(client, username="MissionSecondSpaceReward")
     user_id = user["user_id"]
     headers = auth_headers(user["access_token"])
     setup = _start_first_fitness_challenge(client, headers)
