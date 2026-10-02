@@ -2472,11 +2472,14 @@ const restModeSummaryItems = computed(() => {
   const completedCount = summary.done.length;
   const tinyCount = summary.tinyDone.length;
   const bonusCompletedCount = summary.bonusDone.length;
-  const remindedCount = summary.reminded.length;
+  const remindedCount = Math.max(
+    summary.reminded.length,
+    nearestFutureReminder.value ? 1 : 0,
+  );
   const skippedCount = summary.skipped.length;
   const streakCount = Number(dailyMomentumStreakCount.value || 0);
 
-  if (dailyMomentumTodaySafe.value) {
+  if (isTodaySaved.value || dailyMomentumTodaySafe.value) {
     items.push({
       key: "safe",
       icon: "protectToday",
