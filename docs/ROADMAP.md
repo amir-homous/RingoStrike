@@ -262,7 +262,8 @@ Planned work:
 - Refine simplified early navigation/progressive disclosure without blocking direct routes.
 - Expand the reward moment and join success moment only when existing backend responses provide enough data.
 - Keep Living Space v1 aligned as one visible progress room with five clickable path zones.
-- Preserve deterministic first path reward unlock persistence and fixed room object placement.
+- Preserve deterministic first path reward unlock persistence, legacy first-path reward backfill, and fixed room object placement.
+- Keep later room rewards as locked previews until their consistency, path milestone, achievement, and major milestone unlock rules are intentionally specified.
 - Use the Living Space v1 QA checklist before treating the Home room flow as release-ready.
 - Improve first-run onboarding after the identity path flow is validated.
 - Consider reminder connection prompts after the first reward/check-in moment, not before.
