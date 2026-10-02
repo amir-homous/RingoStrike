@@ -827,6 +827,84 @@ def test_repeated_mission_done_is_idempotent_for_xp_activity_and_achievements(cl
     assert living_rewards[0]["source_id"] == main_mission["mission_id"]
 
 
+def test_second_challenge_in_same_path_does_not_repeat_living_space_reward(client):
+    import database
+
+    user = register_user(client, username="MissionSecondChallengeSpaceReward")
+    user_id = user["user_id"]
+    headers = auth_headers(user["access_token"])
+    setup = _start_first_fitness_challenge(client, headers)
+    first_main = next(
+        mission for mission in setup["missions"]
+        if mission["challenge_id"] == setup["challenge_id"]
+        and mission["mission_intensity"] == "main"
+    )
+
+    challenges = client.get(
+        f"/paths/{setup['path_id']}/challenges",
+        headers=headers,
+    ).get_json()["items"]
+    second_challenge = next(
+        challenge
+        for challenge in challenges
+        if challenge["challenge_id"] != setup["challenge_id"]
+    )
+    client.post(
+        f"/challenges/{second_challenge['challenge_id']}/join",
+        json={},
+        headers=headers,
+    )
+
+    conn = database.get_db_connection()
+    try:
+        conn.execute(
+            "UPDATE missions SET unlock_after_days = 0 WHERE challenge_id = ?",
+            (second_challenge["challenge_id"],),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+    first_res = client.post(
+        f"/me/missions/{first_main['mission_id']}/done",
+        headers=headers,
+    )
+    missions = client.get("/me/today-missions", headers=headers).get_json()["missions"]
+    second_main = next(
+        mission for mission in missions
+        if mission["challenge_id"] == second_challenge["challenge_id"]
+        and mission["mission_intensity"] == "main"
+    )
+    second_res = client.post(
+        f"/me/missions/{second_main['mission_id']}/done",
+        headers=headers,
+    )
+
+    first_data = first_res.get_json()
+    second_data = second_res.get_json()
+
+    conn = database.get_db_connection()
+    try:
+        living_rewards = conn.execute(
+            """
+            SELECT rd.key, ur.source_id
+            FROM user_rewards ur
+            JOIN reward_definitions rd ON rd.id = ur.reward_id
+            WHERE ur.user_id = ?
+            """,
+            (user_id,),
+        ).fetchall()
+    finally:
+        conn.close()
+
+    assert first_res.status_code == 200
+    assert first_data["living_space_reward"]["key"] == "fitness_water_bottle"
+    assert second_res.status_code == 200
+    assert second_data["living_space_reward"] is None
+    assert [row["key"] for row in living_rewards] == ["fitness_water_bottle"]
+    assert living_rewards[0]["source_id"] == first_main["mission_id"]
+
+
 def test_mission_reminder_rejects_time_after_next_daily_reset(client):
     user = register_user(client, username="ResetReminder")
     headers = auth_headers(user["access_token"])

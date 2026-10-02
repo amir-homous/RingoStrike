@@ -652,7 +652,7 @@ def mark_mission_done(user_id, mission_id):
             user_id,
             mission_id,
         )
-        if living_space_payload.get("ok"):
+        if living_space_payload.get("ok") and living_space_payload.get("newly_unlocked"):
             living_space_reward = living_space_payload.get("reward")
 
     payload["checkin"] = checkin_payload
