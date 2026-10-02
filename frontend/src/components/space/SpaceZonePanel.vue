@@ -100,6 +100,17 @@
           <small>{{ t("space.shell.checkins") }}</small>
         </span>
       </div>
+      <button
+        v-if="zone.action?.challenge?.enrollmentId"
+        type="button"
+        class="actionLink primary shellCheckin"
+        :disabled="challengeDone || challengeLoading"
+        @click="$emit('checkin', zone.action.challenge.enrollmentId)"
+      >
+        <span v-if="challengeLoading">{{ t("space.shell.checkingIn") }}</span>
+        <span v-else-if="challengeDone">{{ t("space.shell.doneToday") }}</span>
+        <span v-else>{{ t("space.shell.checkInToday") }}</span>
+      </button>
       <RouterLink class="fallbackLink" :to="zone.action?.fallbackTo || '/challenges'">
         {{ t("space.shell.openFullChallenge") }}
       </RouterLink>
@@ -115,9 +126,10 @@ import SpaceObject from "./SpaceObject.vue";
 const props = defineProps({
   zone: { type: Object, required: true },
   mode: { type: String, default: "zone" },
+  checkingId: { type: [Number, String, null], default: null },
 });
 
-defineEmits(["change-mode", "close"]);
+defineEmits(["change-mode", "checkin", "close"]);
 
 const { t } = useI18n();
 
@@ -141,6 +153,18 @@ const challengeStatusText = computed(() => {
   }
 
   return t("space.shell.challengeReadyText");
+});
+
+const challengeDone = computed(() => {
+  return Boolean(props.zone?.action?.challenge?.todayChecked)
+    || props.zone?.action?.challenge?.status === "done_today";
+});
+
+const challengeLoading = computed(() => {
+  const enrollmentId = props.zone?.action?.challenge?.enrollmentId;
+  if (!enrollmentId || props.checkingId == null) return false;
+
+  return String(props.checkingId) === String(enrollmentId);
 });
 </script>
 
@@ -306,5 +330,14 @@ const challengeStatusText = computed(() => {
   font-size: 0.78rem;
   font-weight: 850;
   text-decoration: none;
+}
+
+.shellCheckin {
+  justify-self: start;
+}
+
+.shellCheckin:disabled {
+  cursor: default;
+  opacity: 0.68;
 }
 </style>
