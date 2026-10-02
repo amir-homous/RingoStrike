@@ -136,15 +136,34 @@ Expected:
 1. Reload `/dashboard`.
 2. Confirm the unlocked object is still visible.
 3. Complete or resubmit the same already completed mission if the UI/API path allows it.
-4. Confirm no duplicate Living Space unlock moment appears.
-5. Open the room state again.
+4. Start and complete a second challenge in the same path if available.
+5. Confirm no duplicate Living Space unlock moment appears.
+6. Open the room state again.
 
 Expected:
 
 - `GET /me/space` still shows the unlocked object.
 - Already seen rewards do not keep showing as new.
 - Duplicate mission completion does not duplicate room rewards.
+- Completing another challenge in the same path does not replay that path's first reward.
 - Other reward sequence behavior remains unchanged.
+
+## Legacy User Backfill
+
+Use an account that completed non-bonus missions before Living Space rewards existed.
+
+1. Open `/dashboard` or request `GET /me/space`.
+2. Confirm the first reward for each previously completed path appears in the room.
+3. Confirm those backfilled rewards do not show old unlock modals.
+4. Complete a new challenge in a path that already has backfilled progress.
+
+Expected:
+
+- Backfilled rewards use real historical mission progress.
+- Backfilled rewards are already marked seen.
+- The room is not empty for users with prior path progress.
+- New mission completion does not replay a first reward that was backfilled from history.
+- Later reward types such as `early_consistency`, `path_progress_milestone`, `achievement_unlocked`, and `major_path_milestone` remain locked previews until their rules are explicitly implemented.
 
 ## Mobile Smoke
 
@@ -199,6 +218,8 @@ Latest backend coverage added:
 
 - Mission completion now has route coverage confirming `/me/space` shows the newly unlocked object before the reward is marked seen.
 - The same coverage confirms room-level and zone-level `has_unseen_rewards` are true before dismissal, then existing seen-state checks preserve the unlocked object after dismissal.
+- Mission completion coverage now confirms a second challenge in the same path does not replay the first path reward.
+- Legacy mission history coverage now confirms historical first-path rewards are backfilled as seen and do not trigger old unlock modals.
 
 Known QA boundary:
 
