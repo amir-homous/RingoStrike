@@ -13,6 +13,7 @@ Turn RingoStrike Home into a visible progress space where mission/path/achieveme
 Reference:
 
 - [Living Space v1 Spec](LIVING_SPACE_V1_SPEC.md)
+- [Living Space v1 UX Polish Backlog](LIVING_SPACE_V1_UX_POLISH_BACKLOG.md)
 
 ---
 

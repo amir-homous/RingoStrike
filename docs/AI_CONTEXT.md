@@ -24,6 +24,7 @@ Product direction references:
 - [MVP Relaunch Phases](product/MVP_RELAUNCH_PHASES.md)
 - [Living Space v1 Spec](product/LIVING_SPACE_V1_SPEC.md)
 - [Living Space v1 Issue Breakdown](product/LIVING_SPACE_V1_ISSUE_BREAKDOWN.md)
+- [Living Space v1 UX Polish Backlog](product/LIVING_SPACE_V1_UX_POLISH_BACKLOG.md)
 - [GitHub Issue Pack](product/GITHUB_ISSUE_PACK.md)
 
 The supporting product principles remain:

@@ -282,6 +282,7 @@ Living Space v1 references:
 
 - [Living Space v1 Spec](product/LIVING_SPACE_V1_SPEC.md)
 - [Living Space v1 Issue Breakdown](product/LIVING_SPACE_V1_ISSUE_BREAKDOWN.md)
+- [Living Space v1 UX Polish Backlog](product/LIVING_SPACE_V1_UX_POLISH_BACKLOG.md)
 - [Living Space v1 QA Checklist](qa/LIVING_SPACE_V1_QA_CHECKLIST.md)
 
 ---
