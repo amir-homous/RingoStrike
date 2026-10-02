@@ -131,6 +131,7 @@ Only omit `VITE_API_BASE` when backend API routes can safely live at the same ro
 - [ ] Confirm CORS/frontend origin behavior.
 - [ ] Confirm n8n/cron can call `POST /api/telegram/remind-due-missions` with `X-Reminder-Token`.
 - [ ] Confirm reminder diagnostics can be read with `GET /api/telegram/reminder-diagnostics` and `X-Reminder-Token`.
+- [ ] Confirm the n8n server runtime follows `docs/REMINDER_AUTOMATION_RUNBOOK.md` and keeps n8n data/secrets outside the repository.
 
 Health check:
 
