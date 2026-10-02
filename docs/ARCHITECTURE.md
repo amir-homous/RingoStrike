@@ -293,6 +293,8 @@ n8n/cron
 
 The endpoint is protected by `X-Reminder-Token`. n8n should trigger the backend endpoint; it should not send user Telegram messages directly.
 
+n8n can be managed externally or run as a separate VPS service. Its runtime data, workflow credentials, encryption key, and admin credentials must live outside the git repository. The repository only documents the trigger contract and operational checklist in `docs/REMINDER_AUTOMATION_RUNBOOK.md`.
+
 Duplicate prevention uses `mission_logs.reminder_sent_at`: due reminders are selected only when `status = 'remind_later'`, `reminder_at <= now`, and `reminder_sent_at IS NULL`; the marker is set only after successful send.
 
 Protected diagnostics live at `GET /api/telegram/reminder-diagnostics` and expose safe operational state only. They do not send messages and must not expose tokens, raw chat IDs, cookies, JWT secrets, or bot credentials.
