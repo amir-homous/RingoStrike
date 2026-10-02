@@ -88,7 +88,7 @@
 
 <script setup>
 import { computed, onMounted, ref } from "vue";
-import { useRouter } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 
 import api from "@/lib/api";
@@ -106,6 +106,7 @@ import {
   markOnboardingDone,
   markOnboardingSkipped,
   setIdentityPath,
+  shouldBypassOnboardingForLegacyProgress,
 } from "@/lib/guidedExperience";
 import {
   humanizeJoinError,
@@ -118,6 +119,7 @@ import {
 } from "@/lib/ringoContentLocalization";
 
 const router = useRouter();
+const route = useRoute();
 const { locale, t } = useI18n();
 
 const step = ref(1);
@@ -146,6 +148,11 @@ const IDENTITY_TO_BACKEND_PATH = {
   mind: "sleep",
   consistency: "fitness",
 };
+
+function getOnboardingReturnPath() {
+  const next = Array.isArray(route.query.next) ? route.query.next[0] : route.query.next;
+  return typeof next === "string" && next.startsWith("/") ? next : "/dashboard";
+}
 
 const selectedPath = computed(() => selectedPaths.value[0] || "");
 
@@ -258,12 +265,17 @@ async function resumeOnboarding() {
   const missionState = await loadTodayMissionState();
   todayMissionState.value = missionState;
 
-  if (hasTodayMissionPayload(missionState)) {
-    step.value = 4;
+  if (shouldBypassOnboardingForLegacyProgress({
+    savedPath,
+    missionState,
+    challenges: challenges.value,
+  })) {
+    markOnboardingSkipped("", onboardingUserKey.value);
+    router.replace(getOnboardingReturnPath());
     return;
   }
 
-  if (!savedPath && challenges.value.some((challenge) => challenge.is_joined)) {
+  if (hasTodayMissionPayload(missionState)) {
     step.value = 4;
     return;
   }

@@ -118,6 +118,19 @@ export function hasTodayMissionPayload(payload) {
   return Array.isArray(missions) && missions.length > 0;
 }
 
+export function hasJoinedChallengePayload(challenges) {
+  return Array.isArray(challenges) && challenges.some((challenge) => challenge?.is_joined);
+}
+
+export function shouldBypassOnboardingForLegacyProgress({
+  savedPath = "",
+  missionState = null,
+  challenges = [],
+} = {}) {
+  return !savedPath
+    && (hasTodayMissionPayload(missionState) || hasJoinedChallengePayload(challenges));
+}
+
 export function getSuggestedChallengeName(path) {
   return PATH_TO_CHALLENGE_NAME[path] || PATH_TO_CHALLENGE_NAME.consistency;
 }
