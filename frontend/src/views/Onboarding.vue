@@ -45,7 +45,7 @@
             <div class="stepHeader">
               <p class="eyebrow">{{ t("onboarding.handoff.eyebrow") }}</p>
               <h1>{{ t("onboarding.handoff.title") }}</h1>
-              <p>{{ t("onboarding.handoff.body") }}</p>
+              <p><OnboardingTypewriterText :text="t('onboarding.handoff.body')" /></p>
             </div>
           </div>
 
@@ -54,7 +54,7 @@
 
             <h2>{{ firstMissionTitle || t("onboarding.handoff.fallbackMission") }}</h2>
 
-            <p>{{ t("onboarding.handoff.text") }}</p>
+            <p><OnboardingTypewriterText :text="t('onboarding.handoff.text')" :start-delay="260" /></p>
 
             <div class="handoffHints">
               <div class="handoffHint">
@@ -98,6 +98,7 @@ import UiState from "@/components/ui/UiState.vue";
 import StepWelcome from "@/components/onboarding/StepWelcome.vue";
 import StepPath from "@/components/onboarding/StepPath.vue";
 import ChallengeSuggestion from "@/components/onboarding/ChallengeSuggestion.vue";
+import OnboardingTypewriterText from "@/components/onboarding/OnboardingTypewriterText.vue";
 import {
   getIdentityPath,
   getOnboardingUserKey,
