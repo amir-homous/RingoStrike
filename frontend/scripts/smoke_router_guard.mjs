@@ -1,5 +1,8 @@
 import assert from "node:assert/strict";
 
+import {
+  shouldBypassOnboardingForLegacyProgress,
+} from "../src/lib/guidedExperience.js";
 import { createAuthGuard } from "../src/router/authGuard.js";
 
 function installMemoryWindow(initial = {}) {
@@ -165,6 +168,33 @@ async function run() {
       meta: { requiresAuth: true },
     }),
     true,
+  );
+
+  assert.equal(
+    shouldBypassOnboardingForLegacyProgress({
+      savedPath: "",
+      missionState: { missions: [{ mission_id: 1 }] },
+      challenges: [],
+    }),
+    true,
+  );
+
+  assert.equal(
+    shouldBypassOnboardingForLegacyProgress({
+      savedPath: "",
+      missionState: { missions: [] },
+      challenges: [{ challenge_id: 1, is_joined: true }],
+    }),
+    true,
+  );
+
+  assert.equal(
+    shouldBypassOnboardingForLegacyProgress({
+      savedPath: "career",
+      missionState: { missions: [{ mission_id: 1 }] },
+      challenges: [{ challenge_id: 1, is_joined: true }],
+    }),
+    false,
   );
 }
 
