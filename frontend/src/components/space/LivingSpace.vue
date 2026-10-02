@@ -5,6 +5,7 @@
         <p class="spaceKicker">{{ t("space.eyebrow") }}</p>
         <h2>{{ t("space.title") }}</h2>
         <p>{{ t("space.subtitle") }}</p>
+        <p v-if="spaceState" class="spaceStatus">{{ spaceStatus }}</p>
       </div>
 
       <div v-if="spaceState" class="spaceMeta">
@@ -66,6 +67,14 @@ const activeZone = ref(null);
 
 const unlockedCount = computed(() => {
   return spaceState.value?.unlocked_objects?.length || 0;
+});
+
+const spaceStatus = computed(() => {
+  if (!unlockedCount.value) {
+    return t("space.emptyStatus");
+  }
+
+  return t("space.progressStatus", { count: unlockedCount.value });
 });
 
 async function loadSpace() {
@@ -141,6 +150,11 @@ watch(
   max-width: 680px;
   color: rgba(255, 255, 255, 0.62);
   line-height: 1.6;
+}
+
+.spaceHead .spaceStatus {
+  color: rgba(255, 255, 255, 0.72);
+  font-weight: 750;
 }
 
 .spaceMeta {

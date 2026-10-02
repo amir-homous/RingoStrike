@@ -3,16 +3,24 @@
     <span class="objectMark" aria-hidden="true">
       {{ objectMark }}
     </span>
-    <span class="objectTitle">{{ reward.title }}</span>
+    <span class="objectText">
+      <span class="objectTitle">{{ reward.title }}</span>
+      <span class="objectStatus">
+        {{ reward.unlocked ? t("space.objectUnlocked") : t("space.objectLockedPreview") }}
+      </span>
+    </span>
   </div>
 </template>
 
 <script setup>
 import { computed } from "vue";
+import { useI18n } from "vue-i18n";
 
 const props = defineProps({
   reward: { type: Object, required: true },
 });
+
+const { t } = useI18n();
 
 const objectMark = computed(() => {
   const title = String(props.reward?.title || props.reward?.key || "?").trim();
@@ -61,9 +69,28 @@ const objectMark = computed(() => {
   background: rgba(255, 255, 255, 0.12);
 }
 
-.objectTitle {
+.objectText {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+}
+
+.objectTitle,
+.objectStatus {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.objectStatus {
+  color: rgba(255, 255, 255, 0.58);
+  font-size: 0.58rem;
+  font-weight: 850;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.locked .objectStatus {
+  color: rgba(255, 255, 255, 0.42);
 }
 </style>
