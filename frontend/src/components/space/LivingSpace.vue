@@ -38,8 +38,10 @@
 
       <SpaceZonePanel
         v-if="displayActiveZone"
+        :mode="shellMode"
         :zone="displayActiveZone"
-        @close="activeZone = null"
+        @change-mode="changeShellMode"
+        @close="closePanel"
       />
     </div>
   </BaseCard>
@@ -67,6 +69,7 @@ const loading = ref(false);
 const error = ref("");
 const spaceState = ref(null);
 const activeZone = ref(null);
+const shellMode = ref("zone");
 
 const unlockedCount = computed(() => {
   return spaceState.value?.unlocked_objects?.length || 0;
@@ -117,6 +120,17 @@ async function loadSpace() {
 
 function selectZone(zone) {
   activeZone.value = zone;
+  shellMode.value = "zone";
+}
+
+function closePanel() {
+  activeZone.value = null;
+  shellMode.value = "zone";
+}
+
+function changeShellMode(mode) {
+  if (!["zone", "path", "challenge"].includes(mode)) return;
+  shellMode.value = mode;
 }
 
 function isCheckedToday(challenge) {
@@ -164,7 +178,8 @@ function buildZoneAction(zone) {
       title: t("space.zoneAction.notStartedTitle"),
       text: t("space.zoneAction.notStartedText"),
       primaryLabel: t("space.zoneAction.startPath"),
-      primaryTo: "/paths",
+      primaryMode: "path",
+      fallbackTo: "/paths",
       secondaryLabel: t("space.zoneAction.browseChallenges"),
       secondaryTo: "/challenges",
     };
@@ -178,9 +193,19 @@ function buildZoneAction(zone) {
       title: t("space.zoneAction.doneTitle", { challenge: name }),
       text: t("space.zoneAction.doneText"),
       primaryLabel: t("space.zoneAction.reviewChallenge"),
-      primaryTo: `/enrollment/${challenge.enrollment_id}`,
+      primaryMode: "challenge",
+      fallbackTo: `/enrollment/${challenge.enrollment_id}`,
       secondaryLabel: t("space.zoneAction.viewPath"),
+      secondaryMode: "path",
       secondaryTo: "/paths",
+      challenge: {
+        id: challenge.challenge_id,
+        enrollmentId: challenge.enrollment_id,
+        name,
+        status: "done_today",
+        streak: challenge.current_streak ?? challenge.currentStreak ?? 0,
+        totalCheckins: challenge.total_checkins ?? challenge.totalCheckins ?? 0,
+      },
     };
   }
 
@@ -189,9 +214,19 @@ function buildZoneAction(zone) {
     title: t("space.zoneAction.readyTitle", { challenge: name }),
     text: t("space.zoneAction.readyText"),
     primaryLabel: t("space.zoneAction.continueMission"),
-    primaryTo: `/enrollment/${challenge.enrollment_id}`,
+    primaryMode: "challenge",
+    fallbackTo: `/enrollment/${challenge.enrollment_id}`,
     secondaryLabel: t("space.zoneAction.viewPath"),
+    secondaryMode: "path",
     secondaryTo: "/paths",
+    challenge: {
+      id: challenge.challenge_id,
+      enrollmentId: challenge.enrollment_id,
+      name,
+      status: "ready_today",
+      streak: challenge.current_streak ?? challenge.currentStreak ?? 0,
+      totalCheckins: challenge.total_checkins ?? challenge.totalCheckins ?? 0,
+    },
   };
 }
 
