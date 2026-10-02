@@ -410,6 +410,17 @@ export default {
       minutes: "{count} دقیقه",
       hours: "{count} ساعت",
       hoursMinutes: "{hours} ساعت و {minutes} دقیقه",
+      summaryLabel: "خلاصه پایان امروز",
+      summary: {
+        safeValue: "امن",
+        safeLabel: "امروز محافظت شد",
+        completedLabel: "انجام‌شده",
+        tinyLabel: "بردهای کوچک",
+        bonusLabel: "بونس",
+        remindedLabel: "کنار گذاشته",
+        skippedLabel: "رد شده",
+        streakLabel: "استریک",
+      },
     },
     narrative: {
       completed: "آفرین. {mission} حسابه. بذار اول همین برد کوچک رو حس کنیم، بعد درباره بقیه تصمیم می‌گیریم.",

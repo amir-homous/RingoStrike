@@ -410,6 +410,17 @@ export default {
       minutes: "{count}m",
       hours: "{count}h",
       hoursMinutes: "{hours}h {minutes}m",
+      summaryLabel: "Finish for today summary",
+      summary: {
+        safeValue: "Safe",
+        safeLabel: "Today protected",
+        completedLabel: "Completed",
+        tinyLabel: "Tiny wins",
+        bonusLabel: "Bonus",
+        remindedLabel: "Parked",
+        skippedLabel: "Skipped",
+        streakLabel: "Streak",
+      },
     },
     narrative: {
       completed: "Nice. {mission} counts. Let’s enjoy the win before deciding anything else.",
