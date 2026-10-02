@@ -29,6 +29,8 @@
             </div>
           </div>
 
+          <p class="savedNote">{{ t("spaceUnlock.savedNote") }}</p>
+
           <BaseButton class="continueButton" variant="primary" @click="finish">
             {{ t("spaceUnlock.continue") }}
           </BaseButton>
@@ -127,6 +129,7 @@ onUnmounted(() => {
 
 .unlockHero,
 .objectCard,
+.savedNote,
 .continueButton {
   position: relative;
   z-index: 1;
@@ -187,6 +190,12 @@ onUnmounted(() => {
 
 .objectCard strong {
   color: rgba(255, 255, 255, 0.94);
+}
+
+.savedNote {
+  margin: -6px 0 0;
+  color: rgba(255, 255, 255, 0.62);
+  line-height: 1.55;
 }
 
 .continueButton {
