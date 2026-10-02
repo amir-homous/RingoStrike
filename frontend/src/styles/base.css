@@ -7,17 +7,9 @@
 }
 
 *{ box-sizing: border-box; }
-html, body{ height: 100%; }
-body{
+html, body{
   margin: 0;
-  background-color: var(--bg);
-  background-image:
-    linear-gradient(rgba(8, 13, 16, 0.38), rgba(8, 13, 16, 0.52)),
-    url("../assets/living-room-bg.svg");
-  background-position: center center;
-  background-size: cover;
-  background-repeat: no-repeat;
-  background-attachment: fixed;
+  background: var(--bg);
   color: rgba(255,255,255,0.92);
   font-size: var(--body);
   line-height: var(--lh);
