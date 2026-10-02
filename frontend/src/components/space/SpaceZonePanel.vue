@@ -12,7 +12,9 @@
     </div>
 
     <div class="panelSection">
-      <span class="sectionLabel">{{ t("space.unlocked") }}</span>
+      <span class="sectionLabel">
+        {{ t("space.unlockedCount", { count: unlockedCount }) }}
+      </span>
       <div v-if="zone.unlocked_objects.length" class="panelObjects">
         <SpaceObject
           v-for="reward in zone.unlocked_objects"
@@ -24,7 +26,12 @@
     </div>
 
     <div class="panelSection">
-      <span class="sectionLabel">{{ t("space.preview") }}</span>
+      <span class="sectionLabel">
+        {{ t("space.lockedPreviewCount", { count: lockedPreviewCount }) }}
+      </span>
+      <p v-if="zone.locked_preview_objects.length" class="hintText">
+        {{ t("space.lockedPreviewHint") }}
+      </p>
       <div v-if="zone.locked_preview_objects.length" class="panelObjects">
         <SpaceObject
           v-for="reward in zone.locked_preview_objects.slice(0, 3)"
@@ -36,22 +43,37 @@
     </div>
 
     <p v-if="zone.next_reward" class="nextReward">
-      {{ t("space.nextReward", { reward: zone.next_reward.title }) }}
+      {{ nextRewardText }}
     </p>
   </aside>
 </template>
 
 <script setup>
+import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import SpaceObject from "./SpaceObject.vue";
 
-defineProps({
+const props = defineProps({
   zone: { type: Object, required: true },
 });
 
 defineEmits(["close"]);
 
 const { t } = useI18n();
+
+const unlockedCount = computed(() => props.zone?.unlocked_objects?.length || 0);
+const lockedPreviewCount = computed(() => props.zone?.locked_preview_objects?.length || 0);
+
+const nextRewardText = computed(() => {
+  const reward = props.zone?.next_reward;
+  if (!reward) return "";
+
+  if (reward.unlock_condition_type === "first_path_mission_done") {
+    return t("space.nextRewardFirst", { reward: reward.title });
+  }
+
+  return t("space.nextRewardFuture", { reward: reward.title });
+});
 </script>
 
 <style scoped>
@@ -107,10 +129,16 @@ const { t } = useI18n();
 }
 
 .emptyText,
+.hintText,
 .nextReward {
   margin: 0;
   color: rgba(255, 255, 255, 0.58);
   line-height: 1.55;
+}
+
+.hintText {
+  margin-bottom: 8px;
+  font-size: 0.82rem;
 }
 
 .nextReward {
