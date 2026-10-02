@@ -6,9 +6,12 @@
     @click="$emit('select', zone)"
   >
     <span class="zoneHeader">
-      <span>
+      <span class="zoneTitleWrap">
+        <img v-if="pathIcon" :src="pathIcon" alt="" class="pathIcon" aria-hidden="true" />
+        <span>
         <span class="zoneKicker">{{ zone.path_key }}</span>
         <strong>{{ zone.title }}</strong>
+        </span>
       </span>
       <span v-if="zone.has_unseen_rewards" class="unseenDot" aria-hidden="true"></span>
     </span>
@@ -25,6 +28,7 @@
 
 <script setup>
 import { computed } from "vue";
+import { resolvePathIcon } from "@/utils/missionMomentumUtils";
 import SpaceObject from "./SpaceObject.vue";
 
 const props = defineProps({
@@ -42,6 +46,18 @@ const visibleObjects = computed(() => {
   const unlocked = props.zone?.unlocked_objects || [];
   const locked = props.zone?.locked_preview_objects || [];
   return [...unlocked, ...locked].slice(0, 3);
+});
+
+const pathIcon = computed(() => {
+  const iconNames = {
+    career: "briefcase",
+    fitness: "activity",
+    learning: "book",
+    creativity: "sparkles",
+    sleep: "moon",
+  };
+
+  return resolvePathIcon(iconNames[props.zone?.path_key] || props.zone?.path_key || "");
 });
 </script>
 
@@ -84,6 +100,21 @@ const visibleObjects = computed(() => {
   justify-content: space-between;
   gap: 8px;
   min-width: 0;
+}
+
+.zoneTitleWrap {
+  display: inline-flex;
+  align-items: flex-start;
+  gap: 9px;
+  min-width: 0;
+}
+
+.pathIcon {
+  width: 25px;
+  height: 25px;
+  flex: 0 0 auto;
+  object-fit: contain;
+  filter: drop-shadow(0 8px 14px rgba(0, 0, 0, 0.32));
 }
 
 .zoneHeader strong {
