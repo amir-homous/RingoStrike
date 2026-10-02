@@ -17,6 +17,18 @@
         </p>
       </div>
 
+      <div v-if="restModeSummaryItems.length" class="restModeSummary" :aria-label="t('missions.restMode.summaryLabel')">
+        <article v-for="item in restModeSummaryItems" :key="item.key" class="restModeSummaryItem">
+          <span class="restModeSummaryIcon" aria-hidden="true">
+            <img v-if="missionActionIcon(item.icon)" :src="missionActionIcon(item.icon)" alt="" />
+          </span>
+          <span class="restModeSummaryCopy">
+            <strong>{{ item.value }}</strong>
+            <small>{{ item.label }}</small>
+          </span>
+        </article>
+      </div>
+
       <div class="restModeActions">
         <!-- <BaseButton variant="primary" @click="restForNow">
           {{ t("missions.restMode.restCta") }}
@@ -2454,6 +2466,82 @@ const nearestFutureReminderLabel = computed(() => {
   });
 });
 
+const restModeSummaryItems = computed(() => {
+  const summary = dailySummary.value;
+  const items = [];
+  const completedCount = summary.done.length;
+  const tinyCount = summary.tinyDone.length;
+  const bonusCompletedCount = summary.bonusDone.length;
+  const remindedCount = summary.reminded.length;
+  const skippedCount = summary.skipped.length;
+  const streakCount = Number(dailyMomentumStreakCount.value || 0);
+
+  if (dailyMomentumTodaySafe.value) {
+    items.push({
+      key: "safe",
+      icon: "protectToday",
+      value: t("missions.restMode.summary.safeValue"),
+      label: t("missions.restMode.summary.safeLabel"),
+    });
+  }
+
+  if (completedCount > 0) {
+    items.push({
+      key: "completed",
+      icon: "done",
+      value: completedCount,
+      label: t("missions.restMode.summary.completedLabel"),
+    });
+  }
+
+  if (tinyCount > 0) {
+    items.push({
+      key: "tiny",
+      icon: "makeSmaller",
+      value: tinyCount,
+      label: t("missions.restMode.summary.tinyLabel"),
+    });
+  }
+
+  if (bonusCompletedCount > 0) {
+    items.push({
+      key: "bonus",
+      icon: "optionalStep",
+      value: bonusCompletedCount,
+      label: t("missions.restMode.summary.bonusLabel"),
+    });
+  }
+
+  if (remindedCount > 0) {
+    items.push({
+      key: "reminded",
+      icon: "remindLater",
+      value: remindedCount,
+      label: t("missions.restMode.summary.remindedLabel"),
+    });
+  }
+
+  if (skippedCount > 0) {
+    items.push({
+      key: "skipped",
+      icon: "skip",
+      value: skippedCount,
+      label: t("missions.restMode.summary.skippedLabel"),
+    });
+  }
+
+  if (streakCount > 0) {
+    items.push({
+      key: "streak",
+      icon: "protectToday",
+      value: streakCount,
+      label: t("missions.restMode.summary.streakLabel"),
+    });
+  }
+
+  return items;
+});
+
 function clearNarrativeState() {
   interactionNarrative.value = null;
   completionNarrative.value = null;
@@ -4722,6 +4810,7 @@ onMounted(loadMissions);
 
 .restModeSprite,
 .restModeCopy,
+.restModeSummary,
 .restModeActions {
   position: relative;
   z-index: 1;
@@ -4774,6 +4863,59 @@ onMounted(loadMissions);
   border: 1px solid rgba(74, 222, 128, 0.16);
   font-size: 0.84rem;
   font-weight: 800;
+}
+
+.restModeSummary {
+  grid-column: 2;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--s-8);
+  align-self: start;
+}
+
+.restModeSummaryItem {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 9px;
+  align-items: center;
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.042);
+}
+
+.restModeSummaryIcon {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 10px;
+  background: rgba(110, 229, 255, 0.08);
+}
+
+.restModeSummaryIcon img {
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
+}
+
+.restModeSummaryCopy {
+  display: grid;
+  min-width: 0;
+}
+
+.restModeSummaryCopy strong {
+  color: rgba(255, 255, 255, 0.94);
+  font-size: 0.98rem;
+  line-height: 1.1;
+}
+
+.restModeSummaryCopy small {
+  color: rgba(255, 255, 255, 0.58);
+  font-size: 0.74rem;
+  font-weight: 760;
+  line-height: 1.25;
 }
 
 .restModeActions {
@@ -6466,6 +6608,11 @@ onMounted(loadMissions);
 
   .restModeActions {
     grid-column: auto;
+  }
+
+  .restModeSummary {
+    grid-column: auto;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .restModeActions :deep(.btn),
