@@ -176,7 +176,7 @@ Expected:
 
 ## Current Development Verification
 
-Last updated: 2026-10-01
+Last updated: 2026-10-02
 
 Verified commands during Living Space v1 implementation:
 
@@ -187,6 +187,20 @@ Verified commands during Living Space v1 implementation:
 - `pytest backend/tests/test_living_space_service.py backend/tests/test_living_space_routes.py backend/tests/test_paths_missions.py -q`
 - `pytest backend/tests -q`
 
+Latest frontend verification after Rest Mode summary and Living Space unlock visibility hardening:
+
+- `npm run build`
+- `npm run test:localization`
+- `npm run test:router`
+- `npm run test:dashboard`
+- `git diff --check`
+
+Latest backend coverage added:
+
+- Mission completion now has route coverage confirming `/me/space` shows the newly unlocked object before the reward is marked seen.
+- The same coverage confirms room-level and zone-level `has_unseen_rewards` are true before dismissal, then existing seen-state checks preserve the unlocked object after dismissal.
+
 Known QA boundary:
 
 - This checklist is development-level functional QA. It does not replace a full production device/browser matrix before launch candidate approval.
+- Backend pytest commands require a local backend test environment with pytest installed, such as the project backend virtualenv.
