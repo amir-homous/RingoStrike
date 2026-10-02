@@ -45,6 +45,25 @@
     <p v-if="zone.next_reward" class="nextReward">
       {{ nextRewardText }}
     </p>
+
+    <div v-if="zone.action" class="panelSection zoneAction" :class="zone.action.state">
+      <span class="sectionLabel">{{ t("space.zoneAction.label") }}</span>
+      <strong>{{ zone.action.title }}</strong>
+      <p>{{ zone.action.text }}</p>
+
+      <div class="actionRow">
+        <RouterLink class="actionLink primary" :to="zone.action.primaryTo">
+          {{ zone.action.primaryLabel }}
+        </RouterLink>
+        <RouterLink
+          v-if="zone.action.secondaryTo"
+          class="actionLink secondary"
+          :to="zone.action.secondaryTo"
+        >
+          {{ zone.action.secondaryLabel }}
+        </RouterLink>
+      </div>
+    </div>
   </aside>
 </template>
 
@@ -144,5 +163,49 @@ const nextRewardText = computed(() => {
 .nextReward {
   padding-top: 2px;
   color: rgba(255, 255, 255, 0.72);
+}
+
+.zoneAction {
+  display: grid;
+  gap: 8px;
+  padding-top: 2px;
+}
+
+.zoneAction strong {
+  color: rgba(255, 255, 255, 0.90);
+}
+
+.zoneAction p {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.62);
+  line-height: 1.55;
+}
+
+.actionRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.actionLink {
+  display: inline-flex;
+  align-items: center;
+  min-height: 34px;
+  padding: 7px 11px;
+  border-radius: 9px;
+  text-decoration: none;
+  font-size: 0.78rem;
+  font-weight: 850;
+}
+
+.actionLink.primary {
+  color: rgba(5, 10, 18, 0.95);
+  background: rgba(110, 229, 255, 0.88);
+}
+
+.actionLink.secondary {
+  color: rgba(255, 255, 255, 0.76);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.10);
 }
 </style>
