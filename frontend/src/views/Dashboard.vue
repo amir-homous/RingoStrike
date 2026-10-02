@@ -64,6 +64,7 @@
             class="dashboardRevealItem"
             :refresh-key="spaceRefreshKey"
             :challenges="challenges"
+            :missions="missionCenterStatus.missions"
             :checking-id="checkingId"
             @checkin="checkin"
           />
