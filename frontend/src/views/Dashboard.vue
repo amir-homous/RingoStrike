@@ -64,6 +64,8 @@
             class="dashboardRevealItem"
             :refresh-key="spaceRefreshKey"
             :challenges="challenges"
+            :checking-id="checkingId"
+            @checkin="checkin"
           />
 
           <!-- Legacy Today Mission is now a fallback when Mission Center has no actionable mission. -->
@@ -552,6 +554,11 @@ async function checkin(enrollmentId) {
 
     if (result.skipped || result.error) return;
     missionCenterKey.value += 1;
+    spaceRefreshKey.value += 1;
+
+    if (result.livingSpaceReward) {
+      spaceRewardMoment.value = result.livingSpaceReward;
+    }
 
     const checkedChallenge = challenges.value.find(
       (challenge) => challenge.enrollment_id === enrollmentId,
