@@ -350,6 +350,51 @@ No serious console errors were reported during the final manual route pass.
 
 ---
 
+## Living Space v1 Manual QA
+
+Date:
+
+```txt
+2026-10-02
+```
+
+Scope:
+
+- New user first path / first challenge / first reward flow.
+- Second challenge in the same path.
+- Legacy user first-path reward backfill.
+- Persian / RTL smoke.
+- Dashboard room persistence after refresh.
+
+Status:
+
+```txt
+PASS WITH UX POLISH FOLLOW-UP
+```
+
+Verified behavior:
+
+- New users receive the first path reward notification when completing the first eligible non-bonus mission.
+- The first reward appears in the correct Living Space zone and persists after refresh.
+- Completing another challenge in the same path does not replay the first reward notification.
+- Legacy users with prior non-bonus mission history receive first-path room rewards through backfill.
+- Backfilled legacy rewards appear in the room without replaying old unlock notifications.
+- Persian / RTL flow is structurally usable.
+
+Known follow-up:
+
+```txt
+The current Living Space UI is still the implementation-shell UI. Visual redesign, richer room art, and UX polish were intentionally not part of this pass and should require explicit product/design approval before implementation.
+```
+
+Decision:
+
+```txt
+Living Space v1 core rules are functionally validated for first reward unlock, persistence, duplicate prevention, and legacy user backfill. Later room rewards remain locked previews until their unlock rules are explicitly specified.
+```
+
+---
+
 ## Launch Blocking Issues
 
 List any issue that must be fixed before public launch.
