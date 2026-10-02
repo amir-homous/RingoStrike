@@ -2,7 +2,9 @@
   <aside class="zonePanel">
     <div class="panelHead">
       <div class="panelTitleWrap">
-        <img v-if="pathIcon" :src="pathIcon" alt="" class="pathIcon" aria-hidden="true" />
+        <span v-if="pathIcon" class="iconFrame panelIconFrame" aria-hidden="true">
+          <img :src="pathIcon" alt="" class="pathIcon" />
+        </span>
         <div>
           <p class="panelKicker">{{ zone.path_key }}</p>
           <h3>{{ zone.title }}</h3>
@@ -53,6 +55,7 @@
       <span class="sectionLabel">{{ t("space.zoneAction.label") }}</span>
       <strong>{{ zone.action.title }}</strong>
       <p>{{ zone.action.text }}</p>
+      <p class="flowHint">{{ actionFlowHint }}</p>
 
       <div class="actionRow">
         <button
@@ -83,7 +86,9 @@
     <div v-if="mode === 'path'" class="panelSection shellPanel">
       <span class="sectionLabel">{{ t("space.shell.pathLabel") }}</span>
       <span class="shellTitleLine">
-        <img v-if="pathIcon" :src="pathIcon" alt="" class="inlineIcon" aria-hidden="true" />
+        <span v-if="pathIcon" class="iconFrame inlineIconFrame" aria-hidden="true">
+          <img :src="pathIcon" alt="" class="inlineIcon" />
+        </span>
         <strong>{{ t("space.shell.pathTitle", { path: zone.title }) }}</strong>
       </span>
       <p>{{ t("space.shell.pathText") }}</p>
@@ -95,7 +100,9 @@
     <div v-if="mode === 'challenge'" class="panelSection shellPanel">
       <span class="sectionLabel">{{ t("space.shell.challengeLabel") }}</span>
       <span class="shellTitleLine">
-        <img v-if="challengeIcon" :src="challengeIcon" alt="" class="inlineIcon" aria-hidden="true" />
+        <span v-if="challengeIcon" class="iconFrame inlineIconFrame" aria-hidden="true">
+          <img :src="challengeIcon" alt="" class="inlineIcon" />
+        </span>
         <strong>{{ zone.action?.challenge?.name || t("common.challenge") }}</strong>
       </span>
       <p>{{ challengeStatusText }}</p>
@@ -110,13 +117,13 @@
         </span>
       </div>
       <div v-if="challengeMission" class="missionBrief">
-        <img
+        <span
           v-if="challengeMission.iconUrl"
-          :src="challengeMission.iconUrl"
-          alt=""
-          class="missionIcon"
+          class="iconFrame missionIconFrame"
           aria-hidden="true"
-        />
+        >
+          <img :src="challengeMission.iconUrl" alt="" class="missionIcon" />
+        </span>
         <div>
           <span class="sectionLabel">{{ t("space.shell.todayMission") }}</span>
           <strong>{{ challengeMission.title || t("common.mission") }}</strong>
@@ -217,6 +224,18 @@ const missionIntensityLabel = computed(() => {
   return t("space.shell.intensity.main");
 });
 
+const actionFlowHint = computed(() => {
+  if (props.zone?.action?.state === "not_started") {
+    return t("space.shell.flowStartHint");
+  }
+
+  if (props.zone?.action?.state === "done_today") {
+    return t("space.shell.flowDoneHint");
+  }
+
+  return t("space.shell.flowReadyHint");
+});
+
 const challengeDone = computed(() => {
   return Boolean(props.zone?.action?.challenge?.todayChecked)
     || props.zone?.action?.challenge?.status === "done_today";
@@ -255,17 +274,34 @@ const challengeLoading = computed(() => {
   min-width: 0;
 }
 
+.iconFrame {
+  display: inline-grid;
+  place-items: center;
+  overflow: hidden;
+  flex: 0 0 auto;
+  border-radius: 9px;
+  background:
+    radial-gradient(circle at 35% 20%, rgba(255, 255, 255, 0.22), transparent 38%),
+    rgba(110, 229, 255, 0.10);
+  border: 1px solid rgba(110, 229, 255, 0.18);
+}
+
 .pathIcon,
 .inlineIcon,
 .missionIcon {
-  flex: 0 0 auto;
+  display: block;
   object-fit: contain;
+  filter: invert(1) brightness(1.45) drop-shadow(0 5px 8px rgba(0, 0, 0, 0.38));
+}
+
+.panelIconFrame {
+  width: 36px;
+  height: 36px;
 }
 
 .pathIcon {
-  width: 29px;
-  height: 29px;
-  filter: drop-shadow(0 8px 14px rgba(0, 0, 0, 0.32));
+  width: 21px;
+  height: 21px;
 }
 
 .panelKicker,
@@ -336,6 +372,15 @@ const challengeLoading = computed(() => {
   line-height: 1.55;
 }
 
+.flowHint {
+  padding: 8px 9px;
+  border-radius: 9px;
+  color: rgba(255, 255, 255, 0.66) !important;
+  background: rgba(110, 229, 255, 0.055);
+  border: 1px solid rgba(110, 229, 255, 0.10);
+  font-size: 0.76rem;
+}
+
 .actionRow {
   display: flex;
   flex-wrap: wrap;
@@ -384,8 +429,13 @@ const challengeLoading = computed(() => {
 }
 
 .inlineIcon {
-  width: 24px;
-  height: 24px;
+  width: 17px;
+  height: 17px;
+}
+
+.inlineIconFrame {
+  width: 27px;
+  height: 27px;
 }
 
 .shellPanel p {
@@ -445,9 +495,14 @@ const challengeLoading = computed(() => {
   border: 1px solid rgba(255, 255, 255, 0.09);
 }
 
+.missionIconFrame {
+  width: 37px;
+  height: 37px;
+}
+
 .missionIcon {
-  width: 31px;
-  height: 31px;
+  width: 22px;
+  height: 22px;
 }
 
 .missionBrief p {
