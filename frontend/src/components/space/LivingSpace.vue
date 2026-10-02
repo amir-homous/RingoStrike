@@ -28,17 +28,17 @@
     <div v-if="spaceState && !loading && !error" class="spaceLayout">
       <div class="roomStage" :aria-label="t('space.roomLabel')">
         <SpaceZone
-          v-for="zone in spaceState.zones"
+          v-for="zone in displayZones"
           :key="zone.zone_key"
           :zone="zone"
-          :active="activeZone?.zone_key === zone.zone_key"
+          :active="displayActiveZone?.zone_key === zone.zone_key"
           @select="selectZone"
         />
       </div>
 
       <SpaceZonePanel
-        v-if="activeZone"
-        :zone="activeZone"
+        v-if="displayActiveZone"
+        :zone="displayActiveZone"
         @close="activeZone = null"
       />
     </div>
@@ -51,14 +51,17 @@ import { useI18n } from "vue-i18n";
 import api from "@/lib/api";
 import BaseCard from "@/components/ui/BaseCard.vue";
 import UiState from "@/components/ui/UiState.vue";
+import { getChallengePathKey } from "@/lib/guidedExperience";
+import { localizeChallenge } from "@/lib/ringoContentLocalization";
 import SpaceZone from "./SpaceZone.vue";
 import SpaceZonePanel from "./SpaceZonePanel.vue";
 
 const props = defineProps({
   refreshKey: { type: Number, default: 0 },
+  challenges: { type: Array, default: () => [] },
 });
 
-const { t } = useI18n();
+const { locale, t } = useI18n();
 
 const loading = ref(false);
 const error = ref("");
@@ -75,6 +78,21 @@ const spaceStatus = computed(() => {
   }
 
   return t("space.progressStatus", { count: unlockedCount.value });
+});
+
+const displayZones = computed(() => {
+  return (spaceState.value?.zones || []).map((zone) => ({
+    ...zone,
+    action: buildZoneAction(zone),
+  }));
+});
+
+const displayActiveZone = computed(() => {
+  if (!activeZone.value) return null;
+
+  return displayZones.value.find(
+    (zone) => zone.zone_key === activeZone.value.zone_key,
+  ) || null;
 });
 
 async function loadSpace() {
@@ -99,6 +117,82 @@ async function loadSpace() {
 
 function selectZone(zone) {
   activeZone.value = zone;
+}
+
+function isCheckedToday(challenge) {
+  const value = challenge?.today_checked ?? challenge?.todayChecked ?? false;
+
+  if (typeof value === "boolean") return value;
+  if (typeof value === "number") return value === 1;
+  if (typeof value === "string") {
+    return ["true", "1", "yes", "done", "checked"].includes(value.toLowerCase());
+  }
+
+  return false;
+}
+
+function normalizePathKey(pathKey) {
+  const aliases = {
+    body: "fitness",
+    focus: "career",
+    mind: "sleep",
+  };
+
+  return aliases[pathKey] || pathKey || "";
+}
+
+function challengeName(challenge) {
+  const localized = localizeChallenge(challenge, locale.value);
+
+  return localized?.name
+    || localized?.challenge_name
+    || localized?.enrollment_name
+    || challenge?.name
+    || challenge?.challenge_name
+    || challenge?.enrollment_name
+    || t("common.challenge");
+}
+
+function buildZoneAction(zone) {
+  const challenge = props.challenges.find((item) => {
+    return normalizePathKey(getChallengePathKey(item)) === normalizePathKey(zone.path_key);
+  });
+
+  if (!challenge?.enrollment_id) {
+    return {
+      state: "not_started",
+      title: t("space.zoneAction.notStartedTitle"),
+      text: t("space.zoneAction.notStartedText"),
+      primaryLabel: t("space.zoneAction.startPath"),
+      primaryTo: "/paths",
+      secondaryLabel: t("space.zoneAction.browseChallenges"),
+      secondaryTo: "/challenges",
+    };
+  }
+
+  const name = challengeName(challenge);
+
+  if (isCheckedToday(challenge)) {
+    return {
+      state: "done_today",
+      title: t("space.zoneAction.doneTitle", { challenge: name }),
+      text: t("space.zoneAction.doneText"),
+      primaryLabel: t("space.zoneAction.reviewChallenge"),
+      primaryTo: `/enrollment/${challenge.enrollment_id}`,
+      secondaryLabel: t("space.zoneAction.viewPath"),
+      secondaryTo: "/paths",
+    };
+  }
+
+  return {
+    state: "ready_today",
+    title: t("space.zoneAction.readyTitle", { challenge: name }),
+    text: t("space.zoneAction.readyText"),
+    primaryLabel: t("space.zoneAction.continueMission"),
+    primaryTo: `/enrollment/${challenge.enrollment_id}`,
+    secondaryLabel: t("space.zoneAction.viewPath"),
+    secondaryTo: "/paths",
+  };
 }
 
 onMounted(loadSpace);
