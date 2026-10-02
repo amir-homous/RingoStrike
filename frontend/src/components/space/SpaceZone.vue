@@ -7,10 +7,12 @@
   >
     <span class="zoneHeader">
       <span class="zoneTitleWrap">
-        <img v-if="pathIcon" :src="pathIcon" alt="" class="pathIcon" aria-hidden="true" />
+        <span v-if="pathIcon" class="iconFrame pathIconFrame" aria-hidden="true">
+          <img :src="pathIcon" alt="" class="pathIcon" />
+        </span>
         <span>
-        <span class="zoneKicker">{{ zone.path_key }}</span>
-        <strong>{{ zone.title }}</strong>
+          <span class="zoneKicker">{{ zone.path_key }}</span>
+          <strong>{{ zone.title }}</strong>
         </span>
       </span>
       <span v-if="zone.has_unseen_rewards" class="unseenDot" aria-hidden="true"></span>
@@ -109,12 +111,30 @@ const pathIcon = computed(() => {
   min-width: 0;
 }
 
+.iconFrame {
+  display: inline-grid;
+  place-items: center;
+  overflow: hidden;
+  flex: 0 0 auto;
+  border-radius: 9px;
+  background:
+    radial-gradient(circle at 35% 20%, rgba(255, 255, 255, 0.20), transparent 38%),
+    rgba(110, 229, 255, 0.10);
+  border: 1px solid rgba(110, 229, 255, 0.18);
+}
+
+.pathIconFrame {
+  width: 31px;
+  height: 31px;
+}
+
 .pathIcon {
-  width: 25px;
-  height: 25px;
+  display: block;
+  width: 18px;
+  height: 18px;
   flex: 0 0 auto;
   object-fit: contain;
-  filter: drop-shadow(0 8px 14px rgba(0, 0, 0, 0.32));
+  filter: invert(1) brightness(1.45) drop-shadow(0 5px 8px rgba(0, 0, 0, 0.38));
 }
 
 .zoneHeader strong {
