@@ -59,7 +59,12 @@
             @loaded="handleMissionCenterLoaded" @first-run-complete="dismissFirstRunFocus"
             @focus-state-change="handleMissionFocusState" @show-dashboard="showDashboardFromFocus" />
 
-          <LivingSpace v-if="showFullDashboard" class="dashboardRevealItem" :refresh-key="spaceRefreshKey" />
+          <LivingSpace
+            v-if="showFullDashboard"
+            class="dashboardRevealItem"
+            :refresh-key="spaceRefreshKey"
+            :challenges="challenges"
+          />
 
           <!-- Legacy Today Mission is now a fallback when Mission Center has no actionable mission. -->
           <div v-if="showFullDashboard && showLegacyTodayMission" id="today-mission"
