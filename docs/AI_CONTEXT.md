@@ -23,6 +23,7 @@ Product direction references:
 - [Product Direction Master Notes](product/PRODUCT_DIRECTION_MASTER_NOTES.md)
 - [MVP Relaunch Phases](product/MVP_RELAUNCH_PHASES.md)
 - [Living Space v1 Spec](product/LIVING_SPACE_V1_SPEC.md)
+- [Living Space Home Shell Spec](product/LIVING_SPACE_HOME_SHELL_SPEC.md)
 - [Living Space v1 Issue Breakdown](product/LIVING_SPACE_V1_ISSUE_BREAKDOWN.md)
 - [Living Space v1 UX Polish Backlog](product/LIVING_SPACE_V1_UX_POLISH_BACKLOG.md)
 - [GitHub Issue Pack](product/GITHUB_ISSUE_PACK.md)
@@ -61,7 +62,7 @@ Implementation guidance:
 - Reuse existing challenge, enrollment, check-in, stats, achievement, and activity systems.
 - Do not duplicate XP/streak/achievement logic.
 - Do not rewrite the dashboard; MissionCenter is the primary daily surface and older sections are supporting/progressive surfaces.
-- Treat Living Space v1 as a visible-progress Home layer on top of existing path/mission/check-in/reward systems.
+- Treat Living Space v1 as a visible-progress Home layer on top of existing path/mission/check-in/reward systems. The Home Shell direction is that daily path, challenge, mission, reward, and rest interactions should happen inside the Living Space surface where possible, with `/paths`, `/challenges`, and `/enrollment/:id` preserved as fallback/deep-detail routes.
 - Keep Ringo as the guide layer across the room, not as a sixth room zone.
 - Delay complex social, mobile, widget, and advanced automation work until the guided loop is validated.
 
