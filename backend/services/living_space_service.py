@@ -267,6 +267,20 @@ def unlock_first_path_reward_for_mission(user_id: int, mission_id: int):
         conn.close()
 
 
+def backfill_first_path_rewards_from_history(user_id: int):
+    from database import get_db_connection
+
+    conn = get_db_connection()
+    try:
+        ensure_reward_definitions(conn)
+        _backfill_first_path_rewards_from_history(conn, user_id)
+        conn.commit()
+
+        return {"ok": True}, 200
+    finally:
+        conn.close()
+
+
 def get_user_space_state(user_id: int):
     from database import get_db_connection
 
@@ -280,6 +294,7 @@ def get_user_space_state(user_id: int):
             """,
             (user_id,),
         )
+        _backfill_first_path_rewards_from_history(conn, user_id)
         conn.commit()
 
         space = conn.execute(
@@ -342,6 +357,62 @@ def get_user_space_state(user_id: int):
         }, 200
     finally:
         conn.close()
+
+
+def _backfill_first_path_rewards_from_history(conn, user_id: int):
+    completed_path_rows = conn.execute(
+        """
+        SELECT
+            c.path_id,
+            MIN(ml.mission_id) AS source_mission_id,
+            MIN(COALESCE(ml.updated_at, ml.created_at)) AS first_done_at
+        FROM mission_logs ml
+        JOIN missions m ON m.id = ml.mission_id
+        JOIN challenges c ON c.id = ml.challenge_id
+        WHERE ml.user_id = ?
+          AND ml.status = 'done'
+          AND COALESCE(m.mission_intensity, 'main') != 'bonus'
+        GROUP BY c.path_id
+        """,
+        (user_id,),
+    ).fetchall()
+
+    for row in completed_path_rows:
+        reward = conn.execute(
+            """
+            SELECT id
+            FROM reward_definitions
+            WHERE path_id = ?
+              AND unlock_condition_type = 'first_path_mission_done'
+              AND status = 'Active'
+            ORDER BY stage ASC, id ASC
+            LIMIT 1
+            """,
+            (row["path_id"],),
+        ).fetchone()
+
+        if not reward:
+            continue
+
+        conn.execute(
+            """
+            INSERT OR IGNORE INTO user_rewards (
+                user_id,
+                reward_id,
+                unlocked_at,
+                source_type,
+                source_id,
+                is_seen
+            )
+            VALUES (?, ?, COALESCE(?, datetime('now')), 'mission_history', ?, 1)
+            """,
+            (
+                user_id,
+                reward["id"],
+                row["first_done_at"],
+                row["source_mission_id"],
+            ),
+        )
 
 
 def mark_reward_seen(user_id: int, reward_id: int):

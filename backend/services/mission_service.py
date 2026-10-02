@@ -3,7 +3,10 @@ from datetime import datetime, timedelta, timezone
 from database import get_db_connection
 from services.achievement_service import evaluate_and_unlock
 from services.enrollment_service import checkin
-from services.living_space_service import unlock_first_path_reward_for_mission
+from services.living_space_service import (
+    backfill_first_path_rewards_from_history,
+    unlock_first_path_reward_for_mission,
+)
 from services.ringo_decision_service import decide_ringo_state
 from services.stats_service import resolve_mission_xp, sync_user_stats
 from utils.date_utils import ringo_day_metadata, utc_iso_z, utc_today_iso
@@ -601,6 +604,7 @@ def mark_mission_done(user_id, mission_id):
     )
     was_today_saved = _today_satisfied_by_missions(before_missions or [])
 
+    backfill_first_path_rewards_from_history(user_id)
     payload, code = _upsert_mission_log(user_id, mission_id, "done")
 
     if not payload.get("ok"):

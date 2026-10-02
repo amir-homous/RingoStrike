@@ -905,6 +905,109 @@ def test_second_challenge_in_same_path_does_not_repeat_living_space_reward(clien
     assert living_rewards[0]["source_id"] == first_main["mission_id"]
 
 
+def test_legacy_path_progress_backfill_prevents_repeat_living_space_reward(client):
+    import database
+
+    user = register_user(client, username="MissionLegacySpaceReward")
+    user_id = user["user_id"]
+    headers = auth_headers(user["access_token"])
+    setup = _start_first_fitness_challenge(client, headers)
+    first_main = next(
+        mission for mission in setup["missions"]
+        if mission["challenge_id"] == setup["challenge_id"]
+        and mission["mission_intensity"] == "main"
+    )
+
+    challenges = client.get(
+        f"/paths/{setup['path_id']}/challenges",
+        headers=headers,
+    ).get_json()["items"]
+    second_challenge = next(
+        challenge
+        for challenge in challenges
+        if challenge["challenge_id"] != setup["challenge_id"]
+    )
+    client.post(
+        f"/challenges/{second_challenge['challenge_id']}/join",
+        json={},
+        headers=headers,
+    )
+
+    conn = database.get_db_connection()
+    try:
+        conn.execute(
+            """
+            INSERT INTO mission_logs (
+                user_id,
+                enrollment_id,
+                challenge_id,
+                mission_id,
+                date,
+                status,
+                xp_earned,
+                created_at,
+                updated_at
+            )
+            VALUES (?, ?, ?, ?, '2026-01-01', 'done', ?, '2026-01-01 08:00:00', '2026-01-01 08:00:00')
+            """,
+            (
+                user_id,
+                setup["enrollment_id"],
+                setup["challenge_id"],
+                first_main["mission_id"],
+                first_main["xp_reward"],
+            ),
+        )
+        conn.execute(
+            "UPDATE missions SET unlock_after_days = 0 WHERE challenge_id = ?",
+            (second_challenge["challenge_id"],),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+    missions = client.get("/me/today-missions", headers=headers).get_json()["missions"]
+    second_main = next(
+        mission for mission in missions
+        if mission["challenge_id"] == second_challenge["challenge_id"]
+        and mission["mission_intensity"] == "main"
+    )
+    done_res = client.post(
+        f"/me/missions/{second_main['mission_id']}/done",
+        headers=headers,
+    )
+    space_res = client.get("/me/space", headers=headers)
+
+    done_data = done_res.get_json()
+    space_data = space_res.get_json()
+
+    conn = database.get_db_connection()
+    try:
+        living_rewards = conn.execute(
+            """
+            SELECT rd.key, ur.source_type, ur.source_id, ur.is_seen
+            FROM user_rewards ur
+            JOIN reward_definitions rd ON rd.id = ur.reward_id
+            WHERE ur.user_id = ?
+            """,
+            (user_id,),
+        ).fetchall()
+    finally:
+        conn.close()
+
+    assert done_res.status_code == 200
+    assert done_data["living_space_reward"] is None
+    assert space_res.status_code == 200
+    assert space_data["has_unseen_rewards"] is False
+    assert [reward["key"] for reward in space_data["unlocked_objects"]] == [
+        "fitness_water_bottle",
+    ]
+    assert [row["key"] for row in living_rewards] == ["fitness_water_bottle"]
+    assert living_rewards[0]["source_type"] == "mission_history"
+    assert living_rewards[0]["source_id"] == first_main["mission_id"]
+    assert living_rewards[0]["is_seen"] == 1
+
+
 def test_mission_reminder_rejects_time_after_next_daily_reset(client):
     user = register_user(client, username="ResetReminder")
     headers = auth_headers(user["access_token"])

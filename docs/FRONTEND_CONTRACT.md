@@ -446,6 +446,8 @@ Returns the user's room state, five canonical zones, unlocked room objects, lock
 
 Reward objects include `id`, `key`, `title`, `description`, `path_key`, `zone_key`, `object_type`, `asset_key`, `rarity`, `unlock_condition_type`, `stage`, `slot_key`, `unlocked`, `unlocked_at`, `source_type`, `source_id`, and `is_seen`.
 
+Legacy users can receive first-path room rewards from historical mission progress. These backfilled rewards use `source_type: "mission_history"` and are marked `is_seen: true` so the room reflects real prior progress without replaying old unlock notifications.
+
 ### `GET /me/space/rewards`
 
 Auth: required.
