@@ -13,6 +13,7 @@ Turn RingoStrike Home into a visible progress space where mission/path/achieveme
 Reference:
 
 - [Living Space v1 Spec](LIVING_SPACE_V1_SPEC.md)
+- [Living Space Home Shell Spec](LIVING_SPACE_HOME_SHELL_SPEC.md)
 - [Living Space v1 UX Polish Backlog](LIVING_SPACE_V1_UX_POLISH_BACKLOG.md)
 
 ---
@@ -201,6 +202,49 @@ frontend/src/components/space/SpaceZonePanel.vue
 - Zone click/tap opens compact panel.
 - Locked previews are visually distinct from unlocked objects.
 - The layout works in English and Persian/RTL.
+
+---
+
+# Issue 5B — [Frontend] Introduce Living Space Home shell state model
+
+## Goal
+
+Turn Living Space from a dashboard card with route links into the primary Home shell where room, Ringo guidance, path state, challenge state, mission focus, rewards, and rest state can happen in one surface.
+
+Reference:
+
+- [Living Space Home Shell Spec](LIVING_SPACE_HOME_SHELL_SPEC.md)
+
+## Suggested Files
+
+```txt
+frontend/src/components/space/LivingSpace.vue
+frontend/src/components/space/SpaceZonePanel.vue
+frontend/src/views/Dashboard.vue
+frontend/src/components/missions/MissionCenter.vue
+```
+
+## Behavior
+
+- Add shell states such as `overview`, `zone`, `path`, `challenge`, `mission`, `reward`, and `rest`.
+- Keep the room visible as the anchor during normal daily interactions.
+- Keep Ringo as the guide layer, not as a sixth zone.
+- Prefer in-room panels over direct jumps to `/paths`, `/challenges`, or `/enrollment/:id`.
+- Preserve those routes as secondary fallback/deep-detail links.
+
+## Do Not Change
+
+- Do not add room art, background imagery, or object illustrations.
+- Do not build drag-and-drop, inventory, shop, public visits, or a second economy.
+- Do not replace backend progression APIs until the frontend state contract proves a missing shape.
+
+## Acceptance Criteria
+
+- Selecting a zone can move into an in-room state instead of immediately leaving Home.
+- The primary next action is visible from the selected zone.
+- Existing direct routes still work.
+- Mission/check-in completion continues to use existing APIs.
+- English and Persian copy remain available.
 
 ---
 
