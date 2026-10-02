@@ -110,6 +110,18 @@ export default {
       viewPath: "دیدن مسیر",
       browseChallenges: "مرور چالش‌ها",
     },
+    shell: {
+      pathLabel: "پنل مسیر داخل اتاق",
+      pathTitle: "{path} داخل اتاقت",
+      pathText: "این اولین قدم Home shell است: کانتکست مسیر همین‌جا می‌ماند و بعد در صورت نیاز صفحه کامل باز می‌شود.",
+      challengeLabel: "پنل چالش داخل اتاق",
+      challengeReadyText: "این چالش آماده است. قدم بعدی این است که اکشن‌های مأموریت هم وارد همین پنل اتاق شوند.",
+      challengeDoneText: "این چالش امروز ثبت شده. می‌توانی قبل از باز کردن جزئیات کامل، همین‌جا مرورش کنی.",
+      streak: "استریک",
+      checkins: "چک‌این",
+      openFullPath: "باز کردن صفحه کامل مسیر",
+      openFullChallenge: "باز کردن صفحه کامل چالش",
+    },
   },
   spaceUnlock: {
     eyebrow: "پاداش اتاق",

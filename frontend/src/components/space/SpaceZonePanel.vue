@@ -52,17 +52,57 @@
       <p>{{ zone.action.text }}</p>
 
       <div class="actionRow">
-        <RouterLink class="actionLink primary" :to="zone.action.primaryTo">
+        <button
+          type="button"
+          class="actionLink primary"
+          @click="$emit('change-mode', zone.action.primaryMode || 'zone')"
+        >
           {{ zone.action.primaryLabel }}
-        </RouterLink>
+        </button>
+        <button
+          v-if="zone.action.secondaryMode"
+          type="button"
+          class="actionLink secondary"
+          @click="$emit('change-mode', zone.action.secondaryMode)"
+        >
+          {{ zone.action.secondaryLabel }}
+        </button>
         <RouterLink
-          v-if="zone.action.secondaryTo"
+          v-else-if="zone.action.secondaryTo"
           class="actionLink secondary"
           :to="zone.action.secondaryTo"
         >
           {{ zone.action.secondaryLabel }}
         </RouterLink>
       </div>
+    </div>
+
+    <div v-if="mode === 'path'" class="panelSection shellPanel">
+      <span class="sectionLabel">{{ t("space.shell.pathLabel") }}</span>
+      <strong>{{ t("space.shell.pathTitle", { path: zone.title }) }}</strong>
+      <p>{{ t("space.shell.pathText") }}</p>
+      <RouterLink class="fallbackLink" :to="zone.action?.fallbackTo || '/paths'">
+        {{ t("space.shell.openFullPath") }}
+      </RouterLink>
+    </div>
+
+    <div v-if="mode === 'challenge'" class="panelSection shellPanel">
+      <span class="sectionLabel">{{ t("space.shell.challengeLabel") }}</span>
+      <strong>{{ zone.action?.challenge?.name || t("common.challenge") }}</strong>
+      <p>{{ challengeStatusText }}</p>
+      <div class="miniStats">
+        <span>
+          <strong>{{ zone.action?.challenge?.streak || 0 }}</strong>
+          <small>{{ t("space.shell.streak") }}</small>
+        </span>
+        <span>
+          <strong>{{ zone.action?.challenge?.totalCheckins || 0 }}</strong>
+          <small>{{ t("space.shell.checkins") }}</small>
+        </span>
+      </div>
+      <RouterLink class="fallbackLink" :to="zone.action?.fallbackTo || '/challenges'">
+        {{ t("space.shell.openFullChallenge") }}
+      </RouterLink>
     </div>
   </aside>
 </template>
@@ -74,9 +114,10 @@ import SpaceObject from "./SpaceObject.vue";
 
 const props = defineProps({
   zone: { type: Object, required: true },
+  mode: { type: String, default: "zone" },
 });
 
-defineEmits(["close"]);
+defineEmits(["change-mode", "close"]);
 
 const { t } = useI18n();
 
@@ -92,6 +133,14 @@ const nextRewardText = computed(() => {
   }
 
   return t("space.nextRewardFuture", { reward: reward.title });
+});
+
+const challengeStatusText = computed(() => {
+  if (props.zone?.action?.challenge?.status === "done_today") {
+    return t("space.shell.challengeDoneText");
+  }
+
+  return t("space.shell.challengeReadyText");
 });
 </script>
 
@@ -196,6 +245,8 @@ const nextRewardText = computed(() => {
   text-decoration: none;
   font-size: 0.78rem;
   font-weight: 850;
+  border: 0;
+  cursor: pointer;
 }
 
 .actionLink.primary {
@@ -207,5 +258,53 @@ const nextRewardText = computed(() => {
   color: rgba(255, 255, 255, 0.76);
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.10);
+}
+
+.shellPanel {
+  display: grid;
+  gap: 8px;
+  padding-top: 2px;
+}
+
+.shellPanel strong {
+  color: rgba(255, 255, 255, 0.90);
+}
+
+.shellPanel p {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.62);
+  line-height: 1.55;
+}
+
+.miniStats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.miniStats span {
+  display: grid;
+  gap: 2px;
+  padding: 8px;
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.miniStats strong {
+  color: rgba(255, 255, 255, 0.90);
+}
+
+.miniStats small {
+  color: rgba(255, 255, 255, 0.52);
+  font-size: 0.72rem;
+}
+
+.fallbackLink {
+  justify-self: start;
+  color: rgba(110, 229, 255, 0.86);
+  font-size: 0.78rem;
+  font-weight: 850;
+  text-decoration: none;
 }
 </style>

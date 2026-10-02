@@ -110,6 +110,18 @@ export default {
       viewPath: "View path",
       browseChallenges: "Browse challenges",
     },
+    shell: {
+      pathLabel: "In-room path panel",
+      pathTitle: "{path} inside your room",
+      pathText: "This is the first Home shell step: path context stays here before opening the full planning page.",
+      challengeLabel: "In-room challenge panel",
+      challengeReadyText: "This challenge is ready. The next step is to bring mission actions into this room panel.",
+      challengeDoneText: "This challenge is already secured today. You can review it here before opening the full details.",
+      streak: "Streak",
+      checkins: "Check-ins",
+      openFullPath: "Open full path page",
+      openFullChallenge: "Open full challenge page",
+    },
   },
   spaceUnlock: {
     eyebrow: "Room reward",
