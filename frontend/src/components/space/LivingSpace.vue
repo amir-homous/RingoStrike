@@ -57,12 +57,14 @@ import BaseCard from "@/components/ui/BaseCard.vue";
 import UiState from "@/components/ui/UiState.vue";
 import { getChallengePathKey } from "@/lib/guidedExperience";
 import { localizeChallenge } from "@/lib/ringoContentLocalization";
+import { missionIconUrl } from "@/utils/missionMomentumUtils";
 import SpaceZone from "./SpaceZone.vue";
 import SpaceZonePanel from "./SpaceZonePanel.vue";
 
 const props = defineProps({
   refreshKey: { type: Number, default: 0 },
   challenges: { type: Array, default: () => [] },
+  missions: { type: Array, default: () => [] },
   checkingId: { type: [Number, String, null], default: null },
 });
 
@@ -191,6 +193,7 @@ function buildZoneAction(zone) {
   }
 
   const name = challengeName(challenge);
+  const mission = findChallengeMission(challenge);
 
   if (isCheckedToday(challenge)) {
     return {
@@ -211,6 +214,7 @@ function buildZoneAction(zone) {
         streak: challenge.current_streak ?? challenge.currentStreak ?? 0,
         totalCheckins: challenge.total_checkins ?? challenge.totalCheckins ?? 0,
         todayChecked: true,
+        mission,
       },
     };
   }
@@ -233,7 +237,49 @@ function buildZoneAction(zone) {
       streak: challenge.current_streak ?? challenge.currentStreak ?? 0,
       totalCheckins: challenge.total_checkins ?? challenge.totalCheckins ?? 0,
       todayChecked: false,
+      mission,
     },
+  };
+}
+
+function normalizeId(value) {
+  const id = String(value ?? "").trim();
+  return id && id !== "null" && id !== "undefined" ? id : "";
+}
+
+function missionStatusRank(mission) {
+  const status = String(mission?.status || "").toLowerCase();
+  const intensity = String(mission?.mission_intensity || "main").toLowerCase();
+
+  if (status === "pending" && intensity === "main") return 0;
+  if (status === "pending") return 1;
+  if (intensity === "main") return 2;
+  return 3;
+}
+
+function findChallengeMission(challenge) {
+  const enrollmentId = normalizeId(challenge?.enrollment_id);
+  const challengeId = normalizeId(challenge?.challenge_id);
+
+  const matches = props.missions
+    .filter((mission) => {
+      return (enrollmentId && normalizeId(mission?.enrollment_id) === enrollmentId)
+        || (challengeId && normalizeId(mission?.challenge_id) === challengeId);
+    })
+    .sort((a, b) => missionStatusRank(a) - missionStatusRank(b));
+
+  const mission = matches[0];
+  if (!mission) return null;
+
+  return {
+    id: mission.mission_id || mission.id || null,
+    title: mission.title || mission.mission_title || "",
+    description: mission.description || mission.mission_description || "",
+    status: mission.status || "pending",
+    intensity: mission.mission_intensity || "main",
+    estimatedMinutes: mission.estimated_minutes ?? mission.estimatedMinutes ?? null,
+    xpReward: mission.xp_reward ?? mission.xpReward ?? null,
+    iconUrl: missionIconUrl(mission),
   };
 }
 
