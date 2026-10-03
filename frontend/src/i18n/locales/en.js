@@ -152,6 +152,8 @@ export default {
       startChallengeFirst: "Start challenge first",
       missionLocked: "Locked for today",
       missionDone: "Mission done",
+      foldedPreviewMissions: "{count} tiny/bonus or future missions stay folded until this challenge starts.",
+      foldedFutureMissions: "{count} future or locked missions are folded so today stays clear.",
       startChallenge: "Start challenge",
       startingChallenge: "Starting...",
       statusDoneToday: "Secured today",
