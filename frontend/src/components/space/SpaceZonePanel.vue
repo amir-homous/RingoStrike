@@ -118,6 +118,7 @@
             current: challenge.isCurrent,
             joined: challenge.isJoined,
             done: challenge.todayChecked,
+            selected: selectedPathChallenge?.id === challenge.id,
           }"
         >
           <span class="iconFrame ladderIconFrame" aria-hidden="true">
@@ -140,6 +141,13 @@
           </div>
 
           <button
+            type="button"
+            class="ladderAction secondary"
+            @click="$emit('select-challenge', challenge)"
+          >
+            {{ selectedPathChallenge?.id === challenge.id ? t("space.shell.selectedChallenge") : t("space.shell.viewChallenge") }}
+          </button>
+          <button
             v-if="!challenge.isJoined"
             type="button"
             class="ladderAction"
@@ -153,7 +161,83 @@
           </button>
         </article>
       </div>
-      <p v-else class="emptyText">{{ t("space.shell.noPathChallenges") }}</p>
+      <div
+        v-if="!pathError && !pathLoading && selectedPathChallenge"
+        class="selectedChallengePanel"
+      >
+        <span class="sectionLabel">{{ t("space.shell.selectedChallengeLabel") }}</span>
+        <span class="shellTitleLine">
+          <span class="iconFrame inlineIconFrame" aria-hidden="true">
+            <img :src="challengeIconFor(selectedPathChallenge)" alt="" class="inlineIcon" />
+          </span>
+          <strong>{{ selectedPathChallenge.name }}</strong>
+        </span>
+        <p v-if="selectedPathChallenge.description">{{ selectedPathChallenge.description }}</p>
+
+        <div class="selectedChallengeActions">
+          <button
+            v-if="!selectedPathChallenge.isJoined"
+            type="button"
+            class="actionLink primary"
+            :disabled="String(startingChallengeId || '') === String(selectedPathChallenge.id || '')"
+            @click="$emit('start-challenge', selectedPathChallenge)"
+          >
+            <span v-if="String(startingChallengeId || '') === String(selectedPathChallenge.id || '')">
+              {{ t("space.shell.startingChallenge") }}
+            </span>
+            <span v-else>{{ t("space.shell.startChallenge") }}</span>
+          </button>
+          <button
+            v-else-if="selectedPathChallenge.enrollmentId"
+            type="button"
+            class="actionLink primary"
+            :disabled="selectedPathChallenge.todayChecked || selectedChallengeLoading"
+            @click="$emit('checkin', selectedPathChallenge.enrollmentId)"
+          >
+            <span v-if="selectedChallengeLoading">{{ t("space.shell.checkingIn") }}</span>
+            <span v-else-if="selectedPathChallenge.todayChecked">{{ t("space.shell.doneToday") }}</span>
+            <span v-else>{{ t("space.shell.checkInToday") }}</span>
+          </button>
+        </div>
+
+        <div v-if="selectedPathChallenge.missions?.length" class="selectedMissionList">
+          <article
+            v-for="mission in selectedPathChallenge.missions"
+            :key="mission.id"
+            class="selectedMission"
+            :class="mission.status"
+          >
+            <span
+              v-if="mission.iconUrl"
+              class="iconFrame selectedMissionIconFrame"
+              aria-hidden="true"
+            >
+              <img :src="mission.iconUrl" alt="" class="selectedMissionIcon" />
+            </span>
+            <div>
+              <span class="ladderStatus">{{ missionStatusLabel(mission) }}</span>
+              <strong>{{ mission.title }}</strong>
+              <p v-if="mission.description">{{ mission.description }}</p>
+              <div class="missionMeta">
+                <span>{{ missionIntensityLabelFor(mission) }}</span>
+                <span v-if="mission.estimatedMinutes">
+                  {{ t("space.shell.minutes", { count: mission.estimatedMinutes }) }}
+                </span>
+                <span v-if="mission.xpReward">
+                  {{ t("space.shell.xp", { count: mission.xpReward }) }}
+                </span>
+              </div>
+            </div>
+          </article>
+        </div>
+        <p v-else class="emptyText">{{ t("space.shell.noChallengeMissions") }}</p>
+      </div>
+      <p
+        v-else-if="!pathError && !pathLoading && !pathChallenges.length"
+        class="emptyText"
+      >
+        {{ t("space.shell.noPathChallenges") }}
+      </p>
       <RouterLink class="fallbackLink" :to="zone.action?.fallbackTo || '/paths'">
         {{ t("space.shell.openFullPath") }}
       </RouterLink>
@@ -231,10 +315,11 @@ const props = defineProps({
   checkingId: { type: [Number, String, null], default: null },
   pathLoading: { type: Boolean, default: false },
   pathError: { type: String, default: "" },
+  selectedChallengeId: { type: [Number, String, null], default: null },
   startingChallengeId: { type: [Number, String, null], default: null },
 });
 
-defineEmits(["change-mode", "start-challenge", "checkin", "close"]);
+defineEmits(["change-mode", "select-challenge", "start-challenge", "checkin", "close"]);
 
 const { t } = useI18n();
 
@@ -294,6 +379,23 @@ const pathStats = computed(() => {
   };
 });
 
+const selectedPathChallenge = computed(() => {
+  if (!pathChallenges.value.length) return null;
+
+  if (props.selectedChallengeId) {
+    const selected = pathChallenges.value.find((challenge) => {
+      return String(challenge.id || "") === String(props.selectedChallengeId || "");
+    });
+
+    if (selected) return selected;
+  }
+
+  return pathChallenges.value.find((challenge) => challenge.isCurrent)
+    || pathChallenges.value.find((challenge) => !challenge.todayChecked && challenge.isJoined)
+    || pathChallenges.value.find((challenge) => !challenge.isJoined)
+    || pathChallenges.value[0];
+});
+
 const challengeMission = computed(() => {
   return props.zone?.action?.challenge?.mission || null;
 });
@@ -331,6 +433,13 @@ const challengeLoading = computed(() => {
   return String(props.checkingId) === String(enrollmentId);
 });
 
+const selectedChallengeLoading = computed(() => {
+  const enrollmentId = selectedPathChallenge.value?.enrollmentId;
+  if (!enrollmentId || props.checkingId == null) return false;
+
+  return String(props.checkingId) === String(enrollmentId);
+});
+
 function challengeIconFor(challenge) {
   return resolveChallengeIcon(challenge?.id || "");
 }
@@ -346,6 +455,25 @@ function challengeStatusLabel(challenge) {
   }
 
   return t("space.shell.statusAvailable");
+}
+
+function missionStatusLabel(mission) {
+  const status = String(mission?.status || "pending").toLowerCase();
+  if (status === "done" || status === "completed") return t("common.done");
+  if (status === "locked") return t("space.shell.statusLocked");
+  if (status === "skipped") return t("missions.status.skipped");
+  if (status === "remind_later") return t("missions.status.remind_later");
+
+  return t("common.pending");
+}
+
+function missionIntensityLabelFor(mission) {
+  const intensity = String(mission?.intensity || "main").toLowerCase();
+  if (["tiny", "bonus"].includes(intensity)) {
+    return t(`space.shell.intensity.${intensity}`);
+  }
+
+  return t("space.shell.intensity.main");
 }
 </script>
 
@@ -615,9 +743,14 @@ function challengeStatusLabel(challenge) {
 }
 
 .ladderItem.current,
-.ladderItem.done {
+.ladderItem.done,
+.ladderItem.selected {
   background: rgba(110, 229, 255, 0.06);
   border-color: rgba(110, 229, 255, 0.18);
+}
+
+.ladderItem.selected {
+  box-shadow: inset 3px 0 0 rgba(110, 229, 255, 0.72);
 }
 
 .ladderIconFrame {
@@ -672,9 +805,77 @@ function challengeStatusLabel(challenge) {
   font-weight: 850;
 }
 
+.ladderAction.secondary {
+  margin-top: 2px;
+  color: rgba(255, 255, 255, 0.76);
+  background: rgba(255, 255, 255, 0.055);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+}
+
 .ladderAction:disabled {
   cursor: default;
   opacity: 0.68;
+}
+
+.selectedChallengePanel {
+  display: grid;
+  gap: 9px;
+  padding: 10px;
+  border-radius: 10px;
+  background: rgba(110, 229, 255, 0.055);
+  border: 1px solid rgba(110, 229, 255, 0.16);
+}
+
+.selectedChallengeActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.selectedMissionList {
+  display: grid;
+  gap: 7px;
+}
+
+.selectedMission {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 9px;
+  padding: 9px;
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.selectedMission.done,
+.selectedMission.completed {
+  background: rgba(80, 220, 140, 0.08);
+  border-color: rgba(80, 220, 140, 0.16);
+}
+
+.selectedMission.locked {
+  opacity: 0.72;
+}
+
+.selectedMissionIconFrame {
+  width: 32px;
+  height: 32px;
+}
+
+.selectedMissionIcon {
+  width: 19px;
+  height: 19px;
+  object-fit: contain;
+  filter: invert(1) brightness(1.45) drop-shadow(0 5px 8px rgba(0, 0, 0, 0.38));
+}
+
+.selectedMission strong {
+  font-size: 0.82rem;
+}
+
+.selectedMission p {
+  margin-top: 3px;
+  font-size: 0.74rem;
 }
 
 .fallbackLink {

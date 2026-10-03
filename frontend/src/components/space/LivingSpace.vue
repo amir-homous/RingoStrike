@@ -43,8 +43,10 @@
         :checking-id="checkingId"
         :path-loading="activePathLoading"
         :path-error="activePathError"
+        :selected-challenge-id="selectedPathChallengeId"
         :starting-challenge-id="startingChallengeId"
         @change-mode="changeShellMode"
+        @select-challenge="selectPathChallenge"
         @start-challenge="startChallenge"
         @checkin="$emit('checkin', $event)"
         @close="closePanel"
@@ -87,6 +89,7 @@ const pathChallenges = ref({});
 const pathSummaries = ref({});
 const pathLoading = ref({});
 const pathErrors = ref({});
+const selectedPathChallengeId = ref(null);
 const startingChallengeId = ref(null);
 
 const unlockedCount = computed(() => {
@@ -161,11 +164,13 @@ async function loadPaths() {
 function selectZone(zone) {
   activeZone.value = zone;
   shellMode.value = "zone";
+  selectedPathChallengeId.value = null;
 }
 
 function closePanel() {
   activeZone.value = null;
   shellMode.value = "zone";
+  selectedPathChallengeId.value = null;
 }
 
 function changeShellMode(mode) {
@@ -174,6 +179,10 @@ function changeShellMode(mode) {
   if (mode === "path") {
     ensurePathChallenges(displayActiveZone.value);
   }
+}
+
+function selectPathChallenge(challenge) {
+  selectedPathChallengeId.value = challenge?.id || null;
 }
 
 function isCheckedToday(challenge) {
@@ -308,6 +317,7 @@ function buildPathDetail(zone) {
     joinedCount,
     totalCount: challenges.length,
     nextChallengeId: nextChallenge?.id || null,
+    selectedChallengeId: selectedPathChallengeId.value,
     todayDone,
     todayTotal,
   };
@@ -333,7 +343,24 @@ function buildPathChallenge(challenge, zone) {
     missionCount,
     doneCount,
     estimatedDays: Number(challenge?.estimated_days || challenge?.duration_days || 0),
-    missions: Array.isArray(localized?.missions) ? localized.missions.slice(0, 3) : [],
+    missions: Array.isArray(localized?.missions)
+      ? localized.missions.map(buildPreviewMission)
+      : [],
+  };
+}
+
+function buildPreviewMission(mission) {
+  const status = mission?.today_status || mission?.status || "pending";
+
+  return {
+    id: mission?.mission_id || mission?.id || mission?.key || mission?.title,
+    title: mission?.title || t("common.mission"),
+    description: mission?.description || "",
+    status,
+    intensity: mission?.mission_intensity || "main",
+    estimatedMinutes: mission?.estimated_minutes ?? null,
+    xpReward: mission?.xp_reward ?? null,
+    iconUrl: missionIconUrl(mission),
   };
 }
 
