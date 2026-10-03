@@ -92,6 +92,68 @@
         <strong>{{ t("space.shell.pathTitle", { path: zone.title }) }}</strong>
       </span>
       <p>{{ t("space.shell.pathText") }}</p>
+      <div v-if="pathStats" class="pathStats">
+        <span>
+          <strong>{{ pathStats.joined }}</strong>
+          <small>{{ t("space.shell.joinedChallenges") }}</small>
+        </span>
+        <span>
+          <strong>{{ pathStats.today }}</strong>
+          <small>{{ t("space.shell.todayMissions") }}</small>
+        </span>
+      </div>
+      <p v-if="pathError" class="pathError">{{ pathError }}</p>
+      <p v-else-if="pathLoading" class="emptyText">{{ t("space.shell.pathLoading") }}</p>
+      <div v-else-if="pathChallenges.length" class="challengeLadder">
+        <div class="ladderHead">
+          <strong>{{ t("space.shell.challengeLadder") }}</strong>
+          <small>{{ t("space.shell.challengeLadderHint") }}</small>
+        </div>
+
+        <article
+          v-for="challenge in pathChallenges"
+          :key="challenge.id"
+          class="ladderItem"
+          :class="{
+            current: challenge.isCurrent,
+            joined: challenge.isJoined,
+            done: challenge.todayChecked,
+          }"
+        >
+          <span class="iconFrame ladderIconFrame" aria-hidden="true">
+            <img :src="challengeIconFor(challenge)" alt="" class="ladderIcon" />
+          </span>
+
+          <div class="ladderCopy">
+            <span class="ladderStatus">{{ challengeStatusLabel(challenge) }}</span>
+            <strong>{{ challenge.name }}</strong>
+            <p v-if="challenge.description">{{ challenge.description }}</p>
+            <div class="missionMeta">
+              <span>{{ t("paths.stage", { stage: challenge.stage || 1 }) }}</span>
+              <span v-if="challenge.missionCount">
+                {{ t("space.shell.missionCount", { count: challenge.missionCount }) }}
+              </span>
+              <span v-if="challenge.estimatedDays">
+                {{ t("common.days", { count: challenge.estimatedDays }) }}
+              </span>
+            </div>
+          </div>
+
+          <button
+            v-if="!challenge.isJoined"
+            type="button"
+            class="ladderAction"
+            :disabled="String(startingChallengeId || '') === String(challenge.id || '')"
+            @click="$emit('start-challenge', challenge)"
+          >
+            <span v-if="String(startingChallengeId || '') === String(challenge.id || '')">
+              {{ t("space.shell.startingChallenge") }}
+            </span>
+            <span v-else>{{ t("space.shell.startChallenge") }}</span>
+          </button>
+        </article>
+      </div>
+      <p v-else class="emptyText">{{ t("space.shell.noPathChallenges") }}</p>
       <RouterLink class="fallbackLink" :to="zone.action?.fallbackTo || '/paths'">
         {{ t("space.shell.openFullPath") }}
       </RouterLink>
@@ -167,9 +229,12 @@ const props = defineProps({
   zone: { type: Object, required: true },
   mode: { type: String, default: "zone" },
   checkingId: { type: [Number, String, null], default: null },
+  pathLoading: { type: Boolean, default: false },
+  pathError: { type: String, default: "" },
+  startingChallengeId: { type: [Number, String, null], default: null },
 });
 
-defineEmits(["change-mode", "checkin", "close"]);
+defineEmits(["change-mode", "start-challenge", "checkin", "close"]);
 
 const { t } = useI18n();
 
@@ -211,6 +276,24 @@ const challengeIcon = computed(() => {
   return resolveChallengeIcon(props.zone?.action?.challenge?.id || "");
 });
 
+const pathChallenges = computed(() => {
+  return props.zone?.pathDetail?.challenges || [];
+});
+
+const pathStats = computed(() => {
+  const detail = props.zone?.pathDetail;
+  if (!detail) return null;
+
+  const today = Number(detail.todayTotal || 0) > 0
+    ? `${detail.todayDone || 0}/${detail.todayTotal || 0}`
+    : t("pathsPage.pathCard.noMission");
+
+  return {
+    joined: `${detail.joinedCount || 0}/${detail.totalCount || 0}`,
+    today,
+  };
+});
+
 const challengeMission = computed(() => {
   return props.zone?.action?.challenge?.mission || null;
 });
@@ -247,6 +330,23 @@ const challengeLoading = computed(() => {
 
   return String(props.checkingId) === String(enrollmentId);
 });
+
+function challengeIconFor(challenge) {
+  return resolveChallengeIcon(challenge?.id || "");
+}
+
+function challengeStatusLabel(challenge) {
+  if (challenge?.todayChecked) return t("space.shell.statusDoneToday");
+  if (challenge?.isCurrent) return t("space.shell.statusCurrent");
+  if (challenge?.isJoined) return t("space.shell.statusJoined");
+
+  const nextChallengeId = props.zone?.pathDetail?.nextChallengeId;
+  if (nextChallengeId && String(nextChallengeId) === String(challenge?.id)) {
+    return t("space.shell.statusRecommended");
+  }
+
+  return t("space.shell.statusAvailable");
+}
 </script>
 
 <style scoped>
@@ -450,7 +550,8 @@ const challengeLoading = computed(() => {
   gap: 8px;
 }
 
-.miniStats span {
+.miniStats span,
+.pathStats span {
   display: grid;
   gap: 2px;
   padding: 8px;
@@ -459,13 +560,121 @@ const challengeLoading = computed(() => {
   border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
-.miniStats strong {
+.miniStats strong,
+.pathStats strong {
   color: rgba(255, 255, 255, 0.90);
 }
 
-.miniStats small {
+.miniStats small,
+.pathStats small {
   color: rgba(255, 255, 255, 0.52);
   font-size: 0.72rem;
+}
+
+.pathStats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.pathError {
+  padding: 8px 9px;
+  border-radius: 9px;
+  color: rgba(255, 204, 204, 0.88) !important;
+  background: rgba(248, 113, 113, 0.10);
+  border: 1px solid rgba(248, 113, 113, 0.16);
+}
+
+.challengeLadder {
+  display: grid;
+  gap: 8px;
+}
+
+.ladderHead {
+  display: grid;
+  gap: 3px;
+}
+
+.ladderHead strong {
+  font-size: 0.82rem;
+}
+
+.ladderHead small {
+  color: rgba(255, 255, 255, 0.52);
+  line-height: 1.45;
+}
+
+.ladderItem {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 9px;
+  padding: 9px;
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.ladderItem.current,
+.ladderItem.done {
+  background: rgba(110, 229, 255, 0.06);
+  border-color: rgba(110, 229, 255, 0.18);
+}
+
+.ladderIconFrame {
+  width: 31px;
+  height: 31px;
+}
+
+.ladderIcon {
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
+  filter: invert(1) brightness(1.45) drop-shadow(0 5px 8px rgba(0, 0, 0, 0.38));
+}
+
+.ladderCopy {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.ladderCopy strong {
+  font-size: 0.86rem;
+}
+
+.ladderCopy p {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  font-size: 0.76rem;
+}
+
+.ladderStatus {
+  color: rgba(110, 229, 255, 0.74);
+  font-size: 0.66rem;
+  font-weight: 900;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.ladderAction {
+  grid-column: 2;
+  justify-self: start;
+  min-height: 30px;
+  padding: 6px 9px;
+  border-radius: 8px;
+  color: rgba(5, 10, 18, 0.95);
+  background: rgba(110, 229, 255, 0.84);
+  border: 0;
+  cursor: pointer;
+  font-size: 0.72rem;
+  font-weight: 850;
+}
+
+.ladderAction:disabled {
+  cursor: default;
+  opacity: 0.68;
 }
 
 .fallbackLink {

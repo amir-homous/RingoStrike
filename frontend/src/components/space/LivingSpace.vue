@@ -41,7 +41,11 @@
         :mode="shellMode"
         :zone="displayActiveZone"
         :checking-id="checkingId"
+        :path-loading="activePathLoading"
+        :path-error="activePathError"
+        :starting-challenge-id="startingChallengeId"
         @change-mode="changeShellMode"
+        @start-challenge="startChallenge"
         @checkin="$emit('checkin', $event)"
         @close="closePanel"
       />
@@ -56,8 +60,9 @@ import api from "@/lib/api";
 import BaseCard from "@/components/ui/BaseCard.vue";
 import UiState from "@/components/ui/UiState.vue";
 import { getChallengePathKey } from "@/lib/guidedExperience";
-import { localizeChallenge } from "@/lib/ringoContentLocalization";
+import { localizeChallenge, localizePath } from "@/lib/ringoContentLocalization";
 import { missionIconUrl } from "@/utils/missionMomentumUtils";
+import { humanizeJoinError, submitJoinFlow } from "@/views/challengeFlow";
 import SpaceZone from "./SpaceZone.vue";
 import SpaceZonePanel from "./SpaceZonePanel.vue";
 
@@ -68,7 +73,7 @@ const props = defineProps({
   checkingId: { type: [Number, String, null], default: null },
 });
 
-defineEmits(["checkin"]);
+const emit = defineEmits(["checkin", "challenge-started"]);
 
 const { locale, t } = useI18n();
 
@@ -77,6 +82,12 @@ const error = ref("");
 const spaceState = ref(null);
 const activeZone = ref(null);
 const shellMode = ref("zone");
+const paths = ref([]);
+const pathChallenges = ref({});
+const pathSummaries = ref({});
+const pathLoading = ref({});
+const pathErrors = ref({});
+const startingChallengeId = ref(null);
 
 const unlockedCount = computed(() => {
   return spaceState.value?.unlocked_objects?.length || 0;
@@ -94,6 +105,7 @@ const displayZones = computed(() => {
   return (spaceState.value?.zones || []).map((zone) => ({
     ...zone,
     action: buildZoneAction(zone),
+    pathDetail: buildPathDetail(zone),
   }));
 });
 
@@ -103,6 +115,18 @@ const displayActiveZone = computed(() => {
   return displayZones.value.find(
     (zone) => zone.zone_key === activeZone.value.zone_key,
   ) || null;
+});
+
+const activePathId = computed(() => displayActiveZone.value?.pathDetail?.pathId || "");
+
+const activePathLoading = computed(() => {
+  const pathId = activePathId.value;
+  return pathId ? Boolean(pathLoading.value[pathId]) : false;
+});
+
+const activePathError = computed(() => {
+  const pathId = activePathId.value;
+  return pathId ? pathErrors.value[pathId] || "" : "";
 });
 
 async function loadSpace() {
@@ -125,6 +149,15 @@ async function loadSpace() {
   }
 }
 
+async function loadPaths() {
+  try {
+    const { data } = await api.get("/paths");
+    paths.value = data?.items || [];
+  } catch {
+    paths.value = [];
+  }
+}
+
 function selectZone(zone) {
   activeZone.value = zone;
   shellMode.value = "zone";
@@ -138,6 +171,9 @@ function closePanel() {
 function changeShellMode(mode) {
   if (!["zone", "path", "challenge"].includes(mode)) return;
   shellMode.value = mode;
+  if (mode === "path") {
+    ensurePathChallenges(displayActiveZone.value);
+  }
 }
 
 function isCheckedToday(challenge) {
@@ -242,6 +278,126 @@ function buildZoneAction(zone) {
   };
 }
 
+function findPathForZone(zone) {
+  const zonePathKey = normalizePathKey(zone?.path_key);
+
+  return paths.value.find((path) => {
+    return normalizePathKey(path?.key || path?.path_key || path?.slug) === zonePathKey;
+  }) || null;
+}
+
+function buildPathDetail(zone) {
+  const path = findPathForZone(zone);
+  if (!path?.path_id) return null;
+
+  const localizedPath = localizePath(path, locale.value);
+  const rawChallenges = pathChallenges.value[path.path_id] || [];
+  const challenges = rawChallenges.map((challenge) => buildPathChallenge(challenge, zone));
+  const joinedCount = challenges.filter((challenge) => challenge.isJoined).length;
+  const nextChallenge = challenges.find((challenge) => !challenge.isJoined) || null;
+  const summary = pathSummaries.value[path.path_id] || {};
+  const todayTotal = Number(summary.today_missions_total || 0);
+  const todayDone = Number(summary.today_missions_done || 0);
+
+  return {
+    pathId: path.path_id,
+    key: path.key || zone.path_key,
+    title: localizedPath?.title || zone.title,
+    description: localizedPath?.description || "",
+    challenges,
+    joinedCount,
+    totalCount: challenges.length,
+    nextChallengeId: nextChallenge?.id || null,
+    todayDone,
+    todayTotal,
+  };
+}
+
+function buildPathChallenge(challenge, zone) {
+  const localized = localizeChallenge(challenge, locale.value);
+  const isCurrent = String(zone?.action?.challenge?.id || "") === String(challenge?.challenge_id || "");
+  const isJoined = Boolean(challenge?.is_joined || challenge?.enrollment_id);
+  const todayChecked = Boolean(challenge?.today_checked);
+  const missionCount = Number(challenge?.today_missions_total || challenge?.missions?.length || 0);
+  const doneCount = Number(challenge?.today_missions_done || 0);
+
+  return {
+    id: challenge?.challenge_id,
+    enrollmentId: challenge?.enrollment_id || null,
+    name: localized?.name || localized?.challenge_name || t("common.challenge"),
+    description: localized?.ringo_intro || localized?.description || "",
+    stage: challenge?.stage || 1,
+    isJoined,
+    isCurrent,
+    todayChecked,
+    missionCount,
+    doneCount,
+    estimatedDays: Number(challenge?.estimated_days || challenge?.duration_days || 0),
+    missions: Array.isArray(localized?.missions) ? localized.missions.slice(0, 3) : [],
+  };
+}
+
+async function ensurePathChallenges(zone = displayActiveZone.value, options = {}) {
+  const path = findPathForZone(zone);
+  if (!path?.path_id) return;
+  if (!options.force && pathChallenges.value[path.path_id]) return;
+
+  await loadPathChallenges(path);
+}
+
+async function loadPathChallenges(path) {
+  const pathId = path?.path_id;
+  if (!pathId) return;
+
+  pathLoading.value = { ...pathLoading.value, [pathId]: true };
+  pathErrors.value = { ...pathErrors.value, [pathId]: "" };
+
+  try {
+    const { data } = await api.get(`/paths/${pathId}/challenges`);
+    pathChallenges.value = {
+      ...pathChallenges.value,
+      [pathId]: data?.items || [],
+    };
+    pathSummaries.value = {
+      ...pathSummaries.value,
+      [pathId]: data?.summary || {},
+    };
+  } catch (e) {
+    pathErrors.value = {
+      ...pathErrors.value,
+      [pathId]: e?.response?.data?.error || e?.message || String(e),
+    };
+  } finally {
+    pathLoading.value = { ...pathLoading.value, [pathId]: false };
+  }
+}
+
+async function startChallenge(challenge) {
+  const pathId = displayActiveZone.value?.pathDetail?.pathId;
+  if (!challenge?.id || !pathId) return;
+
+  startingChallengeId.value = challenge.id;
+
+  try {
+    await api.post(`/paths/${pathId}/start`, {});
+    await submitJoinFlow({
+      apiClient: api,
+      challenge: { ...challenge, challenge_id: challenge.id },
+      reload: async () => {},
+    });
+    await loadPathChallenges({ path_id: pathId });
+    await loadSpace();
+    emit("challenge-started", { challengeId: challenge.id, pathId });
+  } catch (e) {
+    pathErrors.value = {
+      ...pathErrors.value,
+      [pathId]: humanizeJoinError(e?.response?.data?.error || e?.message || String(e)),
+    };
+  } finally {
+    startingChallengeId.value = null;
+  }
+}
+
 function normalizeId(value) {
   const id = String(value ?? "").trim();
   return id && id !== "null" && id !== "undefined" ? id : "";
@@ -283,12 +439,26 @@ function findChallengeMission(challenge) {
   };
 }
 
-onMounted(loadSpace);
+onMounted(async () => {
+  await Promise.all([loadSpace(), loadPaths()]);
+});
 
 watch(
   () => props.refreshKey,
   () => {
     loadSpace();
+    if (shellMode.value === "path") {
+      ensurePathChallenges(displayActiveZone.value, { force: true });
+    }
+  },
+);
+
+watch(
+  () => [shellMode.value, displayActiveZone.value?.zone_key, paths.value.length],
+  () => {
+    if (shellMode.value === "path") {
+      ensurePathChallenges(displayActiveZone.value);
+    }
   },
 );
 </script>
