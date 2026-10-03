@@ -108,11 +108,15 @@ const spaceStatus = computed(() => {
 });
 
 const displayZones = computed(() => {
-  return (spaceState.value?.zones || []).map((zone) => ({
-    ...zone,
-    action: buildZoneAction(zone),
-    pathDetail: buildPathDetail(zone),
-  }));
+  return (spaceState.value?.zones || []).map((zone) => {
+    const pathDetail = buildPathDetail(zone);
+
+    return {
+      ...zone,
+      pathDetail,
+      action: buildZoneAction(zone, pathDetail),
+    };
+  });
 });
 
 const displayActiveZone = computed(() => {
@@ -168,6 +172,7 @@ function selectZone(zone) {
   activeZone.value = zone;
   shellMode.value = "zone";
   selectedPathChallengeId.value = null;
+  ensurePathChallenges(zone);
 }
 
 function closePanel() {
@@ -222,10 +227,15 @@ function challengeName(challenge) {
     || t("common.challenge");
 }
 
-function buildZoneAction(zone) {
+function buildZoneAction(zone, pathDetail = null) {
   const challenge = props.challenges.find((item) => {
     return normalizePathKey(getChallengePathKey(item)) === normalizePathKey(zone.path_key);
   });
+
+  const pathChallenge = findActivePathChallenge(pathDetail);
+  if (!challenge?.enrollment_id && pathChallenge?.isJoined) {
+    return buildPathChallengeZoneAction(pathChallenge);
+  }
 
   if (!challenge?.enrollment_id) {
     return {
@@ -287,6 +297,91 @@ function buildZoneAction(zone) {
       todayChecked: false,
       mission,
     },
+  };
+}
+
+function findActivePathChallenge(pathDetail) {
+  const challenges = pathDetail?.challenges || [];
+  if (!challenges.length) return null;
+
+  return challenges.find((challenge) => challenge.isCurrent)
+    || challenges.find((challenge) => challenge.isJoined && !challenge.todayChecked)
+    || challenges.find((challenge) => challenge.isJoined)
+    || null;
+}
+
+function buildPathChallengeZoneAction(challenge) {
+  const mission = findPathChallengeMission(challenge);
+
+  if (challenge.todayChecked) {
+    return {
+      state: "done_today",
+      title: t("space.zoneAction.doneTitle", { challenge: challenge.name }),
+      text: t("space.zoneAction.doneText"),
+      primaryLabel: t("space.zoneAction.reviewChallenge"),
+      primaryMode: "path",
+      fallbackTo: challenge.enrollmentId ? `/enrollment/${challenge.enrollmentId}` : "/paths",
+      secondaryLabel: t("space.zoneAction.viewPath"),
+      secondaryMode: "path",
+      secondaryTo: "/paths",
+      challenge: {
+        id: challenge.id,
+        enrollmentId: challenge.enrollmentId,
+        name: challenge.name,
+        status: "done_today",
+        streak: 0,
+        totalCheckins: challenge.doneCount || 0,
+        todayChecked: true,
+        mission,
+      },
+    };
+  }
+
+  return {
+    state: "ready_today",
+    title: t("space.zoneAction.readyTitle", { challenge: challenge.name }),
+    text: t("space.zoneAction.readyText"),
+    primaryLabel: t("space.zoneAction.continueMission"),
+    primaryMode: "path",
+    fallbackTo: challenge.enrollmentId ? `/enrollment/${challenge.enrollmentId}` : "/paths",
+    secondaryLabel: t("space.zoneAction.viewPath"),
+    secondaryMode: "path",
+    secondaryTo: "/paths",
+    challenge: {
+      id: challenge.id,
+      enrollmentId: challenge.enrollmentId,
+      name: challenge.name,
+      status: "ready_today",
+      streak: 0,
+      totalCheckins: challenge.doneCount || 0,
+      todayChecked: false,
+      mission,
+    },
+  };
+}
+
+function findPathChallengeMission(challenge) {
+  const missions = challenge?.missions || [];
+  const mission = missions.find((item) => {
+    return item.availableToday
+      && item.status === "pending"
+      && item.intensity === "main";
+  })
+    || missions.find((item) => item.availableToday && item.status === "pending")
+    || missions.find((item) => ["done", "completed"].includes(String(item.status || "").toLowerCase()))
+    || missions[0];
+
+  if (!mission) return null;
+
+  return {
+    id: mission.id,
+    title: mission.title || "",
+    description: mission.description || "",
+    status: mission.status || "pending",
+    intensity: mission.intensity || "main",
+    estimatedMinutes: mission.estimatedMinutes ?? null,
+    xpReward: mission.xpReward ?? null,
+    iconUrl: mission.iconUrl || "",
   };
 }
 
@@ -362,6 +457,8 @@ function buildPreviewMission(mission) {
     status,
     intensity: mission?.mission_intensity || "main",
     availableToday: Boolean(mission?.available_today),
+    parentMissionId: mission?.parent_mission_id ?? null,
+    unlocksInDays: mission?.unlocks_in_days ?? null,
     estimatedMinutes: mission?.estimated_minutes ?? null,
     xpReward: mission?.xp_reward ?? null,
     iconUrl: missionIconUrl(mission),
@@ -511,6 +608,15 @@ watch(
   () => [shellMode.value, displayActiveZone.value?.zone_key, paths.value.length],
   () => {
     if (shellMode.value === "path") {
+      ensurePathChallenges(displayActiveZone.value);
+    }
+  },
+);
+
+watch(
+  () => [displayActiveZone.value?.zone_key, paths.value.length],
+  () => {
+    if (displayActiveZone.value) {
       ensurePathChallenges(displayActiveZone.value);
     }
   },

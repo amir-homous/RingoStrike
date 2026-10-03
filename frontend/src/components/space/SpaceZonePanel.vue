@@ -213,6 +213,9 @@
               {{ t("space.shell.xp", { count: selectedMission.xpReward }) }}
             </span>
           </div>
+          <p v-if="missionGateText(selectedMission)" class="missionGateText">
+            {{ missionGateText(selectedMission) }}
+          </p>
           <button
             type="button"
             class="actionLink primary shellCheckin"
@@ -229,7 +232,7 @@
             v-for="mission in visibleSelectedMissions"
             :key="mission.id"
             class="selectedMission"
-            :class="[mission.status, { selected: selectedMission?.id === mission.id }]"
+            :class="[missionStatusClass(mission), { selected: selectedMission?.id === mission.id }]"
             role="button"
             tabindex="0"
             :aria-pressed="selectedMission?.id === mission.id"
@@ -257,6 +260,9 @@
                   {{ t("space.shell.xp", { count: mission.xpReward }) }}
                 </span>
               </div>
+              <small v-if="missionGateText(mission)" class="missionGateText">
+                {{ missionGateText(mission) }}
+              </small>
             </div>
           </article>
         </div>
@@ -445,11 +451,12 @@ const visibleSelectedMissions = computed(() => {
       .slice(0, 1);
   }
 
-  return missions.filter((mission) => {
-    if (mission.availableToday) return true;
+  return missions.filter(shouldShowMissionInLivingSpace);
+});
 
-    const status = String(mission.status || "").toLowerCase();
-    return ["done", "completed", "remind_later", "skipped"].includes(status);
+const mainMissionDone = computed(() => {
+  return (selectedPathChallenge.value?.missions || []).some((mission) => {
+    return missionIntensity(mission) === "main" && missionDone(mission);
   });
 });
 
@@ -485,7 +492,7 @@ const selectedMission = computed(() => {
       && mission.status === "pending"
       && mission.intensity === "main";
   })
-    || missions.find((mission) => mission.availableToday && mission.status === "pending")
+    || missions.find((mission) => missionCanComplete(mission))
     || missions.find((mission) => mission.status === "remind_later")
     || missions.find((mission) => mission.availableToday)
     || missions[0];
@@ -577,12 +584,63 @@ function challengeProgressPercent(challenge) {
 
 function missionStatusLabel(mission) {
   const status = String(mission?.status || "pending").toLowerCase();
+  if (missionGateText(mission)) return t("space.shell.statusLocked");
   if (status === "done" || status === "completed") return t("common.done");
   if (status === "locked") return t("space.shell.statusLocked");
   if (status === "skipped") return t("missions.status.skipped");
   if (status === "remind_later") return t("missions.status.remind_later");
 
   return t("common.pending");
+}
+
+function missionIntensity(mission) {
+  return String(mission?.intensity || "main").toLowerCase();
+}
+
+function missionStatus(mission) {
+  return String(mission?.status || "pending").toLowerCase();
+}
+
+function missionDone(mission) {
+  return ["done", "completed"].includes(missionStatus(mission));
+}
+
+function missionHasUserDecision(mission) {
+  return ["done", "completed", "remind_later", "skipped"].includes(missionStatus(mission));
+}
+
+function shouldShowMissionInLivingSpace(mission) {
+  const intensity = missionIntensity(mission);
+  if (intensity === "main") return true;
+  if (intensity === "tiny") return missionHasUserDecision(mission);
+  if (intensity === "bonus") return true;
+  return Boolean(mission.availableToday) || missionHasUserDecision(mission);
+}
+
+function missionGateText(mission) {
+  const intensity = missionIntensity(mission);
+
+  if (intensity === "tiny" && !missionHasUserDecision(mission)) {
+    return t("space.shell.tinyFoldedGate");
+  }
+
+  if (intensity === "bonus" && !mainMissionDone.value) {
+    return t("space.shell.bonusLockedGate");
+  }
+
+  if (!mission?.availableToday || missionStatus(mission) === "locked") {
+    const days = Number(mission?.unlocksInDays || 0);
+    if (days > 1) return t("space.shell.unlocksInDays", { count: days });
+    if (days === 1) return t("space.shell.unlocksTomorrow");
+    return t("space.shell.missionLockedGate");
+  }
+
+  return "";
+}
+
+function missionStatusClass(mission) {
+  if (missionGateText(mission)) return "locked";
+  return missionStatus(mission);
 }
 
 function missionIntensityLabelFor(mission) {
@@ -600,14 +658,18 @@ function selectMission(mission) {
 
 function missionCanComplete(mission) {
   if (!selectedPathChallenge.value?.isJoined) return false;
+  if (missionIntensity(mission) === "bonus" && !mainMissionDone.value) return false;
   if (!mission?.availableToday) return false;
-  return !["done", "completed", "locked"].includes(String(mission?.status || "").toLowerCase());
+  return !["done", "completed", "locked"].includes(missionStatus(mission));
 }
 
 function missionActionLabel(mission) {
   if (!selectedPathChallenge.value?.isJoined) return t("space.shell.startChallengeFirst");
+  if (missionIntensity(mission) === "bonus" && !mainMissionDone.value) {
+    return t("space.shell.bonusLockedAction");
+  }
   if (!mission?.availableToday || mission?.status === "locked") return t("space.shell.missionLocked");
-  if (["done", "completed"].includes(String(mission?.status || "").toLowerCase())) {
+  if (missionDone(mission)) {
     return t("space.shell.missionDone");
   }
 
@@ -1162,6 +1224,15 @@ function missionActionLabel(mission) {
 .selectedMission p {
   margin-top: 3px;
   font-size: 0.74rem;
+}
+
+.missionGateText {
+  display: block;
+  margin-top: 6px;
+  color: rgba(247, 215, 116, 0.76) !important;
+  font-size: 0.72rem;
+  font-weight: 760;
+  line-height: 1.45;
 }
 
 .foldedMissionHint {
