@@ -492,6 +492,7 @@ const selectedMission = computed(() => {
       && mission.status === "pending"
       && mission.intensity === "main";
   })
+    || missions.find((mission) => missionIntensity(mission) === "main")
     || missions.find((mission) => missionCanComplete(mission))
     || missions.find((mission) => mission.status === "remind_later")
     || missions.find((mission) => mission.availableToday)
@@ -620,8 +621,8 @@ function shouldShowMissionInLivingSpace(mission) {
 function missionGateText(mission) {
   const intensity = missionIntensity(mission);
 
-  if (intensity === "tiny" && !missionHasUserDecision(mission)) {
-    return t("space.shell.tinyFoldedGate");
+  if (intensity === "tiny" && !missionDone(mission)) {
+    return t("space.shell.tinyLivingSpaceGate");
   }
 
   if (intensity === "bonus" && !mainMissionDone.value) {
@@ -658,6 +659,7 @@ function selectMission(mission) {
 
 function missionCanComplete(mission) {
   if (!selectedPathChallenge.value?.isJoined) return false;
+  if (missionIntensity(mission) === "tiny") return false;
   if (missionIntensity(mission) === "bonus" && !mainMissionDone.value) return false;
   if (!mission?.availableToday) return false;
   return !["done", "completed", "locked"].includes(missionStatus(mission));
@@ -665,6 +667,9 @@ function missionCanComplete(mission) {
 
 function missionActionLabel(mission) {
   if (!selectedPathChallenge.value?.isJoined) return t("space.shell.startChallengeFirst");
+  if (missionIntensity(mission) === "tiny") {
+    return t("space.shell.tinyLockedAction");
+  }
   if (missionIntensity(mission) === "bonus" && !mainMissionDone.value) {
     return t("space.shell.bonusLockedAction");
   }
