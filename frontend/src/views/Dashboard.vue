@@ -68,6 +68,7 @@
             :checking-id="checkingId"
             @checkin="checkin"
             @challenge-started="handleLivingSpaceChallengeStarted"
+            @mission-completed="handleLivingSpaceMissionCompleted"
           />
 
           <!-- Legacy Today Mission is now a fallback when Mission Center has no actionable mission. -->
@@ -653,6 +654,16 @@ async function handleLivingSpaceChallengeStarted() {
   await loadDashboard({ silent: true });
   missionCenterKey.value += 1;
   spaceRefreshKey.value += 1;
+}
+
+async function handleLivingSpaceMissionCompleted(payload = {}) {
+  await loadDashboard({ silent: true });
+  missionCenterKey.value += 1;
+  spaceRefreshKey.value += 1;
+
+  if (payload?.living_space_reward) {
+    spaceRewardMoment.value = payload.living_space_reward;
+  }
 }
 
 
