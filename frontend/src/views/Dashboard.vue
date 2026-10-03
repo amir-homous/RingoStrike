@@ -67,6 +67,7 @@
             :missions="missionCenterStatus.missions"
             :checking-id="checkingId"
             @checkin="checkin"
+            @challenge-started="handleLivingSpaceChallengeStarted"
           />
 
           <!-- Legacy Today Mission is now a fallback when Mission Center has no actionable mission. -->
@@ -646,6 +647,12 @@ async function handleSpaceRewardClose(reward) {
   } catch (e) {
     console.warn("Could not mark space reward seen", e);
   }
+}
+
+async function handleLivingSpaceChallengeStarted() {
+  await loadDashboard({ silent: true });
+  missionCenterKey.value += 1;
+  spaceRefreshKey.value += 1;
 }
 
 
