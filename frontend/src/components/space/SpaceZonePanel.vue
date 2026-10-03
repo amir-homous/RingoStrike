@@ -225,9 +225,9 @@
           </button>
         </div>
 
-        <div v-if="selectedPathChallenge.missions?.length" class="selectedMissionList">
+        <div v-if="visibleSelectedMissions.length" class="selectedMissionList">
           <article
-            v-for="mission in selectedPathChallenge.missions"
+            v-for="mission in visibleSelectedMissions"
             :key="mission.id"
             class="selectedMission"
             :class="[mission.status, { selected: selectedMission?.id === mission.id }]"
@@ -262,7 +262,12 @@
             </button>
           </article>
         </div>
-        <p v-else class="emptyText">{{ t("space.shell.noChallengeMissions") }}</p>
+        <p v-if="hiddenMissionCount" class="foldedMissionHint">
+          {{ hiddenMissionSummary }}
+        </p>
+        <p v-else-if="!visibleSelectedMissions.length" class="emptyText">
+          {{ t("space.shell.noChallengeMissions") }}
+        </p>
       </div>
       <p
         v-else-if="!pathError && !pathLoading && !pathChallenges.length"
@@ -431,8 +436,42 @@ const selectedPathChallenge = computed(() => {
 
 const selectedMissionId = ref(null);
 
+const visibleSelectedMissions = computed(() => {
+  const challenge = selectedPathChallenge.value;
+  const missions = challenge?.missions || [];
+  if (!missions.length) return [];
+
+  if (!challenge.isJoined) {
+    return missions
+      .filter((mission) => mission.intensity === "main")
+      .slice(0, 1);
+  }
+
+  return missions.filter((mission) => {
+    if (mission.availableToday) return true;
+
+    const status = String(mission.status || "").toLowerCase();
+    return ["done", "completed", "remind_later", "skipped"].includes(status);
+  });
+});
+
+const hiddenMissionCount = computed(() => {
+  const total = selectedPathChallenge.value?.missions?.length || 0;
+  return Math.max(0, total - visibleSelectedMissions.value.length);
+});
+
+const hiddenMissionSummary = computed(() => {
+  if (!hiddenMissionCount.value) return "";
+
+  if (!selectedPathChallenge.value?.isJoined) {
+    return t("space.shell.foldedPreviewMissions", { count: hiddenMissionCount.value });
+  }
+
+  return t("space.shell.foldedFutureMissions", { count: hiddenMissionCount.value });
+});
+
 const selectedMission = computed(() => {
-  const missions = selectedPathChallenge.value?.missions || [];
+  const missions = visibleSelectedMissions.value;
   if (!missions.length) return null;
 
   if (selectedMissionId.value) {
@@ -996,6 +1035,17 @@ function missionActionLabel(mission) {
 
 .missionFocusButton {
   grid-column: 2;
+}
+
+.foldedMissionHint {
+  margin: 0;
+  padding: 8px 9px;
+  border-radius: 9px;
+  color: rgba(255, 255, 255, 0.60) !important;
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px dashed rgba(255, 255, 255, 0.12);
+  font-size: 0.74rem;
+  line-height: 1.5;
 }
 
 .fallbackLink {

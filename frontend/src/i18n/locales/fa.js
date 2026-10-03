@@ -152,6 +152,8 @@ export default {
       startChallengeFirst: "اول چالش را شروع کن",
       missionLocked: "امروز قفل است",
       missionDone: "مأموریت انجام شده",
+      foldedPreviewMissions: "{count} مأموریت کوچک، بونوس یا آینده تا شروع این چالش جمع شده می‌ماند.",
+      foldedFutureMissions: "{count} مأموریت آینده یا قفل‌شده جمع شده تا تمرکز امروز شلوغ نشود.",
       startChallenge: "شروع چالش",
       startingChallenge: "در حال شروع...",
       statusDoneToday: "امروز ثبت شده",
