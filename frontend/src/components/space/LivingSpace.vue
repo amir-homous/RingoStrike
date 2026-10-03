@@ -44,10 +44,12 @@
         :path-loading="activePathLoading"
         :path-error="activePathError"
         :selected-challenge-id="selectedPathChallengeId"
+        :completing-mission-id="completingMissionId"
         :starting-challenge-id="startingChallengeId"
         @change-mode="changeShellMode"
         @select-challenge="selectPathChallenge"
         @start-challenge="startChallenge"
+        @complete-mission="completeMission"
         @checkin="$emit('checkin', $event)"
         @close="closePanel"
       />
@@ -75,7 +77,7 @@ const props = defineProps({
   checkingId: { type: [Number, String, null], default: null },
 });
 
-const emit = defineEmits(["checkin", "challenge-started"]);
+const emit = defineEmits(["checkin", "challenge-started", "mission-completed"]);
 
 const { locale, t } = useI18n();
 
@@ -91,6 +93,7 @@ const pathLoading = ref({});
 const pathErrors = ref({});
 const selectedPathChallengeId = ref(null);
 const startingChallengeId = ref(null);
+const completingMissionId = ref(null);
 
 const unlockedCount = computed(() => {
   return spaceState.value?.unlocked_objects?.length || 0;
@@ -358,6 +361,7 @@ function buildPreviewMission(mission) {
     description: mission?.description || "",
     status,
     intensity: mission?.mission_intensity || "main",
+    availableToday: Boolean(mission?.available_today),
     estimatedMinutes: mission?.estimated_minutes ?? null,
     xpReward: mission?.xp_reward ?? null,
     iconUrl: missionIconUrl(mission),
@@ -422,6 +426,29 @@ async function startChallenge(challenge) {
     };
   } finally {
     startingChallengeId.value = null;
+  }
+}
+
+async function completeMission(mission) {
+  const missionId = mission?.id;
+  const pathId = displayActiveZone.value?.pathDetail?.pathId;
+  if (!missionId || !pathId) return;
+
+  completingMissionId.value = missionId;
+  pathErrors.value = { ...pathErrors.value, [pathId]: "" };
+
+  try {
+    const { data } = await api.post(`/me/missions/${missionId}/done`, {});
+    await loadPathChallenges({ path_id: pathId });
+    await loadSpace();
+    emit("mission-completed", data || {});
+  } catch (e) {
+    pathErrors.value = {
+      ...pathErrors.value,
+      [pathId]: e?.response?.data?.error || e?.message || String(e),
+    };
+  } finally {
+    completingMissionId.value = null;
   }
 }
 

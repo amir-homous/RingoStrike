@@ -187,16 +187,41 @@
             </span>
             <span v-else>{{ t("space.shell.startChallenge") }}</span>
           </button>
+        </div>
+
+        <div v-if="selectedMission" class="selectedMissionFocus">
+          <span class="sectionLabel">{{ t("space.shell.selectedMissionLabel") }}</span>
+          <div class="selectedMissionFocusHead">
+            <span
+              v-if="selectedMission.iconUrl"
+              class="iconFrame selectedMissionIconFrame"
+              aria-hidden="true"
+            >
+              <img :src="selectedMission.iconUrl" alt="" class="selectedMissionIcon" />
+            </span>
+            <div>
+              <span class="ladderStatus">{{ missionStatusLabel(selectedMission) }}</span>
+              <strong>{{ selectedMission.title }}</strong>
+            </div>
+          </div>
+          <p v-if="selectedMission.description">{{ selectedMission.description }}</p>
+          <div class="missionMeta">
+            <span>{{ missionIntensityLabelFor(selectedMission) }}</span>
+            <span v-if="selectedMission.estimatedMinutes">
+              {{ t("space.shell.minutes", { count: selectedMission.estimatedMinutes }) }}
+            </span>
+            <span v-if="selectedMission.xpReward">
+              {{ t("space.shell.xp", { count: selectedMission.xpReward }) }}
+            </span>
+          </div>
           <button
-            v-else-if="selectedPathChallenge.enrollmentId"
             type="button"
-            class="actionLink primary"
-            :disabled="selectedPathChallenge.todayChecked || selectedChallengeLoading"
-            @click="$emit('checkin', selectedPathChallenge.enrollmentId)"
+            class="actionLink primary shellCheckin"
+            :disabled="!missionCanComplete(selectedMission) || selectedMissionLoading"
+            @click="$emit('complete-mission', selectedMission)"
           >
-            <span v-if="selectedChallengeLoading">{{ t("space.shell.checkingIn") }}</span>
-            <span v-else-if="selectedPathChallenge.todayChecked">{{ t("space.shell.doneToday") }}</span>
-            <span v-else>{{ t("space.shell.checkInToday") }}</span>
+            <span v-if="selectedMissionLoading">{{ t("space.shell.checkingIn") }}</span>
+            <span v-else>{{ missionActionLabel(selectedMission) }}</span>
           </button>
         </div>
 
@@ -205,7 +230,7 @@
             v-for="mission in selectedPathChallenge.missions"
             :key="mission.id"
             class="selectedMission"
-            :class="mission.status"
+            :class="[mission.status, { selected: selectedMission?.id === mission.id }]"
           >
             <span
               v-if="mission.iconUrl"
@@ -228,6 +253,13 @@
                 </span>
               </div>
             </div>
+            <button
+              type="button"
+              class="ladderAction secondary missionFocusButton"
+              @click="selectMission(mission)"
+            >
+              {{ selectedMission?.id === mission.id ? t("space.shell.selectedMission") : t("space.shell.focusMission") }}
+            </button>
           </article>
         </div>
         <p v-else class="emptyText">{{ t("space.shell.noChallengeMissions") }}</p>
@@ -304,7 +336,7 @@
 </template>
 
 <script setup>
-import { computed } from "vue";
+import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { resolveChallengeIcon, resolvePathIcon } from "@/utils/missionMomentumUtils";
 import SpaceObject from "./SpaceObject.vue";
@@ -316,10 +348,11 @@ const props = defineProps({
   pathLoading: { type: Boolean, default: false },
   pathError: { type: String, default: "" },
   selectedChallengeId: { type: [Number, String, null], default: null },
+  completingMissionId: { type: [Number, String, null], default: null },
   startingChallengeId: { type: [Number, String, null], default: null },
 });
 
-defineEmits(["change-mode", "select-challenge", "start-challenge", "checkin", "close"]);
+defineEmits(["change-mode", "select-challenge", "start-challenge", "complete-mission", "checkin", "close"]);
 
 const { t } = useI18n();
 
@@ -396,6 +429,31 @@ const selectedPathChallenge = computed(() => {
     || pathChallenges.value[0];
 });
 
+const selectedMissionId = ref(null);
+
+const selectedMission = computed(() => {
+  const missions = selectedPathChallenge.value?.missions || [];
+  if (!missions.length) return null;
+
+  if (selectedMissionId.value) {
+    const selected = missions.find((mission) => {
+      return String(mission.id || "") === String(selectedMissionId.value || "");
+    });
+
+    if (selected) return selected;
+  }
+
+  return missions.find((mission) => {
+    return mission.availableToday
+      && mission.status === "pending"
+      && mission.intensity === "main";
+  })
+    || missions.find((mission) => mission.availableToday && mission.status === "pending")
+    || missions.find((mission) => mission.status === "remind_later")
+    || missions.find((mission) => mission.availableToday)
+    || missions[0];
+});
+
 const challengeMission = computed(() => {
   return props.zone?.action?.challenge?.mission || null;
 });
@@ -433,12 +491,19 @@ const challengeLoading = computed(() => {
   return String(props.checkingId) === String(enrollmentId);
 });
 
-const selectedChallengeLoading = computed(() => {
-  const enrollmentId = selectedPathChallenge.value?.enrollmentId;
-  if (!enrollmentId || props.checkingId == null) return false;
+const selectedMissionLoading = computed(() => {
+  const missionId = selectedMission.value?.id;
+  if (!missionId || props.completingMissionId == null) return false;
 
-  return String(props.checkingId) === String(enrollmentId);
+  return String(props.completingMissionId) === String(missionId);
 });
+
+watch(
+  () => selectedPathChallenge.value?.id,
+  () => {
+    selectedMissionId.value = null;
+  },
+);
 
 function challengeIconFor(challenge) {
   return resolveChallengeIcon(challenge?.id || "");
@@ -474,6 +539,26 @@ function missionIntensityLabelFor(mission) {
   }
 
   return t("space.shell.intensity.main");
+}
+
+function selectMission(mission) {
+  selectedMissionId.value = mission?.id || null;
+}
+
+function missionCanComplete(mission) {
+  if (!selectedPathChallenge.value?.isJoined) return false;
+  if (!mission?.availableToday) return false;
+  return !["done", "completed", "locked"].includes(String(mission?.status || "").toLowerCase());
+}
+
+function missionActionLabel(mission) {
+  if (!selectedPathChallenge.value?.isJoined) return t("space.shell.startChallengeFirst");
+  if (!mission?.availableToday || mission?.status === "locked") return t("space.shell.missionLocked");
+  if (["done", "completed"].includes(String(mission?.status || "").toLowerCase())) {
+    return t("space.shell.missionDone");
+  }
+
+  return t("space.shell.completeMission");
 }
 </script>
 
@@ -637,6 +722,11 @@ function missionIntensityLabelFor(mission) {
   color: rgba(255, 255, 255, 0.76);
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.10);
+}
+
+.actionLink:disabled {
+  cursor: default;
+  opacity: 0.62;
 }
 
 .shellPanel {
@@ -832,6 +922,27 @@ function missionIntensityLabelFor(mission) {
   gap: 8px;
 }
 
+.selectedMissionFocus {
+  display: grid;
+  gap: 8px;
+  padding: 9px;
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.045);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+}
+
+.selectedMissionFocusHead {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 9px;
+}
+
+.selectedMissionFocusHead strong {
+  display: block;
+  margin-top: 2px;
+}
+
 .selectedMissionList {
   display: grid;
   gap: 7px;
@@ -851,6 +962,11 @@ function missionIntensityLabelFor(mission) {
 .selectedMission.completed {
   background: rgba(80, 220, 140, 0.08);
   border-color: rgba(80, 220, 140, 0.16);
+}
+
+.selectedMission.selected {
+  border-color: rgba(110, 229, 255, 0.20);
+  box-shadow: inset 3px 0 0 rgba(110, 229, 255, 0.62);
 }
 
 .selectedMission.locked {
@@ -876,6 +992,10 @@ function missionIntensityLabelFor(mission) {
 .selectedMission p {
   margin-top: 3px;
   font-size: 0.74rem;
+}
+
+.missionFocusButton {
+  grid-column: 2;
 }
 
 .fallbackLink {
