@@ -585,9 +585,9 @@ watch(
 
 .spaceLayout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(260px, 0.38fr);
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--s-12);
-  align-items: stretch;
+  align-items: start;
 }
 
 .roomStage {
@@ -631,9 +631,7 @@ watch(
 }
 
 @media (max-width: 920px) {
-  .spaceLayout,
   .spaceHead {
-    grid-template-columns: 1fr;
     flex-direction: column;
   }
 

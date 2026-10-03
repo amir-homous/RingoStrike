@@ -118,8 +118,16 @@
             current: challenge.isCurrent,
             joined: challenge.isJoined,
             done: challenge.todayChecked,
+            available: !challenge.isJoined,
+            recommended: isRecommendedChallenge(challenge),
             selected: selectedPathChallenge?.id === challenge.id,
           }"
+          role="button"
+          tabindex="0"
+          :aria-pressed="selectedPathChallenge?.id === challenge.id"
+          @click="selectChallenge(challenge)"
+          @keydown.enter.prevent="selectChallenge(challenge)"
+          @keydown.space.prevent="selectChallenge(challenge)"
         >
           <span class="iconFrame ladderIconFrame" aria-hidden="true">
             <img :src="challengeIconFor(challenge)" alt="" class="ladderIcon" />
@@ -138,27 +146,18 @@
                 {{ t("common.days", { count: challenge.estimatedDays }) }}
               </span>
             </div>
+            <div
+              v-if="challenge.missionCount"
+              class="ladderProgress"
+              :style="{ '--progress-percent': `${challengeProgressPercent(challenge)}%` }"
+              aria-hidden="true"
+            >
+              <span></span>
+            </div>
+            <small v-if="challenge.missionCount" class="progressText">
+              {{ challenge.doneCount || 0 }}/{{ challenge.missionCount }}
+            </small>
           </div>
-
-          <button
-            type="button"
-            class="ladderAction secondary"
-            @click="$emit('select-challenge', challenge)"
-          >
-            {{ selectedPathChallenge?.id === challenge.id ? t("space.shell.selectedChallenge") : t("space.shell.viewChallenge") }}
-          </button>
-          <button
-            v-if="!challenge.isJoined"
-            type="button"
-            class="ladderAction"
-            :disabled="String(startingChallengeId || '') === String(challenge.id || '')"
-            @click="$emit('start-challenge', challenge)"
-          >
-            <span v-if="String(startingChallengeId || '') === String(challenge.id || '')">
-              {{ t("space.shell.startingChallenge") }}
-            </span>
-            <span v-else>{{ t("space.shell.startChallenge") }}</span>
-          </button>
         </article>
       </div>
       <div
@@ -231,6 +230,12 @@
             :key="mission.id"
             class="selectedMission"
             :class="[mission.status, { selected: selectedMission?.id === mission.id }]"
+            role="button"
+            tabindex="0"
+            :aria-pressed="selectedMission?.id === mission.id"
+            @click="selectMission(mission)"
+            @keydown.enter.prevent="selectMission(mission)"
+            @keydown.space.prevent="selectMission(mission)"
           >
             <span
               v-if="mission.iconUrl"
@@ -253,13 +258,6 @@
                 </span>
               </div>
             </div>
-            <button
-              type="button"
-              class="ladderAction secondary missionFocusButton"
-              @click="selectMission(mission)"
-            >
-              {{ selectedMission?.id === mission.id ? t("space.shell.selectedMission") : t("space.shell.focusMission") }}
-            </button>
           </article>
         </div>
         <p v-if="hiddenMissionCount" class="foldedMissionHint">
@@ -357,7 +355,7 @@ const props = defineProps({
   startingChallengeId: { type: [Number, String, null], default: null },
 });
 
-defineEmits(["change-mode", "select-challenge", "start-challenge", "complete-mission", "checkin", "close"]);
+const emit = defineEmits(["change-mode", "select-challenge", "start-challenge", "complete-mission", "checkin", "close"]);
 
 const { t } = useI18n();
 
@@ -553,12 +551,28 @@ function challengeStatusLabel(challenge) {
   if (challenge?.isCurrent) return t("space.shell.statusCurrent");
   if (challenge?.isJoined) return t("space.shell.statusJoined");
 
-  const nextChallengeId = props.zone?.pathDetail?.nextChallengeId;
-  if (nextChallengeId && String(nextChallengeId) === String(challenge?.id)) {
+  if (isRecommendedChallenge(challenge)) {
     return t("space.shell.statusRecommended");
   }
 
   return t("space.shell.statusAvailable");
+}
+
+function isRecommendedChallenge(challenge) {
+  const nextChallengeId = props.zone?.pathDetail?.nextChallengeId;
+  return Boolean(nextChallengeId && String(nextChallengeId) === String(challenge?.id));
+}
+
+function selectChallenge(challenge) {
+  emit("select-challenge", challenge);
+}
+
+function challengeProgressPercent(challenge) {
+  const total = Number(challenge?.missionCount || 0);
+  if (!total) return 0;
+
+  const done = Math.min(total, Math.max(0, Number(challenge?.doneCount || 0)));
+  return Math.round((done / total) * 100);
 }
 
 function missionStatusLabel(mission) {
@@ -606,10 +620,17 @@ function missionActionLabel(mission) {
   display: grid;
   gap: 14px;
   min-width: 0;
-  padding: 15px;
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.10);
+  padding: 14px;
+  border-radius: 20px;
+  background:
+    radial-gradient(circle at 10% 0%, rgba(110, 229, 255, 0.08), transparent 32%),
+    radial-gradient(circle at 88% 18%, rgba(247, 215, 116, 0.07), transparent 30%),
+    linear-gradient(135deg, rgba(11, 17, 29, 0.88), rgba(5, 10, 18, 0.76));
+  border: 1px solid rgba(110, 229, 255, 0.13);
+  box-shadow:
+    0 18px 50px rgba(0, 0, 0, 0.24),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.025);
+  backdrop-filter: blur(18px);
 }
 
 .panelHead {
@@ -626,12 +647,23 @@ function missionActionLabel(mission) {
   min-width: 0;
 }
 
+.panelSection {
+  min-width: 0;
+}
+
+.zonePanel > .panelSection:not(.shellPanel):not(.zoneAction) {
+  padding: 10px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.032);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+}
+
 .iconFrame {
   display: inline-grid;
   place-items: center;
   overflow: hidden;
   flex: 0 0 auto;
-  border-radius: 9px;
+  border-radius: 10px;
   background:
     radial-gradient(circle at 35% 20%, rgba(255, 255, 255, 0.22), transparent 38%),
     rgba(110, 229, 255, 0.10);
@@ -643,7 +675,7 @@ function missionActionLabel(mission) {
 .missionIcon {
   display: block;
   object-fit: contain;
-  filter: invert(1) brightness(1.45) drop-shadow(0 5px 8px rgba(0, 0, 0, 0.38));
+  filter: brightness(0) invert(1) drop-shadow(0 5px 8px rgba(0, 0, 0, 0.38));
 }
 
 .panelIconFrame {
@@ -676,7 +708,7 @@ function missionActionLabel(mission) {
 .closeButton {
   min-height: 32px;
   padding: 6px 10px;
-  border-radius: 9px;
+  border-radius: 10px;
   color: rgba(255, 255, 255, 0.76);
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.10);
@@ -704,14 +736,35 @@ function missionActionLabel(mission) {
 }
 
 .nextReward {
-  padding-top: 2px;
-  color: rgba(255, 255, 255, 0.72);
+  padding: 10px 11px;
+  border-radius: 14px;
+  color: rgba(247, 215, 116, 0.88);
+  background: rgba(247, 215, 116, 0.055);
+  border: 1px solid rgba(247, 215, 116, 0.12);
 }
 
 .zoneAction {
   display: grid;
   gap: 8px;
-  padding-top: 2px;
+  padding: 11px;
+  border-radius: 15px;
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.zoneAction.not_started {
+  border-color: rgba(247, 215, 116, 0.14);
+  background: rgba(247, 215, 116, 0.04);
+}
+
+.zoneAction.ready_today {
+  border-color: rgba(110, 229, 255, 0.16);
+  background: rgba(110, 229, 255, 0.045);
+}
+
+.zoneAction.done_today {
+  border-color: rgba(80, 220, 140, 0.16);
+  background: rgba(80, 220, 140, 0.045);
 }
 
 .zoneAction strong {
@@ -726,7 +779,7 @@ function missionActionLabel(mission) {
 
 .flowHint {
   padding: 8px 9px;
-  border-radius: 9px;
+  border-radius: 10px;
   color: rgba(255, 255, 255, 0.66) !important;
   background: rgba(110, 229, 255, 0.055);
   border: 1px solid rgba(110, 229, 255, 0.10);
@@ -744,7 +797,7 @@ function missionActionLabel(mission) {
   align-items: center;
   min-height: 34px;
   padding: 7px 11px;
-  border-radius: 9px;
+  border-radius: 10px;
   text-decoration: none;
   font-size: 0.78rem;
   font-weight: 850;
@@ -770,8 +823,13 @@ function missionActionLabel(mission) {
 
 .shellPanel {
   display: grid;
-  gap: 8px;
-  padding-top: 2px;
+  gap: 10px;
+  padding: 12px;
+  border-radius: 16px;
+  background:
+    radial-gradient(circle at 12% 0%, rgba(110, 229, 255, 0.06), transparent 28%),
+    rgba(255, 255, 255, 0.032);
+  border: 1px solid rgba(110, 229, 255, 0.10);
 }
 
 .shellPanel strong {
@@ -811,8 +869,8 @@ function missionActionLabel(mission) {
 .pathStats span {
   display: grid;
   gap: 2px;
-  padding: 8px;
-  border-radius: 9px;
+  padding: 9px;
+  border-radius: 12px;
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.08);
 }
@@ -836,20 +894,29 @@ function missionActionLabel(mission) {
 
 .pathError {
   padding: 8px 9px;
-  border-radius: 9px;
+  border-radius: 10px;
   color: rgba(255, 204, 204, 0.88) !important;
   background: rgba(248, 113, 113, 0.10);
   border: 1px solid rgba(248, 113, 113, 0.16);
 }
 
 .challengeLadder {
-  display: grid;
-  gap: 8px;
+  display: flex;
+  gap: 10px;
+  min-width: 0;
+  overflow-x: auto;
+  padding: 2px 2px 4px;
+  scrollbar-width: thin;
 }
 
 .ladderHead {
   display: grid;
+  align-content: start;
   gap: 3px;
+  min-width: 180px;
+  max-width: 220px;
+  padding: 9px 2px;
+  flex: 0 0 auto;
 }
 
 .ladderHead strong {
@@ -864,44 +931,77 @@ function missionActionLabel(mission) {
 .ladderItem {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
-  gap: 9px;
-  padding: 9px;
-  border-radius: 9px;
+  gap: 10px;
+  width: 260px;
+  min-width: 232px;
+  flex: 0 0 auto;
+  padding: 10px;
+  border-radius: 15px;
+  text-align: start;
   background: rgba(255, 255, 255, 0.035);
   border: 1px solid rgba(255, 255, 255, 0.08);
+  cursor: pointer;
+  outline: none;
+  transition: transform 160ms ease, border-color 160ms ease, background 160ms ease, box-shadow 160ms ease;
+}
+
+.ladderItem:hover,
+.ladderItem:focus-visible {
+  transform: translateY(-1px);
+  border-color: rgba(110, 229, 255, 0.22);
+  background: rgba(110, 229, 255, 0.052);
+}
+
+.ladderItem.joined {
+  border-color: rgba(110, 229, 255, 0.12);
+}
+
+.ladderItem.available,
+.ladderItem.recommended {
+  border-color: rgba(247, 215, 116, 0.14);
+  background: rgba(247, 215, 116, 0.04);
+}
+
+.ladderItem.done {
+  border-color: rgba(80, 220, 140, 0.18);
+  background: rgba(80, 220, 140, 0.055);
 }
 
 .ladderItem.current,
-.ladderItem.done,
 .ladderItem.selected {
-  background: rgba(110, 229, 255, 0.06);
-  border-color: rgba(110, 229, 255, 0.18);
+  border-color: rgba(110, 229, 255, 0.28);
+  background:
+    linear-gradient(135deg, rgba(110, 229, 255, 0.09), rgba(247, 215, 116, 0.035)),
+    rgba(255, 255, 255, 0.04);
 }
 
 .ladderItem.selected {
-  box-shadow: inset 3px 0 0 rgba(110, 229, 255, 0.72);
+  box-shadow:
+    inset 0 0 0 1px rgba(110, 229, 255, 0.12),
+    0 0 22px rgba(110, 229, 255, 0.08);
 }
 
 .ladderIconFrame {
-  width: 31px;
-  height: 31px;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
 }
 
 .ladderIcon {
-  width: 18px;
-  height: 18px;
+  width: 22px;
+  height: 22px;
   object-fit: contain;
-  filter: invert(1) brightness(1.45) drop-shadow(0 5px 8px rgba(0, 0, 0, 0.38));
+  filter: brightness(0) invert(1) drop-shadow(0 5px 8px rgba(0, 0, 0, 0.38));
 }
 
 .ladderCopy {
   display: grid;
-  gap: 4px;
+  gap: 5px;
   min-width: 0;
 }
 
 .ladderCopy strong {
-  font-size: 0.86rem;
+  font-size: 0.9rem;
 }
 
 .ladderCopy p {
@@ -920,37 +1020,46 @@ function missionActionLabel(mission) {
   text-transform: uppercase;
 }
 
-.ladderAction {
-  grid-column: 2;
-  justify-self: start;
-  min-height: 30px;
-  padding: 6px 9px;
-  border-radius: 8px;
-  color: rgba(5, 10, 18, 0.95);
-  background: rgba(110, 229, 255, 0.84);
-  border: 0;
-  cursor: pointer;
-  font-size: 0.72rem;
-  font-weight: 850;
+.ladderItem.available .ladderStatus,
+.ladderItem.recommended .ladderStatus {
+  color: rgba(247, 215, 116, 0.82);
 }
 
-.ladderAction.secondary {
+.ladderItem.done .ladderStatus,
+.selectedMission.done .ladderStatus,
+.selectedMission.completed .ladderStatus {
+  color: rgba(80, 220, 140, 0.86);
+}
+
+.ladderProgress {
+  position: relative;
+  overflow: hidden;
+  height: 5px;
   margin-top: 2px;
-  color: rgba(255, 255, 255, 0.76);
-  background: rgba(255, 255, 255, 0.055);
-  border: 1px solid rgba(255, 255, 255, 0.10);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.10);
 }
 
-.ladderAction:disabled {
-  cursor: default;
-  opacity: 0.68;
+.ladderProgress span {
+  display: block;
+  width: var(--progress-percent, 0%);
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, rgba(110, 229, 255, 0.92), rgba(247, 215, 116, 0.78));
+  box-shadow: 0 0 10px rgba(110, 229, 255, 0.16);
+}
+
+.progressText {
+  color: rgba(255, 255, 255, 0.52);
+  font-size: 0.7rem;
+  font-weight: 800;
 }
 
 .selectedChallengePanel {
   display: grid;
-  gap: 9px;
-  padding: 10px;
-  border-radius: 10px;
+  gap: 10px;
+  padding: 12px;
+  border-radius: 16px;
   background: rgba(110, 229, 255, 0.055);
   border: 1px solid rgba(110, 229, 255, 0.16);
 }
@@ -964,8 +1073,8 @@ function missionActionLabel(mission) {
 .selectedMissionFocus {
   display: grid;
   gap: 8px;
-  padding: 9px;
-  border-radius: 9px;
+  padding: 10px;
+  border-radius: 14px;
   background: rgba(255, 255, 255, 0.045);
   border: 1px solid rgba(255, 255, 255, 0.10);
 }
@@ -984,17 +1093,28 @@ function missionActionLabel(mission) {
 
 .selectedMissionList {
   display: grid;
-  gap: 7px;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 8px;
 }
 
 .selectedMission {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
   gap: 9px;
-  padding: 9px;
-  border-radius: 9px;
+  padding: 10px;
+  border-radius: 14px;
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.08);
+  cursor: pointer;
+  outline: none;
+  transition: border-color 160ms ease, background 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+}
+
+.selectedMission:hover,
+.selectedMission:focus-visible {
+  transform: translateY(-1px);
+  border-color: rgba(110, 229, 255, 0.18);
+  background: rgba(110, 229, 255, 0.045);
 }
 
 .selectedMission.done,
@@ -1003,29 +1123,40 @@ function missionActionLabel(mission) {
   border-color: rgba(80, 220, 140, 0.16);
 }
 
+.selectedMission.remind_later,
+.selectedMission.skipped {
+  background: rgba(247, 215, 116, 0.045);
+  border-color: rgba(247, 215, 116, 0.12);
+}
+
 .selectedMission.selected {
-  border-color: rgba(110, 229, 255, 0.20);
-  box-shadow: inset 3px 0 0 rgba(110, 229, 255, 0.62);
+  border-color: rgba(110, 229, 255, 0.24);
+  box-shadow:
+    inset 0 0 0 1px rgba(110, 229, 255, 0.10),
+    0 0 18px rgba(110, 229, 255, 0.07);
 }
 
 .selectedMission.locked {
-  opacity: 0.72;
+  cursor: default;
+  opacity: 0.64;
+  filter: grayscale(0.45);
 }
 
 .selectedMissionIconFrame {
-  width: 32px;
-  height: 32px;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
 }
 
 .selectedMissionIcon {
-  width: 19px;
-  height: 19px;
+  width: 20px;
+  height: 20px;
   object-fit: contain;
-  filter: invert(1) brightness(1.45) drop-shadow(0 5px 8px rgba(0, 0, 0, 0.38));
+  filter: brightness(0) invert(1) drop-shadow(0 5px 8px rgba(0, 0, 0, 0.38));
 }
 
 .selectedMission strong {
-  font-size: 0.82rem;
+  font-size: 0.84rem;
 }
 
 .selectedMission p {
@@ -1033,14 +1164,10 @@ function missionActionLabel(mission) {
   font-size: 0.74rem;
 }
 
-.missionFocusButton {
-  grid-column: 2;
-}
-
 .foldedMissionHint {
   margin: 0;
   padding: 8px 9px;
-  border-radius: 9px;
+  border-radius: 10px;
   color: rgba(255, 255, 255, 0.60) !important;
   background: rgba(255, 255, 255, 0.035);
   border: 1px dashed rgba(255, 255, 255, 0.12);
@@ -1070,7 +1197,7 @@ function missionActionLabel(mission) {
   grid-template-columns: auto minmax(0, 1fr);
   gap: 10px;
   padding: 10px;
-  border-radius: 9px;
+  border-radius: 14px;
   background: rgba(255, 255, 255, 0.045);
   border: 1px solid rgba(255, 255, 255, 0.09);
 }
@@ -1078,6 +1205,7 @@ function missionActionLabel(mission) {
 .missionIconFrame {
   width: 37px;
   height: 37px;
+  border-radius: 50%;
 }
 
 .missionIcon {
@@ -1103,5 +1231,19 @@ function missionActionLabel(mission) {
   background: rgba(255, 255, 255, 0.055);
   font-size: 0.7rem;
   font-weight: 800;
+}
+
+@media (max-width: 720px) {
+  .challengeLadder {
+    flex-direction: column;
+    overflow: visible;
+  }
+
+  .ladderHead,
+  .ladderItem {
+    width: auto;
+    max-width: none;
+    min-width: 0;
+  }
 }
 </style>
