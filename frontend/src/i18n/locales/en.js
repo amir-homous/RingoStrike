@@ -155,6 +155,8 @@ export default {
       bonusLockedGate: "Locked until the main mission is done. Finish the main step first, then this bonus becomes optional extra momentum.",
       bonusLockedAction: "Finish main first",
       tinyFoldedGate: "Tiny stays folded until you ask Ringo to make the mission smaller.",
+      tinyLivingSpaceGate: "Tiny is not a parallel room action. Ask Ringo to make the main mission smaller when you need the lighter version.",
+      tinyLockedAction: "Ask Ringo first",
       missionLockedGate: "Locked for now. Keep following the current mission to open this step.",
       unlocksTomorrow: "Locked today. This opens tomorrow if you keep this challenge active.",
       unlocksInDays: "Locked today. This opens in {count} days if you keep this challenge active.",

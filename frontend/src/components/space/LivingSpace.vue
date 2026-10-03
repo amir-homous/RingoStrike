@@ -233,7 +233,7 @@ function buildZoneAction(zone, pathDetail = null) {
   });
 
   const pathChallenge = findActivePathChallenge(pathDetail);
-  if (!challenge?.enrollment_id && pathChallenge?.isJoined) {
+  if (pathChallenge?.isJoined) {
     return buildPathChallengeZoneAction(pathChallenge);
   }
 
@@ -473,6 +473,17 @@ async function ensurePathChallenges(zone = displayActiveZone.value, options = {}
   await loadPathChallenges(path);
 }
 
+async function preloadZonePathChallenges(options = {}) {
+  const zones = spaceState.value?.zones || [];
+
+  for (const zone of zones) {
+    const path = findPathForZone(zone);
+    if (!path?.path_id) continue;
+    if (!options.force && pathChallenges.value[path.path_id]) continue;
+    await loadPathChallenges(path);
+  }
+}
+
 async function loadPathChallenges(path) {
   const pathId = path?.path_id;
   if (!pathId) return;
@@ -592,12 +603,14 @@ function findChallengeMission(challenge) {
 
 onMounted(async () => {
   await Promise.all([loadSpace(), loadPaths()]);
+  await preloadZonePathChallenges();
 });
 
 watch(
   () => props.refreshKey,
-  () => {
-    loadSpace();
+  async () => {
+    await loadSpace();
+    await preloadZonePathChallenges({ force: true });
     if (shellMode.value === "path") {
       ensurePathChallenges(displayActiveZone.value, { force: true });
     }
