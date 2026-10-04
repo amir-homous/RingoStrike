@@ -16,6 +16,33 @@
       </button>
     </div>
 
+    <section v-if="ringoGuidance" class="ringoGuide" :class="ringoGuidance.tone">
+      <RingoMoodFigure
+        :mood="ringoGuidance.mood"
+        :alt="t('space.ringoGuide.eyebrow')"
+        size="sm"
+        framed
+      />
+      <div class="ringoGuideCopy">
+        <span class="sectionLabel">{{ t("space.ringoGuide.eyebrow") }}</span>
+        <strong>{{ ringoGuidance.title }}</strong>
+        <p>{{ ringoGuidance.message }}</p>
+        <div v-if="ringoGuidance.actions.length" class="ringoGuideActions">
+          <button
+            v-for="action in ringoGuidance.actions"
+            :key="action.key"
+            type="button"
+            class="actionLink"
+            :class="action.variant || 'secondary'"
+            :disabled="action.disabled"
+            @click="handleRingoAction(action)"
+          >
+            {{ action.label }}
+          </button>
+        </div>
+      </div>
+    </section>
+
     <div class="panelSection">
       <span class="sectionLabel">
         {{ t("space.unlockedCount", { count: unlockedCount }) }}
@@ -366,6 +393,7 @@
 <script setup>
 import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
+import RingoMoodFigure from "@/components/ringo/RingoMoodFigure.vue";
 import { resolveChallengeIcon, resolvePathIcon } from "@/utils/missionMomentumUtils";
 import SpaceObject from "./SpaceObject.vue";
 
@@ -570,12 +598,206 @@ const selectedMissionLoading = computed(() => {
   return String(props.completingMissionId) === String(missionId);
 });
 
+const ringoGuidance = computed(() => {
+  const path = props.zone?.title || t("space.eyebrow");
+  const action = props.zone?.action || null;
+  const challenge = selectedPathChallenge.value;
+  const mission = selectedMission.value;
+  const stats = pathStats.value;
+  const pathComplete = Boolean(stats?.progressTotal && stats.progressDone >= stats.progressTotal);
+
+  if (modeIs("path") && challenge) {
+    if (!challenge.isJoined) {
+      return buildRingoGuidance({
+        mood: "thinking",
+        tone: "start",
+        title: t("space.ringoGuide.challengePreviewTitle"),
+        message: t("space.ringoGuide.challengePreviewMessage", {
+          challenge: challenge.name || t("common.challenge"),
+          path,
+        }),
+        actions: [{
+          key: "start-selected-challenge",
+          label: t("space.shell.startChallenge"),
+          variant: "primary",
+          disabled: String(props.startingChallengeId || "") === String(challenge.id || ""),
+          type: "start-challenge",
+          challenge,
+        }],
+      });
+    }
+
+    if (mission) {
+      const gate = missionGateText(mission);
+      if (gate) {
+        return buildRingoGuidance({
+          mood: missionIntensity(mission) === "bonus" ? "explaining" : "thinking",
+          tone: "locked",
+          title: t("space.ringoGuide.lockedTitle"),
+          message: gate,
+          actions: [{
+            key: "review-path",
+            label: t("space.zoneAction.viewPath"),
+            type: "change-mode",
+            mode: "path",
+          }],
+        });
+      }
+
+      if (missionDone(mission)) {
+        return buildRingoGuidance({
+          mood: "proud",
+          tone: "done",
+          title: t("space.ringoGuide.missionDoneTitle"),
+          message: t("space.ringoGuide.missionDoneMessage", {
+            mission: mission.title || t("common.mission"),
+          }),
+          actions: nextReviewActions(),
+        });
+      }
+
+      if (missionCanComplete(mission)) {
+        return buildRingoGuidance({
+          mood: missionIntensity(mission) === "bonus" ? "happy" : "focus",
+          tone: missionIntensity(mission) === "bonus" ? "bonus" : "ready",
+          title: missionIntensity(mission) === "bonus"
+            ? t("space.ringoGuide.bonusReadyTitle")
+            : t("space.ringoGuide.missionFocusTitle"),
+          message: t(
+            missionIntensity(mission) === "bonus"
+              ? "space.ringoGuide.bonusReadyMessage"
+              : "space.ringoGuide.missionFocusMessage",
+            { mission: mission.title || t("common.mission") },
+          ),
+          actions: [{
+            key: "complete-selected-mission",
+            label: missionActionLabel(mission),
+            variant: "primary",
+            disabled: selectedMissionLoading.value,
+            type: "complete-mission",
+            mission,
+          }],
+        });
+      }
+    }
+  }
+
+  if (modeIs("challenge") && challengeDone.value) {
+    return buildRingoGuidance({
+      mood: "proud",
+      tone: "done",
+      title: t("space.ringoGuide.todaySafeTitle"),
+      message: t("space.ringoGuide.todaySafeMessage", { path }),
+      actions: nextReviewActions(),
+    });
+  }
+
+  if (pathComplete) {
+    return buildRingoGuidance({
+      mood: "victory",
+      tone: "clear",
+      title: t("space.ringoGuide.pathClearTitle"),
+      message: t("space.ringoGuide.pathClearMessage", { path }),
+      actions: nextReviewActions(),
+    });
+  }
+
+  if (action?.state === "done_today") {
+    return buildRingoGuidance({
+      mood: "proud",
+      tone: "done",
+      title: t("space.ringoGuide.todaySafeTitle"),
+      message: t("space.ringoGuide.todaySafeMessage", { path }),
+      actions: nextReviewActions(),
+    });
+  }
+
+  if (action?.state === "not_started") {
+    return buildRingoGuidance({
+      mood: "welcome",
+      tone: "start",
+      title: t("space.ringoGuide.startTitle"),
+      message: t("space.ringoGuide.startMessage", { path }),
+      actions: [{
+        key: "open-path-panel",
+        label: action.primaryLabel || t("space.zoneAction.startPath"),
+        variant: "primary",
+        type: "change-mode",
+        mode: action.primaryMode || "path",
+      }],
+    });
+  }
+
+  if (action?.state === "ready_today") {
+    return buildRingoGuidance({
+      mood: "focus",
+      tone: "ready",
+      title: t("space.ringoGuide.readyTitle"),
+      message: t("space.ringoGuide.readyMessage", { path }),
+      actions: [{
+        key: "continue-action",
+        label: action.primaryLabel || t("space.zoneAction.continueMission"),
+        variant: "primary",
+        type: "change-mode",
+        mode: action.primaryMode || "challenge",
+      }],
+    });
+  }
+
+  return buildRingoGuidance({
+    mood: "thinking",
+    tone: "neutral",
+    title: t("space.ringoGuide.fallbackTitle"),
+    message: t("space.ringoGuide.fallbackMessage", { path }),
+    actions: nextReviewActions(),
+  });
+});
+
 watch(
   () => selectedPathChallenge.value?.id,
   () => {
     selectedMissionId.value = null;
   },
 );
+
+function buildRingoGuidance({ mood, tone, title, message, actions = [] }) {
+  return {
+    mood,
+    tone,
+    title,
+    message,
+    actions: actions.filter(Boolean),
+  };
+}
+
+function modeIs(value) {
+  return props.mode === value;
+}
+
+function nextReviewActions() {
+  return [{
+    key: "review-path",
+    label: t("space.zoneAction.viewPath"),
+    type: "change-mode",
+    mode: "path",
+  }];
+}
+
+function handleRingoAction(action) {
+  if (!action || action.disabled) return;
+
+  if (action.type === "start-challenge") {
+    emit("start-challenge", action.challenge);
+    return;
+  }
+
+  if (action.type === "complete-mission") {
+    emit("complete-mission", action.mission);
+    return;
+  }
+
+  emit("change-mode", action.mode || "zone");
+}
 
 function challengeIconFor(challenge) {
   return resolveChallengeIcon(challenge?.id || "");
@@ -750,6 +972,80 @@ function missionActionLabel(mission) {
   border-radius: 14px;
   background: rgba(255, 255, 255, 0.032);
   border: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.ringoGuide {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 12px;
+  align-items: center;
+  padding: 10px;
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at 8% 0%, rgba(110, 229, 255, 0.12), transparent 34%),
+    rgba(255, 255, 255, 0.038);
+  border: 1px solid rgba(110, 229, 255, 0.13);
+}
+
+.ringoGuide.ready {
+  border-color: rgba(110, 229, 255, 0.18);
+  background:
+    radial-gradient(circle at 8% 0%, rgba(110, 229, 255, 0.16), transparent 36%),
+    rgba(110, 229, 255, 0.045);
+}
+
+.ringoGuide.start,
+.ringoGuide.bonus {
+  border-color: rgba(247, 215, 116, 0.16);
+  background:
+    radial-gradient(circle at 8% 0%, rgba(247, 215, 116, 0.13), transparent 36%),
+    rgba(247, 215, 116, 0.045);
+}
+
+.ringoGuide.done,
+.ringoGuide.clear {
+  border-color: rgba(80, 220, 140, 0.18);
+  background:
+    radial-gradient(circle at 8% 0%, rgba(80, 220, 140, 0.13), transparent 36%),
+    rgba(80, 220, 140, 0.045);
+}
+
+.ringoGuide.locked {
+  border-color: rgba(255, 255, 255, 0.11);
+  background:
+    radial-gradient(circle at 8% 0%, rgba(255, 255, 255, 0.09), transparent 36%),
+    rgba(255, 255, 255, 0.035);
+}
+
+.ringoGuide :deep(.ringoMood.size-sm) {
+  width: 72px;
+  height: 72px;
+  border-radius: 18px;
+}
+
+.ringoGuideCopy {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.ringoGuideCopy strong {
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 0.92rem;
+}
+
+.ringoGuideCopy p {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.66);
+  line-height: 1.55;
+  font-size: 0.82rem;
+}
+
+.ringoGuideActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 2px;
 }
 
 .iconFrame {
@@ -1385,6 +1681,15 @@ function missionActionLabel(mission) {
 }
 
 @media (max-width: 720px) {
+  .ringoGuide {
+    grid-template-columns: 1fr;
+  }
+
+  .ringoGuide :deep(.ringoMood.size-sm) {
+    width: 64px;
+    height: 64px;
+  }
+
   .challengeLadder {
     flex-direction: column;
     overflow: visible;
