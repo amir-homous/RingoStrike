@@ -111,6 +111,12 @@ export default {
       viewPath: "دیدن مسیر",
       browseChallenges: "مرور چالش‌ها",
     },
+    zoneState: {
+      start: "شروع",
+      ready: "آماده",
+      done: "ثبت شد",
+      clear: "کامل",
+    },
     shell: {
       pathLabel: "پنل مسیر داخل اتاق",
       pathTitle: "{path} داخل اتاقت",

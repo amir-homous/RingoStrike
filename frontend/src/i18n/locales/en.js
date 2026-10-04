@@ -111,6 +111,12 @@ export default {
       viewPath: "View path",
       browseChallenges: "Browse challenges",
     },
+    zoneState: {
+      start: "Start",
+      ready: "Ready",
+      done: "Done",
+      clear: "Clear",
+    },
     shell: {
       pathLabel: "In-room path panel",
       pathTitle: "{path} inside your room",
