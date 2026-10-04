@@ -136,6 +136,8 @@ export default {
       doneToday: "Done today",
       joinedChallenges: "Joined challenges",
       todayMissions: "Today missions",
+      pathProgress: "Path progress",
+      pathProgressCount: "{done}/{total} progress units",
       pathLoading: "Loading this path’s challenge map...",
       challengeLadder: "Path challenge ladder",
       challengeLadderHint: "One step stays primary, but the next challenges remain visible here.",

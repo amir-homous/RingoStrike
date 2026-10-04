@@ -102,6 +102,25 @@
           <small>{{ t("space.shell.todayMissions") }}</small>
         </span>
       </div>
+      <div
+        v-if="pathStats?.progressTotal"
+        class="pathProgressBlock"
+        :style="{ '--progress-percent': `${pathStats.progressPercent}%` }"
+      >
+        <div class="pathProgressHead">
+          <span>{{ t("space.shell.pathProgress") }}</span>
+          <strong>{{ pathStats.progressPercent }}%</strong>
+        </div>
+        <div class="pathProgressTrack" aria-hidden="true">
+          <span></span>
+        </div>
+        <small>
+          {{ t("space.shell.pathProgressCount", {
+            done: pathStats.progressDone,
+            total: pathStats.progressTotal,
+          }) }}
+        </small>
+      </div>
       <p v-if="pathError" class="pathError">{{ pathError }}</p>
       <p v-else-if="pathLoading" class="emptyText">{{ t("space.shell.pathLoading") }}</p>
       <div v-else-if="pathChallenges.length" class="challengeLadder">
@@ -414,10 +433,18 @@ const pathStats = computed(() => {
   const today = Number(detail.todayTotal || 0) > 0
     ? `${detail.todayDone || 0}/${detail.todayTotal || 0}`
     : t("pathsPage.pathCard.noMission");
+  const progressTotal = Number(detail.pathProgressTotal || 0);
+  const progressDone = Math.min(progressTotal, Math.max(0, Number(detail.pathProgressDone || 0)));
+  const progressPercent = progressTotal > 0
+    ? Math.round((progressDone / progressTotal) * 100)
+    : 0;
 
   return {
     joined: `${detail.joinedCount || 0}/${detail.totalCount || 0}`,
     today,
+    progressDone,
+    progressTotal,
+    progressPercent,
   };
 });
 
@@ -957,6 +984,54 @@ function missionActionLabel(mission) {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
+}
+
+.pathProgressBlock {
+  display: grid;
+  gap: 6px;
+  padding: 10px;
+  border-radius: 13px;
+  background:
+    radial-gradient(circle at 12% 0%, rgba(247, 215, 116, 0.11), transparent 38%),
+    rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(247, 215, 116, 0.13);
+}
+
+.pathProgressHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  color: rgba(255, 255, 255, 0.64);
+  font-size: 0.74rem;
+  font-weight: 850;
+}
+
+.pathProgressHead strong {
+  color: rgba(247, 215, 116, 0.94);
+  font-size: 0.9rem;
+}
+
+.pathProgressTrack {
+  position: relative;
+  overflow: hidden;
+  height: 7px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.075);
+}
+
+.pathProgressTrack span {
+  display: block;
+  width: var(--progress-percent, 0%);
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, rgba(110, 229, 255, 0.86), rgba(247, 215, 116, 0.92));
+  box-shadow: 0 0 16px rgba(247, 215, 116, 0.20);
+}
+
+.pathProgressBlock small {
+  color: rgba(255, 255, 255, 0.52);
+  font-size: 0.72rem;
 }
 
 .pathError {
