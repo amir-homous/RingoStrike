@@ -136,6 +136,8 @@ export default {
       doneToday: "امروز انجام شد",
       joinedChallenges: "چالش‌های شروع‌شده",
       todayMissions: "مأموریت‌های امروز",
+      pathProgress: "پیشرفت مسیر",
+      pathProgressCount: "{done}/{total} واحد پیشرفت",
       pathLoading: "در حال آوردن نقشه چالش‌های این مسیر...",
       challengeLadder: "نردبان چالش‌های مسیر",
       challengeLadderHint: "یک قدم اصلی می‌ماند، اما چالش‌های بعدی همین‌جا قابل دیدن‌اند.",

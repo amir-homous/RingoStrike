@@ -405,6 +405,12 @@ function buildPathDetail(zone) {
   const summary = pathSummaries.value[path.path_id] || {};
   const todayTotal = Number(summary.today_missions_total || 0);
   const todayDone = Number(summary.today_missions_done || 0);
+  const pathProgressTotal = challenges.reduce((sum, challenge) => {
+    return sum + Number(challenge.pathMissionCount || 0);
+  }, 0);
+  const pathProgressDone = challenges.reduce((sum, challenge) => {
+    return sum + Number(challenge.pathDoneCount || 0);
+  }, 0);
 
   return {
     pathId: path.path_id,
@@ -418,6 +424,8 @@ function buildPathDetail(zone) {
     selectedChallengeId: selectedPathChallengeId.value,
     todayDone,
     todayTotal,
+    pathProgressDone,
+    pathProgressTotal,
   };
 }
 
@@ -433,6 +441,7 @@ function buildPathChallenge(challenge, zone) {
     total: challenge?.today_missions_total,
     done: challenge?.today_missions_done,
   });
+  const pathMissionProgress = semanticMissionProgress(missions, {}, { availableOnly: false });
 
   return {
     id: challenge?.challenge_id,
@@ -445,6 +454,8 @@ function buildPathChallenge(challenge, zone) {
     todayChecked,
     missionCount: missionProgress.total,
     doneCount: missionProgress.done,
+    pathMissionCount: pathMissionProgress.total,
+    pathDoneCount: pathMissionProgress.done,
     estimatedDays: Number(challenge?.estimated_days || challenge?.duration_days || 0),
     missions,
   };
@@ -468,11 +479,12 @@ function buildPreviewMission(mission) {
   };
 }
 
-function semanticMissionProgress(missions, fallback = {}) {
+function semanticMissionProgress(missions, fallback = {}, options = {}) {
   const groups = new Map();
+  const availableOnly = options.availableOnly !== false;
 
   missions.forEach((mission) => {
-    if (!mission.availableToday) return;
+    if (availableOnly && !mission.availableToday) return;
 
     const key = missionProgressKey(mission);
     const group = groups.get(key) || { done: false };
