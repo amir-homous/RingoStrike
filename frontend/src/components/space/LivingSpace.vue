@@ -426,8 +426,13 @@ function buildPathChallenge(challenge, zone) {
   const isCurrent = String(zone?.action?.challenge?.id || "") === String(challenge?.challenge_id || "");
   const isJoined = Boolean(challenge?.is_joined || challenge?.enrollment_id);
   const todayChecked = Boolean(challenge?.today_checked);
-  const missionCount = Number(challenge?.today_missions_total || challenge?.missions?.length || 0);
-  const doneCount = Number(challenge?.today_missions_done || 0);
+  const missions = Array.isArray(localized?.missions)
+    ? localized.missions.map(buildPreviewMission)
+    : [];
+  const missionProgress = semanticMissionProgress(missions, {
+    total: challenge?.today_missions_total,
+    done: challenge?.today_missions_done,
+  });
 
   return {
     id: challenge?.challenge_id,
@@ -438,12 +443,10 @@ function buildPathChallenge(challenge, zone) {
     isJoined,
     isCurrent,
     todayChecked,
-    missionCount,
-    doneCount,
+    missionCount: missionProgress.total,
+    doneCount: missionProgress.done,
     estimatedDays: Number(challenge?.estimated_days || challenge?.duration_days || 0),
-    missions: Array.isArray(localized?.missions)
-      ? localized.missions.map(buildPreviewMission)
-      : [],
+    missions,
   };
 }
 
@@ -463,6 +466,45 @@ function buildPreviewMission(mission) {
     xpReward: mission?.xp_reward ?? null,
     iconUrl: missionIconUrl(mission),
   };
+}
+
+function semanticMissionProgress(missions, fallback = {}) {
+  const groups = new Map();
+
+  missions.forEach((mission) => {
+    if (!mission.availableToday) return;
+
+    const key = missionProgressKey(mission);
+    const group = groups.get(key) || { done: false };
+    group.done = group.done || ["done", "completed"].includes(String(mission.status || "").toLowerCase());
+    groups.set(key, group);
+  });
+
+  if (!groups.size && (fallback.total != null || fallback.done != null)) {
+    return {
+      total: Number(fallback.total || 0),
+      done: Number(fallback.done || 0),
+    };
+  }
+
+  return {
+    total: groups.size,
+    done: Array.from(groups.values()).filter((group) => group.done).length,
+  };
+}
+
+function missionProgressKey(mission) {
+  const intensity = String(mission?.intensity || "main").toLowerCase();
+
+  if (intensity === "tiny") {
+    return `main:${mission?.parentMissionId || mission?.id || "unknown"}`;
+  }
+
+  if (intensity === "main") {
+    return `main:${mission?.id || "unknown"}`;
+  }
+
+  return `${intensity}:${mission?.id || "unknown"}`;
 }
 
 async function ensurePathChallenges(zone = displayActiveZone.value, options = {}) {

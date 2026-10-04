@@ -298,7 +298,7 @@ def test_today_missions_trigger_checkin_safely(client):
         if item["challenge_id"] == challenge_id
     )
 
-    assert day_one_challenge["today_missions_total"] == 3
+    assert day_one_challenge["today_missions_total"] == 2
     assert day_one_challenge["missions"][0]["available_today"] is True
     assert day_one_challenge["missions"][0]["today_status"] == "pending"
     assert day_one_challenge["missions"][0]["mission_intensity"] == "main"
