@@ -15,7 +15,16 @@
           <strong>{{ zone.title }}</strong>
         </span>
       </span>
-      <span v-if="zone.has_unseen_rewards" class="unseenDot" aria-hidden="true"></span>
+      <span class="zoneStateStack">
+        <span
+          v-if="zoneStatus"
+          class="zoneStatusBadge"
+          :class="zoneStatus.state"
+        >
+          {{ zoneStatus.label }}
+        </span>
+        <span v-if="zone.has_unseen_rewards" class="unseenDot" aria-hidden="true"></span>
+      </span>
     </span>
 
     <span class="objectShelf">
@@ -40,6 +49,7 @@
 
 <script setup>
 import { computed } from "vue";
+import { useI18n } from "vue-i18n";
 import { resolvePathIcon } from "@/utils/missionMomentumUtils";
 import SpaceObject from "./SpaceObject.vue";
 
@@ -49,6 +59,8 @@ const props = defineProps({
 });
 
 defineEmits(["select"]);
+
+const { t } = useI18n();
 
 const hasProgress = computed(() => {
   return (props.zone?.unlocked_objects || []).length > 0;
@@ -69,6 +81,29 @@ const pathProgress = computed(() => {
   const percent = total > 0 ? Math.round((done / total) * 100) : 0;
 
   return { done, total, percent };
+});
+
+const zoneStatus = computed(() => {
+  const progress = pathProgress.value;
+  if (progress?.total > 0 && progress.done >= progress.total) {
+    return {
+      state: "clear",
+      label: t("space.zoneState.clear"),
+    };
+  }
+
+  const state = props.zone?.action?.state || "not_started";
+  const labels = {
+    ready_today: "ready",
+    done_today: "done",
+    not_started: "start",
+  };
+  const key = labels[state] || "start";
+
+  return {
+    state,
+    label: t(`space.zoneState.${key}`),
+  };
 });
 
 const pathIcon = computed(() => {
@@ -123,6 +158,46 @@ const pathIcon = computed(() => {
   justify-content: space-between;
   gap: 8px;
   min-width: 0;
+}
+
+.zoneStateStack {
+  display: inline-flex;
+  align-items: flex-start;
+  gap: 6px;
+  flex: 0 0 auto;
+}
+
+.zoneStatusBadge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 21px;
+  padding: 4px 7px;
+  border-radius: 999px;
+  color: rgba(255, 255, 255, 0.74);
+  background: rgba(255, 255, 255, 0.055);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  font-size: 0.62rem;
+  font-weight: 900;
+  letter-spacing: 0.02em;
+}
+
+.zoneStatusBadge.ready_today {
+  color: rgba(110, 229, 255, 0.96);
+  background: rgba(110, 229, 255, 0.08);
+  border-color: rgba(110, 229, 255, 0.18);
+}
+
+.zoneStatusBadge.done_today,
+.zoneStatusBadge.clear {
+  color: rgba(122, 255, 174, 0.95);
+  background: rgba(74, 222, 128, 0.08);
+  border-color: rgba(74, 222, 128, 0.18);
+}
+
+.zoneStatusBadge.not_started {
+  color: rgba(247, 215, 116, 0.95);
+  background: rgba(247, 215, 116, 0.075);
+  border-color: rgba(247, 215, 116, 0.16);
 }
 
 .zoneTitleWrap {
