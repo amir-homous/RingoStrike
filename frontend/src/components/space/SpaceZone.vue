@@ -25,6 +25,16 @@
         :reward="reward"
       />
     </span>
+
+    <span v-if="pathProgress" class="zoneProgress">
+      <span class="zoneProgressHead">
+        <strong>{{ pathProgress.percent }}%</strong>
+        <small>{{ pathProgress.done }}/{{ pathProgress.total }}</small>
+      </span>
+      <span class="zoneProgressTrack" aria-hidden="true">
+        <span :style="{ width: `${pathProgress.percent}%` }"></span>
+      </span>
+    </span>
   </button>
 </template>
 
@@ -48,6 +58,17 @@ const visibleObjects = computed(() => {
   const unlocked = props.zone?.unlocked_objects || [];
   const locked = props.zone?.locked_preview_objects || [];
   return [...unlocked, ...locked].slice(0, 3);
+});
+
+const pathProgress = computed(() => {
+  const detail = props.zone?.pathDetail;
+  if (!detail) return null;
+
+  const total = Number(detail.pathProgressTotal || 0);
+  const done = Math.min(total, Math.max(0, Number(detail.pathProgressDone || 0)));
+  const percent = total > 0 ? Math.round((done / total) * 100) : 0;
+
+  return { done, total, percent };
 });
 
 const pathIcon = computed(() => {
@@ -169,6 +190,46 @@ const pathIcon = computed(() => {
   flex-wrap: wrap;
   gap: 6px;
   min-width: 0;
+}
+
+.zoneProgress {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+.zoneProgressHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.zoneProgressHead strong {
+  color: rgba(247, 215, 116, 0.94);
+  font-size: 0.86rem;
+  line-height: 1;
+}
+
+.zoneProgressHead small {
+  color: rgba(255, 255, 255, 0.48);
+  font-size: 0.66rem;
+  font-weight: 850;
+}
+
+.zoneProgressTrack {
+  overflow: hidden;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.zoneProgressTrack span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, rgba(110, 229, 255, 0.88), rgba(247, 215, 116, 0.94));
+  box-shadow: 0 0 14px rgba(110, 229, 255, 0.18);
 }
 
 @media (max-width: 720px) {

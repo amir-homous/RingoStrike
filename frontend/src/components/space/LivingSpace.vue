@@ -406,10 +406,10 @@ function buildPathDetail(zone) {
   const todayTotal = Number(summary.today_missions_total || 0);
   const todayDone = Number(summary.today_missions_done || 0);
   const pathProgressTotal = challenges.reduce((sum, challenge) => {
-    return sum + Number(challenge.pathMissionCount || 0);
+    return sum + Number(challenge.missionCount || 0);
   }, 0);
   const pathProgressDone = challenges.reduce((sum, challenge) => {
-    return sum + Number(challenge.pathDoneCount || 0);
+    return sum + Number(challenge.doneCount || 0);
   }, 0);
 
   return {
@@ -441,7 +441,6 @@ function buildPathChallenge(challenge, zone) {
     total: challenge?.today_missions_total,
     done: challenge?.today_missions_done,
   });
-  const pathMissionProgress = semanticMissionProgress(missions, {}, { availableOnly: false });
 
   return {
     id: challenge?.challenge_id,
@@ -454,8 +453,6 @@ function buildPathChallenge(challenge, zone) {
     todayChecked,
     missionCount: missionProgress.total,
     doneCount: missionProgress.done,
-    pathMissionCount: pathMissionProgress.total,
-    pathDoneCount: pathMissionProgress.done,
     estimatedDays: Number(challenge?.estimated_days || challenge?.duration_days || 0),
     missions,
   };
