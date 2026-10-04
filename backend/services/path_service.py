@@ -140,6 +140,36 @@ def _mission_status_map(conn, user_id, mission_ids, today):
     }
 
 
+def _mission_progress_key(mission):
+    intensity = (mission.get("mission_intensity") or "main").strip().lower()
+
+    if intensity == "tiny":
+        return f"main:{mission.get('parent_mission_id') or mission.get('mission_id')}"
+
+    if intensity == "main":
+        return f"main:{mission.get('mission_id')}"
+
+    return f"{intensity}:{mission.get('mission_id')}"
+
+
+def _semantic_mission_progress(missions):
+    groups = {}
+
+    for mission in missions:
+        if not mission.get("available_today"):
+            continue
+
+        key = _mission_progress_key(mission)
+        group = groups.setdefault(key, {"done": False})
+        if mission.get("today_status") == "done":
+            group["done"] = True
+
+    return {
+        "total": len(groups),
+        "done": sum(1 for group in groups.values() if group["done"]),
+    }
+
+
 def get_path_challenges(path_id, user_id=None):
     today = utc_today_iso()
     conn = get_db_connection()
@@ -245,11 +275,9 @@ def get_path_challenges(path_id, user_id=None):
         for row in rows:
             missions = missions_by_challenge.get(row["id"], [])
             progress = progress_by_challenge.get(row["id"], {})
-            today_missions_total = sum(1 for mission in missions if mission.get("available_today"))
-            today_missions_done = sum(
-                1 for mission in missions
-                if mission.get("available_today") and mission.get("today_status") == "done"
-            )
+            mission_progress = _semantic_mission_progress(missions)
+            today_missions_total = mission_progress["total"]
+            today_missions_done = mission_progress["done"]
 
             items.append({
                 "challenge_id": row["id"],
