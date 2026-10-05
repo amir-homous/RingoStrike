@@ -263,6 +263,9 @@ Planned work:
 - Expand the reward moment and join success moment only when existing backend responses provide enough data.
 - Keep Living Space v1 aligned as one visible progress room with five clickable path zones.
 - Evolve Living Space into the Home shell so path, challenge, mission, reward, and rest interactions can happen inside the room before sending users to fallback detail routes.
+- Lock the final visual system around Dark Cinematic Diorama, elevated 3/4 soft-perspective, sparse pleasant Stage 0, non-permanent zone labels, and calm materialization.
+- Validate the Creativity vertical slice first: Stage 0 -> Sketchbook ghost -> materialize -> persistent sketchbook -> Lamp preview.
+- Plan the 25 canonical reward definitions with visual manifestation behaviors (`ADD`, `REPLACE`, `ENVIRONMENT`, `ATMOSPHERE`, `IDENTITY`) so final art can use fewer shared anchors where appropriate.
 - Preserve deterministic first path reward unlock persistence, legacy first-path reward backfill, and fixed room object placement.
 - Keep later room rewards as locked previews until their consistency, path milestone, achievement, and major milestone unlock rules are intentionally specified.
 - Use the Living Space v1 QA checklist before treating the Home room flow as release-ready.
@@ -282,6 +285,7 @@ Non-goals:
 Living Space v1 references:
 
 - [Living Space v1 Spec](product/LIVING_SPACE_V1_SPEC.md)
+- [Living Space Visual System Spec](product/LIVING_SPACE_VISUAL_SYSTEM_SPEC.md)
 - [Living Space Home Shell Spec](product/LIVING_SPACE_HOME_SHELL_SPEC.md)
 - [Living Space v1 Issue Breakdown](product/LIVING_SPACE_V1_ISSUE_BREAKDOWN.md)
 - [Living Space v1 UX Polish Backlog](product/LIVING_SPACE_V1_UX_POLISH_BACKLOG.md)

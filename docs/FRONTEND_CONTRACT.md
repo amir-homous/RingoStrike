@@ -410,6 +410,20 @@ Active frontend behavior in `PathSelection.vue`: after starting a path, the fron
 
 Living Space APIs are additive authenticated endpoints for the v1 visible-progress room. They expose persistent room reward state and locked previews without creating a shop, inventory editor, drag/drop placement system, public room visits, or a second progression economy.
 
+Living Space Home Shell states are frontend display states, not backend enum contracts in v1:
+
+- `overview`
+- `zone`
+- `path`
+- `challenge`
+- `mission`
+- `reward`
+- `rest`
+
+The frontend should keep one active work surface at a time over the room. Mission Focus must continue to use existing mission mutation endpoints, and reward visuals must consume current `/me/space` / mission completion reward data rather than calculating XP, streaks, achievements, or room progression in the client.
+
+Final visual direction is documented in `docs/product/LIVING_SPACE_VISUAL_SYSTEM_SPEC.md`: Dark Cinematic Diorama, elevated 3/4 soft-perspective, non-permanent zone labels, final-asset ghost previews, and calm in-room reward materialization.
+
 ### `GET /me/space`
 
 Auth: required.

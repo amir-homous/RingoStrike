@@ -13,6 +13,7 @@ Turn RingoStrike Home into a visible progress space where mission/path/achieveme
 Reference:
 
 - [Living Space v1 Spec](LIVING_SPACE_V1_SPEC.md)
+- [Living Space Visual System Spec](LIVING_SPACE_VISUAL_SYSTEM_SPEC.md)
 - [Living Space Home Shell Spec](LIVING_SPACE_HOME_SHELL_SPEC.md)
 - [Living Space v1 UX Polish Backlog](LIVING_SPACE_V1_UX_POLISH_BACKLOG.md)
 
@@ -28,8 +29,11 @@ Lock the implementation-ready rules for Living Space v1 before changing UI or ba
 
 - Confirm the five zones.
 - Confirm the first five rewards per path.
+- Confirm the visual direction: Dark Cinematic Diorama with controlled Stylized Night Progress influence.
+- Confirm elevated 3/4 soft-perspective camera, not strict isometric.
 - Confirm fixed slots and no drag-and-drop for v1.
 - Confirm unlock source types.
+- Confirm reward manifestation behaviors: `ADD`, `REPLACE`, `ENVIRONMENT`, `ATMOSPHERE`, and `IDENTITY`.
 - Confirm what appears during first path preview.
 - Confirm reward object detail copy rules.
 
@@ -188,6 +192,8 @@ frontend/src/components/space/SpaceZonePanel.vue
 - Render locked preview objects during path preview.
 - Render unlocked objects from API state.
 - Open compact zone panel on zone click/tap.
+- Keep zone labels non-permanent: hover, keyboard focus, tap/selection, or active state.
+- Preserve room anchors, central circulation, and Ringo-safe positions.
 
 ## Do Not Change
 
@@ -245,6 +251,53 @@ frontend/src/components/missions/MissionCenter.vue
 - Existing direct routes still work.
 - Mission/check-in completion continues to use existing APIs.
 - English and Persian copy remain available.
+
+---
+
+# Issue 5C — [Design/Frontend] Build Creativity visual vertical slice
+
+## Goal
+
+Use Creativity as the first visual reference slice for the Living Space room system.
+
+Reference:
+
+- [Living Space Visual System Spec](LIVING_SPACE_VISUAL_SYSTEM_SPEC.md)
+
+## Behavior
+
+Sequence:
+
+```txt
+Stage 0 base
+  -> Sketchbook ghost preview
+  -> unlock/materialize
+  -> persistent placed sketchbook
+  -> Lamp ghost preview
+```
+
+## Requirements
+
+- Use Dark Cinematic Diorama as the base direction.
+- Use elevated 3/4 soft-perspective camera.
+- Keep Stage 0 sparse but pleasant.
+- Do not bake future reward assets into the base room.
+- Locked preview must use final asset ghost treatment.
+- Reward reveal should be calm in-room materialization, not confetti or loot feedback.
+- Ringo and active panels must not cover the Creativity reward anchors.
+
+## Do Not Change
+
+- Do not add new reward unlock rules.
+- Do not add a shop, inventory, drag/drop editor, or second economy.
+- Do not require all 25 reward definitions to receive final art in this issue.
+
+## Acceptance Criteria
+
+- Creativity first reward can be previewed as a ghost, unlocked, and shown persistently.
+- Next Creativity reward preview is readable without visual clutter.
+- Desktop side panel and mobile bottom sheet preserve room context.
+- Reduced-motion users can see the resolved state without relying on animation.
 
 ---
 

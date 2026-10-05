@@ -16,6 +16,22 @@ The project has moved beyond raw MVP. Core progression identity is implemented. 
 
 ## Latest Launch-Hardening Updates
 
+### Living Space Visual And Home Shell Contract Alignment
+
+Locked the latest Living Space product/design decisions in documentation:
+
+- Added `docs/product/LIVING_SPACE_VISUAL_SYSTEM_SPEC.md` as the visual source of truth.
+- Confirmed Living Space as one room with five path zones; Ringo remains the guide layer, not a zone.
+- Set the visual direction to Dark Cinematic Diorama with controlled Stylized Night Progress influence.
+- Confirmed elevated 3/4 soft-perspective camera instead of strict isometric.
+- Clarified Stage 0 as sparse but pleasant, with reserved future anchors, central circulation, and three Ringo-safe positions.
+- Clarified that 25 reward definitions remain canonical, but final visual manifestation can use shared anchors through `ADD`, `REPLACE`, `ENVIRONMENT`, `ATMOSPHERE`, and `IDENTITY`.
+- Confirmed locked previews should use final-asset ghost treatment.
+- Confirmed reward reveal should be calm in-room materialization, not confetti/loot/casino feedback.
+- Formalized Home Shell display states: overview, zone, path, challenge, mission, reward, and rest.
+- Clarified desktop side-panel and mobile bottom-sheet direction while preserving the room.
+- Set Creativity as the first visual vertical slice: Stage 0 -> Sketchbook ghost -> materialize -> persistent sketchbook -> Lamp preview.
+
 ### Living Space v1 Documentation Alignment
 
 Aligned the main project docs around Living Space v1 as the next visible-progress Home direction:

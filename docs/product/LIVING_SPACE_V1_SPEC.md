@@ -14,6 +14,12 @@ When the user completes missions, keeps consistency, grows inside a path, or unl
 
 This feature must remain Ringo-first. Ringo is not a room zone. Ringo is the guide layer across the whole space.
 
+Final product framing:
+
+```txt
+One room. Five path zones. Ringo guides from the room.
+```
+
 ---
 
 ## Why This Matters
@@ -67,11 +73,47 @@ The backend path keys must match the current seeded paths in `backend/services/p
 
 Ringo can sit centrally or move contextually, but Ringo should not be treated as a sixth zone.
 
+Each zone has a distinct progression personality:
+
+| Path | Personality | Room expression |
+| --- | --- | --- |
+| Career | focused, precise, composed | workbench, planning, future identity |
+| Creativity | expressive, warm, generative | sketch, lamp, studio signal |
+| Fitness | kinetic, grounded, energetic | floor, body momentum, equipment |
+| Learning | quiet, curious, layered | shelves, notes, knowledge accumulation |
+| Sleep / Recovery | calm, restorative, protective | moonlight, soft textiles, recovery rhythm |
+
+## Visual Direction
+
+Living Space visual direction is:
+
+```txt
+Dark Cinematic Diorama
+```
+
+with a controlled amount of:
+
+```txt
+Stylized Night Progress
+```
+
+The room should feel premium, cinematic, calm, and emotionally intelligent. It should not feel like a noisy productivity app, a chaotic game board, or a casino reward surface.
+
+Camera direction:
+
+```txt
+elevated 3/4 soft-perspective
+```
+
+Do not treat the room as strict isometric. The camera should make all five zones readable while preserving atmosphere and depth.
+
+Lighting is part of progression. It can communicate selected zone, today's safe state, reward materialization, rest mode, and long-term growth, but it must stay subtle and accessible.
+
 ---
 
-## Day-One State
+## Stage 0 / Day-One State
 
-The first room should be usable, calm, and sparse.
+The first room should be usable, calm, sparse, and pleasant.
 
 It should not feel fully decorated or already successful. The user should see space for growth.
 
@@ -85,6 +127,17 @@ Day-one examples:
 
 The goal is for the user to notice visible change after the first week.
 
+Stage 0 must reserve:
+
+- empty wall areas for future identity/reward expression
+- floor anchors for future objects
+- surface/shelf anchors for small objects
+- ceiling or wall lighting anchors
+- central circulation so the room does not become a storage grid
+- three Ringo-safe positions
+
+Do not bake future reward assets into Stage 0. The base room should include anchor points and spatial readiness, not pre-rendered future rewards.
+
 ---
 
 ## Path Preview
@@ -93,11 +146,12 @@ Before choosing a first path, the user can hover or tap a path/zone.
 
 The matching zone should highlight and future rewards should appear as locked previews:
 
-- ghost objects
-- silhouettes
-- translucent objects
-- soft glow
-- lock state
+- ghost treatment based on the final asset
+- lower opacity
+- desaturated or cooler material
+- reduced detail contrast
+- soft glow only when needed for readability
+- lock state as secondary information
 
 Example copy:
 
@@ -106,6 +160,8 @@ Build this corner by showing up for your creative missions.
 ```
 
 Path preview should be informative, not a heavy shop/inventory screen.
+
+Zone labels should not be permanently visible across the room. Show labels primarily on hover, keyboard focus, tap/selection, or active state so the room still feels like a place rather than a map HUD.
 
 ---
 
@@ -164,11 +220,70 @@ The important rule:
 Reward is not only feedback. Reward changes world state.
 ```
 
+The reveal should feel like calm materialization:
+
+```txt
+ghost preview -> quiet unlock -> object/material/light resolves -> persistent room change
+```
+
+Avoid:
+
+- confetti
+- loot bursts
+- full-screen reward explosions
+- repeated modal interruptions
+- effects that hide the room
+
 ---
 
 ## Reward Matrix v1
 
-For v1, keep the reward set intentionally small: five rewards per path.
+For v1, keep the canonical reward definition set intentionally small: five rewards per path, 25 total.
+
+Important distinction:
+
+```txt
+25 reward definitions does not require 25 independent visible objects.
+```
+
+Visual manifestation can share art anchors when a reward evolves or changes the room instead of adding a separate object.
+
+Each reward definition should be planned with a manifestation behavior:
+
+| Behavior | Meaning |
+| --- | --- |
+| `ADD` | A new object appears in a reserved anchor. |
+| `REPLACE` | An existing object evolves into a more advanced form. |
+| `ENVIRONMENT` | A room-level or zone-level property changes. |
+| `ATMOSPHERE` | Light, ambience, texture, or motion changes. |
+| `IDENTITY` | The room expresses the user's progression identity more clearly. |
+
+The current backend keeps 25 deterministic reward definitions. Visual behavior and shared art-anchor mapping are product/art contracts and should not be confused with a new progression economy.
+
+The first implementation may still render simple object chips. Final art direction should gradually map reward definitions to fewer, higher-quality anchors where replacement, environment, atmosphere, or identity states make the room feel more premium.
+
+## Reference Vertical Slice
+
+Creativity is the first reference slice for art direction, implementation pacing, and QA.
+
+Target sequence:
+
+```txt
+Stage 0 base
+  -> Sketchbook ghost preview
+  -> unlock / materialize
+  -> persistent placed sketchbook object
+  -> next Lamp preview
+```
+
+This slice should prove:
+
+- base room sparseness is pleasant
+- locked preview uses final asset ghost treatment
+- reveal is calm and premium
+- placed reward persists in the room
+- next reward preview is readable without clutter
+- Ringo, panels, and reward anchors do not overlap.
 
 ### Creativity
 
@@ -312,6 +427,10 @@ Today is safe. Want to stop here or take a bonus step?
 
 V1 can use fixed object slots. Do not build drag-and-drop, free placement, rotation, or a full inventory editor yet.
 
+`slot_key` identifies the logical reward slot used by persistence and deterministic seeding. It is not the same as a final art anchor. Multiple reward slots may later share a visual anchor through `REPLACE`, `ENVIRONMENT`, `ATMOSPHERE`, or `IDENTITY` behavior.
+
+If implementation later needs explicit art mapping, add a separate visual/art contract or an additive field such as `manifestation_behavior` / `visual_anchor_key`. Do not reinterpret existing unlock rows as draggable inventory.
+
 ### reward_definitions
 
 - id
@@ -431,6 +550,8 @@ Do not include these in v1:
 - neighborhood/world map
 - heavy social feed
 - AI-generated reward decisions
+- strict isometric redesign
+- reward reveal based on confetti, loot boxes, or casino-style feedback
 
 ---
 

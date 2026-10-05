@@ -23,6 +23,7 @@ Product direction references:
 - [Product Direction Master Notes](product/PRODUCT_DIRECTION_MASTER_NOTES.md)
 - [MVP Relaunch Phases](product/MVP_RELAUNCH_PHASES.md)
 - [Living Space v1 Spec](product/LIVING_SPACE_V1_SPEC.md)
+- [Living Space Visual System Spec](product/LIVING_SPACE_VISUAL_SYSTEM_SPEC.md)
 - [Living Space Home Shell Spec](product/LIVING_SPACE_HOME_SHELL_SPEC.md)
 - [Living Space v1 Issue Breakdown](product/LIVING_SPACE_V1_ISSUE_BREAKDOWN.md)
 - [Living Space v1 UX Polish Backlog](product/LIVING_SPACE_V1_UX_POLISH_BACKLOG.md)
@@ -64,6 +65,7 @@ Implementation guidance:
 - Do not rewrite the dashboard; MissionCenter is the primary daily surface and older sections are supporting/progressive surfaces.
 - Treat Living Space v1 as a visible-progress Home layer on top of existing path/mission/check-in/reward systems. The Home Shell direction is that daily path, challenge, mission, reward, and rest interactions should happen inside the Living Space surface where possible, with `/paths`, `/challenges`, and `/enrollment/:id` preserved as fallback/deep-detail routes.
 - Keep Ringo as the guide layer across the room, not as a sixth room zone.
+- Preserve the locked Living Space visual direction: Dark Cinematic Diorama with controlled Stylized Night Progress influence, elevated 3/4 soft-perspective camera, sparse pleasant Stage 0, non-permanent zone labels, calm in-room reward materialization, and lighting as progression.
 - Delay complex social, mobile, widget, and advanced automation work until the guided loop is validated.
 
 ## Implemented Backend Systems
@@ -174,4 +176,4 @@ The project has moved beyond the older v0.3 dashboard/profile milestone. Public 
 
 Living Space v1 is now an implemented Home layer for visible progress: one room, five fixed path zones, onboarding path preview, authenticated space state endpoints, deterministic first reward unlocks from real mission completion, seen-state persistence, historical first-path reward backfill for legacy users, and a repeatable QA checklist.
 
-The next engineering priority is Living Space hardening and launch readiness rather than new room systems: keep schema/API/QA docs aligned, run the Living Space QA checklist before release review, preserve idempotent reward persistence, and keep later reward types (`early_consistency`, `path_progress_milestone`, `achievement_unlocked`, `major_path_milestone`) as locked previews until their unlock rules are explicitly specified. Avoid v2 features such as shops, inventory, drag/drop editing, city maps, public room visits, heavy social, or a second progression economy. Launch hardening remains active in parallel: keep reminder automation monitored, verify frontend production builds use `/api-proxy`, run the launch QA checklist, add/maintain mission-path-reminder smoke coverage, add a migration/backup plan, and continue reducing profile/API contract overlap.
+The next engineering priority is Living Space hardening and launch readiness rather than new room systems: keep schema/API/QA docs aligned, run the Living Space QA checklist before release review, preserve idempotent reward persistence, and keep later reward types (`early_consistency`, `path_progress_milestone`, `achievement_unlocked`, `major_path_milestone`) as locked previews until their unlock rules are explicitly specified. The visual hardening priority is the Creativity vertical slice: Stage 0 base -> Sketchbook ghost -> materialize -> persistent sketchbook -> Lamp preview. Avoid v2 features such as shops, inventory, drag/drop editing, city maps, public room visits, heavy social, or a second progression economy. Launch hardening remains active in parallel: keep reminder automation monitored, verify frontend production builds use `/api-proxy`, run the launch QA checklist, add/maintain mission-path-reminder smoke coverage, add a migration/backup plan, and continue reducing profile/API contract overlap.

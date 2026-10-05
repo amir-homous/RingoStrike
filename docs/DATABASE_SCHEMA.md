@@ -383,6 +383,8 @@ CREATE TABLE IF NOT EXISTS reward_definitions (
 
 Seeded and updated by `living_space_service.ensure_reward_definitions()` after canonical paths and missions are seeded. Living Space v1 seeds 25 deterministic rewards: five rewards for each of `career`, `creativity`, `fitness`, `learning`, and `sleep`.
 
+The 25 rows are canonical reward definitions, not a requirement for 25 independent final art objects. Visual manifestation can be planned separately as `ADD`, `REPLACE`, `ENVIRONMENT`, `ATMOSPHERE`, or `IDENTITY`. Current schema uses `slot_key` for deterministic reward persistence; if future art needs shared anchors, add an additive visual mapping such as `manifestation_behavior` / `visual_anchor_key` instead of changing XP, mission, check-in, or reward unlock ownership.
+
 Indexes:
 
 - `idx_reward_definitions_path_zone` on `(path_id, zone_key, status)`

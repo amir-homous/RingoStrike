@@ -20,6 +20,16 @@ Ringo guides the room.
 Real progress changes the room.
 ```
 
+Operational shell rule:
+
+```txt
+ROOM LAYER
+  -> RINGO GUIDE LAYER
+  -> ONE ACTIVE WORK SURFACE
+```
+
+Only one work surface should be active at a time. Do not stack zone panel, mission panel, reward modal, and large Ringo dialogue simultaneously.
+
 ## Product Position
 
 Living Space Home Shell is the navigation and interaction contract for turning the room into the primary daily surface.
@@ -99,6 +109,19 @@ Contains one active panel at a time:
 
 The work panel can be a side panel on desktop and a bottom sheet/full-width panel on mobile. Final visual treatment requires product/design approval.
 
+Desktop target:
+
+- overlay side panel, roughly 380-480px depending state
+- room remains the primary surface
+- panel should not cover Ringo-safe positions or primary reward anchors
+
+Mobile target:
+
+- bottom sheet with the room preserved above/behind it
+- controlled room crop in overview
+- selected-zone crop/zoom after zone selection
+- avoid forcing all five zones to be equally visible in portrait after a zone is selected
+
 ## State Model
 
 ### State 1: Room Overview
@@ -112,6 +135,8 @@ Shows:
 - unseen reward marker if any
 - Ringo's recommended next step
 - primary CTA based on Ringo Brain / MissionCenter state
+- no permanent zone labels
+- no dense challenge cards or stats grid
 
 Allowed actions:
 
@@ -119,6 +144,20 @@ Allowed actions:
 - start/continue Ringo recommended mission
 - finish/rest if today is safe
 - open optional choices if today is already safe
+
+Overview should answer:
+
+```txt
+"What is my next step today?"
+```
+
+not:
+
+```txt
+"What is every system in my account?"
+```
+
+Ringo guidance should stay short: one or two sentences and one primary CTA.
 
 ### State 2: Zone Selected
 
@@ -133,6 +172,14 @@ Shows:
 - today's path state
 - active challenge if any
 - primary/secondary path actions
+
+Selected zone behavior:
+
+- selected zone receives subtle focus lighting
+- other zones remain visible but subdued
+- zone label appears on selection, hover, or focus
+- related reward anchors/previews can become clearer
+- panel stays atmospheric and compact, not tab-heavy
 
 Primary action rules:
 
@@ -210,6 +257,8 @@ Actions:
 
 Completion should trigger the existing mission/check-in pipeline. Living Space must not create a second completion system.
 
+Use the existing terminology above. Avoid introducing a separate `Finish` action for mission completion, because Living Space should not become a second completion model.
+
 ### State 6: Reward Moment In Room
 
 Triggered after mission completion when reward data exists.
@@ -227,6 +276,9 @@ Rules:
 - Only newly unlocked room rewards show an unlock moment.
 - Backfilled legacy rewards remain seen and do not replay.
 - The room refreshes after the moment closes.
+- The reveal is in-room and minimal.
+- Reward materialization should be calm and premium, not confetti/loot/explosion feedback.
+- The room should remain visually present during the reward moment.
 
 ### State 7: Rest / Finish Today
 
@@ -243,6 +295,8 @@ Shows:
 - optional next step only if energy remains
 
 The rest state should not become an empty page. It should feel like the user is resting inside the same Living Space.
+
+Keep rest summaries short: two or three lines plus one ending action is enough.
 
 ## Routing Contract
 
