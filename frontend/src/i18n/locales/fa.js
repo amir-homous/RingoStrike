@@ -120,6 +120,7 @@ export default {
       ready: "آماده",
       done: "ثبت شد",
       clear: "کامل",
+      reminderDue: "یادآور عقب‌افتاده",
     },
     ringoGuide: {
       eyebrow: "رینگو",

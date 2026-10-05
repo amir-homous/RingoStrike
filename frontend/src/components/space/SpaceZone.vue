@@ -2,7 +2,7 @@
   <button
     type="button"
     class="spaceZone"
-    :class="[`zone-${zone.zone_key}`, { active, hasProgress }]"
+    :class="[`zone-${zone.zone_key}`, { active, hasProgress, hasReminderDue }]"
     @click="$emit('select', zone)"
   >
     <span class="zoneHeader">
@@ -66,6 +66,10 @@ const hasProgress = computed(() => {
   return (props.zone?.unlocked_objects || []).length > 0;
 });
 
+const hasReminderDue = computed(() => {
+  return Number(props.zone?.dueReminderCount || 0) > 0;
+});
+
 const visibleObjects = computed(() => {
   const unlocked = props.zone?.unlocked_objects || [];
   const locked = props.zone?.locked_preview_objects || [];
@@ -84,6 +88,15 @@ const pathProgress = computed(() => {
 });
 
 const zoneStatus = computed(() => {
+  if (hasReminderDue.value) {
+    return {
+      state: "reminder_due",
+      label: t("space.zoneState.reminderDue", {
+        count: Number(props.zone?.dueReminderCount || 0),
+      }),
+    };
+  }
+
   const progress = pathProgress.value;
   if (progress?.total > 0 && progress.done >= progress.total) {
     return {
@@ -153,6 +166,10 @@ const pathIcon = computed(() => {
   border-color: rgba(74, 222, 128, 0.22);
 }
 
+.spaceZone.hasReminderDue {
+  border-color: rgba(247, 215, 116, 0.24);
+}
+
 .zoneHeader {
   display: flex;
   flex-wrap: wrap;
@@ -203,6 +220,12 @@ const pathIcon = computed(() => {
   color: rgba(247, 215, 116, 0.95);
   background: rgba(247, 215, 116, 0.075);
   border-color: rgba(247, 215, 116, 0.16);
+}
+
+.zoneStatusBadge.reminder_due {
+  color: rgba(247, 215, 116, 0.98);
+  background: rgba(247, 215, 116, 0.10);
+  border-color: rgba(247, 215, 116, 0.22);
 }
 
 .zoneTitleWrap {

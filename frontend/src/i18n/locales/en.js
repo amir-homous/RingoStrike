@@ -120,6 +120,7 @@ export default {
       ready: "Ready",
       done: "Done",
       clear: "Clear",
+      reminderDue: "Reminder due",
     },
     ringoGuide: {
       eyebrow: "Ringo",
