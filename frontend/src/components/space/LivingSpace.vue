@@ -46,7 +46,11 @@
       </button>
     </div>
 
-    <div v-if="spaceState && !loading && !error" class="spaceLayout">
+    <div
+      v-if="spaceState && !loading && !error"
+      class="spaceLayout"
+      :class="{ hasPanel: Boolean(panelZone) }"
+    >
       <div class="roomStage" :aria-label="t('space.roomLabel')">
         <SpaceZone
           v-for="zone in displayZones"
@@ -1011,6 +1015,25 @@ watch(
   grid-template-columns: minmax(0, 1fr);
   gap: var(--s-12);
   align-items: start;
+}
+
+@media (min-width: 1080px) {
+  .spaceLayout.hasPanel {
+    grid-template-columns: minmax(0, 1fr) minmax(360px, 420px);
+    gap: var(--s-16);
+  }
+
+  .spaceLayout.hasPanel .roomStage {
+    min-height: 456px;
+  }
+
+  .spaceLayout.hasPanel :deep(.zonePanel) {
+    position: sticky;
+    top: 16px;
+    max-height: min(760px, calc(100vh - 32px));
+    overflow: auto;
+    scrollbar-width: thin;
+  }
 }
 
 .roomOverviewStrip {
