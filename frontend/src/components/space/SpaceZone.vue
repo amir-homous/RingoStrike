@@ -155,6 +155,7 @@ const pathIcon = computed(() => {
 
 .zoneHeader {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   gap: 8px;
   min-width: 0;
@@ -163,8 +164,10 @@ const pathIcon = computed(() => {
 .zoneStateStack {
   display: inline-flex;
   align-items: flex-start;
+  justify-content: flex-end;
   gap: 6px;
   flex: 0 0 auto;
+  max-width: 100%;
 }
 
 .zoneStatusBadge {
@@ -179,6 +182,8 @@ const pathIcon = computed(() => {
   font-size: 0.62rem;
   font-weight: 900;
   letter-spacing: 0.02em;
+  overflow-wrap: anywhere;
+  text-align: center;
 }
 
 .zoneStatusBadge.ready_today {
@@ -205,6 +210,7 @@ const pathIcon = computed(() => {
   align-items: flex-start;
   gap: 9px;
   min-width: 0;
+  flex: 1 1 180px;
 }
 
 .iconFrame {

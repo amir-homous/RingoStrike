@@ -1240,9 +1240,10 @@ function missionActionLabelForShell(mission) {
 }
 
 .shellStateNav {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(86px, 1fr));
   gap: 7px;
+  min-width: 0;
   padding: 7px;
   border-radius: 14px;
   background: rgba(255, 255, 255, 0.032);
@@ -1253,12 +1254,15 @@ function missionActionLabelForShell(mission) {
   min-height: 29px;
   padding: 5px 9px;
   border-radius: 9px;
+  justify-content: center;
   color: rgba(255, 255, 255, 0.58);
   background: transparent;
   border: 1px solid transparent;
   cursor: pointer;
   font-size: 0.68rem;
   font-weight: 850;
+  overflow-wrap: anywhere;
+  text-align: center;
 }
 
 .shellStateButton:hover,
@@ -1419,12 +1423,17 @@ function missionActionLabelForShell(mission) {
 .actionLink {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   min-height: 34px;
+  min-width: 0;
   padding: 7px 11px;
   border-radius: 10px;
   text-decoration: none;
   font-size: 0.78rem;
   font-weight: 850;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+  text-align: center;
   border: 0;
   cursor: pointer;
 }
@@ -1740,6 +1749,7 @@ function missionActionLabelForShell(mission) {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+  min-width: 0;
 }
 
 .selectedMissionFocus {
@@ -1858,9 +1868,11 @@ function missionActionLabelForShell(mission) {
 
 .fallbackLink {
   justify-self: start;
+  min-width: 0;
   color: rgba(110, 229, 255, 0.86);
   font-size: 0.78rem;
   font-weight: 850;
+  overflow-wrap: anywhere;
   text-decoration: none;
 }
 
@@ -1915,6 +1927,18 @@ function missionActionLabelForShell(mission) {
 }
 
 @media (max-width: 720px) {
+  .zonePanel {
+    padding: 12px;
+  }
+
+  .panelHead {
+    align-items: stretch;
+  }
+
+  .closeButton {
+    flex: 0 0 auto;
+  }
+
   .ringoGuide {
     grid-template-columns: 1fr;
   }
@@ -1922,6 +1946,29 @@ function missionActionLabelForShell(mission) {
   .ringoGuide :deep(.ringoMood.size-sm) {
     width: 64px;
     height: 64px;
+  }
+
+  .shellStateNav {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .actionRow,
+  .ringoGuideActions,
+  .selectedChallengeActions {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .actionLink,
+  .fallbackLink,
+  .shellCheckin {
+    width: 100%;
+    justify-self: stretch;
+  }
+
+  .pathStats,
+  .miniStats {
+    grid-template-columns: 1fr;
   }
 
   .challengeLadder {
@@ -1934,6 +1981,24 @@ function missionActionLabelForShell(mission) {
     width: auto;
     max-width: none;
     min-width: 0;
+  }
+
+  .selectedMissionList {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 420px) {
+  .panelHead {
+    display: grid;
+  }
+
+  .closeButton {
+    justify-self: stretch;
+  }
+
+  .shellStateNav {
+    grid-template-columns: 1fr;
   }
 }
 </style>
