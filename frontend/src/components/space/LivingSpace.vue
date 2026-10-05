@@ -26,6 +26,26 @@
       @retry="loadSpace"
     />
 
+    <div
+      v-if="spaceState && !loading && !error && roomOverviewGuidance"
+      class="roomOverviewStrip"
+      :class="roomOverviewGuidance.state"
+    >
+      <div class="roomOverviewCopy">
+        <span>{{ t("space.overview.label") }}</span>
+        <strong>{{ roomOverviewGuidance.title }}</strong>
+        <p>{{ roomOverviewGuidance.text }}</p>
+      </div>
+
+      <button
+        type="button"
+        class="overviewAction"
+        @click="activateOverviewGuidance"
+      >
+        {{ roomOverviewGuidance.cta }}
+      </button>
+    </div>
+
     <div v-if="spaceState && !loading && !error" class="spaceLayout">
       <div class="roomStage" :aria-label="t('space.roomLabel')">
         <SpaceZone
@@ -186,6 +206,68 @@ const activePathError = computed(() => {
   return pathId ? pathErrors.value[pathId] || "" : "";
 });
 
+const roomOverviewGuidance = computed(() => {
+  if (!displayZones.value.length) return null;
+
+  const dueZone = displayZones.value.find((zone) => Number(zone.dueReminderCount || 0) > 0);
+  if (dueZone) {
+    return {
+      state: "reminder",
+      zone: dueZone,
+      mode: "rest",
+      title: t("space.overview.reminderTitle", { path: dueZone.title }),
+      text: t("space.overview.reminderText", { count: dueZone.dueReminderCount }),
+      cta: t("space.overview.reminderCta"),
+    };
+  }
+
+  if (props.todaySafe) {
+    return {
+      state: "safe",
+      mode: "rest",
+      title: t("space.overview.safeTitle"),
+      text: t("space.overview.safeText"),
+      cta: t("space.overview.safeCta"),
+    };
+  }
+
+  const readyZone = displayZones.value.find((zone) => zone.action?.state === "ready_today");
+  if (readyZone) {
+    return {
+      state: "ready",
+      zone: readyZone,
+      mode: "mission",
+      title: t("space.overview.readyTitle", { path: readyZone.title }),
+      text: t("space.overview.readyText"),
+      cta: t("space.overview.readyCta"),
+    };
+  }
+
+  const startZone = displayZones.value.find((zone) => zone.action?.state === "not_started");
+  if (startZone && unlockedCount.value === 0) {
+    return {
+      state: "start",
+      zone: startZone,
+      mode: "path",
+      title: t("space.overview.startTitle", { path: startZone.title }),
+      text: t("space.overview.startText"),
+      cta: t("space.overview.startCta"),
+    };
+  }
+
+  const progressZone = displayZones.value.find((zone) => (zone.unlocked_objects || []).length > 0)
+    || displayZones.value[0];
+
+  return {
+    state: "progress",
+    zone: progressZone,
+    mode: "zone",
+    title: t("space.overview.progressTitle"),
+    text: t("space.overview.progressText", { count: unlockedCount.value }),
+    cta: t("space.overview.progressCta"),
+  };
+});
+
 async function loadSpace() {
   loading.value = true;
   error.value = "";
@@ -245,6 +327,23 @@ function changeShellMode(mode) {
 
   if (["path", "challenge", "mission"].includes(mode)) {
     ensurePathChallenges(panelZone.value);
+  }
+}
+
+function activateOverviewGuidance() {
+  const guidance = roomOverviewGuidance.value;
+  if (!guidance) return;
+
+  if (guidance.mode === "rest") {
+    changeShellMode("rest");
+    return;
+  }
+
+  if (guidance.zone) {
+    activeZone.value = guidance.zone;
+    selectedPathChallengeId.value = null;
+    shellMode.value = guidance.mode || "zone";
+    ensurePathChallenges(guidance.zone);
   }
 }
 
@@ -909,6 +1008,90 @@ watch(
   align-items: start;
 }
 
+.roomOverviewStrip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+  padding: 12px;
+  border-radius: 14px;
+  background:
+    radial-gradient(circle at 12% 0%, rgba(110, 229, 255, 0.08), transparent 30%),
+    rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(110, 229, 255, 0.12);
+}
+
+.roomOverviewStrip.reminder,
+.roomOverviewStrip.start {
+  border-color: rgba(247, 215, 116, 0.16);
+  background:
+    radial-gradient(circle at 12% 0%, rgba(247, 215, 116, 0.10), transparent 32%),
+    rgba(247, 215, 116, 0.04);
+}
+
+.roomOverviewStrip.safe {
+  border-color: rgba(80, 220, 140, 0.16);
+  background:
+    radial-gradient(circle at 12% 0%, rgba(80, 220, 140, 0.10), transparent 32%),
+    rgba(80, 220, 140, 0.04);
+}
+
+.roomOverviewCopy {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.roomOverviewCopy span {
+  color: rgba(110, 229, 255, 0.72);
+  font-size: 0.68rem;
+  font-weight: 900;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.roomOverviewCopy strong {
+  color: rgba(255, 255, 255, 0.91);
+  font-size: 0.92rem;
+  line-height: 1.22;
+}
+
+.roomOverviewCopy p {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.62);
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+
+.overviewAction {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 34px;
+  min-width: 0;
+  padding: 7px 11px;
+  border-radius: 10px;
+  color: rgba(5, 10, 18, 0.95);
+  background: rgba(110, 229, 255, 0.88);
+  border: 0;
+  cursor: pointer;
+  font-size: 0.78rem;
+  font-weight: 850;
+  line-height: 1.25;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+
+.roomOverviewStrip.reminder .overviewAction,
+.roomOverviewStrip.start .overviewAction {
+  background: rgba(247, 215, 116, 0.9);
+}
+
+.roomOverviewStrip.safe .overviewAction {
+  background: rgba(122, 245, 176, 0.9);
+}
+
 .roomStage {
   position: relative;
   display: grid;
@@ -960,6 +1143,14 @@ watch(
 }
 
 @media (max-width: 720px) {
+  .roomOverviewStrip {
+    display: grid;
+  }
+
+  .overviewAction {
+    width: 100%;
+  }
+
   .roomStage {
     grid-template-columns: 1fr;
     grid-auto-rows: auto;
