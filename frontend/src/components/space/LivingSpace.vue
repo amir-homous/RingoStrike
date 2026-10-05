@@ -128,11 +128,13 @@ const hasHistoricalRewards = computed(() => {
 const displayZones = computed(() => {
   return (spaceState.value?.zones || []).map((zone) => {
     const pathDetail = buildPathDetail(zone);
+    const zonePathKey = normalizePathKey(zone.path_key);
 
     return {
       ...zone,
       pathDetail,
       action: buildZoneAction(zone, pathDetail),
+      dueReminderCount: dueReminderCountByPath.value[zonePathKey] || 0,
     };
   });
 });
@@ -592,11 +594,22 @@ const dueReminders = computed(() => {
       id: mission?.mission_id || mission?.id || `${mission?.title || "mission"}-${mission?.reminder_at || ""}`,
       title: mission?.title || mission?.mission_title || t("common.mission"),
       challengeName: mission?.challenge_name || mission?.challenge || "",
-      pathKey: normalizePathKey(mission?.path_key || mission?.path || ""),
+      pathId: mission?.path_id || null,
+      pathKey: missionPathKey(mission),
       reminderAt: mission?.reminder_at || "",
       timestamp: reminderTimestamp(mission),
     }))
     .sort((a, b) => a.timestamp - b.timestamp);
+});
+
+const dueReminderCountByPath = computed(() => {
+  return dueReminders.value.reduce((counts, reminder) => {
+    const key = normalizePathKey(reminder.pathKey);
+    if (!key) return counts;
+
+    counts[key] = (counts[key] || 0) + 1;
+    return counts;
+  }, {});
 });
 
 const futureReminderCount = computed(() => {
@@ -628,6 +641,20 @@ const dailyMomentum = computed(() => {
 
 function normalizedMissionStatus(mission) {
   return String(mission?.status || mission?.today_status || "pending").toLowerCase();
+}
+
+function missionPathKey(mission) {
+  const directKey = normalizePathKey(mission?.path_key || mission?.path || "");
+  if (directKey) return directKey;
+
+  const pathId = normalizeId(mission?.path_id);
+  if (!pathId) return "";
+
+  const path = paths.value.find((item) => {
+    return normalizeId(item?.path_id || item?.id) === pathId;
+  });
+
+  return normalizePathKey(path?.key || path?.path_key || path?.slug || "");
 }
 
 function reminderTimestamp(mission) {
