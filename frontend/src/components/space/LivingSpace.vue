@@ -1,20 +1,5 @@
 <template>
-  <BaseCard class="livingSpace">
-    <div class="spaceHead">
-      <div>
-        <p class="spaceKicker">{{ t("space.eyebrow") }}</p>
-        <h2>{{ t("space.title") }}</h2>
-        <p>{{ t("space.subtitle") }}</p>
-        <p v-if="spaceState" class="spaceStatus">{{ spaceStatus }}</p>
-        <p v-if="spaceState" class="spaceRule">{{ t("space.rule") }}</p>
-      </div>
-
-      <div v-if="spaceState" class="spaceMeta">
-        <span>{{ t("space.objects", { count: unlockedCount }) }}</span>
-        <span v-if="spaceState.has_unseen_rewards">{{ t("space.newReward") }}</span>
-      </div>
-    </div>
-
+  <section class="livingSpace">
     <UiState
       :loading="loading"
       :error="!!error"
@@ -27,71 +12,70 @@
     />
 
     <div
-      v-if="spaceState && !loading && !error && roomOverviewGuidance"
-      class="roomOverviewStrip"
-      :class="roomOverviewGuidance.state"
-    >
-      <div class="roomOverviewCopy">
-        <span>{{ t("space.overview.label") }}</span>
-        <strong>{{ roomOverviewGuidance.title }}</strong>
-        <p>{{ roomOverviewGuidance.text }}</p>
-      </div>
-
-      <button
-        type="button"
-        class="overviewAction"
-        @click="activateOverviewGuidance"
-      >
-        {{ roomOverviewGuidance.cta }}
-      </button>
-    </div>
-
-    <div
       v-if="spaceState && !loading && !error"
       class="spaceLayout"
-      :class="{ hasPanel: Boolean(panelZone) }"
+      :class="{ hasPanel: Boolean(workSurfaceZone) }"
     >
-      <div class="roomStage" :aria-label="t('space.roomLabel')">
-        <SpaceZone
-          v-for="zone in displayZones"
-          :key="zone.zone_key"
-          :zone="zone"
-          :active="panelZone?.zone_key === zone.zone_key"
-          :has-active-selection="hasActiveZoneSelection"
-          @select="selectZone"
-        />
+      <div class="roomStageShell">
+        <div class="roomStageHead">
+          <div>
+            <p class="spaceKicker">{{ t("space.eyebrow") }}</p>
+            <h2>{{ t("space.title") }}</h2>
+            <p v-if="roomOverviewGuidance" class="spaceStatus">
+              {{ roomOverviewGuidance.title }}
+            </p>
+            <p class="spaceRule">{{ t("space.rule") }}</p>
+          </div>
+
+          <div class="spaceMeta">
+            <span>{{ t("space.objects", { count: unlockedCount }) }}</span>
+            <span v-if="spaceState.has_unseen_rewards">{{ t("space.newReward") }}</span>
+          </div>
+        </div>
+
+        <div class="roomStage" :aria-label="t('space.roomLabel')">
+          <SpaceZone
+            v-for="zone in displayZones"
+            :key="zone.zone_key"
+            :zone="zone"
+            :active="displayActiveZone?.zone_key === zone.zone_key"
+            :has-active-selection="hasActiveZoneSelection"
+            @select="selectZone"
+          />
+        </div>
       </div>
 
-      <SpaceZonePanel
-        v-if="panelZone"
-        :mode="panelMode"
-        :zone="panelZone"
-        :checking-id="checkingId"
-        :path-loading="activePathLoading"
-        :path-error="activePathError"
-        :selected-challenge-id="selectedPathChallengeId"
-        :completing-mission-id="completingMissionId"
-        :starting-challenge-id="startingChallengeId"
-        :today-safe="todaySafe"
-        :daily-momentum="dailyMomentum"
-        :due-reminders="dueReminders"
-        :future-reminder-count="futureReminderCount"
-        @change-mode="changeShellMode"
-        @select-challenge="selectPathChallenge"
-        @start-challenge="startChallenge"
-        @complete-mission="completeMission"
-        @checkin="$emit('checkin', $event)"
-        @close="closePanel"
-      />
+      <div v-if="workSurfaceZone" class="roomSafeZone">
+        <SpaceZonePanel
+          :mode="workSurfaceMode"
+          :zone="workSurfaceZone"
+          :checking-id="checkingId"
+          :path-loading="activePathLoading"
+          :path-error="activePathError"
+          :selected-challenge-id="selectedPathChallengeId"
+          :completing-mission-id="completingMissionId"
+          :starting-challenge-id="startingChallengeId"
+          :today-safe="todaySafe"
+          :daily-momentum="dailyMomentum"
+          :due-reminders="dueReminders"
+          :future-reminder-count="futureReminderCount"
+          :closable="hasActiveZoneSelection"
+          @change-mode="changeShellMode"
+          @select-challenge="selectPathChallenge"
+          @start-challenge="startChallenge"
+          @complete-mission="completeMission"
+          @checkin="$emit('checkin', $event)"
+          @close="closePanel"
+        />
+      </div>
     </div>
-  </BaseCard>
+  </section>
 </template>
 
 <script setup>
 import { computed, onMounted, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import api from "@/lib/api";
-import BaseCard from "@/components/ui/BaseCard.vue";
 import UiState from "@/components/ui/UiState.vue";
 import { getChallengePathKey } from "@/lib/guidedExperience";
 import { localizeChallenge, localizePath } from "@/lib/ringoContentLocalization";
@@ -130,24 +114,6 @@ const completingMissionId = ref(null);
 
 const unlockedCount = computed(() => {
   return spaceState.value?.unlocked_objects?.length || 0;
-});
-
-const spaceStatus = computed(() => {
-  if (!unlockedCount.value) {
-    return t("space.emptyStatus");
-  }
-
-  if (hasHistoricalRewards.value) {
-    return t("space.historyStatus", { count: unlockedCount.value });
-  }
-
-  return t("space.progressStatus", { count: unlockedCount.value });
-});
-
-const hasHistoricalRewards = computed(() => {
-  return (spaceState.value?.unlocked_objects || []).some((reward) => {
-    return reward?.source_type === "mission_history";
-  });
 });
 
 const displayZones = computed(() => {
@@ -203,7 +169,23 @@ const panelZone = computed(() => {
   return null;
 });
 
-const activePathId = computed(() => panelZone.value?.pathDetail?.pathId || "");
+const workSurfaceZone = computed(() => {
+  return panelZone.value
+    || roomOverviewGuidance.value?.zone
+    || restZone.value
+    || displayZones.value[0]
+    || null;
+});
+
+const workSurfaceMode = computed(() => {
+  if (panelZone.value) return panelMode.value;
+  const guidanceMode = roomOverviewGuidance.value?.mode;
+  return ["path", "challenge", "mission", "rest"].includes(guidanceMode)
+    ? guidanceMode
+    : "zone";
+});
+
+const activePathId = computed(() => workSurfaceZone.value?.pathDetail?.pathId || "");
 
 const activePathLoading = computed(() => {
   const pathId = activePathId.value;
@@ -328,31 +310,14 @@ function changeShellMode(mode) {
     return;
   }
 
-  if (!activeZone.value && panelZone.value) {
-    activeZone.value = panelZone.value;
+  if (!activeZone.value && workSurfaceZone.value) {
+    activeZone.value = workSurfaceZone.value;
   }
 
   shellMode.value = mode;
 
   if (["path", "challenge", "mission"].includes(mode)) {
     ensurePathChallenges(panelZone.value);
-  }
-}
-
-function activateOverviewGuidance() {
-  const guidance = roomOverviewGuidance.value;
-  if (!guidance) return;
-
-  if (guidance.mode === "rest") {
-    changeShellMode("rest");
-    return;
-  }
-
-  if (guidance.zone) {
-    activeZone.value = guidance.zone;
-    selectedPathChallengeId.value = null;
-    shellMode.value = guidance.mode || "zone";
-    ensurePathChallenges(guidance.zone);
   }
 }
 
@@ -813,7 +778,7 @@ async function loadPathChallenges(path) {
 }
 
 async function startChallenge(challenge) {
-  const pathId = displayActiveZone.value?.pathDetail?.pathId;
+  const pathId = (displayActiveZone.value || workSurfaceZone.value)?.pathDetail?.pathId;
   if (!challenge?.id || !pathId) return;
 
   startingChallengeId.value = challenge.id;
@@ -840,7 +805,7 @@ async function startChallenge(challenge) {
 
 async function completeMission(mission) {
   const missionId = mission?.id;
-  const pathId = displayActiveZone.value?.pathDetail?.pathId;
+  const pathId = (displayActiveZone.value || workSurfaceZone.value)?.pathDetail?.pathId;
   if (!missionId || !pathId) return;
 
   completingMissionId.value = missionId;
@@ -940,23 +905,68 @@ watch(
 <style scoped>
 .livingSpace {
   display: grid;
-  gap: var(--s-16);
-  padding: 18px;
-  overflow: hidden;
+  gap: var(--s-12);
+  min-width: 0;
+  overflow: visible;
   background:
     radial-gradient(circle at 15% 0%, rgba(110, 229, 255, 0.08), transparent 34%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.018));
+    linear-gradient(180deg, rgba(255, 255, 255, 0.02), transparent);
 }
 
-.spaceHead {
+.spaceLayout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--s-12);
+  align-items: stretch;
+  min-width: 0;
+  padding: 12px;
+  border-radius: 24px;
+  background:
+    radial-gradient(circle at 18% 0%, rgba(110, 229, 255, 0.08), transparent 34%),
+    radial-gradient(circle at 86% 18%, rgba(247, 215, 116, 0.06), transparent 32%),
+    linear-gradient(145deg, rgba(10, 16, 28, 0.94), rgba(5, 9, 16, 0.94));
+  border: 1px solid rgba(110, 229, 255, 0.12);
+  box-shadow:
+    0 20px 60px rgba(0, 0, 0, 0.30),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.025);
+}
+
+@media (min-width: 1160px) {
+  .spaceLayout.hasPanel {
+    grid-template-columns: minmax(560px, 1fr) minmax(420px, 500px);
+    gap: var(--s-16);
+  }
+
+  .spaceLayout.hasPanel .roomStageShell {
+    min-height: 620px;
+  }
+
+  .spaceLayout.hasPanel .roomSafeZone {
+    min-height: 620px;
+  }
+}
+
+.roomStageShell {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 10px;
+  min-width: 0;
+}
+
+.roomStageHead {
   display: flex;
   justify-content: space-between;
-  gap: var(--s-16);
+  gap: var(--s-12);
   align-items: flex-start;
+  min-width: 0;
+  padding: 12px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.032);
+  border: 1px solid rgba(255, 255, 255, 0.075);
 }
 
 .spaceKicker {
-  margin: 0 0 8px;
+  margin: 0 0 6px;
   color: rgba(110, 229, 255, 0.82);
   font-size: 0.72rem;
   font-weight: 900;
@@ -964,29 +974,30 @@ watch(
   text-transform: uppercase;
 }
 
-.spaceHead h2 {
+.roomStageHead h2 {
   margin: 0;
   color: rgba(255, 255, 255, 0.94);
-  font-size: 1.42rem;
+  font-size: 1.1rem;
   line-height: 1.14;
 }
 
-.spaceHead p {
-  margin: 8px 0 0;
-  max-width: 680px;
+.roomStageHead p {
+  margin: 6px 0 0;
+  max-width: 520px;
   color: rgba(255, 255, 255, 0.62);
-  line-height: 1.6;
+  line-height: 1.45;
 }
 
-.spaceHead .spaceStatus {
+.roomStageHead .spaceStatus {
   color: rgba(255, 255, 255, 0.72);
   font-weight: 750;
+  font-size: 0.82rem;
 }
 
-.spaceHead .spaceRule {
+.roomStageHead .spaceRule {
   margin-top: 6px;
   color: rgba(110, 229, 255, 0.70);
-  font-size: 0.82rem;
+  font-size: 0.76rem;
   font-weight: 760;
 }
 
@@ -1010,129 +1021,30 @@ watch(
   font-weight: 850;
 }
 
-.spaceLayout {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: var(--s-12);
-  align-items: start;
-}
-
-@media (min-width: 1080px) {
-  .spaceLayout.hasPanel {
-    grid-template-columns: minmax(0, 1fr) minmax(360px, 420px);
-    gap: var(--s-16);
-  }
-
-  .spaceLayout.hasPanel .roomStage {
-    min-height: 456px;
-  }
-
-  .spaceLayout.hasPanel :deep(.zonePanel) {
-    position: sticky;
-    top: 16px;
-    max-height: min(760px, calc(100vh - 32px));
-    overflow: auto;
-    scrollbar-width: thin;
-  }
-}
-
-.roomOverviewStrip {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  min-width: 0;
-  padding: 12px;
-  border-radius: 14px;
-  background:
-    radial-gradient(circle at 12% 0%, rgba(110, 229, 255, 0.08), transparent 30%),
-    rgba(255, 255, 255, 0.035);
-  border: 1px solid rgba(110, 229, 255, 0.12);
-}
-
-.roomOverviewStrip.reminder,
-.roomOverviewStrip.start {
-  border-color: rgba(247, 215, 116, 0.16);
-  background:
-    radial-gradient(circle at 12% 0%, rgba(247, 215, 116, 0.10), transparent 32%),
-    rgba(247, 215, 116, 0.04);
-}
-
-.roomOverviewStrip.safe {
-  border-color: rgba(80, 220, 140, 0.16);
-  background:
-    radial-gradient(circle at 12% 0%, rgba(80, 220, 140, 0.10), transparent 32%),
-    rgba(80, 220, 140, 0.04);
-}
-
-.roomOverviewCopy {
-  display: grid;
-  gap: 4px;
-  min-width: 0;
-}
-
-.roomOverviewCopy span {
-  color: rgba(110, 229, 255, 0.72);
-  font-size: 0.68rem;
-  font-weight: 900;
-  letter-spacing: 0.09em;
-  text-transform: uppercase;
-}
-
-.roomOverviewCopy strong {
-  color: rgba(255, 255, 255, 0.91);
-  font-size: 0.92rem;
-  line-height: 1.22;
-}
-
-.roomOverviewCopy p {
-  margin: 0;
-  color: rgba(255, 255, 255, 0.62);
-  font-size: 0.8rem;
-  line-height: 1.5;
-}
-
-.overviewAction {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 34px;
-  min-width: 0;
-  padding: 7px 11px;
-  border-radius: 10px;
-  color: rgba(5, 10, 18, 0.95);
-  background: rgba(110, 229, 255, 0.88);
-  border: 0;
-  cursor: pointer;
-  font-size: 0.78rem;
-  font-weight: 850;
-  line-height: 1.25;
-  text-align: center;
-  overflow-wrap: anywhere;
-}
-
-.roomOverviewStrip.reminder .overviewAction,
-.roomOverviewStrip.start .overviewAction {
-  background: rgba(247, 215, 116, 0.9);
-}
-
-.roomOverviewStrip.safe .overviewAction {
-  background: rgba(122, 245, 176, 0.9);
-}
-
 .roomStage {
   position: relative;
   display: grid;
   grid-template-columns: repeat(6, minmax(0, 1fr));
-  grid-auto-rows: minmax(120px, auto);
+  grid-auto-rows: minmax(150px, auto);
   gap: 10px;
-  min-height: 430px;
+  min-height: 0;
   padding: 12px;
-  border-radius: 10px;
+  border-radius: 18px;
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.02)),
     linear-gradient(145deg, rgba(10, 18, 30, 0.96), rgba(8, 12, 20, 0.95));
   border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.roomSafeZone {
+  min-width: 0;
+  max-height: min(720px, calc(100vh - 120px));
+  overflow: auto;
+  scrollbar-width: thin;
+}
+
+.roomSafeZone :deep(.zonePanel) {
+  min-height: 100%;
 }
 
 .roomStage :deep(.zone-work_desk) {
@@ -1161,7 +1073,7 @@ watch(
 }
 
 @media (max-width: 920px) {
-  .spaceHead {
+  .roomStageHead {
     flex-direction: column;
   }
 
@@ -1171,12 +1083,9 @@ watch(
 }
 
 @media (max-width: 720px) {
-  .roomOverviewStrip {
-    display: grid;
-  }
-
-  .overviewAction {
-    width: 100%;
+  .spaceLayout {
+    padding: 10px;
+    border-radius: 20px;
   }
 
   .roomStage {
@@ -1188,6 +1097,11 @@ watch(
   .roomStage :deep(.spaceZone) {
     grid-column: auto;
     grid-row: auto;
+  }
+
+  .roomSafeZone {
+    max-height: none;
+    overflow: visible;
   }
 }
 </style>

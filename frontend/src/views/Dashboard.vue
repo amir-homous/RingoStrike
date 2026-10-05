@@ -61,7 +61,7 @@
 
           <LivingSpace
             v-if="showFullDashboard"
-            class="dashboardRevealItem"
+            class="dashboardRevealItem livingSpaceHomeShell"
             :refresh-key="spaceRefreshKey"
             :challenges="challenges"
             :missions="missionCenterStatus.missions"
@@ -742,6 +742,12 @@ onMounted(loadDashboard);
   opacity: 0;
   transform: translateY(10px);
   animation: dashboardReveal 420ms cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+}
+
+.livingSpaceHomeShell {
+  width: min(1320px, calc(100vw - 48px));
+  max-width: none;
+  justify-self: center;
 }
 
 .dashboardRevealActive .dashboardRevealItem:nth-of-type(2) {

@@ -11,7 +11,7 @@
         </div>
       </div>
 
-      <button type="button" class="closeButton" @click="$emit('close')">
+      <button v-if="closable" type="button" class="closeButton" @click="$emit('close')">
         {{ t("space.close") }}
       </button>
     </div>
@@ -491,6 +491,7 @@ const props = defineProps({
   dailyMomentum: { type: Object, default: () => ({}) },
   dueReminders: { type: Array, default: () => [] },
   futureReminderCount: { type: Number, default: 0 },
+  closable: { type: Boolean, default: true },
 });
 
 const emit = defineEmits(["change-mode", "select-challenge", "start-challenge", "complete-mission", "checkin", "close"]);
@@ -1759,22 +1760,20 @@ function formattedReminderTime(value) {
 }
 
 .challengeLadder {
-  display: flex;
+  display: grid;
   gap: 10px;
   min-width: 0;
-  overflow-x: auto;
-  padding: 2px 2px 4px;
-  scrollbar-width: thin;
+  overflow: visible;
+  padding: 0;
 }
 
 .ladderHead {
   display: grid;
   align-content: start;
   gap: 3px;
-  min-width: 180px;
-  max-width: 220px;
-  padding: 9px 2px;
-  flex: 0 0 auto;
+  min-width: 0;
+  max-width: none;
+  padding: 2px 0;
 }
 
 .ladderHead strong {
@@ -1790,9 +1789,8 @@ function formattedReminderTime(value) {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
   gap: 10px;
-  width: 260px;
-  min-width: 232px;
-  flex: 0 0 auto;
+  width: auto;
+  min-width: 0;
   padding: 10px;
   border-radius: 15px;
   text-align: start;
