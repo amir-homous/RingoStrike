@@ -45,7 +45,7 @@
             </button>
           </BaseCard> -->
 
-          <div v-if="showMissionFocusMode && stats" class="missionFocusProgress">
+          <div v-if="showLegacyDashboardSurfaces && showMissionFocusMode && stats" class="missionFocusProgress">
             <CompactProgressStrip :stats="stats" :today-safe="missionFocusState.todaySafe"
               :reminder-count="missionFocusState.reminderCount" />
 
@@ -54,13 +54,14 @@
             </BaseButton> -->
           </div>
 
-          <MissionCenter :key="missionCenterKey" :stats="stats" :first-run-focus="showFirstRunFocus"
+          <MissionCenter :key="missionCenterKey" class="missionCenterDataProvider" aria-hidden="true"
+            :stats="stats" :first-run-focus="showFirstRunFocus"
             :focus-mode-active="showMissionFocusMode" @checked-in="handleMissionCheckin"
             @loaded="handleMissionCenterLoaded" @first-run-complete="dismissFirstRunFocus"
             @focus-state-change="handleMissionFocusState" @show-dashboard="showDashboardFromFocus" />
 
           <LivingSpace
-            v-if="showFullDashboard"
+            v-if="showLivingSpaceHome"
             class="dashboardRevealItem livingSpaceHomeShell"
             :refresh-key="spaceRefreshKey"
             :challenges="challenges"
@@ -75,21 +76,21 @@
           />
 
           <!-- Legacy Today Mission is now a fallback when Mission Center has no actionable mission. -->
-          <div v-if="showFullDashboard && showLegacyTodayMission" id="today-mission"
+          <div v-if="showLegacyDashboardSurfaces && showFullDashboard && showLegacyTodayMission" id="today-mission"
             class="scrollAnchor dashboardRevealItem">
             <TodayMission :challenges="challenges" :stats="stats" :loading="checkingId === missionEnrollmentId"
               @checkin="checkin" />
           </div>
 
-          <PostCheckinNextAction v-if="showFullDashboard && showPostCheckinAction" class="dashboardRevealItem"
+          <PostCheckinNextAction v-if="showLegacyDashboardSurfaces && showFullDashboard && showPostCheckinAction" class="dashboardRevealItem"
             :enrollment-id="missionEnrollmentId" :all-done="allActiveMissionsDone" />
 
           <!-- 2. First progress layer: appears after the user has meaningful progress -->
-          <HeroProgressCard v-if="showFullDashboard && stats && guidedState.hasProgress" class="dashboardRevealItem"
+          <HeroProgressCard v-if="showLegacyDashboardSurfaces && showFullDashboard && stats && guidedState.hasProgress" class="dashboardRevealItem"
             :user-name="user?.name" :stats="stats" :animate-pulse="xpPulse" />
 
           <!-- 3. Progress details: XP, stats, next goal, recent progress -->
-          <div v-if="showFullDashboard && stats && guidedState.hasProgress" class="progressGrid dashboardRevealItem">
+          <div v-if="showLegacyDashboardSurfaces && showFullDashboard && stats && guidedState.hasProgress" class="progressGrid dashboardRevealItem">
             <StatsGrid :stats="stats" />
 
             <div class="sideCol">
@@ -99,7 +100,7 @@
           </div>
 
           <!-- 4. Active paths: secondary daily management surface -->
-          <BaseCard v-if="showFullDashboard && challenges.length" class="challengePanel dashboardRevealItem">
+          <BaseCard v-if="showLegacyDashboardSurfaces && showFullDashboard && challenges.length" class="challengePanel dashboardRevealItem">
             <div class="panelHead">
               <div>
                 <p class="sectionKicker">{{ t("dashboard.activePaths") }}</p>
@@ -139,7 +140,7 @@
           </BaseCard>
 
           <!-- 5. Next unlock hint: helps the user understand what comes next -->
-          <BaseCard v-if="showFullDashboard && guidedState.hasProgress && nextLockedFeature"
+          <BaseCard v-if="showLegacyDashboardSurfaces && showFullDashboard && guidedState.hasProgress && nextLockedFeature"
             class="guidedLockCard dashboardRevealItem">
             <span class="lockDot" aria-hidden="true"></span>
 
@@ -150,17 +151,17 @@
           </BaseCard>
 
           <!-- 6. Activity: unlocked after early progress -->
-          <div v-if="showFullDashboard && guidedState.features.activity.unlocked" id="activity-feed"
+          <div v-if="showLegacyDashboardSurfaces && showFullDashboard && guidedState.features.activity.unlocked" id="activity-feed"
             class="scrollAnchor dashboardRevealItem">
             <ActivityTimeline :events="activityEvents" :loading="loading" />
           </div>
 
           <!-- 7. Achievements: after activity has enough meaning -->
-          <AchievementPreview v-if="showFullDashboard && guidedState.features.achievements.unlocked"
+          <AchievementPreview v-if="showLegacyDashboardSurfaces && showFullDashboard && guidedState.features.achievements.unlocked"
             class="dashboardRevealItem" :achievements="achievements" />
 
           <!-- 8. Leaderboard: lower priority because it is enrollment-scoped for now -->
-          <BaseCard v-if="showFullDashboard && showLeaderboardPreview" id="leaderboard"
+          <BaseCard v-if="showLegacyDashboardSurfaces && showFullDashboard && showLeaderboardPreview" id="leaderboard"
             class="guidedFeatureCard dashboardRevealItem">
             <div>
               <p class="sectionKicker">{{ t("guidedFeatures.leaderboard.kicker") }}</p>
@@ -176,7 +177,7 @@
           </BaseCard>
 
           <!-- 9. Support / account context: useful, but not the main daily action -->
-          <section v-if="showFullDashboard" class="dashboardHead supportHead dashboardRevealItem">
+          <section v-if="showLegacyDashboardSurfaces && showFullDashboard" class="dashboardHead supportHead dashboardRevealItem">
             <div class="headCopy">
               <div class="eyebrow">
                 <span class="pulseDot"></span>
@@ -369,6 +370,8 @@ const showMissionFocusMode = computed(() => {
 });
 
 const showFullDashboard = computed(() => !showMissionFocusMode.value);
+const showLivingSpaceHome = computed(() => !showOnboardingFallback.value);
+const showLegacyDashboardSurfaces = computed(() => false);
 
 const orderedChallenges = computed(() => {
   return orderDashboardChallenges(challenges.value);
@@ -710,12 +713,16 @@ onMounted(loadDashboard);
 <style scoped>
 .dashboardStack {
   display: grid;
-  gap: var(--s-16);
+  gap: var(--s-12);
   box-sizing: border-box;
   width: 100%;
   min-width: 0;
   max-width: 100%;
-  overflow-x: clip;
+  overflow-x: visible;
+}
+
+.missionCenterDataProvider {
+  display: none;
 }
 
 .scrollAnchor {
@@ -745,9 +752,15 @@ onMounted(loadDashboard);
 }
 
 .livingSpaceHomeShell {
-  width: min(1320px, calc(100vw - 48px));
+  width: min(1680px, calc(100vw - 40px));
   max-width: none;
   justify-self: center;
+}
+
+@media (min-width: 1400px) {
+  .livingSpaceHomeShell {
+    width: calc(100vw - 64px);
+  }
 }
 
 .dashboardRevealActive .dashboardRevealItem:nth-of-type(2) {
