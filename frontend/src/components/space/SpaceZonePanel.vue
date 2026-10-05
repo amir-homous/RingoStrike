@@ -1,5 +1,5 @@
 <template>
-  <aside class="zonePanel">
+  <aside class="zonePanel" :class="`mode-${mode}`">
     <div class="panelHead">
       <div class="panelTitleWrap">
         <span v-if="pathIcon" class="iconFrame panelIconFrame" aria-hidden="true">
@@ -43,7 +43,11 @@
       </div>
     </section>
 
-    <nav class="shellStateNav" :aria-label="t('space.shell.navLabel')">
+    <nav
+      v-if="mode !== 'zone'"
+      class="shellStateNav"
+      :aria-label="t('space.shell.navLabel')"
+    >
       <button
         type="button"
         class="shellStateButton"
@@ -132,44 +136,52 @@
       </div>
     </div>
 
-    <div class="panelSection">
-      <span class="sectionLabel">
-        {{ t("space.unlockedCount", { count: unlockedCount }) }}
-      </span>
-      <div v-if="zone.unlocked_objects.length" class="panelObjects">
-        <SpaceObject
-          v-for="reward in zone.unlocked_objects"
-          :key="reward.key"
-          :reward="reward"
-        />
-      </div>
-      <p v-else class="emptyText">{{ t("space.noUnlocked") }}</p>
-    </div>
+    <section class="zoneProgressSnapshot" :class="{ complete: firstRewardUnlocked }">
+      <div class="snapshotStats">
+        <article class="snapshotItem">
+          <span class="sectionLabel">
+            {{ t("space.unlockedCount", { count: unlockedCount }) }}
+          </span>
+          <div v-if="zone.unlocked_objects.length" class="panelObjects">
+            <SpaceObject
+              v-for="reward in zone.unlocked_objects"
+              :key="reward.key"
+              :reward="reward"
+            />
+          </div>
+          <p v-else class="emptyText">{{ t("space.noUnlocked") }}</p>
+        </article>
 
-    <div class="panelSection">
-      <span class="sectionLabel">
-        {{ t("space.lockedPreviewCount", { count: lockedPreviewCount }) }}
-      </span>
-      <p v-if="zone.locked_preview_objects.length" class="hintText">
+        <article class="snapshotItem">
+          <span class="sectionLabel">
+            {{ t("space.lockedPreviewCount", { count: lockedPreviewCount }) }}
+          </span>
+          <div v-if="zone.locked_preview_objects.length" class="panelObjects">
+            <SpaceObject
+              v-for="reward in zone.locked_preview_objects.slice(0, 3)"
+              :key="reward.key"
+              :reward="reward"
+            />
+          </div>
+          <p v-else class="emptyText">{{ t("space.zoneComplete") }}</p>
+        </article>
+      </div>
+
+      <p
+        v-if="zone.locked_preview_objects.length"
+        class="hintText"
+      >
         {{ t("space.lockedPreviewHint") }}
       </p>
-      <div v-if="zone.locked_preview_objects.length" class="panelObjects">
-        <SpaceObject
-          v-for="reward in zone.locked_preview_objects.slice(0, 3)"
-          :key="reward.key"
-          :reward="reward"
-        />
-      </div>
-      <p v-else class="emptyText">{{ t("space.zoneComplete") }}</p>
-    </div>
 
-    <p
-      v-if="firstRewardText"
-      class="nextReward"
-      :class="{ complete: firstRewardUnlocked }"
-    >
-      {{ firstRewardText }}
-    </p>
+      <p
+        v-if="firstRewardText"
+        class="nextReward"
+        :class="{ complete: firstRewardUnlocked }"
+      >
+        {{ firstRewardText }}
+      </p>
+    </section>
 
     <div v-if="zone.action" class="panelSection zoneAction" :class="zone.action.state">
       <span class="sectionLabel">{{ t("space.zoneAction.label") }}</span>
@@ -1301,6 +1313,10 @@ function formattedReminderTime(value) {
   backdrop-filter: blur(18px);
 }
 
+.zonePanel.mode-zone {
+  gap: 11px;
+}
+
 .panelHead {
   display: flex;
   align-items: flex-start;
@@ -1497,6 +1513,43 @@ function formattedReminderTime(value) {
   display: flex;
   flex-wrap: wrap;
   gap: 7px;
+}
+
+.zoneProgressSnapshot {
+  display: grid;
+  gap: 9px;
+  min-width: 0;
+  padding: 10px;
+  border-radius: 15px;
+  background:
+    radial-gradient(circle at 10% 0%, rgba(110, 229, 255, 0.06), transparent 30%),
+    rgba(255, 255, 255, 0.032);
+  border: 1px solid rgba(255, 255, 255, 0.075);
+}
+
+.zoneProgressSnapshot.complete {
+  border-color: rgba(80, 220, 140, 0.14);
+  background:
+    radial-gradient(circle at 10% 0%, rgba(80, 220, 140, 0.08), transparent 32%),
+    rgba(255, 255, 255, 0.032);
+}
+
+.snapshotStats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  min-width: 0;
+}
+
+.snapshotItem {
+  display: grid;
+  align-content: start;
+  gap: 7px;
+  min-width: 0;
+  padding: 9px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(255, 255, 255, 0.07);
 }
 
 .emptyText,
@@ -2200,7 +2253,8 @@ function formattedReminderTime(value) {
 
   .pathStats,
   .miniStats,
-  .restSummaryGrid {
+  .restSummaryGrid,
+  .snapshotStats {
     grid-template-columns: 1fr;
   }
 
