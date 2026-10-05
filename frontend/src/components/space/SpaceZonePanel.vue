@@ -136,7 +136,11 @@
       </div>
     </div>
 
-    <section class="zoneProgressSnapshot" :class="{ complete: firstRewardUnlocked }">
+    <section
+      v-if="mode === 'zone'"
+      class="zoneProgressSnapshot"
+      :class="{ complete: firstRewardUnlocked }"
+    >
       <div class="snapshotStats">
         <article class="snapshotItem">
           <span class="sectionLabel">
@@ -183,7 +187,11 @@
       </p>
     </section>
 
-    <div v-if="zone.action" class="panelSection zoneAction" :class="zone.action.state">
+    <div
+      v-if="mode === 'zone' && zone.action"
+      class="panelSection zoneAction"
+      :class="zone.action.state"
+    >
       <span class="sectionLabel">{{ t("space.zoneAction.label") }}</span>
       <strong>{{ zone.action.title }}</strong>
       <p>{{ zone.action.text }}</p>
