@@ -196,31 +196,6 @@
       <strong>{{ zone.action.title }}</strong>
       <p>{{ zone.action.text }}</p>
       <p class="flowHint">{{ actionFlowHint }}</p>
-
-      <div class="actionRow">
-        <button
-          type="button"
-          class="actionLink primary"
-          @click="$emit('change-mode', zone.action.primaryMode || 'zone')"
-        >
-          {{ zone.action.primaryLabel }}
-        </button>
-        <button
-          v-if="zone.action.secondaryMode"
-          type="button"
-          class="actionLink secondary"
-          @click="$emit('change-mode', zone.action.secondaryMode)"
-        >
-          {{ zone.action.secondaryLabel }}
-        </button>
-        <RouterLink
-          v-else-if="zone.action.secondaryTo"
-          class="actionLink secondary"
-          :to="zone.action.secondaryTo"
-        >
-          {{ zone.action.secondaryLabel }}
-        </RouterLink>
-      </div>
     </div>
 
     <div v-if="mode === 'path'" class="panelSection shellPanel">
@@ -332,21 +307,6 @@
         </span>
         <p v-if="selectedPathChallenge.description">{{ selectedPathChallenge.description }}</p>
 
-        <div class="selectedChallengeActions">
-          <button
-            v-if="!selectedPathChallenge.isJoined"
-            type="button"
-            class="actionLink primary"
-            :disabled="String(startingChallengeId || '') === String(selectedPathChallenge.id || '')"
-            @click="$emit('start-challenge', selectedPathChallenge)"
-          >
-            <span v-if="String(startingChallengeId || '') === String(selectedPathChallenge.id || '')">
-              {{ t("space.shell.startingChallenge") }}
-            </span>
-            <span v-else>{{ t("space.shell.startChallenge") }}</span>
-          </button>
-        </div>
-
         <div v-if="selectedMission" class="selectedMissionFocus">
           <span class="sectionLabel">{{ t("space.shell.selectedMissionLabel") }}</span>
           <div class="selectedMissionFocusHead">
@@ -375,22 +335,6 @@
           <p v-if="missionGateText(selectedMission)" class="missionGateText">
             {{ missionGateText(selectedMission) }}
           </p>
-          <button
-            type="button"
-            class="actionLink primary shellCheckin"
-            :disabled="!missionCanComplete(selectedMission) || selectedMissionLoading"
-            @click="$emit('complete-mission', selectedMission)"
-          >
-            <span v-if="selectedMissionLoading">{{ t("space.shell.checkingIn") }}</span>
-            <span v-else>{{ missionActionLabel(selectedMission) }}</span>
-          </button>
-          <button
-            type="button"
-            class="actionLink secondary"
-            @click="$emit('change-mode', 'mission')"
-          >
-            {{ t("space.shell.openMissionFocus") }}
-          </button>
         </div>
 
         <div v-if="visibleSelectedMissions.length" class="selectedMissionList">
@@ -445,9 +389,6 @@
       >
         {{ t("space.shell.noPathChallenges") }}
       </p>
-      <RouterLink class="fallbackLink" :to="zone.action?.fallbackTo || '/paths'">
-        {{ t("space.shell.openFullPath") }}
-      </RouterLink>
     </div>
 
     <div v-if="mode === 'challenge'" class="panelSection shellPanel">
@@ -492,27 +433,6 @@
           </div>
         </div>
       </div>
-      <button
-        v-if="activeShellMission"
-        type="button"
-        class="actionLink primary shellCheckin"
-        :disabled="!missionCanCompleteInShell(activeShellMission) || selectedMissionLoading"
-        @click="$emit('complete-mission', activeShellMission)"
-      >
-        <span v-if="selectedMissionLoading">{{ t("space.shell.checkingIn") }}</span>
-        <span v-else>{{ missionActionLabelForShell(activeShellMission) }}</span>
-      </button>
-      <button
-        v-if="activeShellMission"
-        type="button"
-        class="actionLink secondary"
-        @click="$emit('change-mode', 'mission')"
-      >
-        {{ t("space.shell.openMissionFocus") }}
-      </button>
-      <RouterLink class="fallbackLink" :to="zone.action?.fallbackTo || '/challenges'">
-        {{ t("space.shell.openFullChallenge") }}
-      </RouterLink>
     </div>
 
     <div v-if="mode === 'mission'" class="panelSection shellPanel missionFocusPanel">
@@ -547,35 +467,6 @@
         {{ missionGateTextForShell(activeShellMission) }}
       </p>
       <p v-else class="flowHint">{{ t("space.shell.missionFocusHint") }}</p>
-      <div class="actionRow">
-        <button
-          v-if="activeShellMission"
-          type="button"
-          class="actionLink primary shellCheckin"
-          :disabled="!missionCanCompleteInShell(activeShellMission) || selectedMissionLoading"
-          @click="$emit('complete-mission', activeShellMission)"
-        >
-          <span v-if="selectedMissionLoading">{{ t("space.shell.checkingIn") }}</span>
-          <span v-else>{{ missionActionLabelForShell(activeShellMission) }}</span>
-        </button>
-        <button
-          type="button"
-          class="actionLink secondary"
-          @click="$emit('change-mode', 'challenge')"
-        >
-          {{ t("space.shell.backToChallenge") }}
-        </button>
-        <button
-          type="button"
-          class="actionLink secondary"
-          @click="$emit('change-mode', 'path')"
-        >
-          {{ t("space.shell.backToPath") }}
-        </button>
-      </div>
-      <RouterLink class="fallbackLink" :to="zone.action?.fallbackTo || '/paths'">
-        {{ t("space.shell.openFullPath") }}
-      </RouterLink>
     </div>
   </aside>
 </template>
@@ -1281,15 +1172,6 @@ function missionActionLabel(mission) {
   return t("space.shell.completeMission");
 }
 
-function missionActionLabelForShell(mission) {
-  if (selectedPathChallenge.value) return missionActionLabel(mission);
-  if (!mission?.id) return t("space.shell.missionLocked");
-  if (missionIntensity(mission) === "tiny") return t("space.shell.tinyLockedAction");
-  if (missionDone(mission) || challengeDone.value) return t("space.shell.missionDone");
-
-  return t("space.shell.completeMission");
-}
-
 function formattedReminderTime(value) {
   if (!value) return "";
 
@@ -1361,6 +1243,14 @@ function formattedReminderTime(value) {
     radial-gradient(circle at 8% 0%, rgba(110, 229, 255, 0.12), transparent 34%),
     rgba(255, 255, 255, 0.038);
   border: 1px solid rgba(110, 229, 255, 0.13);
+}
+
+@media (min-width: 1080px) {
+  .ringoGuide {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+  }
 }
 
 .ringoGuide.ready {
@@ -1634,12 +1524,6 @@ function formattedReminderTime(value) {
   color: rgba(110, 229, 255, 0.70) !important;
   font-size: 0.78rem;
   font-weight: 800;
-}
-
-.actionRow {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
 }
 
 .actionLink {
@@ -2038,13 +1922,6 @@ function formattedReminderTime(value) {
   border: 1px solid rgba(110, 229, 255, 0.16);
 }
 
-.selectedChallengeActions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  min-width: 0;
-}
-
 .selectedMissionFocus {
   display: grid;
   gap: 8px;
@@ -2159,25 +2036,6 @@ function formattedReminderTime(value) {
   line-height: 1.5;
 }
 
-.fallbackLink {
-  justify-self: start;
-  min-width: 0;
-  color: rgba(110, 229, 255, 0.86);
-  font-size: 0.78rem;
-  font-weight: 850;
-  overflow-wrap: anywhere;
-  text-decoration: none;
-}
-
-.shellCheckin {
-  justify-self: start;
-}
-
-.shellCheckin:disabled {
-  cursor: default;
-  opacity: 0.68;
-}
-
 .missionBrief {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
@@ -2245,16 +2103,12 @@ function formattedReminderTime(value) {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .actionRow,
-  .ringoGuideActions,
-  .selectedChallengeActions {
+  .ringoGuideActions {
     display: grid;
     grid-template-columns: 1fr;
   }
 
-  .actionLink,
-  .fallbackLink,
-  .shellCheckin {
+  .actionLink {
     width: 100%;
     justify-self: stretch;
   }
