@@ -1,5 +1,10 @@
 <template>
-  <div class="spaceObject" :class="{ locked: !reward.unlocked }">
+  <div
+    class="spaceObject"
+    :class="{ locked: !reward.unlocked, unlocked: reward.unlocked }"
+    :aria-label="objectAriaLabel"
+    :title="objectAriaLabel"
+  >
     <span class="objectMark" aria-hidden="true">
       {{ objectMark }}
     </span>
@@ -26,6 +31,15 @@ const objectMark = computed(() => {
   const title = String(props.reward?.title || props.reward?.key || "?").trim();
   return title.slice(0, 1).toUpperCase();
 });
+
+const objectAriaLabel = computed(() => {
+  const title = props.reward?.title || props.reward?.key || "";
+  const state = props.reward?.unlocked
+    ? t("space.objectUnlocked")
+    : t("space.objectLockedPreview");
+
+  return `${title}: ${state}`;
+});
 </script>
 
 <style scoped>
@@ -42,6 +56,12 @@ const objectMark = computed(() => {
   border: 1px solid rgba(110, 229, 255, 0.24);
   font-size: 0.72rem;
   font-weight: 800;
+}
+
+.spaceObject.unlocked {
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.035),
+    0 0 18px rgba(110, 229, 255, 0.08);
 }
 
 .spaceObject.locked {
@@ -77,16 +97,15 @@ const objectMark = computed(() => {
 
 .objectTitle,
 .objectStatus {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .objectStatus {
   color: rgba(255, 255, 255, 0.58);
   font-size: 0.58rem;
   font-weight: 850;
-  letter-spacing: 0.04em;
+  letter-spacing: 0;
   text-transform: uppercase;
 }
 

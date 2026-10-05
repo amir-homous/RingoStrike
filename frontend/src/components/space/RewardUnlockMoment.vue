@@ -25,6 +25,7 @@
             <span class="objectGlyph" aria-hidden="true">{{ objectGlyph }}</span>
             <div>
               <strong>{{ reward.title }}</strong>
+              <span class="placedLine">{{ t("spaceUnlock.placedIn", { zone: zoneLabel }) }}</span>
               <p>{{ reward.description || t("spaceUnlock.defaultDescription") }}</p>
             </div>
           </div>
@@ -189,7 +190,16 @@ onUnmounted(() => {
 }
 
 .objectCard strong {
+  display: block;
   color: rgba(255, 255, 255, 0.94);
+}
+
+.placedLine {
+  display: inline-flex;
+  margin-top: 5px;
+  color: rgba(110, 229, 255, 0.76);
+  font-size: 0.76rem;
+  font-weight: 850;
 }
 
 .savedNote {
