@@ -14,7 +14,7 @@
         <span v-if="pathIcon" class="iconFrame pathIconFrame" aria-hidden="true">
           <img :src="pathIcon" alt="" class="pathIcon" />
         </span>
-        <span>
+        <span class="zoneLabel">
           <span class="zoneKicker">{{ zone.path_key }}</span>
           <strong>{{ zone.title }}</strong>
         </span>
@@ -265,6 +265,22 @@ const pathIcon = computed(() => {
   flex: 1 1 180px;
 }
 
+.zoneLabel {
+  display: grid;
+  min-width: 0;
+  opacity: 0;
+  transform: translateY(3px);
+  transition: opacity 160ms ease, transform 160ms ease;
+}
+
+.spaceZone:hover .zoneLabel,
+.spaceZone:focus-visible .zoneLabel,
+.spaceZone.active .zoneLabel,
+.spaceZone.hasReminderDue .zoneLabel {
+  opacity: 1;
+  transform: translateY(0);
+}
+
 .iconFrame {
   display: inline-grid;
   place-items: center;
@@ -373,6 +389,10 @@ const pathIcon = computed(() => {
 
 @media (prefers-reduced-motion: reduce) {
   .spaceZone {
+    transition: none;
+  }
+
+  .zoneLabel {
     transition: none;
   }
 
