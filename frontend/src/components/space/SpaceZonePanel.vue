@@ -79,7 +79,58 @@
       >
         {{ t("space.shell.navMission") }}
       </button>
+      <button
+        v-if="showRestState"
+        type="button"
+        class="shellStateButton"
+        :class="{ active: mode === 'rest' }"
+        @click="$emit('change-mode', 'rest')"
+      >
+        {{ t("space.shell.navRest") }}
+      </button>
     </nav>
+
+    <div v-if="mode === 'rest'" class="panelSection shellPanel restPanel">
+      <span class="sectionLabel">{{ t("space.shell.restLabel") }}</span>
+      <strong>{{ restMomentText }}</strong>
+      <p>{{ t("space.shell.restText") }}</p>
+
+      <div class="restSummaryGrid" :aria-label="t('space.shell.restMomentumLabel')">
+        <article
+          v-for="item in restSummaryItems"
+          :key="item.key"
+          class="restSummaryItem"
+        >
+          <strong>{{ item.value }}</strong>
+          <small>{{ item.label }}</small>
+        </article>
+      </div>
+
+      <div class="restReminderBlock" :class="{ due: dueReminderCount > 0 }">
+        <div class="restReminderHead">
+          <span class="sectionLabel">{{ t("space.shell.restReminderLabel") }}</span>
+          <strong>{{ restReminderSummary }}</strong>
+        </div>
+
+        <div v-if="visibleDueReminders.length" class="restReminderList">
+          <article
+            v-for="reminder in visibleDueReminders"
+            :key="reminder.id"
+            class="restReminderItem"
+          >
+            <strong>{{ reminder.title }}</strong>
+            <span>
+              {{ reminder.challengeName || t("common.challenge") }}
+              <template v-if="formattedReminderTime(reminder.reminderAt)">
+                · {{ formattedReminderTime(reminder.reminderAt) }}
+              </template>
+            </span>
+          </article>
+        </div>
+
+        <p v-else class="emptyText">{{ restReminderEmptyText }}</p>
+      </div>
+    </div>
 
     <div class="panelSection">
       <span class="sectionLabel">
@@ -525,6 +576,10 @@ const props = defineProps({
   selectedChallengeId: { type: [Number, String, null], default: null },
   completingMissionId: { type: [Number, String, null], default: null },
   startingChallengeId: { type: [Number, String, null], default: null },
+  todaySafe: { type: Boolean, default: false },
+  dailyMomentum: { type: Object, default: () => ({}) },
+  dueReminders: { type: Array, default: () => [] },
+  futureReminderCount: { type: Number, default: 0 },
 });
 
 const emit = defineEmits(["change-mode", "select-challenge", "start-challenge", "complete-mission", "checkin", "close"]);
@@ -761,6 +816,81 @@ const selectedMissionLoading = computed(() => {
   return String(props.completingMissionId) === String(missionId);
 });
 
+const dueReminderCount = computed(() => props.dueReminders.length);
+
+const showRestState = computed(() => {
+  return Boolean(
+    props.todaySafe
+    || dueReminderCount.value > 0
+    || Number(props.futureReminderCount || 0) > 0
+    || Number(props.dailyMomentum?.total || 0) > 0,
+  );
+});
+
+const visibleDueReminders = computed(() => props.dueReminders.slice(0, 3));
+
+const restMomentText = computed(() => {
+  if (dueReminderCount.value > 0) {
+    return t("space.shell.restMomentDue", { count: dueReminderCount.value });
+  }
+
+  if (props.todaySafe) {
+    return t("space.shell.restMomentSafe");
+  }
+
+  return t("space.shell.restMomentQuiet");
+});
+
+const restReminderSummary = computed(() => {
+  if (dueReminderCount.value > 0) {
+    return t("space.shell.restReminderDue", { count: dueReminderCount.value });
+  }
+
+  const futureCount = Number(props.futureReminderCount || 0);
+  if (futureCount > 0) {
+    return t("space.shell.restReminderFuture", { count: futureCount });
+  }
+
+  return t("space.shell.restReminderClear");
+});
+
+const restReminderEmptyText = computed(() => {
+  if (Number(props.futureReminderCount || 0) > 0) {
+    return t("space.shell.restReminderFutureText");
+  }
+
+  return t("space.shell.restReminderClearText");
+});
+
+const restSummaryItems = computed(() => {
+  const momentum = props.dailyMomentum || {};
+
+  return [
+    {
+      key: "safe",
+      value: props.todaySafe
+        ? t("space.shell.restSummarySafeValue")
+        : t("space.shell.restSummaryOpenValue"),
+      label: t("space.shell.restSummarySafeLabel"),
+    },
+    {
+      key: "completed",
+      value: Number(momentum.completed || 0),
+      label: t("space.shell.restSummaryCompletedLabel"),
+    },
+    {
+      key: "pending",
+      value: Number(momentum.pending || 0),
+      label: t("space.shell.restSummaryPendingLabel"),
+    },
+    {
+      key: "reminders",
+      value: Number(momentum.reminded || momentum.reminderCount || 0),
+      label: t("space.shell.restSummaryReminderLabel"),
+    },
+  ];
+});
+
 const ringoGuidance = computed(() => {
   const path = props.zone?.title || t("space.eyebrow");
   const action = props.zone?.action || null;
@@ -768,6 +898,25 @@ const ringoGuidance = computed(() => {
   const mission = activeShellMission.value;
   const stats = pathStats.value;
   const pathComplete = Boolean(stats?.progressTotal && stats.progressDone >= stats.progressTotal);
+
+  if (modeIs("rest")) {
+    return buildRingoGuidance({
+      mood: dueReminderCount.value > 0 ? "thinking" : "sleeping",
+      tone: dueReminderCount.value > 0 ? "locked" : "done",
+      title: dueReminderCount.value > 0
+        ? t("space.ringoGuide.restReminderTitle")
+        : t("space.ringoGuide.restTitle"),
+      message: restMomentText.value,
+      actions: dueReminderCount.value > 0
+        ? [{
+          key: "review-path-reminders",
+          label: t("space.zoneAction.viewPath"),
+          type: "change-mode",
+          mode: "path",
+        }]
+        : nextReviewActions(),
+    });
+  }
 
   if ((modeIs("path") || modeIs("mission")) && challenge) {
     if (!challenge.isJoined) {
@@ -1119,6 +1268,18 @@ function missionActionLabelForShell(mission) {
   if (missionDone(mission) || challengeDone.value) return t("space.shell.missionDone");
 
   return t("space.shell.completeMission");
+}
+
+function formattedReminderTime(value) {
+  if (!value) return "";
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+
+  return new Intl.DateTimeFormat(undefined, {
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date);
 }
 </script>
 
@@ -1523,6 +1684,77 @@ function missionActionLabelForShell(mission) {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
+}
+
+.restPanel {
+  border-color: rgba(80, 220, 140, 0.13);
+  background:
+    radial-gradient(circle at 12% 0%, rgba(80, 220, 140, 0.08), transparent 30%),
+    rgba(255, 255, 255, 0.032);
+}
+
+.restSummaryGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.restSummaryItem,
+.restReminderItem {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+  padding: 9px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.restSummaryItem strong {
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 0.92rem;
+}
+
+.restSummaryItem small,
+.restReminderItem span {
+  color: rgba(255, 255, 255, 0.54);
+  font-size: 0.7rem;
+  line-height: 1.35;
+}
+
+.restReminderBlock {
+  display: grid;
+  gap: 9px;
+  padding: 10px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.restReminderBlock.due {
+  border-color: rgba(247, 215, 116, 0.18);
+  background:
+    radial-gradient(circle at 12% 0%, rgba(247, 215, 116, 0.10), transparent 34%),
+    rgba(247, 215, 116, 0.045);
+}
+
+.restReminderHead {
+  display: grid;
+  gap: 2px;
+}
+
+.restReminderHead strong,
+.restReminderItem strong {
+  color: rgba(255, 255, 255, 0.88);
+}
+
+.restReminderList {
+  display: grid;
+  gap: 7px;
+}
+
+.restReminderItem {
+  background: rgba(5, 10, 18, 0.22);
 }
 
 .pathProgressBlock {
@@ -1967,7 +2199,8 @@ function missionActionLabelForShell(mission) {
   }
 
   .pathStats,
-  .miniStats {
+  .miniStats,
+  .restSummaryGrid {
     grid-template-columns: 1fr;
   }
 

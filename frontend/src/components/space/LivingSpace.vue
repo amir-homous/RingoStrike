@@ -32,21 +32,25 @@
           v-for="zone in displayZones"
           :key="zone.zone_key"
           :zone="zone"
-          :active="displayActiveZone?.zone_key === zone.zone_key"
+          :active="panelZone?.zone_key === zone.zone_key"
           @select="selectZone"
         />
       </div>
 
       <SpaceZonePanel
-        v-if="displayActiveZone"
-        :mode="shellMode"
-        :zone="displayActiveZone"
+        v-if="panelZone"
+        :mode="panelMode"
+        :zone="panelZone"
         :checking-id="checkingId"
         :path-loading="activePathLoading"
         :path-error="activePathError"
         :selected-challenge-id="selectedPathChallengeId"
         :completing-mission-id="completingMissionId"
         :starting-challenge-id="startingChallengeId"
+        :today-safe="todaySafe"
+        :daily-momentum="dailyMomentum"
+        :due-reminders="dueReminders"
+        :future-reminder-count="futureReminderCount"
         @change-mode="changeShellMode"
         @select-challenge="selectPathChallenge"
         @start-challenge="startChallenge"
@@ -75,6 +79,9 @@ const props = defineProps({
   refreshKey: { type: Number, default: 0 },
   challenges: { type: Array, default: () => [] },
   missions: { type: Array, default: () => [] },
+  todaySafe: { type: Boolean, default: false },
+  focusReason: { type: String, default: "" },
+  reminderCount: { type: Number, default: 0 },
   checkingId: { type: [Number, String, null], default: null },
 });
 
@@ -138,7 +145,34 @@ const displayActiveZone = computed(() => {
   ) || null;
 });
 
-const activePathId = computed(() => displayActiveZone.value?.pathDetail?.pathId || "");
+const restZone = computed(() => {
+  return displayZones.value.find((zone) => zone.action?.state === "done_today")
+    || displayZones.value.find((zone) => (zone.unlocked_objects || []).length > 0)
+    || displayZones.value[0]
+    || null;
+});
+
+const shouldShowRestPanel = computed(() => {
+  if (activeZone.value) return false;
+
+  return Boolean(
+    props.todaySafe
+    || dueReminders.value.length
+    || ["rest_mode", "done_for_today", "future_reminder_only"].includes(props.focusReason),
+  );
+});
+
+const panelMode = computed(() => {
+  return shouldShowRestPanel.value ? "rest" : shellMode.value;
+});
+
+const panelZone = computed(() => {
+  if (displayActiveZone.value) return displayActiveZone.value;
+  if (panelMode.value === "rest") return restZone.value;
+  return null;
+});
+
+const activePathId = computed(() => panelZone.value?.pathDetail?.pathId || "");
 
 const activePathLoading = computed(() => {
   const pathId = activePathId.value;
@@ -193,10 +227,22 @@ function closePanel() {
 }
 
 function changeShellMode(mode) {
-  if (!["zone", "path", "challenge", "mission"].includes(mode)) return;
+  if (!["zone", "path", "challenge", "mission", "rest"].includes(mode)) return;
+  if (mode === "rest") {
+    activeZone.value = null;
+    shellMode.value = mode;
+    selectedPathChallengeId.value = null;
+    return;
+  }
+
+  if (!activeZone.value && panelZone.value) {
+    activeZone.value = panelZone.value;
+  }
+
   shellMode.value = mode;
+
   if (["path", "challenge", "mission"].includes(mode)) {
-    ensurePathChallenges(displayActiveZone.value);
+    ensurePathChallenges(panelZone.value);
   }
 }
 
@@ -533,6 +579,64 @@ async function ensurePathChallenges(zone = displayActiveZone.value, options = {}
   if (!options.force && pathChallenges.value[path.path_id]) return;
 
   await loadPathChallenges(path);
+}
+
+const dueReminders = computed(() => {
+  return props.missions
+    .filter((mission) => {
+      return normalizedMissionStatus(mission) === "remind_later"
+        && reminderTimestamp(mission) <= Date.now()
+        && !mission?.reminder_sent_at;
+    })
+    .map((mission) => ({
+      id: mission?.mission_id || mission?.id || `${mission?.title || "mission"}-${mission?.reminder_at || ""}`,
+      title: mission?.title || mission?.mission_title || t("common.mission"),
+      challengeName: mission?.challenge_name || mission?.challenge || "",
+      pathKey: normalizePathKey(mission?.path_key || mission?.path || ""),
+      reminderAt: mission?.reminder_at || "",
+      timestamp: reminderTimestamp(mission),
+    }))
+    .sort((a, b) => a.timestamp - b.timestamp);
+});
+
+const futureReminderCount = computed(() => {
+  return props.missions.filter((mission) => {
+    return normalizedMissionStatus(mission) === "remind_later"
+      && reminderTimestamp(mission) > Date.now();
+  }).length;
+});
+
+const dailyMomentum = computed(() => {
+  const missions = props.missions || [];
+  const completedCount = missions.filter((mission) => {
+    return ["done", "completed"].includes(normalizedMissionStatus(mission));
+  }).length;
+  const pendingCount = missions.filter((mission) => normalizedMissionStatus(mission) === "pending").length;
+  const remindedCount = missions.filter((mission) => normalizedMissionStatus(mission) === "remind_later").length;
+
+  return {
+    todaySafe: props.todaySafe,
+    total: missions.length,
+    completed: completedCount,
+    pending: pendingCount,
+    reminded: remindedCount,
+    due: dueReminders.value.length,
+    futureReminders: futureReminderCount.value,
+    reminderCount: Number(props.reminderCount || remindedCount || 0),
+  };
+});
+
+function normalizedMissionStatus(mission) {
+  return String(mission?.status || mission?.today_status || "pending").toLowerCase();
+}
+
+function reminderTimestamp(mission) {
+  if (!mission?.reminder_at) return Number.POSITIVE_INFINITY;
+
+  const date = new Date(mission.reminder_at);
+  const timestamp = date.getTime();
+
+  return Number.isNaN(timestamp) ? Number.POSITIVE_INFINITY : timestamp;
 }
 
 async function preloadZonePathChallenges(options = {}) {
