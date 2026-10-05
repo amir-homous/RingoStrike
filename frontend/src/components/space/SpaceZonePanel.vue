@@ -43,6 +43,44 @@
       </div>
     </section>
 
+    <nav class="shellStateNav" :aria-label="t('space.shell.navLabel')">
+      <button
+        type="button"
+        class="shellStateButton"
+        :class="{ active: mode === 'zone' }"
+        @click="$emit('change-mode', 'zone')"
+      >
+        {{ t("space.shell.navZone") }}
+      </button>
+      <button
+        v-if="zone.pathDetail"
+        type="button"
+        class="shellStateButton"
+        :class="{ active: mode === 'path' }"
+        @click="$emit('change-mode', 'path')"
+      >
+        {{ t("space.shell.navPath") }}
+      </button>
+      <button
+        v-if="activeShellChallenge"
+        type="button"
+        class="shellStateButton"
+        :class="{ active: mode === 'challenge' }"
+        @click="$emit('change-mode', 'challenge')"
+      >
+        {{ t("space.shell.navChallenge") }}
+      </button>
+      <button
+        v-if="activeShellMission"
+        type="button"
+        class="shellStateButton"
+        :class="{ active: mode === 'mission' }"
+        @click="$emit('change-mode', 'mission')"
+      >
+        {{ t("space.shell.navMission") }}
+      </button>
+    </nav>
+
     <div class="panelSection">
       <span class="sectionLabel">
         {{ t("space.unlockedCount", { count: unlockedCount }) }}
@@ -275,6 +313,13 @@
             <span v-if="selectedMissionLoading">{{ t("space.shell.checkingIn") }}</span>
             <span v-else>{{ missionActionLabel(selectedMission) }}</span>
           </button>
+          <button
+            type="button"
+            class="actionLink secondary"
+            @click="$emit('change-mode', 'mission')"
+          >
+            {{ t("space.shell.openMissionFocus") }}
+          </button>
         </div>
 
         <div v-if="visibleSelectedMissions.length" class="selectedMissionList">
@@ -340,55 +385,125 @@
         <span v-if="challengeIcon" class="iconFrame inlineIconFrame" aria-hidden="true">
           <img :src="challengeIcon" alt="" class="inlineIcon" />
         </span>
-        <strong>{{ zone.action?.challenge?.name || t("common.challenge") }}</strong>
+        <strong>{{ activeShellChallenge?.name || t("common.challenge") }}</strong>
       </span>
       <p>{{ challengeStatusText }}</p>
       <div class="miniStats">
         <span>
-          <strong>{{ zone.action?.challenge?.streak || 0 }}</strong>
+          <strong>{{ activeShellChallenge?.streak || 0 }}</strong>
           <small>{{ t("space.shell.streak") }}</small>
         </span>
         <span>
-          <strong>{{ zone.action?.challenge?.totalCheckins || 0 }}</strong>
+          <strong>{{ activeShellChallenge?.totalCheckins || 0 }}</strong>
           <small>{{ t("space.shell.checkins") }}</small>
         </span>
       </div>
-      <div v-if="challengeMission" class="missionBrief">
+      <div v-if="activeShellMission" class="missionBrief">
         <span
-          v-if="challengeMission.iconUrl"
+          v-if="activeShellMission.iconUrl"
           class="iconFrame missionIconFrame"
           aria-hidden="true"
         >
-          <img :src="challengeMission.iconUrl" alt="" class="missionIcon" />
+          <img :src="activeShellMission.iconUrl" alt="" class="missionIcon" />
         </span>
         <div>
           <span class="sectionLabel">{{ t("space.shell.todayMission") }}</span>
-          <strong>{{ challengeMission.title || t("common.mission") }}</strong>
-          <p v-if="challengeMission.description">{{ challengeMission.description }}</p>
+          <strong>{{ activeShellMission.title || t("common.mission") }}</strong>
+          <p v-if="activeShellMission.description">{{ activeShellMission.description }}</p>
           <div class="missionMeta">
-            <span>{{ missionIntensityLabel }}</span>
-            <span v-if="challengeMission.estimatedMinutes">
-              {{ t("space.shell.minutes", { count: challengeMission.estimatedMinutes }) }}
+            <span>{{ missionIntensityLabelFor(activeShellMission) }}</span>
+            <span v-if="activeShellMission.estimatedMinutes">
+              {{ t("space.shell.minutes", { count: activeShellMission.estimatedMinutes }) }}
             </span>
-            <span v-if="challengeMission.xpReward">
-              {{ t("space.shell.xp", { count: challengeMission.xpReward }) }}
+            <span v-if="activeShellMission.xpReward">
+              {{ t("space.shell.xp", { count: activeShellMission.xpReward }) }}
             </span>
           </div>
         </div>
       </div>
       <button
-        v-if="zone.action?.challenge?.enrollmentId"
+        v-if="activeShellMission"
         type="button"
         class="actionLink primary shellCheckin"
-        :disabled="challengeDone || challengeLoading"
-        @click="$emit('checkin', zone.action.challenge.enrollmentId)"
+        :disabled="!missionCanCompleteInShell(activeShellMission) || selectedMissionLoading"
+        @click="$emit('complete-mission', activeShellMission)"
       >
-        <span v-if="challengeLoading">{{ t("space.shell.checkingIn") }}</span>
-        <span v-else-if="challengeDone">{{ t("space.shell.doneToday") }}</span>
-        <span v-else>{{ t("space.shell.checkInToday") }}</span>
+        <span v-if="selectedMissionLoading">{{ t("space.shell.checkingIn") }}</span>
+        <span v-else>{{ missionActionLabelForShell(activeShellMission) }}</span>
+      </button>
+      <button
+        v-if="activeShellMission"
+        type="button"
+        class="actionLink secondary"
+        @click="$emit('change-mode', 'mission')"
+      >
+        {{ t("space.shell.openMissionFocus") }}
       </button>
       <RouterLink class="fallbackLink" :to="zone.action?.fallbackTo || '/challenges'">
         {{ t("space.shell.openFullChallenge") }}
+      </RouterLink>
+    </div>
+
+    <div v-if="mode === 'mission'" class="panelSection shellPanel missionFocusPanel">
+      <span class="sectionLabel">{{ t("space.shell.missionLabel") }}</span>
+      <span class="shellTitleLine">
+        <span
+          v-if="activeShellMission?.iconUrl"
+          class="iconFrame inlineIconFrame"
+          aria-hidden="true"
+        >
+          <img :src="activeShellMission.iconUrl" alt="" class="inlineIcon" />
+        </span>
+        <strong>{{ activeShellMission?.title || t("common.mission") }}</strong>
+      </span>
+      <p class="missionBreadcrumb">
+        {{ t("space.shell.missionBreadcrumb", {
+          path: zone.title,
+          challenge: activeShellChallenge?.name || t("common.challenge"),
+        }) }}
+      </p>
+      <p v-if="activeShellMission?.description">{{ activeShellMission.description }}</p>
+      <div v-if="activeShellMission" class="missionMeta">
+        <span>{{ missionIntensityLabelFor(activeShellMission) }}</span>
+        <span v-if="activeShellMission.estimatedMinutes">
+          {{ t("space.shell.minutes", { count: activeShellMission.estimatedMinutes }) }}
+        </span>
+        <span v-if="activeShellMission.xpReward">
+          {{ t("space.shell.xp", { count: activeShellMission.xpReward }) }}
+        </span>
+      </div>
+      <p v-if="activeShellMission && missionGateTextForShell(activeShellMission)" class="missionGateText">
+        {{ missionGateTextForShell(activeShellMission) }}
+      </p>
+      <p v-else class="flowHint">{{ t("space.shell.missionFocusHint") }}</p>
+      <div class="actionRow">
+        <button
+          v-if="activeShellMission"
+          type="button"
+          class="actionLink primary shellCheckin"
+          :disabled="!missionCanCompleteInShell(activeShellMission) || selectedMissionLoading"
+          @click="$emit('complete-mission', activeShellMission)"
+        >
+          <span v-if="selectedMissionLoading">{{ t("space.shell.checkingIn") }}</span>
+          <span v-else>{{ missionActionLabelForShell(activeShellMission) }}</span>
+        </button>
+        <button
+          type="button"
+          class="actionLink secondary"
+          @click="$emit('change-mode', 'challenge')"
+        >
+          {{ t("space.shell.backToChallenge") }}
+        </button>
+        <button
+          type="button"
+          class="actionLink secondary"
+          @click="$emit('change-mode', 'path')"
+        >
+          {{ t("space.shell.backToPath") }}
+        </button>
+      </div>
+      <RouterLink class="fallbackLink" :to="zone.action?.fallbackTo || '/paths'">
+        {{ t("space.shell.openFullPath") }}
       </RouterLink>
     </div>
   </aside>
@@ -444,7 +559,7 @@ const firstRewardText = computed(() => {
 });
 
 const challengeStatusText = computed(() => {
-  if (props.zone?.action?.challenge?.status === "done_today") {
+  if (activeShellChallenge.value?.status === "done_today") {
     return t("space.shell.challengeDoneText");
   }
 
@@ -464,7 +579,7 @@ const pathIcon = computed(() => {
 });
 
 const challengeIcon = computed(() => {
-  return resolveChallengeIcon(props.zone?.action?.challenge?.id || "");
+  return resolveChallengeIcon(activeShellChallenge.value?.id || "");
 });
 
 const pathChallenges = computed(() => {
@@ -575,6 +690,37 @@ const challengeMission = computed(() => {
   return props.zone?.action?.challenge?.mission || null;
 });
 
+const activeShellChallenge = computed(() => {
+  const selected = selectedPathChallenge.value;
+  if (selected) {
+    return {
+      id: selected.id,
+      enrollmentId: selected.enrollmentId,
+      name: selected.name,
+      description: selected.description || "",
+      status: selected.todayChecked
+        ? "done_today"
+        : selected.isJoined
+          ? "ready_today"
+          : "not_started",
+      streak: 0,
+      totalCheckins: selected.doneCount || 0,
+      todayChecked: selected.todayChecked,
+      isJoined: selected.isJoined,
+      mission: selectedMission.value,
+    };
+  }
+
+  return props.zone?.action?.challenge || null;
+});
+
+const activeShellMission = computed(() => {
+  return selectedMission.value
+    || activeShellChallenge.value?.mission
+    || challengeMission.value
+    || null;
+});
+
 const missionIntensityLabel = computed(() => {
   const intensity = String(challengeMission.value?.intensity || "main").toLowerCase();
   if (["tiny", "bonus"].includes(intensity)) {
@@ -597,19 +743,19 @@ const actionFlowHint = computed(() => {
 });
 
 const challengeDone = computed(() => {
-  return Boolean(props.zone?.action?.challenge?.todayChecked)
-    || props.zone?.action?.challenge?.status === "done_today";
+  return Boolean(activeShellChallenge.value?.todayChecked)
+    || activeShellChallenge.value?.status === "done_today";
 });
 
 const challengeLoading = computed(() => {
-  const enrollmentId = props.zone?.action?.challenge?.enrollmentId;
+  const enrollmentId = activeShellChallenge.value?.enrollmentId;
   if (!enrollmentId || props.checkingId == null) return false;
 
   return String(props.checkingId) === String(enrollmentId);
 });
 
 const selectedMissionLoading = computed(() => {
-  const missionId = selectedMission.value?.id;
+  const missionId = activeShellMission.value?.id;
   if (!missionId || props.completingMissionId == null) return false;
 
   return String(props.completingMissionId) === String(missionId);
@@ -618,12 +764,12 @@ const selectedMissionLoading = computed(() => {
 const ringoGuidance = computed(() => {
   const path = props.zone?.title || t("space.eyebrow");
   const action = props.zone?.action || null;
-  const challenge = selectedPathChallenge.value;
-  const mission = selectedMission.value;
+  const challenge = activeShellChallenge.value;
+  const mission = activeShellMission.value;
   const stats = pathStats.value;
   const pathComplete = Boolean(stats?.progressTotal && stats.progressDone >= stats.progressTotal);
 
-  if (modeIs("path") && challenge) {
+  if ((modeIs("path") || modeIs("mission")) && challenge) {
     if (!challenge.isJoined) {
       return buildRingoGuidance({
         mood: "thinking",
@@ -645,7 +791,7 @@ const ringoGuidance = computed(() => {
     }
 
     if (mission) {
-      const gate = missionGateText(mission);
+      const gate = missionGateTextForShell(mission);
       if (gate) {
         return buildRingoGuidance({
           mood: missionIntensity(mission) === "bonus" ? "explaining" : "thinking",
@@ -673,7 +819,7 @@ const ringoGuidance = computed(() => {
         });
       }
 
-      if (missionCanComplete(mission)) {
+      if (missionCanCompleteInShell(mission)) {
         return buildRingoGuidance({
           mood: missionIntensity(mission) === "bonus" ? "happy" : "focus",
           tone: missionIntensity(mission) === "bonus" ? "bonus" : "ready",
@@ -905,6 +1051,16 @@ function missionGateText(mission) {
   return "";
 }
 
+function missionGateTextForShell(mission) {
+  if (selectedPathChallenge.value) return missionGateText(mission);
+
+  if (missionIntensity(mission) === "tiny" && !missionDone(mission)) {
+    return t("space.shell.tinyLivingSpaceGate");
+  }
+
+  return "";
+}
+
 function missionStatusClass(mission) {
   if (missionGateText(mission)) return "locked";
   return missionStatus(mission);
@@ -931,6 +1087,15 @@ function missionCanComplete(mission) {
   return !["done", "completed", "locked"].includes(missionStatus(mission));
 }
 
+function missionCanCompleteInShell(mission) {
+  if (selectedPathChallenge.value) return missionCanComplete(mission);
+  if (!mission?.id) return false;
+  if (missionIntensity(mission) === "tiny") return false;
+  if (challengeDone.value || challengeLoading.value) return false;
+
+  return !["done", "completed", "locked", "skipped"].includes(missionStatus(mission));
+}
+
 function missionActionLabel(mission) {
   if (!selectedPathChallenge.value?.isJoined) return t("space.shell.startChallengeFirst");
   if (missionIntensity(mission) === "tiny") {
@@ -943,6 +1108,15 @@ function missionActionLabel(mission) {
   if (missionDone(mission)) {
     return t("space.shell.missionDone");
   }
+
+  return t("space.shell.completeMission");
+}
+
+function missionActionLabelForShell(mission) {
+  if (selectedPathChallenge.value) return missionActionLabel(mission);
+  if (!mission?.id) return t("space.shell.missionLocked");
+  if (missionIntensity(mission) === "tiny") return t("space.shell.tinyLockedAction");
+  if (missionDone(mission) || challengeDone.value) return t("space.shell.missionDone");
 
   return t("space.shell.completeMission");
 }
@@ -1063,6 +1237,37 @@ function missionActionLabel(mission) {
   flex-wrap: wrap;
   gap: 8px;
   margin-top: 2px;
+}
+
+.shellStateNav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  padding: 7px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.032);
+  border: 1px solid rgba(255, 255, 255, 0.075);
+}
+
+.shellStateButton {
+  min-height: 29px;
+  padding: 5px 9px;
+  border-radius: 9px;
+  color: rgba(255, 255, 255, 0.58);
+  background: transparent;
+  border: 1px solid transparent;
+  cursor: pointer;
+  font-size: 0.68rem;
+  font-weight: 850;
+}
+
+.shellStateButton:hover,
+.shellStateButton:focus-visible,
+.shellStateButton.active {
+  color: rgba(255, 255, 255, 0.90);
+  background: rgba(110, 229, 255, 0.075);
+  border-color: rgba(110, 229, 255, 0.16);
+  outline: none;
 }
 
 .iconFrame {
@@ -1197,6 +1402,12 @@ function missionActionLabel(mission) {
   background: rgba(110, 229, 255, 0.055);
   border: 1px solid rgba(110, 229, 255, 0.10);
   font-size: 0.76rem;
+}
+
+.missionBreadcrumb {
+  color: rgba(110, 229, 255, 0.70) !important;
+  font-size: 0.78rem;
+  font-weight: 800;
 }
 
 .actionRow {
