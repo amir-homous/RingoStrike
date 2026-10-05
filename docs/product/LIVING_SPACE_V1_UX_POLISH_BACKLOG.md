@@ -26,8 +26,33 @@ Known boundary:
 - The room is not visually final.
 - The object chips are placeholders, not final room art.
 - Later rewards are preview-only, not active unlock targets.
+- Final visual direction is Dark Cinematic Diorama with controlled Stylized Night Progress influence.
+- Camera direction is elevated 3/4 soft-perspective, not strict isometric.
+- Zone labels should not be permanently visible in the final room treatment.
+- Stage 0 must stay sparse but pleasant and should reserve future anchors without baking future rewards into the base art.
 
 ## Polish Candidates
+
+### 0. Visual System Alignment
+
+Problem:
+
+The implementation shell proves data wiring, but final room art needs a locked visual contract before deeper UI integration.
+
+Potential improvements:
+
+- Use the [Living Space Visual System Spec](LIVING_SPACE_VISUAL_SYSTEM_SPEC.md) as the source of truth for room art.
+- Plan Stage 0 with empty walls/floor, central circulation, and three Ringo-safe positions.
+- Convert permanent visible labels into hover/focus/selection labels.
+- Model reward visuals with `ADD`, `REPLACE`, `ENVIRONMENT`, `ATMOSPHERE`, and `IDENTITY` behaviors.
+- Start with the Creativity vertical slice: Stage 0 -> Sketchbook ghost -> materialize -> persistent sketchbook -> Lamp preview.
+
+Acceptance:
+
+- No future reward asset is baked into Stage 0.
+- Locked preview uses final asset ghost treatment.
+- The first visual slice remains compatible with current `/me/space` reward definitions.
+- The room still works when assets are placeholders.
 
 ### 1. Room Clarity Copy
 
@@ -122,13 +147,15 @@ Acceptance:
 
 These are intentionally not part of the next polish pass:
 
-- Final room background art.
-- Object illustrations or generated room assets.
+- Full final room background art beyond the approved visual direction.
+- Full object illustration set for all 25 definitions.
 - Drag/drop placement.
 - Inventory.
 - Shop or currency.
 - Friend/public room visits.
 - Later reward unlock rules.
+- Persistent custom room editing.
+- More than one room.
 
 ## Later Reward Rule Questions
 
@@ -139,16 +166,18 @@ Before implementing later rewards, answer:
 - `achievement_unlocked`: any achievement, path-specific achievement, or selected milestone achievements?
 - `major_path_milestone`: v1.1 or v2?
 - Should legacy users receive later rewards from history, or only first-path backfill?
+- Which rewards are `ADD`, `REPLACE`, `ENVIRONMENT`, `ATMOSPHERE`, or `IDENTITY`?
+- Which reward slots share the same final visual anchor?
 
 ## Recommended Next Issue
 
 ```txt
-[Frontend] Living Space v1 copy and state clarity polish
+[Design/Frontend] Living Space Creativity vertical slice and state clarity polish
 ```
 
 Scope:
 
-- Copy-only and state-label improvements.
-- No room art changes.
+- Creativity reference slice and state-label improvements.
+- No broad room redesign beyond the approved visual-system direction.
 - No layout redesign beyond small responsive fixes.
 - No later reward unlock rules.

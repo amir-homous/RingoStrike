@@ -159,15 +159,22 @@ Turn Home into a living progression space where real user progress creates persi
 Reference spec:
 
 - [Living Space v1 Spec](LIVING_SPACE_V1_SPEC.md)
+- [Living Space Visual System Spec](LIVING_SPACE_VISUAL_SYSTEM_SPEC.md)
+- [Living Space Home Shell Spec](LIVING_SPACE_HOME_SHELL_SPEC.md)
 
 Main changes:
 
 - Add one base room with five clickable path zones.
+- Use Dark Cinematic Diorama as the base visual direction, with controlled Stylized Night Progress influence.
+- Use elevated 3/4 soft-perspective camera, not strict isometric.
 - Show locked/ghost previews for path rewards before the first focus choice.
 - Let the user choose a first focus path without permanently locking them in.
 - Persist the first small set of room rewards.
 - Show newly unlocked rewards after mission completion.
 - Make unlocked objects appear in fixed zone slots.
+- Allow 25 canonical reward definitions to manifest through fewer shared art anchors using `ADD`, `REPLACE`, `ENVIRONMENT`, `ATMOSPHERE`, and `IDENTITY`.
+- Keep Stage 0 sparse but pleasant, with reserved anchors and three Ringo-safe positions.
+- Use Creativity as the first visual vertical slice: Stage 0 -> Sketchbook ghost -> materialize -> persistent sketchbook -> Lamp preview.
 - Let each object explain why it was unlocked.
 
 Important:

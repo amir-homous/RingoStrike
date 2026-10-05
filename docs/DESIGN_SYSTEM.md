@@ -163,7 +163,15 @@ Current asset consistency note: the sprite map resolves assets from `frontend/sr
 - Reveal the full dashboard only after focus mode is resolved or the user explicitly chooses `Show dashboard`; use subtle stagger/fade motion and honor reduced-motion preferences.
 - Keep `/paths` as the richer path planning surface: path picker, active path status, challenge stage panels, mission previews, and daily path summary.
 - For Living Space v1, use one room with five readable path zones and fixed object slots. Ringo remains the guide layer across the room, not a room zone.
-- Locked room rewards may appear as ghost/silhouette previews, but avoid shop, inventory, drag/drop, city-map, or heavy social visual patterns in v1.
+- Living Space visual direction is Dark Cinematic Diorama with controlled Stylized Night Progress influence.
+- Use an elevated 3/4 soft-perspective camera for Living Space, not strict isometric.
+- Stage 0 should be sparse but pleasant, with empty walls/floor, central circulation, future anchors, and three Ringo-safe positions. Do not bake future reward assets into Stage 0.
+- Locked room rewards should use final-asset ghost treatment rather than a separate locked-object visual language.
+- Living Space reward reveal should be calm in-room materialization, not confetti, loot, or screen-covering celebration.
+- Living Space zone labels should appear on hover, focus, tap/selection, or active state rather than being permanently visible.
+- Reward definitions may manifest as `ADD`, `REPLACE`, `ENVIRONMENT`, `ATMOSPHERE`, or `IDENTITY`; do not assume one independent object per reward definition.
+- Start final art/interaction validation with the Creativity vertical slice: Stage 0, Sketchbook ghost, unlock/materialize, persistent sketchbook, next Lamp preview.
+- Avoid shop, inventory, drag/drop, city-map, or heavy social visual patterns in v1.
 - Keep progressive disclosure subtle: reveal deeper sections after existing check-in stats make them meaningful, without blocking direct routes.
 - Make public profile views shareable but privacy-safe.
 - Avoid adding separate visual languages for each feature.
