@@ -193,9 +193,9 @@ function closePanel() {
 }
 
 function changeShellMode(mode) {
-  if (!["zone", "path", "challenge"].includes(mode)) return;
+  if (!["zone", "path", "challenge", "mission"].includes(mode)) return;
   shellMode.value = mode;
-  if (mode === "path") {
+  if (["path", "challenge", "mission"].includes(mode)) {
     ensurePathChallenges(displayActiveZone.value);
   }
 }
@@ -293,7 +293,7 @@ function buildZoneAction(zone, pathDetail = null) {
     title: t("space.zoneAction.readyTitle", { challenge: name }),
     text: t("space.zoneAction.readyText"),
     primaryLabel: t("space.zoneAction.continueMission"),
-    primaryMode: "challenge",
+    primaryMode: "mission",
     fallbackTo: `/enrollment/${challenge.enrollment_id}`,
     secondaryLabel: t("space.zoneAction.viewPath"),
     secondaryMode: "path",
@@ -353,7 +353,7 @@ function buildPathChallengeZoneAction(challenge) {
     title: t("space.zoneAction.readyTitle", { challenge: challenge.name }),
     text: t("space.zoneAction.readyText"),
     primaryLabel: t("space.zoneAction.continueMission"),
-    primaryMode: "path",
+    primaryMode: "mission",
     fallbackTo: challenge.enrollmentId ? `/enrollment/${challenge.enrollmentId}` : "/paths",
     secondaryLabel: t("space.zoneAction.viewPath"),
     secondaryMode: "path",
@@ -673,7 +673,7 @@ watch(
   async () => {
     await loadSpace();
     await preloadZonePathChallenges({ force: true });
-    if (shellMode.value === "path") {
+    if (["path", "challenge", "mission"].includes(shellMode.value)) {
       ensurePathChallenges(displayActiveZone.value, { force: true });
     }
   },
