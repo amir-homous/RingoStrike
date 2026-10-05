@@ -2,7 +2,11 @@
   <button
     type="button"
     class="spaceZone"
-    :class="[`zone-${zone.zone_key}`, { active, hasProgress, hasReminderDue }]"
+    :class="[
+      `zone-${zone.zone_key}`,
+      { active, hasProgress, hasReminderDue, subdued: hasActiveSelection && !active },
+    ]"
+    :aria-pressed="active"
     @click="$emit('select', zone)"
   >
     <span class="zoneHeader">
@@ -56,6 +60,7 @@ import SpaceObject from "./SpaceObject.vue";
 const props = defineProps({
   zone: { type: Object, required: true },
   active: { type: Boolean, default: false },
+  hasActiveSelection: { type: Boolean, default: false },
 });
 
 defineEmits(["select"]);
@@ -150,7 +155,13 @@ const pathIcon = computed(() => {
     rgba(8, 13, 22, 0.58);
   cursor: pointer;
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.025);
-  transition: transform 160ms ease, border-color 160ms ease, background 160ms ease;
+  transition:
+    transform 160ms ease,
+    border-color 160ms ease,
+    background 160ms ease,
+    box-shadow 160ms ease,
+    filter 160ms ease,
+    opacity 160ms ease;
 }
 
 .spaceZone:hover,
@@ -160,6 +171,24 @@ const pathIcon = computed(() => {
   background:
     linear-gradient(180deg, rgba(110, 229, 255, 0.075), rgba(255, 255, 255, 0.028)),
     rgba(8, 13, 22, 0.68);
+}
+
+.spaceZone.active {
+  box-shadow:
+    inset 0 0 0 1px rgba(110, 229, 255, 0.10),
+    0 18px 40px rgba(0, 0, 0, 0.24),
+    0 0 26px rgba(110, 229, 255, 0.08);
+}
+
+.spaceZone.subdued {
+  opacity: 0.68;
+  filter: saturate(0.78) brightness(0.92);
+}
+
+.spaceZone.subdued:hover,
+.spaceZone.subdued:focus-visible {
+  opacity: 0.92;
+  filter: none;
 }
 
 .spaceZone.hasProgress {

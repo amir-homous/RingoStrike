@@ -53,6 +53,7 @@
           :key="zone.zone_key"
           :zone="zone"
           :active="panelZone?.zone_key === zone.zone_key"
+          :has-active-selection="hasActiveZoneSelection"
           @select="selectZone"
         />
       </div>
@@ -165,6 +166,10 @@ const displayActiveZone = computed(() => {
   return displayZones.value.find(
     (zone) => zone.zone_key === activeZone.value.zone_key,
   ) || null;
+});
+
+const hasActiveZoneSelection = computed(() => {
+  return Boolean(displayActiveZone.value);
 });
 
 const restZone = computed(() => {
