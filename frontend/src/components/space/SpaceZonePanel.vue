@@ -74,8 +74,12 @@
       <p v-else class="emptyText">{{ t("space.zoneComplete") }}</p>
     </div>
 
-    <p v-if="zone.next_reward" class="nextReward">
-      {{ nextRewardText }}
+    <p
+      v-if="firstRewardText"
+      class="nextReward"
+      :class="{ complete: firstRewardUnlocked }"
+    >
+      {{ firstRewardText }}
     </p>
 
     <div v-if="zone.action" class="panelSection zoneAction" :class="zone.action.state">
@@ -415,15 +419,28 @@ const { t } = useI18n();
 const unlockedCount = computed(() => props.zone?.unlocked_objects?.length || 0);
 const lockedPreviewCount = computed(() => props.zone?.locked_preview_objects?.length || 0);
 
-const nextRewardText = computed(() => {
-  const reward = props.zone?.next_reward;
+const firstReward = computed(() => {
+  const rewards = [
+    ...(props.zone?.unlocked_objects || []),
+    ...(props.zone?.locked_preview_objects || []),
+  ];
+
+  return rewards.find((reward) => {
+    return reward?.unlock_condition_type === "first_path_mission_done";
+  }) || null;
+});
+
+const firstRewardUnlocked = computed(() => Boolean(firstReward.value?.unlocked));
+
+const firstRewardText = computed(() => {
+  const reward = firstReward.value;
   if (!reward) return "";
 
-  if (reward.unlock_condition_type === "first_path_mission_done") {
-    return t("space.nextRewardFirst", { reward: reward.title });
+  if (firstRewardUnlocked.value) {
+    return t("space.firstRewardPlaced", { reward: reward.title });
   }
 
-  return t("space.nextRewardFuture", { reward: reward.title });
+  return t("space.firstRewardLocked", { reward: reward.title });
 });
 
 const challengeStatusText = computed(() => {
@@ -1131,6 +1148,12 @@ function missionActionLabel(mission) {
   color: rgba(247, 215, 116, 0.88);
   background: rgba(247, 215, 116, 0.055);
   border: 1px solid rgba(247, 215, 116, 0.12);
+}
+
+.nextReward.complete {
+  color: rgba(122, 245, 176, 0.88);
+  background: rgba(80, 220, 140, 0.055);
+  border-color: rgba(80, 220, 140, 0.14);
 }
 
 .zoneAction {

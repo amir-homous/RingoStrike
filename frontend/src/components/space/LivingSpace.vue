@@ -6,6 +6,7 @@
         <h2>{{ t("space.title") }}</h2>
         <p>{{ t("space.subtitle") }}</p>
         <p v-if="spaceState" class="spaceStatus">{{ spaceStatus }}</p>
+        <p v-if="spaceState" class="spaceRule">{{ t("space.rule") }}</p>
       </div>
 
       <div v-if="spaceState" class="spaceMeta">
@@ -104,7 +105,17 @@ const spaceStatus = computed(() => {
     return t("space.emptyStatus");
   }
 
+  if (hasHistoricalRewards.value) {
+    return t("space.historyStatus", { count: unlockedCount.value });
+  }
+
   return t("space.progressStatus", { count: unlockedCount.value });
+});
+
+const hasHistoricalRewards = computed(() => {
+  return (spaceState.value?.unlocked_objects || []).some((reward) => {
+    return reward?.source_type === "mission_history";
+  });
 });
 
 const displayZones = computed(() => {
@@ -731,6 +742,13 @@ watch(
 .spaceHead .spaceStatus {
   color: rgba(255, 255, 255, 0.72);
   font-weight: 750;
+}
+
+.spaceHead .spaceRule {
+  margin-top: 6px;
+  color: rgba(110, 229, 255, 0.70);
+  font-size: 0.82rem;
+  font-weight: 760;
 }
 
 .spaceMeta {
