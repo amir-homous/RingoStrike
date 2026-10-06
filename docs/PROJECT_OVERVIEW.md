@@ -38,7 +38,7 @@ Product direction source:
 - Enrollment history and challenge leaderboard.
 - XP, level, current streak, longest streak, and progress calculations.
 - Achievement definitions, unlock evaluation, and reward feedback.
-- Activity feed derived from check-ins, streaks, level-ups, and achievements.
+- Dedicated `/activity` feed derived from check-ins, streaks, level-ups, and achievements.
 - Private profile page with title, stats, bio, avatar, and consistency heatmap.
 - Public profiles at `/u/:username` backed by public API endpoints.
 - Profile visibility controls: public/private.
@@ -133,7 +133,7 @@ Register/Login
   -> Paths/Dashboard/Profile as supporting surfaces
 ```
 
-The product has shifted from a dashboard-based MVP toward a Ringo-first companion experience where the next action is emotionally clear and small enough to complete. The dashboard remains important, but it should feel like Ringo's home. Living Space v1 is the planned next expression of that home: one visible progress room where real progress can unlock persistent objects in five path zones. Its final visual direction is Dark Cinematic Diorama with controlled Stylized Night Progress influence, elevated 3/4 soft-perspective camera, calm in-room reward materialization, and non-permanent zone labels. MissionCenter, paths, challenges, stats, achievements, and profiles support the companion loop instead of competing with it.
+The product has shifted from a dashboard-based MVP toward a Ringo-first companion experience where the next action is emotionally clear and small enough to complete. The dashboard remains important, but it should feel like Ringo's home. Living Space v1 is the planned next expression of that home: one visible progress room where real progress can unlock persistent objects in five path zones. Its final visual direction is Dark Cinematic Diorama with controlled Stylized Night Progress influence, elevated 3/4 soft-perspective camera, calm in-room reward materialization, and non-permanent zone labels. MissionCenter, paths, challenges, activity, stats, achievements, and profiles support the companion loop instead of competing with it.
 
 ## Current Architecture Strengths
 

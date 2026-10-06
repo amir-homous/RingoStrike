@@ -51,6 +51,16 @@ The backend supports HttpOnly cookie auth and Bearer token fallback. The fronten
 
 `frontend/src/stores/session.js` is aligned with this cookie-based model and uses `/me` plus `/auth/logout`; it does not require `api.setToken()`.
 
+## Activity Feed Route Contract
+
+`/activity` is the authenticated Activity Feed surface. It consumes the existing `GET /me/activity` response and renders the shared `ActivityTimeline` component.
+
+Boundaries:
+
+- Dashboard remains the Living Space home shell and should not expose Activity Feed as a hash section.
+- Activity Feed does not own XP, streaks, achievements, check-ins, or mission writes.
+- Activity events remain derived by the existing backend activity service.
+
 ## Staged Mission Reward Sequence Display Contract
 
 Staged Mission Reward Sequence v2 is frontend-owned presentation after mission completion. It does not own XP, stats, streak, check-in, achievement, activity, reward economy, or mission mutation logic.

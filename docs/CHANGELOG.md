@@ -16,6 +16,15 @@ The project has moved beyond raw MVP. Core progression identity is implemented. 
 
 ## Latest Launch-Hardening Updates
 
+### Living Space Dashboard And Activity Feed Separation
+
+Separated the visible Dashboard home shell from the Activity Feed navigation target:
+
+- Dashboard now uses a wide frontend layout so Living Space can occupy the desktop viewport without escaping a narrow app container.
+- Added `/activity` as the dedicated authenticated Activity Feed route.
+- Updated navigation so Activity Feed opens `/activity` instead of the old `/dashboard#activity-feed` hash target.
+- Kept Activity Feed on the existing `/me/activity` endpoint and shared `ActivityTimeline` component.
+
 ### Living Space Visual And Home Shell Contract Alignment
 
 Locked the latest Living Space product/design decisions in documentation:
