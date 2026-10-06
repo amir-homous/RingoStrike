@@ -185,6 +185,7 @@ Router paths:
 - `/onboarding`
 - `/auth/callback`
 - `/dashboard`
+- `/activity`
 - `/paths`
 - `/challenges`
 - `/profile`
@@ -207,6 +208,7 @@ Guided progression is now split between backend path/mission data and frontend p
 - `POST /me/missions/:id/done` records the mission log and delegates to the existing enrollment check-in service, so XP, streaks, achievements, activity, and stats remain owned by the existing progression pipeline.
 - RewardMoment and JoinSuccessMoment are display feedback components. RewardMoment consumes existing check-in reward data plus frontend-only feature unlock hints; JoinSuccessMoment consumes challenge/path start results.
 - Living Space Home Shell is a frontend display/state layer over existing room, Ringo, path, challenge, mission, reward, and rest data. Its canonical display states are `overview`, `zone`, `path`, `challenge`, `mission`, `reward`, and `rest`; these are not backend enum contracts in v1.
+- `/activity` is the dedicated authenticated activity timeline route. It consumes the existing `/me/activity` endpoint and keeps Activity Feed out of the Living Space home shell.
 - Living Space visual behavior should follow `docs/product/LIVING_SPACE_VISUAL_SYSTEM_SPEC.md`: Dark Cinematic Diorama, elevated 3/4 soft-perspective, sparse pleasant Stage 0, final-asset ghost previews, calm in-room reward materialization, and reward manifestation behaviors that may share visual anchors across canonical reward definitions.
 
 ## Ringo Helper Architecture

@@ -108,7 +108,7 @@ const navItems = computed(() => [
     key: "activity",
     labelKey: "nav.activity",
     hintKey: "nav.hints.activity",
-    to: { path: "/dashboard", hash: "#activity-feed" },
+    to: "/activity",
   },
   {
     key: "profile",
@@ -149,7 +149,7 @@ function isItemActive(item) {
   }
 
   if (item.key === "activity") {
-    return route.path === "/dashboard" && route.hash === "#activity-feed";
+    return route.path === "/activity";
   }
 
   if (item.key === "settings") {

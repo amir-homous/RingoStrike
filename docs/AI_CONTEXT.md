@@ -93,7 +93,7 @@ Implementation guidance:
 ## Implemented Frontend Systems
 
 - Vue 3 + Vite application in `frontend/`.
-- Vue Router routes for login, auth callback, dashboard, paths, challenges, profile, enrollment, leaderboard, public profile, API docs, and redirects.
+- Vue Router routes for login, auth callback, dashboard, activity, paths, challenges, profile, enrollment, leaderboard, public profile, API docs, and redirects.
 - Axios API client in `frontend/src/lib/api.js` using `VITE_API_BASE` when provided, `http://localhost:5005` only in Vite dev mode, and same-origin relative API paths in production by default. Credentials are enabled and callback-token Bearer fallback support remains.
 - The current VPS same-origin deployment at `http://82.115.24.10` uses `VITE_API_BASE=/api-proxy`. Nginx serves `frontend/dist`, proxies `/api-proxy/` to Flask on `http://127.0.0.1:5005/` without rewrite rules, and keeps Vue routes on the SPA fallback. Do not use `VITE_API_BASE=http://localhost:5005` in production browser builds.
 - Active local auth UI is `frontend/src/components/AuthForm.vue`; it uses the shared API client and honors the `next` redirect query.
@@ -102,7 +102,7 @@ Implementation guidance:
 - The language switcher lives in `frontend/src/components/i18n/LanguageSwitcher.vue`, persists the selected locale in `localStorage.ringostrike_locale`, and updates `document.documentElement.lang` and `dir`.
 - Persian mode uses the local Vazirmatn variable WOFF2 font from `frontend/src/assets/fonts/Vazirmatn.woff2`; English mode keeps the existing system font stack.
 - Component groups for UI primitives, progress, achievements, activity, challenge cards, profile, and feedback.
-- Guided progression surfaces now include Dashboard MissionCenter, backend RingoCoach decisions, `/paths` path planning, path selection from MissionCenter, lightweight `/onboarding` identity path flow, progressive dashboard disclosure, premium check-in RewardMoment, JoinSuccessMoment after successful challenge joins, and Living Space visible-progress room feedback.
+- Guided progression surfaces now include Dashboard MissionCenter, backend RingoCoach decisions, `/paths` path planning, path selection from MissionCenter, lightweight `/onboarding` identity path flow, progressive dashboard disclosure, premium check-in RewardMoment, JoinSuccessMoment after successful challenge joins, dedicated `/activity` history, and Living Space visible-progress room feedback.
 - `MissionCenter.vue` calls `/me/today-missions`; mission done calls `/me/missions/:id/done`, which writes a mission log and delegates to the existing check-in pipeline.
 - `PathSelection.vue` starts a path and then joins the first related challenge when one is available. Path start and challenge join remain separate API operations.
 - RewardMoment displays existing backend check-in rewards only and can surface frontend-only feature unlock hints for Activity, Achievements, and Public Profile. Leaderboard unlock hints are intentionally skipped for v1 because there is no dedicated global leaderboard route yet.

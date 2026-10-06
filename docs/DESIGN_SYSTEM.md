@@ -125,6 +125,7 @@ Feature components:
 Current views:
 
 - `Dashboard.vue`
+- `ActivityFeed.vue`
 - `Paths.vue`
 - `Challenges.vue`
 - `Enrollment.vue`

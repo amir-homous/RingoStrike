@@ -1,10 +1,19 @@
 <template>
-  <div class="app">
-    <div class="container">
+  <div class="app" :class="{ appWide: isWideLayout }">
+    <div class="container" :class="{ containerWide: isWideLayout }">
       <slot />
     </div>
   </div>
 </template>
+
+<script setup>
+import { computed } from "vue";
+import { useRoute } from "vue-router";
+
+const route = useRoute();
+
+const isWideLayout = computed(() => route.meta.layout === "wide");
+</script>
 
 <style scoped>
 .app{
@@ -16,10 +25,16 @@
   background: var(--bg);
   overflow-x: clip;
 }
+.appWide{
+  padding-inline: clamp(16px, 2vw, 32px);
+}
 .container{
   width: 100%;
   min-width: 0;
   max-width: var(--container);
   margin: 0 auto;
+}
+.containerWide{
+  max-width: none;
 }
 </style>
