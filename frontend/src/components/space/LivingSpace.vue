@@ -38,8 +38,9 @@
             v-for="zone in displayZones"
             :key="zone.zone_key"
             :zone="zone"
-            :active="displayActiveZone?.zone_key === zone.zone_key"
+            :active="visualActiveZone?.zone_key === zone.zone_key"
             :has-active-selection="hasActiveZoneSelection"
+            :feedback="recentRoomFeedback"
             @select="selectZone"
           />
         </div>
@@ -58,12 +59,16 @@
           :today-safe="todaySafe"
           :daily-momentum="dailyMomentum"
           :due-reminders="dueReminders"
+          :due-reminder-focus="activeDueReminderFocus"
           :future-reminder-count="futureReminderCount"
+          :room-feedback="panelRoomFeedback"
           :closable="hasActiveZoneSelection"
           @change-mode="changeShellMode"
           @select-challenge="selectPathChallenge"
           @start-challenge="startChallenge"
           @complete-mission="completeMission"
+          @remind-mission="remindMission"
+          @skip-mission="skipMission"
           @checkin="$emit('checkin', $event)"
           @close="closePanel"
         />
@@ -73,7 +78,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref, watch } from "vue";
+import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import api from "@/lib/api";
 import UiState from "@/components/ui/UiState.vue";
@@ -92,6 +97,7 @@ const props = defineProps({
   focusReason: { type: String, default: "" },
   reminderCount: { type: Number, default: 0 },
   checkingId: { type: [Number, String, null], default: null },
+  roomFeedbackEvent: { type: Object, default: null },
 });
 
 const emit = defineEmits(["checkin", "challenge-started", "mission-completed"]);
@@ -111,6 +117,8 @@ const pathErrors = ref({});
 const selectedPathChallengeId = ref(null);
 const startingChallengeId = ref(null);
 const completingMissionId = ref(null);
+const recentRoomFeedback = ref(null);
+let roomFeedbackTimer = null;
 
 const unlockedCount = computed(() => {
   return spaceState.value?.unlocked_objects?.length || 0;
@@ -138,11 +146,35 @@ const displayActiveZone = computed(() => {
   ) || null;
 });
 
+const dueReminderFocus = computed(() => dueReminders.value[0] || null);
+
+const dueReminderZone = computed(() => {
+  const reminder = dueReminderFocus.value;
+  if (!reminder) return null;
+
+  const reminderPathKey = normalizePathKey(reminder.pathKey || "");
+  const reminderPathId = normalizeId(reminder.pathId);
+
+  return displayZones.value.find((zone) => {
+    const zonePathKey = normalizePathKey(zone.path_key || "");
+    const zonePathId = normalizeId(zone.pathDetail?.pathId);
+
+    return (reminderPathKey && zonePathKey === reminderPathKey)
+      || (reminderPathId && zonePathId === reminderPathId);
+  }) || null;
+});
+
+const visualActiveZone = computed(() => {
+  return displayActiveZone.value || dueReminderZone.value;
+});
+
 const hasActiveZoneSelection = computed(() => {
-  return Boolean(displayActiveZone.value);
+  return Boolean(visualActiveZone.value);
 });
 
 const restZone = computed(() => {
+  if (!displayActiveZone.value && dueReminderZone.value) return dueReminderZone.value;
+
   return displayZones.value.find((zone) => zone.action?.state === "done_today")
     || displayZones.value.find((zone) => (zone.unlocked_objects || []).length > 0)
     || displayZones.value[0]
@@ -151,6 +183,7 @@ const restZone = computed(() => {
 
 const shouldShowRestPanel = computed(() => {
   if (activeZone.value) return false;
+  if (dueReminderFocus.value) return true;
 
   return Boolean(
     props.todaySafe
@@ -165,8 +198,18 @@ const panelMode = computed(() => {
 
 const panelZone = computed(() => {
   if (displayActiveZone.value) return displayActiveZone.value;
+  if (dueReminderZone.value) return dueReminderZone.value;
   if (panelMode.value === "rest") return restZone.value;
   return null;
+});
+
+const activeDueReminderFocus = computed(() => {
+  const reminder = dueReminderFocus.value;
+  const reminderZone = dueReminderZone.value;
+  const zone = panelZone.value || workSurfaceZone.value;
+
+  if (!reminder || !reminderZone || !zone) return null;
+  return reminderZone.zone_key === zone.zone_key ? reminder : null;
 });
 
 const workSurfaceZone = computed(() => {
@@ -195,6 +238,14 @@ const activePathLoading = computed(() => {
 const activePathError = computed(() => {
   const pathId = activePathId.value;
   return pathId ? pathErrors.value[pathId] || "" : "";
+});
+
+const panelRoomFeedback = computed(() => {
+  if (!recentRoomFeedback.value) return null;
+  const zoneKey = workSurfaceZone.value?.zone_key || "";
+  return String(recentRoomFeedback.value.zoneKey || "") === String(zoneKey)
+    ? recentRoomFeedback.value
+    : null;
 });
 
 const roomOverviewGuidance = computed(() => {
@@ -259,8 +310,12 @@ const roomOverviewGuidance = computed(() => {
   };
 });
 
-async function loadSpace() {
-  loading.value = true;
+async function loadSpace(options = {}) {
+  const silent = Boolean(options?.silent || spaceState.value);
+
+  if (!silent) {
+    loading.value = true;
+  }
   error.value = "";
 
   try {
@@ -273,9 +328,15 @@ async function loadSpace() {
       ) || null;
     }
   } catch (e) {
-    error.value = e?.response?.data?.error || e?.message || String(e);
+    if (silent) {
+      console.warn("Could not refresh Living Space", e);
+    } else {
+      error.value = e?.response?.data?.error || e?.message || String(e);
+    }
   } finally {
-    loading.value = false;
+    if (!silent) {
+      loading.value = false;
+    }
   }
 }
 
@@ -461,8 +522,8 @@ function buildPathChallengeZoneAction(challenge) {
         enrollmentId: challenge.enrollmentId,
         name: challenge.name,
         status: "done_today",
-        streak: 0,
-        totalCheckins: challenge.doneCount || 0,
+        streak: challenge.currentStreak || 0,
+        totalCheckins: challenge.totalCheckins || challenge.doneCount || 0,
         todayChecked: true,
         mission,
       },
@@ -484,8 +545,8 @@ function buildPathChallengeZoneAction(challenge) {
       enrollmentId: challenge.enrollmentId,
       name: challenge.name,
       status: "ready_today",
-      streak: 0,
-      totalCheckins: challenge.doneCount || 0,
+      streak: challenge.currentStreak || 0,
+      totalCheckins: challenge.totalCheckins || challenge.doneCount || 0,
       todayChecked: false,
       mission,
     },
@@ -494,7 +555,11 @@ function buildPathChallengeZoneAction(challenge) {
 
 function findPathChallengeMission(challenge) {
   const missions = challenge?.missions || [];
-  const mission = missions.find((item) => {
+  const decidedTiny = missions.find((item) => {
+    return String(item.intensity || "").toLowerCase() === "tiny"
+      && ["remind_later", "skipped", "done", "completed"].includes(String(item.status || "").toLowerCase());
+  });
+  const mission = decidedTiny || missions.find((item) => {
     return item.availableToday
       && item.status === "pending"
       && item.intensity === "main";
@@ -583,6 +648,8 @@ function buildPathChallenge(challenge, zone) {
     isJoined,
     isCurrent,
     todayChecked,
+    currentStreak: Number(challenge?.current_streak || challenge?.currentStreak || 0),
+    totalCheckins: Number(challenge?.total_checkins || challenge?.totalCheckins || 0),
     missionCount: missionProgress.total,
     doneCount: missionProgress.done,
     estimatedDays: Number(challenge?.estimated_days || challenge?.duration_days || 0),
@@ -667,6 +734,8 @@ const dueReminders = computed(() => {
       id: mission?.mission_id || mission?.id || `${mission?.title || "mission"}-${mission?.reminder_at || ""}`,
       title: mission?.title || mission?.mission_title || t("common.mission"),
       challengeName: mission?.challenge_name || mission?.challenge || "",
+      challengeId: mission?.challenge_id || null,
+      enrollmentId: mission?.enrollment_id || null,
       pathId: mission?.path_id || null,
       pathKey: missionPathKey(mission),
       reminderAt: mission?.reminder_at || "",
@@ -778,7 +847,7 @@ async function loadPathChallenges(path) {
 }
 
 async function startChallenge(challenge) {
-  const pathId = (displayActiveZone.value || workSurfaceZone.value)?.pathDetail?.pathId;
+  const pathId = workSurfaceZone.value?.pathDetail?.pathId;
   if (!challenge?.id || !pathId) return;
 
   startingChallengeId.value = challenge.id;
@@ -791,7 +860,7 @@ async function startChallenge(challenge) {
       reload: async () => {},
     });
     await loadPathChallenges({ path_id: pathId });
-    await loadSpace();
+    await loadSpace({ silent: true });
     emit("challenge-started", { challengeId: challenge.id, pathId });
   } catch (e) {
     pathErrors.value = {
@@ -804,18 +873,64 @@ async function startChallenge(challenge) {
 }
 
 async function completeMission(mission) {
+  await mutateMission(
+    mission,
+    "done",
+    (missionId) => api.post(`/me/missions/${missionId}/done`, {}),
+  );
+}
+
+async function remindMission(payload) {
+  const mission = payload?.mission || payload;
+  const reminderAt = payload?.reminderAt || reminderAtForLivingSpace();
+
+  await mutateMission(
+    mission,
+    "remind_later",
+    (missionId) => api.post(`/me/missions/${missionId}/remind-later`, {
+      reminder_at: reminderAt,
+    }),
+  );
+}
+
+async function skipMission(payload) {
+  const mission = payload?.mission || payload;
+  const body = payload?.reason ? { reason: payload.reason } : {};
+
+  await mutateMission(
+    mission,
+    "skip",
+    (missionId) => api.post(`/me/missions/${missionId}/skip`, body),
+  );
+}
+
+function reminderAtForLivingSpace() {
+  return new Date(Date.now() + 15 * 60 * 1000).toISOString();
+}
+
+async function mutateMission(mission, action, request) {
   const missionId = mission?.id;
-  const pathId = (displayActiveZone.value || workSurfaceZone.value)?.pathDetail?.pathId;
+  const pathId = workSurfaceZone.value?.pathDetail?.pathId;
+  const feedbackZone = workSurfaceZone.value || null;
   if (!missionId || !pathId) return;
 
   completingMissionId.value = missionId;
   pathErrors.value = { ...pathErrors.value, [pathId]: "" };
 
   try {
-    const { data } = await api.post(`/me/missions/${missionId}/done`, {});
-    await loadPathChallenges({ path_id: pathId });
-    await loadSpace();
-    emit("mission-completed", data || {});
+    const { data } = await request(missionId);
+    if (action !== "done") {
+      await loadPathChallenges({ path_id: pathId });
+      await loadSpace({ silent: true });
+    }
+    const roomFeedback = action === "done"
+      ? buildRoomFeedback(data, feedbackZone)
+      : null;
+    emit("mission-completed", {
+      ...(data || {}),
+      living_space_action: action,
+      living_space_room_feedback: roomFeedback,
+    });
   } catch (e) {
     pathErrors.value = {
       ...pathErrors.value,
@@ -826,6 +941,64 @@ async function completeMission(mission) {
   }
 }
 
+function buildRoomFeedback(data, zone) {
+  const reward = data?.living_space_reward || null;
+  const zoneKey = reward?.zone_key || zone?.zone_key || "";
+  if (!zoneKey) return null;
+
+  return reward
+    ? {
+      type: "reward",
+      zoneKey,
+      rewardKey: reward.key || "",
+      label: t("space.feedback.rewardLabel"),
+      title: t("space.feedback.rewardTitle", {
+        reward: reward.title || t("space.firstRewardFallback"),
+      }),
+      text: t("space.feedback.rewardText", {
+        reward: reward.title || t("space.firstRewardFallback"),
+        zone: zone?.title || reward.zone_key || t("space.title"),
+      }),
+    }
+    : {
+      type: "progress",
+      zoneKey,
+      rewardKey: "",
+      label: t("space.feedback.progressLabel"),
+      title: t("space.feedback.progressTitle"),
+      text: t("space.feedback.progressText", {
+        zone: zone?.title || t("space.title"),
+      }),
+    };
+}
+
+function showRoomFeedback(feedback) {
+  if (!feedback?.zoneKey) return;
+  recentRoomFeedback.value = feedback;
+
+  if (roomFeedbackTimer) {
+    clearTimeout(roomFeedbackTimer);
+  }
+
+  roomFeedbackTimer = setTimeout(() => {
+    recentRoomFeedback.value = null;
+    roomFeedbackTimer = null;
+  }, 6500);
+}
+
+watch(
+  () => props.roomFeedbackEvent,
+  async (event) => {
+    if (!event?.id || !event?.feedback) return;
+    await loadSpace({ silent: true });
+    await preloadZonePathChallenges({ force: true });
+    if (["path", "challenge", "mission"].includes(shellMode.value)) {
+      await ensurePathChallenges(displayActiveZone.value, { force: true });
+    }
+    showRoomFeedback(event.feedback);
+  },
+);
+
 function normalizeId(value) {
   const id = String(value ?? "").trim();
   return id && id !== "null" && id !== "undefined" ? id : "";
@@ -835,6 +1008,8 @@ function missionStatusRank(mission) {
   const status = String(mission?.status || "").toLowerCase();
   const intensity = String(mission?.mission_intensity || "main").toLowerCase();
 
+  if (intensity === "tiny" && ["remind_later", "skipped", "done", "completed"].includes(status)) return -2;
+  if (["remind_later", "skipped"].includes(status)) return -1;
   if (status === "pending" && intensity === "main") return 0;
   if (status === "pending") return 1;
   if (intensity === "main") return 2;
@@ -872,31 +1047,37 @@ onMounted(async () => {
   await preloadZonePathChallenges();
 });
 
+onUnmounted(() => {
+  if (roomFeedbackTimer) {
+    clearTimeout(roomFeedbackTimer);
+  }
+});
+
 watch(
   () => props.refreshKey,
   async () => {
-    await loadSpace();
+    await loadSpace({ silent: true });
     await preloadZonePathChallenges({ force: true });
     if (["path", "challenge", "mission"].includes(shellMode.value)) {
-      ensurePathChallenges(displayActiveZone.value, { force: true });
+      ensurePathChallenges(workSurfaceZone.value, { force: true });
     }
   },
 );
 
 watch(
-  () => [shellMode.value, displayActiveZone.value?.zone_key, paths.value.length],
+  () => [shellMode.value, workSurfaceZone.value?.zone_key, paths.value.length],
   () => {
     if (shellMode.value === "path") {
-      ensurePathChallenges(displayActiveZone.value);
+      ensurePathChallenges(workSurfaceZone.value);
     }
   },
 );
 
 watch(
-  () => [displayActiveZone.value?.zone_key, paths.value.length],
+  () => [workSurfaceZone.value?.zone_key, paths.value.length],
   () => {
-    if (displayActiveZone.value) {
-      ensurePathChallenges(displayActiveZone.value);
+    if (workSurfaceZone.value) {
+      ensurePathChallenges(workSurfaceZone.value);
     }
   },
 );

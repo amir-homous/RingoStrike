@@ -4,7 +4,15 @@
     class="spaceZone"
     :class="[
       `zone-${zone.zone_key}`,
-      { active, hasProgress, hasReminderDue, subdued: hasActiveSelection && !active },
+      {
+        active,
+        hasProgress,
+        hasReminderDue,
+        subdued: hasActiveSelection && !active,
+        roomFeedback: hasRoomFeedback,
+        rewardFeedback: hasRoomFeedback && feedback?.type === 'reward',
+        progressFeedback: hasRoomFeedback && feedback?.type === 'progress',
+      },
     ]"
     :aria-pressed="active"
     @click="$emit('select', zone)"
@@ -36,7 +44,12 @@
         v-for="reward in visibleObjects"
         :key="reward.key"
         :reward="reward"
+        :highlighted="hasRoomFeedback && feedback?.rewardKey === reward.key"
       />
+    </span>
+
+    <span v-if="hasRoomFeedback" class="roomFeedbackLabel">
+      {{ feedback.label }}
     </span>
 
     <span v-if="pathProgress" class="zoneProgress">
@@ -61,6 +74,7 @@ const props = defineProps({
   zone: { type: Object, required: true },
   active: { type: Boolean, default: false },
   hasActiveSelection: { type: Boolean, default: false },
+  feedback: { type: Object, default: null },
 });
 
 defineEmits(["select"]);
@@ -73,6 +87,13 @@ const hasProgress = computed(() => {
 
 const hasReminderDue = computed(() => {
   return Number(props.zone?.dueReminderCount || 0) > 0;
+});
+
+const hasRoomFeedback = computed(() => {
+  return Boolean(
+    props.feedback?.zoneKey
+    && String(props.feedback.zoneKey) === String(props.zone?.zone_key || ""),
+  );
 });
 
 const visibleObjects = computed(() => {
@@ -197,6 +218,17 @@ const pathIcon = computed(() => {
 
 .spaceZone.hasReminderDue {
   border-color: rgba(247, 215, 116, 0.24);
+}
+
+.spaceZone.roomFeedback {
+  border-color: rgba(247, 215, 116, 0.36);
+  background:
+    radial-gradient(circle at 16% 0%, rgba(247, 215, 116, 0.12), transparent 34%),
+    linear-gradient(180deg, rgba(110, 229, 255, 0.078), rgba(255, 255, 255, 0.028)),
+    rgba(8, 13, 22, 0.70);
+  box-shadow:
+    inset 0 0 0 1px rgba(247, 215, 116, 0.10),
+    0 0 34px rgba(247, 215, 116, 0.10);
 }
 
 .zoneHeader {
@@ -339,6 +371,20 @@ const pathIcon = computed(() => {
   flex-wrap: wrap;
   gap: 6px;
   min-width: 0;
+}
+
+.roomFeedbackLabel {
+  display: inline-flex;
+  width: fit-content;
+  max-width: 100%;
+  min-height: 26px;
+  padding: 6px 9px;
+  border-radius: 999px;
+  color: rgba(247, 215, 116, 0.94);
+  background: rgba(247, 215, 116, 0.08);
+  border: 1px solid rgba(247, 215, 116, 0.18);
+  font-size: 0.68rem;
+  font-weight: 900;
 }
 
 .zoneProgress {
