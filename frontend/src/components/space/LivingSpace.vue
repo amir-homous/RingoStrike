@@ -1037,9 +1037,12 @@ watch(
 }
 
 .roomSafeZone {
+  display: grid;
   min-width: 0;
-  max-height: min(720px, calc(100vh - 120px));
-  overflow: auto;
+  height: min(720px, calc(100vh - 190px));
+  min-height: min(620px, calc(100vh - 190px));
+  max-height: min(720px, calc(100vh - 190px));
+  overflow: hidden;
   scrollbar-width: thin;
 }
 
@@ -1100,6 +1103,8 @@ watch(
   }
 
   .roomSafeZone {
+    height: auto;
+    min-height: 0;
     max-height: none;
     overflow: visible;
   }

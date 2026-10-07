@@ -61,6 +61,14 @@ Boundaries:
 - Activity Feed does not own XP, streaks, achievements, check-ins, or mission writes.
 - Activity events remain derived by the existing backend activity service.
 
+## Living Space Panel Layout Contract
+
+The Dashboard Living Space shell keeps the room as the primary visible surface. On desktop, the safe-zone panel separates guidance from work content:
+
+- Ringo guidance and shell state navigation stay fixed in the panel rail.
+- Zone, path, challenge, mission, and rest details render inside one scrollable work surface.
+- The panel layout is frontend-only and must not introduce new mission, check-in, XP, reward, or schema ownership.
+
 ## Staged Mission Reward Sequence Display Contract
 
 Staged Mission Reward Sequence v2 is frontend-owned presentation after mission completion. It does not own XP, stats, streak, check-in, achievement, activity, reward economy, or mission mutation logic.
