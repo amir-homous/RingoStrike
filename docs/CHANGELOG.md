@@ -16,6 +16,15 @@ The project has moved beyond raw MVP. Core progression identity is implemented. 
 
 ## Latest Launch-Hardening Updates
 
+### Living Space Guide And Work Panel Stabilization
+
+Stabilized the Living Space desktop side panel so the Home shell reads as one room with one active work surface:
+
+- Kept the Ringo guide and shell navigation outside the scrolling work content.
+- Moved zone/path/challenge/mission/rest details into a dedicated scrollable work surface.
+- Constrained the desktop safe-zone panel height so it stays aligned with the room instead of scrolling the whole right rail.
+- Kept the change frontend-only with no backend, schema, progression, or reward logic changes.
+
 ### Living Space Dashboard And Activity Feed Separation
 
 Separated the visible Dashboard home shell from the Activity Feed navigation target:

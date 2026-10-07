@@ -94,111 +94,112 @@
       </button>
     </nav>
 
-    <div v-if="mode === 'rest'" class="panelSection shellPanel restPanel">
-      <span class="sectionLabel">{{ t("space.shell.restLabel") }}</span>
-      <strong>{{ restMomentText }}</strong>
-      <p>{{ t("space.shell.restText") }}</p>
+    <div class="panelWorkSurface">
+      <div v-if="mode === 'rest'" class="panelSection shellPanel restPanel">
+        <span class="sectionLabel">{{ t("space.shell.restLabel") }}</span>
+        <strong>{{ restMomentText }}</strong>
+        <p>{{ t("space.shell.restText") }}</p>
 
-      <div class="restSummaryGrid" :aria-label="t('space.shell.restMomentumLabel')">
-        <article
-          v-for="item in restSummaryItems"
-          :key="item.key"
-          class="restSummaryItem"
-        >
-          <strong>{{ item.value }}</strong>
-          <small>{{ item.label }}</small>
-        </article>
-      </div>
-
-      <div class="restReminderBlock" :class="{ due: dueReminderCount > 0 }">
-        <div class="restReminderHead">
-          <span class="sectionLabel">{{ t("space.shell.restReminderLabel") }}</span>
-          <strong>{{ restReminderSummary }}</strong>
-        </div>
-
-        <div v-if="visibleDueReminders.length" class="restReminderList">
+        <div class="restSummaryGrid" :aria-label="t('space.shell.restMomentumLabel')">
           <article
-            v-for="reminder in visibleDueReminders"
-            :key="reminder.id"
-            class="restReminderItem"
+            v-for="item in restSummaryItems"
+            :key="item.key"
+            class="restSummaryItem"
           >
-            <strong>{{ reminder.title }}</strong>
-            <span>
-              {{ reminder.challengeName || t("common.challenge") }}
-              <template v-if="formattedReminderTime(reminder.reminderAt)">
-                · {{ formattedReminderTime(reminder.reminderAt) }}
-              </template>
-            </span>
+            <strong>{{ item.value }}</strong>
+            <small>{{ item.label }}</small>
           </article>
         </div>
 
-        <p v-else class="emptyText">{{ restReminderEmptyText }}</p>
-      </div>
-    </div>
-
-    <section
-      v-if="mode === 'zone'"
-      class="zoneProgressSnapshot"
-      :class="{ complete: firstRewardUnlocked }"
-    >
-      <div class="snapshotStats">
-        <article class="snapshotItem">
-          <span class="sectionLabel">
-            {{ t("space.unlockedCount", { count: unlockedCount }) }}
-          </span>
-          <div v-if="zone.unlocked_objects.length" class="panelObjects">
-            <SpaceObject
-              v-for="reward in zone.unlocked_objects"
-              :key="reward.key"
-              :reward="reward"
-            />
+        <div class="restReminderBlock" :class="{ due: dueReminderCount > 0 }">
+          <div class="restReminderHead">
+            <span class="sectionLabel">{{ t("space.shell.restReminderLabel") }}</span>
+            <strong>{{ restReminderSummary }}</strong>
           </div>
-          <p v-else class="emptyText">{{ t("space.noUnlocked") }}</p>
-        </article>
 
-        <article class="snapshotItem">
-          <span class="sectionLabel">
-            {{ t("space.lockedPreviewCount", { count: lockedPreviewCount }) }}
-          </span>
-          <div v-if="zone.locked_preview_objects.length" class="panelObjects">
-            <SpaceObject
-              v-for="reward in zone.locked_preview_objects.slice(0, 3)"
-              :key="reward.key"
-              :reward="reward"
-            />
+          <div v-if="visibleDueReminders.length" class="restReminderList">
+            <article
+              v-for="reminder in visibleDueReminders"
+              :key="reminder.id"
+              class="restReminderItem"
+            >
+              <strong>{{ reminder.title }}</strong>
+              <span>
+                {{ reminder.challengeName || t("common.challenge") }}
+                <template v-if="formattedReminderTime(reminder.reminderAt)">
+                  · {{ formattedReminderTime(reminder.reminderAt) }}
+                </template>
+              </span>
+            </article>
           </div>
-          <p v-else class="emptyText">{{ t("space.zoneComplete") }}</p>
-        </article>
+
+          <p v-else class="emptyText">{{ restReminderEmptyText }}</p>
+        </div>
       </div>
 
-      <p
-        v-if="zone.locked_preview_objects.length"
-        class="hintText"
-      >
-        {{ t("space.lockedPreviewHint") }}
-      </p>
-
-      <p
-        v-if="firstRewardText"
-        class="nextReward"
+      <section
+        v-if="mode === 'zone'"
+        class="zoneProgressSnapshot"
         :class="{ complete: firstRewardUnlocked }"
       >
-        {{ firstRewardText }}
-      </p>
-    </section>
+        <div class="snapshotStats">
+          <article class="snapshotItem">
+            <span class="sectionLabel">
+              {{ t("space.unlockedCount", { count: unlockedCount }) }}
+            </span>
+            <div v-if="zone.unlocked_objects.length" class="panelObjects">
+              <SpaceObject
+                v-for="reward in zone.unlocked_objects"
+                :key="reward.key"
+                :reward="reward"
+              />
+            </div>
+            <p v-else class="emptyText">{{ t("space.noUnlocked") }}</p>
+          </article>
 
-    <div
-      v-if="mode === 'zone' && zone.action"
-      class="panelSection zoneAction"
-      :class="zone.action.state"
-    >
-      <span class="sectionLabel">{{ t("space.zoneAction.label") }}</span>
-      <strong>{{ zone.action.title }}</strong>
-      <p>{{ zone.action.text }}</p>
-      <p class="flowHint">{{ actionFlowHint }}</p>
-    </div>
+          <article class="snapshotItem">
+            <span class="sectionLabel">
+              {{ t("space.lockedPreviewCount", { count: lockedPreviewCount }) }}
+            </span>
+            <div v-if="zone.locked_preview_objects.length" class="panelObjects">
+              <SpaceObject
+                v-for="reward in zone.locked_preview_objects.slice(0, 3)"
+                :key="reward.key"
+                :reward="reward"
+              />
+            </div>
+            <p v-else class="emptyText">{{ t("space.zoneComplete") }}</p>
+          </article>
+        </div>
 
-    <div v-if="mode === 'path'" class="panelSection shellPanel">
+        <p
+          v-if="zone.locked_preview_objects.length"
+          class="hintText"
+        >
+          {{ t("space.lockedPreviewHint") }}
+        </p>
+
+        <p
+          v-if="firstRewardText"
+          class="nextReward"
+          :class="{ complete: firstRewardUnlocked }"
+        >
+          {{ firstRewardText }}
+        </p>
+      </section>
+
+      <div
+        v-if="mode === 'zone' && zone.action"
+        class="panelSection zoneAction"
+        :class="zone.action.state"
+      >
+        <span class="sectionLabel">{{ t("space.zoneAction.label") }}</span>
+        <strong>{{ zone.action.title }}</strong>
+        <p>{{ zone.action.text }}</p>
+        <p class="flowHint">{{ actionFlowHint }}</p>
+      </div>
+
+      <div v-if="mode === 'path'" class="panelSection shellPanel">
       <span class="sectionLabel">{{ t("space.shell.pathLabel") }}</span>
       <span class="shellTitleLine">
         <span v-if="pathIcon" class="iconFrame inlineIconFrame" aria-hidden="true">
@@ -389,9 +390,9 @@
       >
         {{ t("space.shell.noPathChallenges") }}
       </p>
-    </div>
+      </div>
 
-    <div v-if="mode === 'challenge'" class="panelSection shellPanel">
+      <div v-if="mode === 'challenge'" class="panelSection shellPanel">
       <span class="sectionLabel">{{ t("space.shell.challengeLabel") }}</span>
       <span class="shellTitleLine">
         <span v-if="challengeIcon" class="iconFrame inlineIconFrame" aria-hidden="true">
@@ -433,9 +434,9 @@
           </div>
         </div>
       </div>
-    </div>
+      </div>
 
-    <div v-if="mode === 'mission'" class="panelSection shellPanel missionFocusPanel">
+      <div v-if="mode === 'mission'" class="panelSection shellPanel missionFocusPanel">
       <span class="sectionLabel">{{ t("space.shell.missionLabel") }}</span>
       <span class="shellTitleLine">
         <span
@@ -467,6 +468,7 @@
         {{ missionGateTextForShell(activeShellMission) }}
       </p>
       <p v-else class="flowHint">{{ t("space.shell.missionFocusHint") }}</p>
+      </div>
     </div>
   </aside>
 </template>
@@ -1189,10 +1191,14 @@ function formattedReminderTime(value) {
 <style scoped>
 .zonePanel {
   display: grid;
+  grid-template-rows: auto auto auto minmax(0, 1fr);
   gap: 14px;
   min-width: 0;
+  min-height: 0;
+  height: 100%;
   padding: 14px;
   border-radius: 20px;
+  overflow: hidden;
   background:
     radial-gradient(circle at 10% 0%, rgba(110, 229, 255, 0.08), transparent 32%),
     radial-gradient(circle at 88% 18%, rgba(247, 215, 116, 0.07), transparent 30%),
@@ -1206,6 +1212,19 @@ function formattedReminderTime(value) {
 
 .zonePanel.mode-zone {
   gap: 11px;
+  grid-template-rows: auto auto minmax(0, 1fr);
+}
+
+.panelWorkSurface {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-inline-end: 3px;
+  scrollbar-width: thin;
 }
 
 .panelHead {
@@ -1244,14 +1263,6 @@ function formattedReminderTime(value) {
     radial-gradient(circle at 8% 0%, rgba(110, 229, 255, 0.12), transparent 34%),
     rgba(255, 255, 255, 0.038);
   border: 1px solid rgba(110, 229, 255, 0.13);
-}
-
-@media (min-width: 1080px) {
-  .ringoGuide {
-    position: sticky;
-    top: 0;
-    z-index: 2;
-  }
 }
 
 .ringoGuide.ready {
@@ -1763,8 +1774,11 @@ function formattedReminderTime(value) {
   display: grid;
   gap: 10px;
   min-width: 0;
-  overflow: visible;
+  max-height: min(360px, 38vh);
+  overflow-y: auto;
+  overflow-x: hidden;
   padding: 0;
+  scrollbar-width: thin;
 }
 
 .ladderHead {
@@ -2077,7 +2091,14 @@ function formattedReminderTime(value) {
 
 @media (max-width: 720px) {
   .zonePanel {
+    height: auto;
+    overflow: visible;
     padding: 12px;
+  }
+
+  .panelWorkSurface {
+    overflow: visible;
+    padding-inline-end: 0;
   }
 
   .panelHead {
@@ -2119,6 +2140,7 @@ function formattedReminderTime(value) {
   }
 
   .challengeLadder {
+    max-height: none;
     flex-direction: column;
     overflow: visible;
   }
