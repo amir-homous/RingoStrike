@@ -33,14 +33,55 @@
             :key="action.key"
             type="button"
             class="actionLink"
-            :class="action.variant || 'secondary'"
+            :class="[action.variant || 'secondary', { compact: action.compact }]"
             :disabled="action.disabled"
+            :title="action.hint || action.label"
+            :aria-label="action.hint || action.label"
             @click="handleRingoAction(action)"
           >
-            {{ action.label }}
+            <img
+              v-if="action.compact && actionIcon(action)"
+              :src="actionIcon(action)"
+              alt=""
+              class="actionIcon"
+              aria-hidden="true"
+            />
+            <span :class="{ srOnly: action.compact }">{{ action.label }}</span>
+            <span v-if="action.compact" class="actionTooltip" aria-hidden="true">
+              {{ action.hint || action.label }}
+            </span>
+          </button>
+        </div>
+        <div v-if="ringoChoicePanel" class="ringoChoicePanel">
+          <p>{{ ringoChoicePanel.prompt }}</p>
+          <div class="ringoChoiceGrid">
+            <button
+              v-for="option in ringoChoicePanel.options"
+              :key="option.key"
+              type="button"
+              class="choicePill"
+              :disabled="selectedMissionLoading"
+              @click="handleRingoChoice(option)"
+            >
+              {{ option.label }}
+            </button>
+          </div>
+          <button type="button" class="choiceBack" @click="closeRingoChoicePanel">
+            {{ t("missions.backToMissionActions") }}
           </button>
         </div>
       </div>
+    </section>
+
+    <section
+      v-if="roomFeedback"
+      class="roomFeedbackPanel"
+      :class="roomFeedback.type"
+      aria-live="polite"
+    >
+      <span class="sectionLabel">{{ t("space.feedback.label") }}</span>
+      <strong>{{ roomFeedback.title }}</strong>
+      <p>{{ roomFeedback.text }}</p>
     </section>
 
     <nav
@@ -130,6 +171,14 @@
                   · {{ formattedReminderTime(reminder.reminderAt) }}
                 </template>
               </span>
+              <button
+                v-if="missionForReminder(reminder)"
+                type="button"
+                class="restReminderAction"
+                @click="reviewReminder(reminder)"
+              >
+                {{ t("space.shell.restReminderReview") }}
+              </button>
             </article>
           </div>
 
@@ -147,28 +196,16 @@
             <span class="sectionLabel">
               {{ t("space.unlockedCount", { count: unlockedCount }) }}
             </span>
-            <div v-if="zone.unlocked_objects.length" class="panelObjects">
-              <SpaceObject
-                v-for="reward in zone.unlocked_objects"
-                :key="reward.key"
-                :reward="reward"
-              />
-            </div>
-            <p v-else class="emptyText">{{ t("space.noUnlocked") }}</p>
+            <strong>{{ unlockedCount }}</strong>
+            <p>{{ unlockedSummaryText }}</p>
           </article>
 
           <article class="snapshotItem">
             <span class="sectionLabel">
               {{ t("space.lockedPreviewCount", { count: lockedPreviewCount }) }}
             </span>
-            <div v-if="zone.locked_preview_objects.length" class="panelObjects">
-              <SpaceObject
-                v-for="reward in zone.locked_preview_objects.slice(0, 3)"
-                :key="reward.key"
-                :reward="reward"
-              />
-            </div>
-            <p v-else class="emptyText">{{ t("space.zoneComplete") }}</p>
+            <strong>{{ lockedPreviewCount }}</strong>
+            <p>{{ lockedPreviewSummaryText }}</p>
           </article>
         </div>
 
@@ -186,6 +223,39 @@
         >
           {{ firstRewardText }}
         </p>
+      </section>
+
+      <section v-if="mode === 'zone'" class="objectHistoryPanel">
+        <div class="sectionHeaderLine">
+          <span class="sectionLabel">{{ t("space.objectHistory.label") }}</span>
+          <small>
+            {{ t("space.objectHistory.summary", {
+              saved: unlockedCount,
+              preview: lockedPreviewCount,
+            }) }}
+          </small>
+        </div>
+
+        <div v-if="zoneObjectHistoryItems.length" class="objectHistoryList">
+          <article
+            v-for="item in zoneObjectHistoryItems"
+            :key="item.key"
+            class="objectHistoryItem"
+            :class="item.state"
+          >
+            <span class="objectHistoryMark" aria-hidden="true">{{ item.mark }}</span>
+            <span class="objectHistoryCopy">
+              <span class="objectHistoryTitle">
+                <strong>{{ item.title }}</strong>
+                <em>{{ item.status }}</em>
+              </span>
+              <span>{{ item.text }}</span>
+              <small>{{ item.source }}</small>
+            </span>
+          </article>
+        </div>
+
+        <p v-else class="emptyText">{{ t("space.objectHistory.empty") }}</p>
       </section>
 
       <div
@@ -477,8 +547,8 @@
 import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import RingoMoodFigure from "@/components/ringo/RingoMoodFigure.vue";
+import { resolveActionIcon } from "@/utils/actionIconUtils";
 import { resolveChallengeIcon, resolvePathIcon } from "@/utils/missionMomentumUtils";
-import SpaceObject from "./SpaceObject.vue";
 
 const props = defineProps({
   zone: { type: Object, required: true },
@@ -492,13 +562,42 @@ const props = defineProps({
   todaySafe: { type: Boolean, default: false },
   dailyMomentum: { type: Object, default: () => ({}) },
   dueReminders: { type: Array, default: () => [] },
+  dueReminderFocus: { type: Object, default: null },
   futureReminderCount: { type: Number, default: 0 },
+  roomFeedback: { type: Object, default: null },
   closable: { type: Boolean, default: true },
 });
 
-const emit = defineEmits(["change-mode", "select-challenge", "start-challenge", "complete-mission", "checkin", "close"]);
+const emit = defineEmits([
+  "change-mode",
+  "select-challenge",
+  "start-challenge",
+  "complete-mission",
+  "remind-mission",
+  "skip-mission",
+  "checkin",
+  "close",
+]);
 
 const { t } = useI18n();
+const ringoChoicePanel = ref(null);
+
+const REMINDER_OPTION_KEYS = [
+  "fifteenMinutes",
+  "oneHour",
+  "evening",
+  "tonight",
+];
+
+const SKIP_REASON_OPTIONS = [
+  { key: "tooTired", reason: "too_tired" },
+  { key: "noTime", reason: "no_time" },
+  { key: "tooHard", reason: "too_hard" },
+  { key: "notRelevant", reason: "not_relevant" },
+  { key: "dontLike", reason: "disliked" },
+  { key: "other", reason: "other" },
+  { key: "withoutReason", reason: null },
+];
 
 const unlockedCount = computed(() => props.zone?.unlocked_objects?.length || 0);
 const lockedPreviewCount = computed(() => props.zone?.locked_preview_objects?.length || 0);
@@ -525,6 +624,48 @@ const firstRewardText = computed(() => {
   }
 
   return t("space.firstRewardLocked", { reward: reward.title });
+});
+
+const unlockedSummaryText = computed(() => {
+  return unlockedCount.value
+    ? t("space.zoneSummary.savedText")
+    : t("space.noUnlocked");
+});
+
+const lockedPreviewSummaryText = computed(() => {
+  return lockedPreviewCount.value
+    ? t("space.zoneSummary.previewText")
+    : t("space.zoneComplete");
+});
+
+const zoneObjectHistoryItems = computed(() => {
+  const buildItem = (reward, state) => {
+    const title = reward?.title || reward?.key || t("space.objectHistory.unknown");
+    const description = reward?.description || (
+      state === "saved"
+        ? t("space.objectHistory.savedText")
+        : t("space.objectHistory.previewText")
+    );
+
+    return {
+      key: `${state}-${reward?.key || title}`,
+      mark: String(title).trim().slice(0, 1).toUpperCase(),
+      title,
+      text: description,
+      state,
+      status: state === "saved"
+        ? t("space.objectUnlocked")
+        : t("space.objectLockedPreview"),
+      source: state === "saved"
+        ? t("space.objectHistory.savedSource")
+        : t("space.objectHistory.previewSource"),
+    };
+  };
+
+  return [
+    ...(props.zone?.unlocked_objects || []).map((reward) => buildItem(reward, "saved")),
+    ...(props.zone?.locked_preview_objects || []).map((reward) => buildItem(reward, "preview")),
+  ];
 });
 
 const challengeStatusText = computed(() => {
@@ -580,6 +721,9 @@ const pathStats = computed(() => {
 const selectedPathChallenge = computed(() => {
   if (!pathChallenges.value.length) return null;
 
+  const dueChallenge = challengeForReminder(props.dueReminderFocus);
+  if (dueChallenge) return dueChallenge;
+
   if (props.selectedChallengeId) {
     const selected = pathChallenges.value.find((challenge) => {
       return String(challenge.id || "") === String(props.selectedChallengeId || "");
@@ -633,6 +777,10 @@ const hiddenMissionSummary = computed(() => {
 
 const selectedMission = computed(() => {
   const missions = visibleSelectedMissions.value;
+
+  const dueMission = missionForReminder(props.dueReminderFocus);
+  if (dueMission) return dueMission;
+
   if (!missions.length) return null;
 
   if (selectedMissionId.value) {
@@ -643,7 +791,11 @@ const selectedMission = computed(() => {
     if (selected) return selected;
   }
 
-  return missions.find((mission) => {
+  const decidedTiny = missions.find((mission) => {
+    return missionIntensity(mission) === "tiny" && missionHasUserDecision(mission);
+  });
+
+  return decidedTiny || missions.find((mission) => {
     return mission.availableToday
       && mission.status === "pending"
       && mission.intensity === "main";
@@ -743,6 +895,15 @@ const showRestState = computed(() => {
 
 const visibleDueReminders = computed(() => props.dueReminders.slice(0, 3));
 
+const primaryDueReminder = computed(() => {
+  return (props.dueReminderFocus && missionForReminder(props.dueReminderFocus)
+    ? props.dueReminderFocus
+    : null)
+    || visibleDueReminders.value.find((reminder) => missionForReminder(reminder))
+    || visibleDueReminders.value[0]
+    || null;
+});
+
 const restMomentText = computed(() => {
   if (dueReminderCount.value > 0) {
     return t("space.shell.restMomentDue", { count: dueReminderCount.value });
@@ -822,13 +983,50 @@ const ringoGuidance = computed(() => {
         : t("space.ringoGuide.restTitle"),
       message: restMomentText.value,
       actions: dueReminderCount.value > 0
-        ? [{
+        ? [reminderReviewAction.value || {
           key: "review-path-reminders",
           label: t("space.zoneAction.viewPath"),
           type: "change-mode",
           mode: "path",
         }]
         : nextReviewActions(),
+    });
+  }
+
+  if (props.roomFeedback) {
+    const safeAfterCompletion = props.todaySafe || challengeDone.value || action?.state === "done_today";
+    return buildRingoGuidance({
+      mood: safeAfterCompletion ? "proud" : "focus",
+      tone: safeAfterCompletion ? "done" : "ready",
+      title: safeAfterCompletion
+        ? t("space.ringoGuide.completionSafeTitle")
+        : t("space.ringoGuide.completionNextTitle"),
+      message: safeAfterCompletion
+        ? t("space.ringoGuide.completionSafeMessage", { path })
+        : t("space.ringoGuide.completionNextMessage", { path }),
+      actions: safeAfterCompletion
+        ? [
+          {
+            key: "rest-after-completion",
+            label: t("space.overview.safeCta"),
+            variant: "primary",
+            type: "change-mode",
+            mode: "rest",
+          },
+          {
+            key: "review-path-after-completion",
+            label: t("space.zoneAction.viewPath"),
+            type: "change-mode",
+            mode: "path",
+          },
+        ]
+        : [{
+          key: "continue-after-completion",
+          label: t("space.zoneAction.continueMission"),
+          variant: "primary",
+          type: "change-mode",
+          mode: "mission",
+        }],
     });
   }
 
@@ -853,7 +1051,7 @@ const ringoGuidance = computed(() => {
       });
     }
 
-    if (mission) {
+    if (modeIs("mission") && mission) {
       const gate = missionGateTextForShell(mission);
       if (gate) {
         return buildRingoGuidance({
@@ -895,14 +1093,7 @@ const ringoGuidance = computed(() => {
               : "space.ringoGuide.missionFocusMessage",
             { mission: mission.title || t("common.mission") },
           ),
-          actions: [{
-            key: "complete-selected-mission",
-            label: missionActionLabel(mission),
-            variant: "primary",
-            disabled: selectedMissionLoading.value,
-            type: "complete-mission",
-            mission,
-          }],
+          actions: missionGuideActions(mission),
         });
       }
     }
@@ -983,6 +1174,14 @@ watch(
   () => selectedPathChallenge.value?.id,
   () => {
     selectedMissionId.value = null;
+    closeRingoChoicePanel();
+  },
+);
+
+watch(
+  () => [props.mode, selectedMission.value?.id],
+  () => {
+    closeRingoChoicePanel();
   },
 );
 
@@ -1009,6 +1208,20 @@ function nextReviewActions() {
   }];
 }
 
+const reminderReviewAction = computed(() => {
+  const reminder = primaryDueReminder.value;
+  const mission = missionForReminder(reminder);
+  if (!mission) return null;
+
+  return {
+    key: "review-due-reminder",
+    label: t("space.shell.restReminderReview"),
+    variant: "primary",
+    type: "review-reminder",
+    mission,
+  };
+});
+
 function handleRingoAction(action) {
   if (!action || action.disabled) return;
 
@@ -1022,7 +1235,162 @@ function handleRingoAction(action) {
     return;
   }
 
+  if (action.type === "make-smaller") {
+    closeRingoChoicePanel();
+    selectedMissionId.value = action.mission?.id || null;
+    emit("change-mode", "mission");
+    return;
+  }
+
+  if (action.type === "review-reminder") {
+    reviewReminder({ id: action.mission?.id });
+    return;
+  }
+
+  if (action.type === "remind-mission") {
+    openRingoChoicePanel("reminder", action.mission);
+    return;
+  }
+
+  if (action.type === "skip-mission") {
+    openRingoChoicePanel("skip", action.mission);
+    return;
+  }
+
   emit("change-mode", action.mode || "zone");
+}
+
+function missionForReminder(reminder) {
+  const reminderId = String(reminder?.id || "");
+  if (!reminderId) return null;
+
+  const selectedChallengeMissions = selectedPathChallenge.value?.missions || [];
+
+  return visibleSelectedMissions.value.find((mission) => {
+    return String(mission?.id || "") === reminderId;
+  }) || selectedChallengeMissions.find((mission) => {
+    return String(mission?.id || "") === reminderId;
+  }) || (activeShellMission.value && String(activeShellMission.value.id || "") === reminderId
+    ? activeShellMission.value
+    : null);
+}
+
+function challengeForReminder(reminder) {
+  if (!reminder) return null;
+
+  const reminderChallengeId = String(reminder.challengeId || "");
+  const reminderEnrollmentId = String(reminder.enrollmentId || "");
+  if (!reminderChallengeId && !reminderEnrollmentId) return null;
+
+  return pathChallenges.value.find((challenge) => {
+    return (reminderChallengeId && String(challenge?.id || "") === reminderChallengeId)
+      || (reminderEnrollmentId && String(challenge?.enrollmentId || "") === reminderEnrollmentId);
+  }) || null;
+}
+
+function reviewReminder(reminder) {
+  const mission = missionForReminder(reminder);
+  if (mission?.id) {
+    selectedMissionId.value = mission.id;
+  }
+  emit("change-mode", mission ? "mission" : "path");
+}
+
+function actionIcon(action) {
+  return resolveActionIcon(action?.iconKey || action?.type || "");
+}
+
+function openRingoChoicePanel(type, mission) {
+  if (!mission?.id) return;
+
+  if (type === "reminder") {
+    ringoChoicePanel.value = {
+      type,
+      mission,
+      prompt: t("missions.remindOptions.prompt"),
+      options: REMINDER_OPTION_KEYS.map((key) => ({
+        key,
+        label: t(`missions.remindOptions.${key}`),
+        reminderAt: reminderAtForOption(key).toISOString(),
+      })),
+    };
+    return;
+  }
+
+  if (type === "skip") {
+    ringoChoicePanel.value = {
+      type,
+      mission,
+      prompt: t("missions.skipReasons.prompt"),
+      options: SKIP_REASON_OPTIONS.map((option) => ({
+        ...option,
+        label: t(`missions.skipReasons.${option.key}`),
+      })),
+    };
+  }
+}
+
+function closeRingoChoicePanel() {
+  ringoChoicePanel.value = null;
+}
+
+function handleRingoChoice(option) {
+  const panel = ringoChoicePanel.value;
+  const mission = panel?.mission;
+  if (!panel || !mission || selectedMissionLoading.value) return;
+
+  if (panel.type === "reminder") {
+    closeRingoChoicePanel();
+    emit("remind-mission", {
+      mission,
+      reminderAt: option?.reminderAt,
+      optionKey: option?.key || "",
+    });
+    return;
+  }
+
+  if (panel.type === "skip") {
+    closeRingoChoicePanel();
+    emit("skip-mission", {
+      mission,
+      reason: option?.reason || null,
+      reasonKey: option?.key || "",
+    });
+  }
+}
+
+function nextLocalReminderSlot(hour, minute = 0) {
+  const now = new Date();
+  const target = new Date(now);
+  target.setHours(hour, minute, 0, 0);
+
+  if (target <= now) {
+    target.setDate(target.getDate() + 1);
+  }
+
+  return target;
+}
+
+function reminderAtForOption(key) {
+  const now = new Date();
+
+  if (key === "fifteenMinutes") {
+    return new Date(now.getTime() + 15 * 60 * 1000);
+  }
+
+  if (key === "oneHour") {
+    return new Date(now.getTime() + 60 * 60 * 1000);
+  }
+
+  if (key === "evening") {
+    return nextLocalReminderSlot(18, 0);
+  }
+
+  if (key === "tonight") {
+    return nextLocalReminderSlot(22, 0);
+  }
+
+  return new Date(now.getTime() + 2 * 60 * 60 * 1000);
 }
 
 function challengeIconFor(challenge) {
@@ -1081,14 +1449,47 @@ function missionDone(mission) {
   return ["done", "completed"].includes(missionStatus(mission));
 }
 
+function missionSkipped(mission) {
+  return missionStatus(mission) === "skipped";
+}
+
+function missionHasReminder(mission) {
+  return missionStatus(mission) === "remind_later";
+}
+
 function missionHasUserDecision(mission) {
   return ["done", "completed", "remind_later", "skipped"].includes(missionStatus(mission));
+}
+
+const requestedTinyMission = computed(() => {
+  const selectedId = selectedMissionId.value;
+  if (!selectedId) return null;
+
+  return (selectedPathChallenge.value?.missions || []).find((mission) => {
+    return missionIntensity(mission) === "tiny"
+      && String(mission.id || "") === String(selectedId || "");
+  }) || null;
+});
+
+function isRequestedTinyMission(mission) {
+  return Boolean(
+    mission?.id
+    && requestedTinyMission.value?.id
+    && String(mission.id) === String(requestedTinyMission.value.id),
+  );
+}
+
+function isActiveTinyMission(mission) {
+  return missionIntensity(mission) === "tiny"
+    && (isRequestedTinyMission(mission) || missionHasUserDecision(mission));
 }
 
 function shouldShowMissionInLivingSpace(mission) {
   const intensity = missionIntensity(mission);
   if (intensity === "main") return true;
-  if (intensity === "tiny") return missionHasUserDecision(mission);
+  if (intensity === "tiny") {
+    return isActiveTinyMission(mission);
+  }
   if (intensity === "bonus") return true;
   return Boolean(mission.availableToday) || missionHasUserDecision(mission);
 }
@@ -1096,7 +1497,7 @@ function shouldShowMissionInLivingSpace(mission) {
 function missionGateText(mission) {
   const intensity = missionIntensity(mission);
 
-  if (intensity === "tiny" && !missionDone(mission)) {
+  if (intensity === "tiny" && !missionDone(mission) && !isActiveTinyMission(mission)) {
     return t("space.shell.tinyLivingSpaceGate");
   }
 
@@ -1117,7 +1518,11 @@ function missionGateText(mission) {
 function missionGateTextForShell(mission) {
   if (selectedPathChallenge.value) return missionGateText(mission);
 
-  if (missionIntensity(mission) === "tiny" && !missionDone(mission)) {
+  if (
+    missionIntensity(mission) === "tiny"
+    && !missionDone(mission)
+    && !isActiveTinyMission(mission)
+  ) {
     return t("space.shell.tinyLivingSpaceGate");
   }
 
@@ -1144,7 +1549,7 @@ function selectMission(mission) {
 
 function missionCanComplete(mission) {
   if (!selectedPathChallenge.value?.isJoined) return false;
-  if (missionIntensity(mission) === "tiny") return false;
+  if (missionIntensity(mission) === "tiny" && !isActiveTinyMission(mission)) return false;
   if (missionIntensity(mission) === "bonus" && !mainMissionDone.value) return false;
   if (!mission?.availableToday) return false;
   return !["done", "completed", "locked"].includes(missionStatus(mission));
@@ -1153,7 +1558,7 @@ function missionCanComplete(mission) {
 function missionCanCompleteInShell(mission) {
   if (selectedPathChallenge.value) return missionCanComplete(mission);
   if (!mission?.id) return false;
-  if (missionIntensity(mission) === "tiny") return false;
+  if (missionIntensity(mission) === "tiny" && !isActiveTinyMission(mission)) return false;
   if (challengeDone.value || challengeLoading.value) return false;
 
   return !["done", "completed", "locked", "skipped"].includes(missionStatus(mission));
@@ -1161,7 +1566,7 @@ function missionCanCompleteInShell(mission) {
 
 function missionActionLabel(mission) {
   if (!selectedPathChallenge.value?.isJoined) return t("space.shell.startChallengeFirst");
-  if (missionIntensity(mission) === "tiny") {
+  if (missionIntensity(mission) === "tiny" && !isActiveTinyMission(mission)) {
     return t("space.shell.tinyLockedAction");
   }
   if (missionIntensity(mission) === "bonus" && !mainMissionDone.value) {
@@ -1173,6 +1578,79 @@ function missionActionLabel(mission) {
   }
 
   return t("space.shell.completeMission");
+}
+
+function findTinyMissionFor(mission) {
+  if (!mission || missionIntensity(mission) === "tiny") return null;
+
+  return (selectedPathChallenge.value?.missions || []).find((candidate) => {
+    return missionIntensity(candidate) === "tiny"
+      && String(candidate.parentMissionId || "") === String(mission.id || "")
+      && !missionDone(candidate)
+      && !missionSkipped(candidate);
+  }) || null;
+}
+
+function canUseMissionSupportActions(mission) {
+  if (!mission?.id) return false;
+  if (!selectedPathChallenge.value?.isJoined) return false;
+  if (missionDone(mission) || missionSkipped(mission)) return false;
+  if (missionGateText(mission)) return false;
+  return Boolean(mission.availableToday);
+}
+
+function missionGuideActions(mission) {
+  const actions = [{
+    key: "complete-selected-mission",
+    label: missionActionLabel(mission),
+    variant: "primary",
+    disabled: selectedMissionLoading.value,
+    type: "complete-mission",
+    mission,
+  }];
+
+  if (!canUseMissionSupportActions(mission)) return actions;
+
+  const tinyMission = findTinyMissionFor(mission);
+  if (tinyMission) {
+    actions.push({
+      key: "make-selected-mission-smaller",
+      label: t("missions.ringoActions.make_smaller"),
+      hint: t("missions.firstRunEducation.smaller.text"),
+      variant: "secondary",
+      disabled: selectedMissionLoading.value,
+      compact: true,
+      iconKey: "makeSmaller",
+      type: "make-smaller",
+      mission: tinyMission,
+    });
+  }
+
+  actions.push({
+    key: "remind-selected-mission",
+    label: missionHasReminder(mission) ? t("missions.editReminder") : t("missions.remindLater"),
+    hint: t("missions.firstRunEducation.remind.text"),
+    variant: "secondary",
+    disabled: selectedMissionLoading.value,
+    compact: true,
+    iconKey: "remindLater",
+    type: "remind-mission",
+    mission,
+  });
+
+  actions.push({
+    key: "skip-selected-mission",
+    label: t("missions.skip"),
+    hint: t("missions.firstRunEducation.skip.text"),
+    variant: "secondary",
+    disabled: selectedMissionLoading.value,
+    compact: true,
+    iconKey: "skip",
+    type: "skip-mission",
+    mission,
+  });
+
+  return actions;
 }
 
 function formattedReminderTime(value) {
@@ -1295,6 +1773,36 @@ function formattedReminderTime(value) {
     rgba(255, 255, 255, 0.035);
 }
 
+.roomFeedbackPanel {
+  display: grid;
+  gap: 5px;
+  padding: 10px;
+  border-radius: 15px;
+  background:
+    radial-gradient(circle at 8% 0%, rgba(247, 215, 116, 0.12), transparent 34%),
+    rgba(247, 215, 116, 0.045);
+  border: 1px solid rgba(247, 215, 116, 0.16);
+}
+
+.roomFeedbackPanel.progress {
+  background:
+    radial-gradient(circle at 8% 0%, rgba(110, 229, 255, 0.10), transparent 34%),
+    rgba(110, 229, 255, 0.04);
+  border-color: rgba(110, 229, 255, 0.14);
+}
+
+.roomFeedbackPanel strong {
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 0.9rem;
+}
+
+.roomFeedbackPanel p {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.66);
+  line-height: 1.5;
+  font-size: 0.78rem;
+}
+
 .ringoGuide :deep(.ringoMood.size-sm) {
   width: 72px;
   height: 72px;
@@ -1322,13 +1830,69 @@ function formattedReminderTime(value) {
 .ringoGuideActions {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 8px;
   margin-top: 2px;
 }
 
+.ringoChoicePanel {
+  display: grid;
+  gap: 8px;
+  margin-top: 4px;
+  padding: 9px;
+  border-radius: 13px;
+  background: rgba(5, 10, 18, 0.28);
+  border: 1px solid rgba(110, 229, 255, 0.12);
+}
+
+.ringoChoicePanel p {
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 0.76rem;
+}
+
+.ringoChoiceGrid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.choicePill,
+.choiceBack {
+  min-height: 30px;
+  padding: 6px 9px;
+  border-radius: 999px;
+  color: rgba(255, 255, 255, 0.78);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  cursor: pointer;
+  font-size: 0.72rem;
+  font-weight: 850;
+}
+
+.choicePill:hover,
+.choicePill:focus-visible,
+.choiceBack:hover,
+.choiceBack:focus-visible {
+  color: rgba(255, 255, 255, 0.92);
+  background: rgba(110, 229, 255, 0.08);
+  border-color: rgba(110, 229, 255, 0.18);
+  outline: none;
+}
+
+.choicePill:disabled {
+  cursor: default;
+  opacity: 0.62;
+}
+
+.choiceBack {
+  width: fit-content;
+  color: rgba(255, 255, 255, 0.58);
+  background: transparent;
+}
+
 .shellStateNav {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(86px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
   gap: 7px;
   min-width: 0;
   padding: 7px;
@@ -1348,7 +1912,10 @@ function formattedReminderTime(value) {
   cursor: pointer;
   font-size: 0.68rem;
   font-weight: 850;
-  overflow-wrap: anywhere;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   text-align: center;
 }
 
@@ -1419,12 +1986,6 @@ function formattedReminderTime(value) {
   font-weight: 800;
 }
 
-.panelObjects {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 7px;
-}
-
 .zoneProgressSnapshot {
   display: grid;
   gap: 9px;
@@ -1454,12 +2015,24 @@ function formattedReminderTime(value) {
 .snapshotItem {
   display: grid;
   align-content: start;
-  gap: 7px;
+  gap: 5px;
   min-width: 0;
   padding: 9px;
   border-radius: 12px;
   background: rgba(255, 255, 255, 0.035);
   border: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.snapshotItem strong {
+  color: rgba(255, 255, 255, 0.94);
+  font-size: 1.35rem;
+  line-height: 1;
+}
+
+.snapshotItem p {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.56);
+  line-height: 1.45;
 }
 
 .emptyText,
@@ -1487,6 +2060,126 @@ function formattedReminderTime(value) {
   color: rgba(122, 245, 176, 0.88);
   background: rgba(80, 220, 140, 0.055);
   border-color: rgba(80, 220, 140, 0.14);
+}
+
+.objectHistoryPanel {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  padding: 11px;
+  border-radius: 15px;
+  background: rgba(255, 255, 255, 0.032);
+  border: 1px solid rgba(255, 255, 255, 0.075);
+}
+
+.sectionHeaderLine {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 0;
+}
+
+.sectionHeaderLine small {
+  flex: 0 0 auto;
+  color: rgba(255, 255, 255, 0.5);
+  font-weight: 800;
+  font-size: 0.72rem;
+}
+
+.objectHistoryList {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.objectHistoryItem {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 9px;
+  min-width: 0;
+  padding: 9px;
+  border-radius: 13px;
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(255, 255, 255, 0.075);
+}
+
+.objectHistoryItem.saved {
+  border-color: rgba(110, 229, 255, 0.18);
+  background:
+    radial-gradient(circle at 0% 0%, rgba(110, 229, 255, 0.07), transparent 38%),
+    rgba(255, 255, 255, 0.035);
+}
+
+.objectHistoryItem.preview {
+  color: rgba(255, 255, 255, 0.66);
+}
+
+.objectHistoryMark {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 9px;
+  color: rgba(255, 255, 255, 0.84);
+  background: rgba(110, 229, 255, 0.11);
+  border: 1px solid rgba(110, 229, 255, 0.2);
+  font-weight: 900;
+  font-size: 0.78rem;
+}
+
+.objectHistoryItem.preview .objectHistoryMark {
+  color: rgba(255, 255, 255, 0.48);
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+.objectHistoryCopy,
+.objectHistoryTitle {
+  min-width: 0;
+}
+
+.objectHistoryCopy {
+  display: grid;
+  gap: 4px;
+}
+
+.objectHistoryTitle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.objectHistoryTitle strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.objectHistoryTitle em {
+  flex: 0 0 auto;
+  color: rgba(110, 229, 255, 0.82);
+  font-size: 0.68rem;
+  font-style: normal;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.objectHistoryItem.preview .objectHistoryTitle em {
+  color: rgba(255, 255, 255, 0.44);
+}
+
+.objectHistoryCopy span:not(.objectHistoryTitle),
+.objectHistoryCopy small {
+  color: rgba(255, 255, 255, 0.58);
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.objectHistoryCopy small {
+  color: rgba(255, 255, 255, 0.42);
+  font-weight: 800;
 }
 
 .zoneAction {
@@ -1539,6 +2232,7 @@ function formattedReminderTime(value) {
 }
 
 .actionLink {
+  position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1556,6 +2250,48 @@ function formattedReminderTime(value) {
   cursor: pointer;
 }
 
+.actionLink.compact {
+  width: 34px;
+  min-width: 34px;
+  padding: 0;
+  border-radius: 999px;
+}
+
+.actionIcon {
+  width: 17px;
+  height: 17px;
+  object-fit: contain;
+  filter: brightness(0) invert(1) drop-shadow(0 4px 7px rgba(0, 0, 0, 0.36));
+  opacity: 0.88;
+}
+
+.actionTooltip {
+  position: absolute;
+  z-index: 4;
+  inset-inline-start: 50%;
+  bottom: calc(100% + 8px);
+  width: max-content;
+  max-width: 220px;
+  padding: 6px 8px;
+  border-radius: 9px;
+  color: rgba(255, 255, 255, 0.90);
+  background: rgba(8, 13, 22, 0.96);
+  border: 1px solid rgba(110, 229, 255, 0.14);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.32);
+  font-size: 0.68rem;
+  line-height: 1.35;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(-50%) translateY(3px);
+  transition: opacity 140ms ease, transform 140ms ease;
+}
+
+.actionLink:hover .actionTooltip,
+.actionLink:focus-visible .actionTooltip {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
 .actionLink.primary {
   color: rgba(5, 10, 18, 0.95);
   background: rgba(110, 229, 255, 0.88);
@@ -1570,6 +2306,18 @@ function formattedReminderTime(value) {
 .actionLink:disabled {
   cursor: default;
   opacity: 0.62;
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 .shellPanel {
@@ -1712,6 +2460,19 @@ function formattedReminderTime(value) {
 
 .restReminderItem {
   background: rgba(5, 10, 18, 0.22);
+}
+
+.restReminderAction {
+  justify-self: start;
+  min-height: 26px;
+  padding: 5px 8px;
+  border-radius: 8px;
+  color: rgba(5, 10, 18, 0.92);
+  background: rgba(110, 229, 255, 0.86);
+  border: 1px solid rgba(110, 229, 255, 0.26);
+  cursor: pointer;
+  font-size: 0.68rem;
+  font-weight: 900;
 }
 
 .pathProgressBlock {

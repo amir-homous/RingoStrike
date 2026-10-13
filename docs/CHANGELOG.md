@@ -16,6 +16,31 @@ The project has moved beyond raw MVP. Core progression identity is implemented. 
 
 ## Latest Launch-Hardening Updates
 
+### Living Space Mission Micro-Actions
+
+Centralized the compact mission action flow inside the Living Space Ringo guide:
+
+- Added a compact zone object history inside the Living Space safe-zone panel so saved objects and locked previews explain their room meaning without creating a separate inventory surface.
+- Reduced duplicate zone object display by keeping saved/preview counts as a quick summary and reserving the full object list for the zone history section.
+- Routed Living Space mission completion through the existing staged reward sequence so daily strike, XP, and challenge-secured feedback remain visible when completing a mission from the room.
+- Deferred Living Space visual refresh, progress movement, object appearance, and room highlights until reward overlays finish, so room changes become visible after the final popup closes instead of happening behind it.
+- Routed overdue Living Space reminders to their correct room zone, path challenge, and mission before falling back to the user's last-clicked room selection.
+- Fixed Living Space challenge stat display to use returned challenge streak and check-in totals instead of placeholder zero values.
+- Stabilized the Living Space shell navigation so Zone/Path/Challenge/Mission/Rest stays in one row on desktop safe-zone panels.
+- Polished Rest state so overdue reminders take priority and can jump directly into the matching in-room mission when available.
+- Added in-room feedback after mission completion so the affected zone/object is highlighted and the safe-zone panel explains what changed.
+- Cleaned up the post-completion Ringo state so completed missions settle into rest/review or next-mission guidance instead of keeping mission action controls visible.
+- Added complete, make smaller, remind later, and skip as the single action row under Ringo dialogue for actionable missions.
+- Changed secondary mission actions to compact icon controls with accessible labels/tooltips, while keeping the primary completion action text-forward.
+- Added inline Living Space choices for reminder timing and optional skip reasons so support actions are not one-tap blind mutations.
+- Preserved the room during post-action refreshes so start challenge, make smaller, reminder, and skip flows do not blank the Living Space while data reloads.
+- Prioritized user-decided tiny missions when returning to a zone, so a reminded smaller mission remains the active Ringo context instead of falling back to the parent mission.
+- Fixed reminded tiny missions so they can be completed from Living Space instead of looping back to the generic tiny condition message.
+- Kept mission detail cards as context only so mission actions are not duplicated across the safe-zone panel.
+- Allowed linked tiny missions to appear in Living Space only after choosing make smaller, preserving the quiet default room state.
+- Reused existing mission done, remind-later, and skip endpoints with no backend, schema, XP, check-in, achievement, activity, or reward ownership changes.
+- Documented the boundary between Living Space quick actions and MissionCenter's fuller reminder/skip flows.
+
 ### Living Space Guide And Work Panel Stabilization
 
 Stabilized the Living Space desktop side panel so the Home shell reads as one room with one active work surface:

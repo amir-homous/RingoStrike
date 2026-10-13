@@ -1,7 +1,7 @@
 <template>
   <div
     class="spaceObject"
-    :class="{ locked: !reward.unlocked, unlocked: reward.unlocked }"
+    :class="{ locked: !reward.unlocked, unlocked: reward.unlocked, highlighted }"
     :aria-label="objectAriaLabel"
     :title="objectAriaLabel"
   >
@@ -23,6 +23,7 @@ import { useI18n } from "vue-i18n";
 
 const props = defineProps({
   reward: { type: Object, required: true },
+  highlighted: { type: Boolean, default: false },
 });
 
 const { t } = useI18n();
@@ -62,6 +63,16 @@ const objectAriaLabel = computed(() => {
   box-shadow:
     inset 0 0 0 1px rgba(255, 255, 255, 0.035),
     0 0 18px rgba(110, 229, 255, 0.08);
+}
+
+.spaceObject.highlighted {
+  border-color: rgba(247, 215, 116, 0.48);
+  background:
+    radial-gradient(circle at 18% 0%, rgba(247, 215, 116, 0.20), transparent 48%),
+    rgba(110, 229, 255, 0.14);
+  box-shadow:
+    inset 0 0 0 1px rgba(247, 215, 116, 0.18),
+    0 0 22px rgba(247, 215, 116, 0.14);
 }
 
 .spaceObject.locked {

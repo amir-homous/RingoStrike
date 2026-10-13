@@ -67,7 +67,49 @@ The Dashboard Living Space shell keeps the room as the primary visible surface. 
 
 - Ringo guidance and shell state navigation stay fixed in the panel rail.
 - Zone, path, challenge, mission, and rest details render inside one scrollable work surface.
+- Rest state prioritizes overdue reminders before quiet rest copy. When a due reminder matches a visible Living Space mission, the panel can offer a direct review action into the mission surface.
+- Due reminders override stale room selection: the Living Space panel, highlighted zone, selected challenge, and selected mission should focus the overdue reminder's path context before using the user's last-clicked room zone.
+- Due reminder focus is an initial/rest focus, not a room lock: after the user selects another zone, the selected zone must own the panel and navigation until the user returns to rest or the reminder zone.
 - The panel layout is frontend-only and must not introduce new mission, check-in, XP, reward, or schema ownership.
+
+## Living Space Mission Action Contract
+
+Living Space mission actions are centralized in the Ringo guide action row inside the safe-zone panel. Mission detail cards remain context surfaces and should not duplicate the same action buttons.
+
+Current frontend display/action responsibilities:
+
+- Show the primary `Complete mission` action through the fixed Ringo guidance layer when a selected mission can be acted on.
+- Show support actions beside that primary action only in mission mode as compact icon actions with accessible labels/tooltips: make smaller, remind later, and skip.
+- Reveal a linked tiny mission inside the same safe-zone mission view only after the user chooses make smaller; tiny missions stay quiet by default unless they already have a user decision.
+- Treat a tiny mission with a user decision, such as remind later, skip, or done, as the active representative of its mission family when the user returns to that zone; reminded tiny missions must not remain locked behind the generic tiny gate.
+- Use existing mission endpoints for mutation: mark done, remind later, and skip.
+- Keep reminder and skip choices inline under Ringo guidance so the user can choose a reminder slot or optional skip reason without leaving the Living Space.
+- Keep Living Space refreshes after path/challenge/mission actions state-preserving so the room does not temporarily disappear while fresh data is loaded.
+
+Boundaries:
+
+- Living Space does not introduce new mission state, reminder schema, XP, check-in, streak, achievement, activity, or reward ownership.
+- Living Space does not add duplicate mission actions to the mission detail/cards below Ringo guidance.
+- MissionCenter remains the full mission control surface for custom reminder timing, richer skip handling, and deeper mission review.
+
+## Living Space Room Feedback Contract
+
+Living Space room feedback is frontend-owned presentation after mission actions refresh the room. It makes the room change legible without owning reward or progression logic.
+
+Current frontend display responsibilities:
+
+- Highlight the affected room zone after a completed mission refreshes Living Space.
+- Highlight the unlocked object when the existing mission completion response includes `living_space_reward`.
+- Show a short safe-zone result message explaining either the placed object or that progress was saved without a new object unlock.
+- Defer the Living Space visual refresh, progress-bar movement, object appearance, and in-room highlight/result message until the staged reward sequence and any larger reward unlock popup have finished, so room changes are not hidden behind overlays.
+- While room feedback is active, replace mission action controls with a post-completion decision state: rest/review when today is safe, or continue mission when more required progress remains.
+- Let the existing `RewardUnlockMoment` remain the larger reward moment; the in-room feedback is a contextual room-state echo.
+
+Boundaries:
+
+- Living Space room feedback does not calculate rewards, XP, check-ins, streaks, achievements, or activity.
+- Missing `living_space_reward` must not fabricate an object unlock.
+- Feedback is temporary and must not become an inventory, shop, or room editor.
 
 ## Staged Mission Reward Sequence Display Contract
 
@@ -86,6 +128,8 @@ response.reward_sequence
 Current frontend display responsibilities:
 
 - Use `RingoRewardSequence.vue` for the staged mission reward overlay.
+- Living Space mission completions must also pass the existing mission completion payload through the staged reward sequence display so daily strike, XP, and challenge-secured moments are not lost when the user completes a mission from the room.
+- Living Space reminder and skip mutations must not open the staged reward sequence; they only refresh mission/room state and keep the user in the Living Space flow.
 - Prefer before/after reward snapshots where available to derive XP, level, strike, path, and challenge deltas.
 - Normalize backend `response.reward_sequence` before rendering.
 - Map backend step types `mission_completed` -> `mission_complete` and `next_choice` -> `final_choice`.
@@ -479,6 +523,8 @@ Returns the user's room state, five canonical zones, unlocked room objects, lock
 Reward objects include `id`, `key`, `title`, `description`, `path_key`, `zone_key`, `object_type`, `asset_key`, `rarity`, `unlock_condition_type`, `stage`, `slot_key`, `unlocked`, `unlocked_at`, `source_type`, `source_id`, and `is_seen`.
 
 Legacy users can receive first-path room rewards from historical mission progress. These backfilled rewards use `source_type: "mission_history"` and are marked `is_seen: true` so the room reflects real prior progress without replaying old unlock notifications.
+
+Living Space zone detail surfaces may render a compact summary plus object history from each zone's existing `unlocked_objects` and `locked_preview_objects`. The summary is for quick scanning of saved versus preview counts. The object history is display-only: unlocked objects explain persistent visible room changes, locked previews explain future visible changes, and neither list behaves as inventory, a shop, an editor, or a parallel reward-ownership system.
 
 ### `GET /me/space/rewards`
 

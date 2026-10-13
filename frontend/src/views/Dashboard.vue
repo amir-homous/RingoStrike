@@ -64,12 +64,13 @@
             v-if="showLivingSpaceHome"
             class="dashboardRevealItem livingSpaceHomeShell"
             :refresh-key="spaceRefreshKey"
-            :challenges="challenges"
-            :missions="missionCenterStatus.missions"
-            :today-safe="missionFocusState.todaySafe"
-            :focus-reason="missionFocusState.reason"
-            :reminder-count="missionFocusState.reminderCount"
+            :challenges="livingSpaceChallenges"
+            :missions="livingSpaceMissions"
+            :today-safe="livingSpaceTodaySafe"
+            :focus-reason="livingSpaceFocusReason"
+            :reminder-count="livingSpaceReminderCount"
             :checking-id="checkingId"
+            :room-feedback-event="livingSpaceRoomFeedbackEvent"
             @checkin="checkin"
             @challenge-started="handleLivingSpaceChallengeStarted"
             @mission-completed="handleLivingSpaceMissionCompleted"
@@ -231,6 +232,13 @@
       :reward="spaceRewardMoment"
       @close="handleSpaceRewardClose"
     />
+
+    <RingoRewardSequence
+      :steps="livingSpaceRewardSequenceSteps"
+      :sprite="livingSpaceRewardSequenceSprite"
+      @action="handleLivingSpaceRewardSequenceAction"
+      @finish="finishLivingSpaceRewardSequence"
+    />
   </AppContainer>
 </template>
 
@@ -257,8 +265,14 @@ import ChallengeCard from "@/components/challenges/ChallengeCard.vue";
 import RewardFeedback from "@/components/feedback/RewardFeedback.vue";
 import RewardMoment from "@/components/feedback/RewardMoment.vue";
 import RewardUnlockMoment from "@/components/space/RewardUnlockMoment.vue";
+import RingoRewardSequence from "@/components/ringo/RingoRewardSequence.vue";
 import ActivityTimeline from "@/components/activity/ActivityTimeline.vue";
 import AchievementPreview from "@/components/achievements/AchievementPreview.vue";
+import {
+  buildMissionCompletionRewardSteps,
+  buildRewardDelta,
+  buildRewardSnapshot,
+} from "@/utils/rewardSequenceBuilder";
 import {
   DASHBOARD_CHALLENGE_LIMIT,
   getVisibleDashboardChallenges,
@@ -316,6 +330,12 @@ const missionCenterStatus = ref({
 });
 const missionCenterKey = ref(0);
 const spaceRefreshKey = ref(0);
+const livingSpaceRewardSequenceSteps = ref([]);
+const livingSpaceRewardSequenceSprite = ref("celebration");
+const pendingLivingSpaceRoomFeedback = ref(null);
+const pendingLivingSpaceRewardMoment = ref(null);
+const livingSpaceRoomFeedbackEvent = ref(null);
+const livingSpaceFrozenState = ref(null);
 const showOnboardingFallback = computed(() => {
   if (typeof window === "undefined") return false;
 
@@ -327,6 +347,30 @@ const showOnboardingFallback = computed(() => {
 });
 
 const challengeLimit = DASHBOARD_CHALLENGE_LIMIT;
+
+const livingSpaceChallenges = computed(() => {
+  return livingSpaceFrozenState.value?.challenges || challenges.value;
+});
+
+const livingSpaceMissions = computed(() => {
+  return livingSpaceFrozenState.value?.missions || missionCenterStatus.value.missions;
+});
+
+const livingSpaceTodaySafe = computed(() => {
+  return livingSpaceFrozenState.value
+    ? Boolean(livingSpaceFrozenState.value.todaySafe)
+    : Boolean(missionFocusState.value.todaySafe);
+});
+
+const livingSpaceFocusReason = computed(() => {
+  return livingSpaceFrozenState.value?.focusReason || missionFocusState.value.reason;
+});
+
+const livingSpaceReminderCount = computed(() => {
+  return livingSpaceFrozenState.value
+    ? Number(livingSpaceFrozenState.value.reminderCount || 0)
+    : Number(missionFocusState.value.reminderCount || 0);
+});
 
 const firstName = computed(() => {
   return String(user.value?.name || "there").trim().split(" ")[0];
@@ -522,7 +566,9 @@ async function loadDashboard(options = {}) {
     achievements.value = data.achievements;
   } catch (e) {
     console.error(e);
-    error.value = e?.response?.data?.error || e?.message || String(e);
+    if (!silent) {
+      error.value = e?.response?.data?.error || e?.message || String(e);
+    }
   } finally {
     if (!silent) {
       loading.value = false;
@@ -646,14 +692,18 @@ async function handleMissionCheckin(payload = {}) {
 async function handleSpaceRewardClose(reward) {
   spaceRewardMoment.value = null;
 
-  if (!reward?.id) return;
-
-  try {
-    await api.post(`/me/space/rewards/${reward.id}/seen`);
-    spaceRefreshKey.value += 1;
-  } catch (e) {
-    console.warn("Could not mark space reward seen", e);
+  if (reward?.id) {
+    try {
+      await api.post(`/me/space/rewards/${reward.id}/seen`);
+      if (!pendingLivingSpaceRoomFeedback.value) {
+        spaceRefreshKey.value += 1;
+      }
+    } catch (e) {
+      console.warn("Could not mark space reward seen", e);
+    }
   }
+
+  flushPendingLivingSpaceRoomFeedback();
 }
 
 async function handleLivingSpaceChallengeStarted() {
@@ -663,13 +713,120 @@ async function handleLivingSpaceChallengeStarted() {
 }
 
 async function handleLivingSpaceMissionCompleted(payload = {}) {
+  const action = payload?.living_space_action || "done";
+
+  if (action !== "done") {
+    livingSpaceRewardSequenceSteps.value = [];
+    pendingLivingSpaceRewardMoment.value = null;
+    pendingLivingSpaceRoomFeedback.value = null;
+    livingSpaceFrozenState.value = null;
+    await loadDashboard({ silent: true });
+    missionCenterKey.value += 1;
+    spaceRefreshKey.value += 1;
+    return;
+  }
+
+  const oldStats = stats.value ? { ...stats.value } : null;
+  const wasTodaySafe = Boolean(missionFocusState.value.todaySafe);
+  livingSpaceFrozenState.value = {
+    challenges: challenges.value,
+    missions: missionCenterStatus.value.missions,
+    todaySafe: missionFocusState.value.todaySafe,
+    focusReason: missionFocusState.value.reason,
+    reminderCount: missionFocusState.value.reminderCount,
+  };
+  const beforeSnapshot = buildLivingSpaceRewardSnapshot({
+    stats: oldStats,
+    mission: payload?.mission,
+    todaySafe: wasTodaySafe,
+    completionResult: null,
+  });
+
   await loadDashboard({ silent: true });
+
+  pendingLivingSpaceRewardMoment.value = payload?.living_space_reward || null;
+  pendingLivingSpaceRoomFeedback.value = payload?.living_space_room_feedback || null;
+
+  const backendSavedToday = Array.isArray(payload?.reward_sequence)
+    && payload.reward_sequence.some((step) => step?.type === "today_saved");
+  const afterSnapshot = buildLivingSpaceRewardSnapshot({
+    stats: stats.value,
+    mission: payload?.mission,
+    todaySafe: wasTodaySafe || backendSavedToday || Boolean(missionFocusState.value.todaySafe),
+    completionResult: payload,
+  });
+  const rewardDelta = buildRewardDelta(beforeSnapshot, afterSnapshot, payload);
+  const rewardResult = buildMissionCompletionRewardSteps(rewardDelta, payload, { t });
+
+  livingSpaceRewardSequenceSteps.value = rewardResult.steps;
+  livingSpaceRewardSequenceSprite.value = rewardDelta?.mission?.intensity === "bonus"
+    ? "happy"
+    : "celebration";
+
+  if (!rewardResult.steps.length) {
+    continueLivingSpaceCompletionFeedback();
+  }
+}
+
+function buildLivingSpaceRewardSnapshot({
+  stats: snapshotStats = null,
+  mission = null,
+  todaySafe = false,
+  completionResult = null,
+} = {}) {
+  return buildRewardSnapshot({
+    missions: missionCenterStatus.value.missions || [],
+    pathGroups: [],
+    stats: snapshotStats,
+    guidanceProgress: {
+      today_saved: Boolean(todaySafe),
+      current_streak: snapshotStats?.current_streak ?? null,
+    },
+    mission,
+    completionResult,
+    fallbacks: {
+      path: t("missions.fallbackPath"),
+      challenge: t("missions.fallbackChallenge"),
+    },
+  });
+}
+
+function finishLivingSpaceRewardSequence() {
+  livingSpaceRewardSequenceSteps.value = [];
+  continueLivingSpaceCompletionFeedback();
+}
+
+function handleLivingSpaceRewardSequenceAction(action) {
+  finishLivingSpaceRewardSequence();
+
+  if (action?.key === "view_choices") {
+    dashboardRevealActive.value = true;
+  }
+}
+
+function continueLivingSpaceCompletionFeedback() {
+  if (pendingLivingSpaceRewardMoment.value) {
+    spaceRewardMoment.value = pendingLivingSpaceRewardMoment.value;
+    pendingLivingSpaceRewardMoment.value = null;
+    return;
+  }
+
+  flushPendingLivingSpaceRoomFeedback();
+}
+
+function flushPendingLivingSpaceRoomFeedback() {
+  const feedback = pendingLivingSpaceRoomFeedback.value;
+  pendingLivingSpaceRoomFeedback.value = null;
+  livingSpaceFrozenState.value = null;
   missionCenterKey.value += 1;
   spaceRefreshKey.value += 1;
 
-  if (payload?.living_space_reward) {
-    spaceRewardMoment.value = payload.living_space_reward;
-  }
+  if (!feedback) return;
+
+  livingSpaceRoomFeedbackEvent.value = {
+    id: `${Date.now()}-${Math.random()}`,
+    feedback,
+  };
 }
 
 
