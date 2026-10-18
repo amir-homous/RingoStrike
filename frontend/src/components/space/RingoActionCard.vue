@@ -26,7 +26,8 @@
           <p v-if="card.body">{{ card.body }}</p>
           <div v-if="card.chips?.length" class="missionMeta">
             <span v-for="chip in card.chips" :key="chip.key" :class="chip.tone">
-              {{ chip.text }}
+              <bdi v-if="chip.ltr" dir="ltr">{{ chip.text }}</bdi>
+              <template v-else>{{ chip.text }}</template>
             </span>
           </div>
         </div>

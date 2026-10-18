@@ -75,6 +75,7 @@ export default {
   },
   space: {
     panel: {
+      firstRewardHint: "Finish a main or smaller mission in this path to place {object} in your room.",
       stateSafe: "Today is safe",
       reminderBadge: "Reminder time",
       missionTitle: "Today's step: {mission}.",

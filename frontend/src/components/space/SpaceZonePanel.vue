@@ -228,7 +228,7 @@ const firstRewardText = computed(() => {
     return t("space.firstRewardPlaced", { reward: reward.title });
   }
 
-  return t("space.firstRewardLocked", { reward: reward.title });
+  return t("space.panel.firstRewardHint", { object: reward.title });
 });
 
 const zoneObjectHistoryItems = computed(() => {
@@ -654,7 +654,16 @@ const ringoCard = computed(() => {
 const challengeItems = computed(() => {
   const selectedId = selectedPathChallenge.value?.id;
 
-  return pathChallenges.value.map((challenge) => {
+  const rank = (challenge) => {
+    if (challenge.isJoined && String(challenge.id || "") === String(selectedId || "")) return 0;
+    return challenge.isJoined ? 1 : 2;
+  };
+  const ordered = pathChallenges.value
+    .map((challenge, index) => ({ challenge, index }))
+    .sort((a, b) => rank(a.challenge) - rank(b.challenge) || a.index - b.index)
+    .map(({ challenge }) => challenge);
+
+  return ordered.map((challenge) => {
     const selected = String(challenge.id || "") === String(selectedId || "");
     const expanded = selected && challenge.isJoined;
 
@@ -707,7 +716,7 @@ function missionChips(mission) {
       ? { key: "minutes", text: t("space.shell.minutes", { count: mission.estimatedMinutes }) }
       : null,
     mission.xpReward
-      ? { key: "xp", text: t("space.shell.xp", { count: mission.xpReward }) }
+      ? { key: "xp", text: t("space.shell.xp", { count: mission.xpReward }), ltr: true }
       : null,
   ].filter(Boolean);
 }
@@ -1227,7 +1236,9 @@ function formattedReminderTime(value) {
 }
 
 .closeButton {
+  flex: 0 0 auto;
   min-height: 32px;
+  white-space: nowrap;
   padding: 6px 10px;
   border-radius: 10px;
   color: rgba(255, 255, 255, 0.76);
@@ -1491,23 +1502,7 @@ function formattedReminderTime(value) {
     padding-inline-end: 0;
   }
 
-  .panelHead {
-    align-items: stretch;
-  }
-
-  .closeButton {
-    flex: 0 0 auto;
-  }
 }
 
-@media (max-width: 420px) {
-  .panelHead {
-    display: grid;
-  }
-
-  .closeButton {
-    justify-self: stretch;
-  }
-}
 
 </style>

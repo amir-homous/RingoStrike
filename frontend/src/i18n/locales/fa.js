@@ -75,6 +75,7 @@ export default {
   },
   space: {
     panel: {
+      firstRewardHint: "یک مأموریت اصلی یا کوچیک از این مسیر انجام بده تا {object} در اتاقت جا بگیره.",
       stateSafe: "امروز امنه",
       reminderBadge: "یادآور رسیده",
       missionTitle: "قدم امروز: {mission}.",
