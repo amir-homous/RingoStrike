@@ -84,7 +84,7 @@ export default {
     roomObjects: {
       career_planner: {
         title: "برنامه‌ریز کار",
-        description: "چون اولین مأموریت مسیر شغلی‌ات را انجام دادی باز شد.",
+        description: "با اولین مأموریت شغلی‌ات اینجا جا گرفت.",
       },
       career_desk_lamp: {
         title: "چراغ رومیزی",
@@ -104,14 +104,14 @@ export default {
       },
       creativity_sketchbook: {
         title: "دفتر طراحی",
-        description: "چون اولین مأموریت خلاقیت‌ات را انجام دادی باز شد.",
+        description: "با اولین مأموریت خلاقیتت اینجا جا گرفت.",
       },
       creativity_desk_lamp: {
         title: "چراغ خلاقیت",
         description: "یک نور گرم برای ثبات اولیه در خلاقیت.",
       },
       creativity_easel_upgrade: {
-        title: "سه‌پایه بهتر",
+        title: "سه‌پایهٔ تازه",
         description: "یک چیدمان خلاقانه‌تر برای پیشرفت در مسیر.",
       },
       creativity_art_wall: {
@@ -124,7 +124,7 @@ export default {
       },
       fitness_water_bottle: {
         title: "بطری آب",
-        description: "چون اولین مأموریت تناسب و انرژی‌ات را انجام دادی باز شد.",
+        description: "با اولین مأموریت حرکت و انرژی‌ات اینجا جا گرفت.",
       },
       fitness_dumbbells: {
         title: "دمبل‌ها",
@@ -139,12 +139,12 @@ export default {
         description: "نشانه‌ای قابل دیدن برای دستاوردهای تناسب و انرژی.",
       },
       fitness_trophy: {
-        title: "جام تناسب",
+        title: "جام حرکت",
         description: "نشانه یک نقطه عطف بزرگ در تناسب و انرژی.",
       },
       learning_first_book: {
         title: "اولین کتاب",
-        description: "چون اولین مأموریت یادگیری‌ات را انجام دادی باز شد.",
+        description: "با اولین مأموریت یادگیری‌ات اینجا جا گرفت.",
       },
       learning_study_lamp: {
         title: "چراغ مطالعه",
@@ -164,7 +164,7 @@ export default {
       },
       sleep_pillow: {
         title: "بالش",
-        description: "چون اولین مأموریت آرامش و خواب‌ات را انجام دادی باز شد.",
+        description: "با اولین مأموریت آرامشت اینجا جا گرفت.",
       },
       sleep_bedside_lamp: {
         title: "چراغ خواب",
