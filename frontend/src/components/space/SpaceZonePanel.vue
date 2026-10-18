@@ -610,7 +610,9 @@ const ringoCard = computed(() => {
 
   if (state === "mission") {
     const bonus = missionIntensity(mission) === "bonus";
-    const title = t("space.panel.missionTitle", { mission: missionTitle });
+    const title = bonus
+      ? t("space.panel.bonusFocusTitle", { mission: missionTitle })
+      : t("space.panel.missionTitle", { mission: missionTitle });
     return {
       tone: bonus ? "bonus" : "ready",
       mood: bonus ? "happy" : "focus",
@@ -634,7 +636,9 @@ const ringoCard = computed(() => {
       mood: "proud",
       label: t("space.panel.stateSafe"),
       title: t("space.panel.doneTitle"),
-      body: t("space.panel.doneBody"),
+      body: bonusCandidates.value.length
+        ? t("space.panel.doneBody")
+        : t("space.panel.doneBodyNoBonus"),
       primary: {
         key: "finish-today",
         label: t("space.panel.actionFinishToday"),

@@ -75,6 +75,8 @@ export default {
   },
   space: {
     panel: {
+      bonusFocusTitle: "Extra step: {mission}.",
+      doneBodyNoBonus: "That's enough for today. Your room moved forward today.",
       firstRewardHint: "Finish a main or smaller mission in this path to place {object} in your room.",
       stateSafe: "Today is safe",
       reminderBadge: "Reminder time",
