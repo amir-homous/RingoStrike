@@ -494,6 +494,9 @@
           <strong>{{ activeShellMission.title || t("common.mission") }}</strong>
           <p v-if="activeShellMission.description">{{ activeShellMission.description }}</p>
           <div class="missionMeta">
+            <span v-if="activeMissionIsDueReminder" class="missionMetaDue">
+              {{ t("space.zoneState.reminderDue") }}
+            </span>
             <span>{{ missionIntensityLabelFor(activeShellMission) }}</span>
             <span v-if="activeShellMission.estimatedMinutes">
               {{ t("space.shell.minutes", { count: activeShellMission.estimatedMinutes }) }}
@@ -526,6 +529,9 @@
       </p>
       <p v-if="activeShellMission?.description">{{ activeShellMission.description }}</p>
       <div v-if="activeShellMission" class="missionMeta">
+        <span v-if="activeMissionIsDueReminder" class="missionMetaDue">
+          {{ t("space.zoneState.reminderDue") }}
+        </span>
         <span>{{ missionIntensityLabelFor(activeShellMission) }}</span>
         <span v-if="activeShellMission.estimatedMinutes">
           {{ t("space.shell.minutes", { count: activeShellMission.estimatedMinutes }) }}
@@ -832,6 +838,10 @@ const activeShellMission = computed(() => {
     || activeShellChallenge.value?.mission
     || challengeMission.value
     || null;
+});
+
+const activeMissionIsDueReminder = computed(() => {
+  return missionIsDueReminder(activeShellMission.value);
 });
 
 const missionIntensityLabel = computed(() => {
@@ -1418,8 +1428,14 @@ function challengeProgressPercent(challenge) {
   return Math.round((done / total) * 100);
 }
 
+function missionIsDueReminder(mission) {
+  const reminderId = String(props.dueReminderFocus?.id || "");
+  return Boolean(reminderId) && String(mission?.id || "") === reminderId;
+}
+
 function missionStatusLabel(mission) {
   const status = String(mission?.status || "pending").toLowerCase();
+  if (missionIsDueReminder(mission)) return t("space.zoneState.reminderDue");
   if (missionGateText(mission)) return t("space.shell.statusLocked");
   if (status === "done" || status === "completed") return t("common.done");
   if (status === "locked") return t("space.shell.statusLocked");
@@ -2841,6 +2857,11 @@ function formattedReminderTime(value) {
   background: rgba(255, 255, 255, 0.055);
   font-size: 0.7rem;
   font-weight: 800;
+}
+
+.missionMeta .missionMetaDue {
+  color: rgba(247, 215, 116, 0.98);
+  background: rgba(247, 215, 116, 0.10);
 }
 
 @media (max-width: 720px) {
