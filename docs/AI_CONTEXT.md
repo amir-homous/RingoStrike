@@ -27,6 +27,7 @@ Product direction references:
 - [Living Space Home Shell Spec](product/LIVING_SPACE_HOME_SHELL_SPEC.md)
 - [Living Space v1 Issue Breakdown](product/LIVING_SPACE_V1_ISSUE_BREAKDOWN.md)
 - [Living Space v1 UX Polish Backlog](product/LIVING_SPACE_V1_UX_POLISH_BACKLOG.md)
+- [Living Room Friends Beta Plan](product/LIVING_ROOM_FRIENDS_BETA_PLAN.md) — current milestone and approved decisions D1–D6 (2026-10-18)
 - [GitHub Issue Pack](product/GITHUB_ISSUE_PACK.md)
 
 The supporting product principles remain:

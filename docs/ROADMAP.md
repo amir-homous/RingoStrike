@@ -290,6 +290,7 @@ Living Space v1 references:
 - [Living Space v1 Issue Breakdown](product/LIVING_SPACE_V1_ISSUE_BREAKDOWN.md)
 - [Living Space v1 UX Polish Backlog](product/LIVING_SPACE_V1_UX_POLISH_BACKLOG.md)
 - [Living Space v1 QA Checklist](qa/LIVING_SPACE_V1_QA_CHECKLIST.md)
+- [Living Room Friends Beta Plan](product/LIVING_ROOM_FRIENDS_BETA_PLAN.md) — milestone, decisions D1–D6 (2026-10-18), issues B1–B16
 
 ---
 

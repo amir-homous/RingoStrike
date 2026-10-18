@@ -448,10 +448,16 @@ Any final room background, object art, lighting direction, bitmap imagery, or vi
 Before implementation beyond Step 3, answer:
 
 - Should Room Overview replace MissionCenter visually, or should MissionCenter be refactored into the Ringo Guide Layer?
+  - **Decided 2026-10-18 (D2):** The room is the whole Home. MissionCenter becomes Ringo's guide layer inside the room; there is no separate dashboard surface.
 - Which exact mission actions must be supported inside the room first: Done only, or Done/Remind/Skip/Tiny?
 - Should optional missions appear inside the same challenge panel or in a separate optional drawer?
+- What should the room panel show by default?
+  - **Decided 2026-10-18 (D3):** Room panel = one Ringo message + one primary action; zone/path/challenge details open on demand (no tab-heavy panel). An approved mock-up is required before build (B9).
 - Should selecting a locked preview explain future reward rules, or keep it as a passive preview?
+  - **Decided 2026-10-18 (D4):** Later rewards (Lamp etc.) stay ghost previews with no unlock rule shown until v1.1.
 - What is the minimum mobile layout that still feels like a room rather than a list?
+
+Full decision record (D1–D6): [Living Room Friends Beta Plan](LIVING_ROOM_FRIENDS_BETA_PLAN.md).
 
 ## Recommended Next Issue
 
