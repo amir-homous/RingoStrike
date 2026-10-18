@@ -83,6 +83,7 @@ import { useI18n } from "vue-i18n";
 import api from "@/lib/api";
 import UiState from "@/components/ui/UiState.vue";
 import { getChallengePathKey } from "@/lib/guidedExperience";
+import { localizeSpaceReward, localizeSpaceZone } from "@/lib/livingSpaceCopy";
 import {
   dueReminderFocusForZone,
   findDueReminderZone,
@@ -111,7 +112,7 @@ const props = defineProps({
 
 const emit = defineEmits(["checkin", "challenge-started", "mission-completed"]);
 
-const { locale, t } = useI18n();
+const { locale, t, te } = useI18n();
 
 const loading = ref(false);
 const error = ref("");
@@ -134,7 +135,8 @@ const unlockedCount = computed(() => {
 });
 
 const displayZones = computed(() => {
-  return (spaceState.value?.zones || []).map((zone) => {
+  return (spaceState.value?.zones || []).map((rawZone) => {
+    const zone = localizeSpaceZone(rawZone, t, te);
     const pathDetail = buildPathDetail(zone);
     const zonePathKey = normalizePathKey(zone.path_key);
 
@@ -908,7 +910,7 @@ async function mutateMission(mission, action, request) {
 }
 
 function buildRoomFeedback(data, zone) {
-  const reward = data?.living_space_reward || null;
+  const reward = localizeSpaceReward(data?.living_space_reward || null, t, te);
   const zoneKey = reward?.zone_key || zone?.zone_key || "";
   if (!zoneKey) return null;
 

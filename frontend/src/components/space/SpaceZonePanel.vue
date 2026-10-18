@@ -6,7 +6,7 @@
           <img :src="pathIcon" alt="" class="pathIcon iconOnDark" />
         </span>
         <div>
-          <p class="panelKicker">{{ zone.path_key }}</p>
+          <p class="panelKicker">{{ zone.pathName || zone.path_key }}</p>
           <h3>{{ zone.title }}</h3>
         </div>
       </div>
