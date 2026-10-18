@@ -16,6 +16,14 @@ The project has moved beyond raw MVP. Core progression identity is implemented. 
 
 ## Latest Launch-Hardening Updates
 
+### Living Room Friends Beta Plan
+
+Recorded the Living Room Friends Beta milestone plan and its foundation decisions (docs only, no code changes):
+
+- Added `docs/product/LIVING_ROOM_FRIENDS_BETA_PLAN.md` with the milestone goal, definition of done, decisions D1–D6 (approved 2026-10-18), phases, labels, and issues B1–B16.
+- Answered the Living Space Home Shell Spec open questions on Home surface (D2), room panel shape (D3), and locked reward previews (D4).
+- Linked the plan from `docs/ROADMAP.md` and `docs/AI_CONTEXT.md`.
+
 ### Living Space Mission Micro-Actions
 
 Centralized the compact mission action flow inside the Living Space Ringo guide:
