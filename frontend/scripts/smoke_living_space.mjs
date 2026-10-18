@@ -7,6 +7,11 @@ import {
   challengeIconKey,
 } from "../src/lib/challengeIconKeys.js";
 import { localizeChallenge, localizeMission } from "../src/lib/ringoContentLocalization.js";
+import {
+  buildTodayMissionRows,
+  ringoCardState,
+  todayMainDone,
+} from "../src/lib/livingSpacePanel.js";
 
 import {
   dueReminderFocusForZone,
@@ -104,6 +109,7 @@ function run() {
   assert.equal(Boolean(placed.unlocked), true);
 
   runChallengeIconKeySmoke();
+  runPanelV2Smoke();
 
   console.log("Living Space smoke test passed.");
 }
@@ -155,6 +161,49 @@ function runChallengeIconKeySmoke() {
     assert.ok(existsSync(new URL(`${key}.png`, iconDir)), `legacy icon ${key}`);
   }
   assert.ok(existsSync(new URL("default_challenge_icon.png", iconDir)));
+}
+
+function runPanelV2Smoke() {
+  const main = { id: 1, intensity: "main", status: "pending", availableToday: true };
+  const tiny = { id: 2, intensity: "tiny", status: "pending", availableToday: true, parentMissionId: 1 };
+  const bonus = { id: 3, intensity: "bonus", status: "pending", availableToday: true };
+  const future = { id: 4, intensity: "main", status: "locked", availableToday: false, unlocksInDays: 2 };
+
+  // Option A: today only, tiny hidden until asked, bonus dimmed before main, future as a count.
+  let today = buildTodayMissionRows([main, tiny, bonus, future], { focusId: 1 });
+  assert.deepEqual(today.rows.map((row) => row.id), [1, 3]);
+  assert.equal(today.futureCount, 1);
+  assert.equal(today.mainDone, false);
+  assert.equal(today.rows[0].focused, true);
+  assert.equal(today.rows[1].afterMain, true);
+  assert.equal(today.rows[1].selectable, false);
+
+  today = buildTodayMissionRows([main, tiny, bonus], { requestedTinyId: 2 });
+  assert.deepEqual(today.rows.map((row) => row.id), [1, 2, 3]);
+
+  // Tiny substitute done counts as today's main step; bonus becomes selectable.
+  const tinyDone = { ...tiny, status: "done" };
+  assert.equal(todayMainDone([main, tinyDone]), true);
+  today = buildTodayMissionRows([main, tinyDone, bonus]);
+  assert.deepEqual(today.rows.map((row) => [row.id, row.state]), [[1, "pending"], [2, "done"], [3, "pending"]]);
+  assert.equal(today.rows[2].afterMain, false);
+
+  today = buildTodayMissionRows([{ ...main, status: "remind_later" }], { dueReminderId: 1 });
+  assert.equal(today.rows[0].state, "due");
+  assert.equal(today.rows[0].dueReminder, true);
+
+  assert.deepEqual(buildTodayMissionRows([]), { rows: [], futureCount: 0, mainDone: false });
+
+  // Ringo card state priority.
+  assert.equal(ringoCardState({ dueReminderFocused: true, focusCanComplete: true, restMode: true }), "reminder");
+  assert.equal(ringoCardState({ restMode: true, focusCanComplete: true }), "rest");
+  assert.equal(ringoCardState({ hasChallenge: true, challengeJoined: false }), "preview");
+  assert.equal(ringoCardState({ focusCanComplete: true }), "mission");
+  assert.equal(ringoCardState({ mainDone: true, focusDone: true }), "safe");
+  assert.equal(ringoCardState({ mainDone: true, focusCanComplete: true }), "mission");
+  assert.equal(ringoCardState({ focusGated: true }), "locked");
+  assert.equal(ringoCardState({ focusDone: true }), "done");
+  assert.equal(ringoCardState({}), "fallback");
 }
 
 run();
