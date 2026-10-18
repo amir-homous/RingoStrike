@@ -295,7 +295,7 @@ const props = defineProps({
 
 const route = useRoute();
 const router = useRouter();
-const { t } = useI18n();
+const { locale, t } = useI18n();
 
 const loading = ref(true);
 const loggingOut = ref(false);
@@ -756,7 +756,7 @@ async function handleLivingSpaceMissionCompleted(payload = {}) {
     completionResult: payload,
   });
   const rewardDelta = buildRewardDelta(beforeSnapshot, afterSnapshot, payload);
-  const rewardResult = buildMissionCompletionRewardSteps(rewardDelta, payload, { t });
+  const rewardResult = buildMissionCompletionRewardSteps(rewardDelta, payload, { t, locale: locale.value });
 
   livingSpaceRewardSequenceSteps.value = rewardResult.steps;
   livingSpaceRewardSequenceSprite.value = rewardDelta?.mission?.intensity === "bonus"

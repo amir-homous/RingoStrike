@@ -2778,7 +2778,7 @@ async function runMissionAction(mission, action, request, options = {}) {
     if (shouldBuildReward) {
       const rewardAfterSnapshot = buildCurrentRewardSnapshot(completedMission, data);
       const rewardDelta = buildRewardDelta(rewardBeforeSnapshot, rewardAfterSnapshot, data);
-      const rewardResult = buildMissionCompletionRewardSteps(rewardDelta, data, { t });
+      const rewardResult = buildMissionCompletionRewardSteps(rewardDelta, data, { t, locale: locale.value });
 
       rewardSequenceSteps.value = rewardResult.steps;
       rewardSequenceSprite.value = missionRewardIntensity(data, mission) === "bonus"

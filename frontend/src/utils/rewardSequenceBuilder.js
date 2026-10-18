@@ -1,4 +1,21 @@
+import { localizeMission } from "@/lib/ringoContentLocalization";
 import { buildMissionPathGroups, normalizedMissionIntensity, missionHasStatus } from "@/utils/missionMomentumUtils";
+
+// Fixed English copy sent by backend reward_sequence steps (mission_service._build_reward_sequence),
+// mapped to i18n keys so FA mode does not show English.
+const BACKEND_STEP_COPY = {
+  "Nice work.": "ringoRewardSequence.backend.niceWorkTitle",
+  "You did the small step. That counts.": "ringoRewardSequence.backend.smallStepText",
+  "You added another small win to today.": "ringoRewardSequence.backend.addedWinText",
+  "This mission is marked done.": "ringoRewardSequence.backend.missionDoneText",
+  "XP earned": "ringoRewardSequence.backend.xpTitle",
+  "Today is safe.": "ringoRewardSequence.backend.todaySafeTitle",
+  "You did enough for today. Anything else is optional.": "ringoRewardSequence.backend.todaySafeText",
+  "Bonus momentum.": "ringoRewardSequence.backend.bonusTitle",
+  "Today was already safe. This was optional extra progress.": "ringoRewardSequence.backend.bonusText",
+  "Choose your pace.": "ringoRewardSequence.backend.paceTitle",
+  "You can stop here, or continue only if you have energy.": "ringoRewardSequence.backend.paceText",
+};
 
 function safeNumber(value, fallback = null) {
   if (value === null || value === undefined || value === "") return fallback;
@@ -215,6 +232,11 @@ function missionCompletionTitleKey(intensity) {
   return "completeTitle";
 }
 
+function localizeBackendCopy(value, translate) {
+  const key = BACKEND_STEP_COPY[String(value || "").trim()];
+  return key ? translate(key) : value;
+}
+
 function normalizeBackendStep(step = {}, normalized, translate) {
   const rawType = String(step?.type || "default").trim();
   const typeMap = {
@@ -237,8 +259,8 @@ function normalizeBackendStep(step = {}, normalized, translate) {
     missionKey: step?.missionKey || step?.mission_key || normalized.mission?.key || normalized.mission?.mission_key || "",
     title: type === "mission_complete"
       ? missionTitle || step?.title || translate("ringoRewardSequence.local.missionFallback")
-      : step?.title || "",
-    text: step?.text || (type === "mission_complete"
+      : localizeBackendCopy(step?.title, translate) || "",
+    text: localizeBackendCopy(step?.text, translate) || (type === "mission_complete"
       ? translate(`ringoRewardSequence.staged.${missionTitleKey}`)
       : ""),
     value: step?.value || xpValue,
@@ -249,9 +271,9 @@ function normalizeBackendStep(step = {}, normalized, translate) {
   };
 }
 
-export function normalizeMissionCompletionRewardResponse(response = {}, { t } = {}) {
+export function normalizeMissionCompletionRewardResponse(response = {}, { t, locale } = {}) {
   const translate = translator(t);
-  const mission = response?.mission || {};
+  const mission = localizeMission(response?.mission || {}, locale) || {};
   const alreadyDoneValue = Boolean(mission?.already_done);
   const xpAwardedValue = Math.max(
     0,
@@ -551,9 +573,13 @@ function fallbackFinalChoiceStep(translate) {
   };
 }
 
-export function buildMissionCompletionRewardSteps(delta, response = {}, { t } = {}) {
+export function buildMissionCompletionRewardSteps(delta, response = {}, { t, locale } = {}) {
   const translate = translator(t);
-  const normalized = normalizeMissionCompletionRewardResponse(response, { t });
+  // The done response has no mission key; borrow it from the frontend mission so titles localize.
+  const responseMission = response?.mission
+    ? { ...response.mission, key: response.mission.key || delta?.mission?.key || "" }
+    : response?.mission;
+  const normalized = normalizeMissionCompletionRewardResponse({ ...response, mission: responseMission }, { t, locale });
 
   if (normalized.alreadyDone) {
     return {

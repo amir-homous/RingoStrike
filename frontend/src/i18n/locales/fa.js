@@ -1284,6 +1284,19 @@ export default {
     },
   },
   ringoRewardSequence: {
+    backend: {
+      niceWorkTitle: "دمت گرم.",
+      smallStepText: "همین قدم کوچک انجام شد. حسابه.",
+      addedWinText: "یک برد کوچک دیگر به امروزت اضافه کردی.",
+      missionDoneText: "این مأموریت انجام‌شده ثبت شد.",
+      xpTitle: "XP گرفتی",
+      todaySafeTitle: "امروزت امنه.",
+      todaySafeText: "برای امروز کافی بود. هر کار دیگه‌ای اختیاریه.",
+      bonusTitle: "یه قدم اضافه.",
+      bonusText: "امروز از قبل امن بود. این یه پیشرفت اضافه و اختیاری بود.",
+      paceTitle: "سرعتت رو خودت انتخاب کن.",
+      paceText: "می‌تونی همین‌جا تمومش کنی، یا اگه انرژی داری ادامه بدی.",
+    },
     eyebrow: "لحظه رینگو",
     skip: "رد کردن",
     skipSummary: "رد کردن خلاصه",
@@ -1402,7 +1415,7 @@ export default {
     roomPreviewTitle: "پیش‌نمایش اتاق",
     roomPreviewLabel: "پیش‌نمایش تغییرات هر مسیر در فضای زندگی",
     roomZone: "بخش: {zone}",
-    previewHint: "{path} بعد از اولین مأموریت، {reward} را باز می‌کند.",
+    previewHint: "با اولین مأموریت این مسیر، {reward} در اتاقت جا می‌گیرد.",
     firstRewardFallback: "اولین شیء اتاق",
   },
   paths: {
