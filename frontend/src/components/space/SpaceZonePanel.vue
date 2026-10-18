@@ -35,7 +35,6 @@
             class="actionLink"
             :class="[action.variant || 'secondary', { compact: action.compact }]"
             :disabled="action.disabled"
-            :title="action.hint || action.label"
             :aria-label="action.hint || action.label"
             @click="handleRingoAction(action)"
           >
@@ -1837,6 +1836,7 @@ function formattedReminderTime(value) {
 }
 
 .ringoGuideActions {
+  position: relative;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -2260,6 +2260,8 @@ function formattedReminderTime(value) {
 }
 
 .actionLink.compact {
+  /* Tooltip anchors to .ringoGuideActions so it stays inside the panel in LTR and RTL. */
+  position: static;
   width: 44px;
   min-width: 44px;
   height: 44px;
@@ -2278,10 +2280,10 @@ function formattedReminderTime(value) {
 .actionTooltip {
   position: absolute;
   z-index: 4;
-  inset-inline-start: 50%;
+  inset-inline-start: 0;
   bottom: calc(100% + 8px);
   width: max-content;
-  max-width: 220px;
+  max-width: 100%;
   padding: 6px 8px;
   border-radius: 9px;
   color: rgba(255, 255, 255, 0.90);
@@ -2292,14 +2294,14 @@ function formattedReminderTime(value) {
   line-height: 1.35;
   opacity: 0;
   pointer-events: none;
-  transform: translateX(-50%) translateY(3px);
+  transform: translateY(3px);
   transition: opacity 140ms ease, transform 140ms ease;
 }
 
 .actionLink:hover .actionTooltip,
 .actionLink:focus-visible .actionTooltip {
   opacity: 1;
-  transform: translateX(-50%) translateY(0);
+  transform: translateY(0);
 }
 
 .actionLink.primary {

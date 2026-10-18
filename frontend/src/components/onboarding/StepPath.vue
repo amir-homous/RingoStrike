@@ -23,7 +23,8 @@
           @click="togglePath(path.key)"
         >
           <span class="pathIcon" :style="{ '--path-color': path.color || '#67e8f9' }" aria-hidden="true">
-            {{ path.iconLabel }}
+            <img v-if="path.iconUrl" :src="path.iconUrl" alt="" class="pathIconImage iconOnDark" />
+            <template v-else>{{ path.iconLabel }}</template>
           </span>
           <span class="pathLabel">{{ path.title }}</span>
           <span class="pathZone">{{ t("onboarding.path.roomZone", { zone: path.zoneTitle }) }}</span>
@@ -76,7 +77,9 @@ import OnboardingTypewriterText from "@/components/onboarding/OnboardingTypewrit
 import RingoMoodFigure from "@/components/ringo/RingoMoodFigure.vue";
 import SpaceZone from "@/components/space/SpaceZone.vue";
 import { resolveRingoMood } from "@/constants/ringoSprites";
+import { localizeSpaceZone } from "@/lib/livingSpaceCopy";
 import { localizePath } from "@/lib/ringoContentLocalization";
+import { resolvePathIcon } from "@/utils/missionMomentumUtils";
 
 const props = defineProps({
   modelValue: { type: Array, default: () => [] },
@@ -86,11 +89,19 @@ const props = defineProps({
 
 const emit = defineEmits(["update:modelValue", "continue"]);
 
-const { locale, t } = useI18n();
+const { locale, t, te } = useI18n();
 const selectedPaths = computed(() => Array.isArray(props.modelValue) ? props.modelValue : []);
 const previewPath = ref("");
 
 const CANONICAL_PATHS = ["career", "creativity", "fitness", "learning", "sleep"];
+
+const PATH_ICONS = {
+  career: "briefcase",
+  creativity: "sparkles",
+  fitness: "activity",
+  learning: "book",
+  sleep: "moon",
+};
 
 const PATH_TO_ZONE = {
   career: "work_desk",
@@ -123,6 +134,7 @@ const pathOptions = computed(() => {
       outcome: t(`onboarding.paths.${key}.outcome`),
       color: localized.color || "#67e8f9",
       iconLabel: String(localized.icon || localized.title || key).slice(0, 1).toUpperCase(),
+      iconUrl: resolvePathIcon(backendPath.icon || PATH_ICONS[key]),
       zoneTitle: zone?.title || t(`onboarding.paths.${key}.zone`),
       zoneKey: PATH_TO_ZONE[key],
       firstRewardTitle: firstReward?.title || t("onboarding.path.firstRewardFallback"),
@@ -149,9 +161,9 @@ const previewZones = computed(() => {
     const zoneKey = PATH_TO_ZONE[key];
     const apiZone = apiZones.find((zone) => zone.zone_key === zoneKey);
 
-    if (apiZone) return apiZone;
+    if (apiZone) return localizeSpaceZone(apiZone, t, te);
 
-    return {
+    return localizeSpaceZone({
       path_key: key,
       zone_key: zoneKey,
       title: t(`onboarding.paths.${key}.zone`),
@@ -165,7 +177,7 @@ const previewZones = computed(() => {
           unlocked: false,
         },
       ],
-    };
+    }, t, te);
   });
 });
 
@@ -277,6 +289,13 @@ h1 {
   background: var(--path-color, #67e8f9);
   box-shadow: 0 0 20px color-mix(in srgb, var(--path-color, #67e8f9) 40%, transparent);
   font-weight: 950;
+}
+
+.pathIconImage {
+  display: block;
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
 }
 
 .pathLabel {
