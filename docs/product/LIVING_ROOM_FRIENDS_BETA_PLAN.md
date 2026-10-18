@@ -51,7 +51,7 @@ B10 (copy) and B15 (tester kit) may start during Phase 1.
 ## Shared rules for every code issue
 
 - One feature branch per issue, PR into `dev`, before/after screenshots for UI changes.
-- Run and report: `pytest backend/tests -q`, `npm run build`, all `npm run test:*` scripts.
+- Run and report from the repo root: `pytest backend/tests -q`, then `cd frontend && npm run build` and every `npm run test:*` script inside `frontend/`.
 - No changes to XP, check-in, streak, achievement or reward logic. No schema change unless the issue says so.
 - Persian and English verified for any UI change; `prefers-reduced-motion` respected.
 
