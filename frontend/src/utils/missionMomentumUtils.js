@@ -1,3 +1,5 @@
+import { challengeIconCandidates } from "@/lib/challengeIconKeys";
+
 const pathIconModules = import.meta.glob("../assets/path-icons/*.png", { eager: true, import: "default" });
 const challengeIconModules = import.meta.glob("../assets/challenge-icons/*.png", { eager: true, import: "default" });
 const missionIconModules = import.meta.glob("../assets/missions-icons/**/*.png", { eager: true, import: "default" });
@@ -128,7 +130,11 @@ export function buildMissionPathGroups(missions, fallbacks = {}) {
       mission.challenge_id || mission.challenge_name || mission.enrollment_id || "default",
     );
     const challengeTitle = mission.challenge_name || fallbackChallenge;
-    const challengeIconName = String(mission.challenge_id || "").trim();
+    const challengeIconRef = {
+      icon_key: mission.challenge_icon_key,
+      name: mission.challenge_name,
+      id: mission.challenge_id,
+    };
 
     if (!paths.has(pathKey)) {
       paths.set(pathKey, {
@@ -150,7 +156,7 @@ export function buildMissionPathGroups(missions, fallbacks = {}) {
         id: mission.challenge_id || challengeKey,
         challengeId: mission.challenge_id || null,
         title: challengeTitle,
-        iconUrl: resolveChallengeIcon(challengeIconName),
+        iconUrl: resolveChallengeIcon(challengeIconRef),
         missions: [],
       });
     }
@@ -263,9 +269,13 @@ export function resolvePathIcon(name) {
     || iconFromModules(pathIconModules, "default_path_icon");
 }
 
-export function resolveChallengeIcon(challengeId) {
-  return iconFromModules(challengeIconModules, challengeId)
-    || iconFromModules(challengeIconModules, "default_challenge_icon");
+export function resolveChallengeIcon(challengeRef) {
+  for (const key of challengeIconCandidates(challengeRef)) {
+    const icon = iconFromModules(challengeIconModules, key);
+    if (icon) return icon;
+  }
+
+  return iconFromModules(challengeIconModules, "default_challenge_icon");
 }
 
 function iconFromModules(modules, name) {

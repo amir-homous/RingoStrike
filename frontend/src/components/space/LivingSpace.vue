@@ -82,6 +82,7 @@ import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import api from "@/lib/api";
 import UiState from "@/components/ui/UiState.vue";
+import { challengeIconKey } from "@/lib/challengeIconKeys";
 import { getChallengePathKey } from "@/lib/guidedExperience";
 import {
   dueReminderFocusForZone,
@@ -444,6 +445,7 @@ function buildZoneAction(zone, pathDetail = null) {
         id: challenge.challenge_id,
         enrollmentId: challenge.enrollment_id,
         name,
+        iconKey: challengeIconKey(challenge.challenge_name || challenge.name),
         status: "done_today",
         streak: challenge.current_streak ?? challenge.currentStreak ?? 0,
         totalCheckins: challenge.total_checkins ?? challenge.totalCheckins ?? 0,
@@ -467,6 +469,7 @@ function buildZoneAction(zone, pathDetail = null) {
       id: challenge.challenge_id,
       enrollmentId: challenge.enrollment_id,
       name,
+      iconKey: challengeIconKey(challenge.challenge_name || challenge.name),
       status: "ready_today",
       streak: challenge.current_streak ?? challenge.currentStreak ?? 0,
       totalCheckins: challenge.total_checkins ?? challenge.totalCheckins ?? 0,
@@ -504,6 +507,7 @@ function buildPathChallengeZoneAction(challenge) {
         id: challenge.id,
         enrollmentId: challenge.enrollmentId,
         name: challenge.name,
+        iconKey: challenge.iconKey,
         status: "done_today",
         streak: challenge.currentStreak || 0,
         totalCheckins: challenge.totalCheckins || challenge.doneCount || 0,
@@ -527,6 +531,7 @@ function buildPathChallengeZoneAction(challenge) {
       id: challenge.id,
       enrollmentId: challenge.enrollmentId,
       name: challenge.name,
+      iconKey: challenge.iconKey,
       status: "ready_today",
       streak: challenge.currentStreak || 0,
       totalCheckins: challenge.totalCheckins || challenge.doneCount || 0,
@@ -625,6 +630,7 @@ function buildPathChallenge(challenge, zone) {
   return {
     id: challenge?.challenge_id,
     enrollmentId: challenge?.enrollment_id || null,
+    iconKey: challengeIconKey(challenge?.name || challenge?.challenge_name),
     name: localized?.name || localized?.challenge_name || t("common.challenge"),
     description: localized?.ringo_intro || localized?.description || "",
     stage: challenge?.stage || 1,

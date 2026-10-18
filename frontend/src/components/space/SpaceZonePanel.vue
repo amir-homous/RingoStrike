@@ -681,7 +681,7 @@ const pathIcon = computed(() => {
 });
 
 const challengeIcon = computed(() => {
-  return resolveChallengeIcon(activeShellChallenge.value?.id || "");
+  return resolveChallengeIcon(activeShellChallenge.value);
 });
 
 const pathChallenges = computed(() => {
@@ -810,6 +810,7 @@ const activeShellChallenge = computed(() => {
       id: selected.id,
       enrollmentId: selected.enrollmentId,
       name: selected.name,
+      iconKey: selected.iconKey,
       description: selected.description || "",
       status: selected.todayChecked
         ? "done_today"
@@ -1386,7 +1387,7 @@ function reminderAtForOption(key) {
 }
 
 function challengeIconFor(challenge) {
-  return resolveChallengeIcon(challenge?.id || "");
+  return resolveChallengeIcon(challenge);
 }
 
 function challengeStatusLabel(challenge) {

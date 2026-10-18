@@ -1,4 +1,12 @@
 import assert from "node:assert/strict";
+import { existsSync, readFileSync } from "node:fs";
+
+import {
+  LEGACY_CHALLENGE_ICON_IDS,
+  challengeIconCandidates,
+  challengeIconKey,
+} from "../src/lib/challengeIconKeys.js";
+import { localizeChallenge, localizeMission } from "../src/lib/ringoContentLocalization.js";
 
 import {
   dueReminderFocusForZone,
@@ -95,7 +103,58 @@ function run() {
   assert.equal(placed, placedFirst);
   assert.equal(Boolean(placed.unlocked), true);
 
+  runChallengeIconKeySmoke();
+
   console.log("Living Space smoke test passed.");
+}
+
+function runChallengeIconKeySmoke() {
+  assert.equal(challengeIconKey("Deep Work Sprint"), "deep-work-sprint");
+  assert.equal(challengeIconKey("  Sleep Wind-Down! "), "sleep-wind-down");
+  assert.equal(challengeIconKey(""), "");
+
+  // Stable key first, legacy id alias last.
+  assert.deepEqual(challengeIconCandidates({ id: 7, name: "Deep Work Sprint" }), ["deep-work-sprint"]);
+  assert.deepEqual(challengeIconCandidates({ id: 30, name: "Deep Work Sprint" }), ["deep-work-sprint"]);
+  assert.deepEqual(challengeIconCandidates({ id: 31 }), ["move-your-body"]);
+  assert.deepEqual(challengeIconCandidates({ challenge_id: 7 }), []);
+  assert.deepEqual(challengeIconCandidates("44"), ["morning-recovery"]);
+  assert.deepEqual(challengeIconCandidates(7), []);
+  assert.deepEqual(challengeIconCandidates(null), []);
+  assert.deepEqual(
+    challengeIconCandidates({ iconKey: "deep-work-sprint", name: "اسپرینت کار عمیق", id: 7 }),
+    ["deep-work-sprint"],
+  );
+
+  // Persian localization keeps the English-derived key.
+  const faChallenge = localizeChallenge({ challenge_id: 7, name: "Deep Work Sprint" }, "fa");
+  assert.notEqual(faChallenge.name, "Deep Work Sprint");
+  assert.equal(faChallenge.icon_key, "deep-work-sprint");
+  assert.deepEqual(challengeIconCandidates(faChallenge), ["deep-work-sprint"]);
+
+  const faMission = localizeMission(
+    { key: "move-10", title: "Move for 10 minutes", challenge_name: "Move Your Body", challenge_id: 1 },
+    "fa",
+  );
+  assert.notEqual(faMission.challenge_name, "Move Your Body");
+  assert.equal(faMission.challenge_icon_key, "move-your-body");
+
+  // Every seeded challenge and every legacy alias has an icon file.
+  const iconDir = new URL("../src/assets/challenge-icons/", import.meta.url);
+  const seed = readFileSync(
+    new URL("../../backend/services/path_seed_service.py", import.meta.url),
+    "utf8",
+  );
+  const seededNames = [...seed.matchAll(/^\s*"name": "([^"]+)",$/gm)].map(([, name]) => name);
+  assert.equal(seededNames.length, 15);
+
+  for (const name of seededNames) {
+    assert.ok(existsSync(new URL(`${challengeIconKey(name)}.png`, iconDir)), `icon for ${name}`);
+  }
+  for (const key of Object.values(LEGACY_CHALLENGE_ICON_IDS)) {
+    assert.ok(existsSync(new URL(`${key}.png`, iconDir)), `legacy icon ${key}`);
+  }
+  assert.ok(existsSync(new URL("default_challenge_icon.png", iconDir)));
 }
 
 run();
