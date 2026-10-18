@@ -9,7 +9,7 @@
             <div>
               <p class="eyebrow">{{ t("spaceUnlock.eyebrow") }}</p>
               <h2>{{ t("spaceUnlock.title") }}</h2>
-              <p>{{ t("spaceUnlock.body", { reward: reward.title, zone: zoneLabel }) }}</p>
+              <p>{{ t("spaceUnlock.body", { reward: displayReward.title, zone: zoneLabel }) }}</p>
             </div>
 
             <RingoMoodFigure
@@ -24,9 +24,9 @@
           <div class="objectCard">
             <span class="objectGlyph" aria-hidden="true">{{ objectGlyph }}</span>
             <div>
-              <strong>{{ reward.title }}</strong>
+              <strong>{{ displayReward.title }}</strong>
               <span class="placedLine">{{ t("spaceUnlock.placedIn", { zone: zoneLabel }) }}</span>
-              <p>{{ reward.description || t("spaceUnlock.defaultDescription") }}</p>
+              <p>{{ displayReward.description || t("spaceUnlock.defaultDescription") }}</p>
             </div>
           </div>
 
@@ -47,6 +47,7 @@ import { useI18n } from "vue-i18n";
 
 import BaseButton from "@/components/ui/BaseButton.vue";
 import RingoMoodFigure from "@/components/ringo/RingoMoodFigure.vue";
+import { localizeSpaceReward, spaceZoneTitle } from "@/lib/livingSpaceCopy";
 
 const props = defineProps({
   open: { type: Boolean, default: false },
@@ -55,23 +56,17 @@ const props = defineProps({
 
 const emit = defineEmits(["close"]);
 
-const { t } = useI18n();
+const { t, te } = useI18n();
 
-const ZONE_LABELS = {
-  work_desk: "spaceUnlock.zones.workDesk",
-  creative_corner: "spaceUnlock.zones.creativeCorner",
-  fitness_corner: "spaceUnlock.zones.fitnessCorner",
-  learning_corner: "spaceUnlock.zones.learningCorner",
-  sleep_corner: "spaceUnlock.zones.sleepCorner",
-};
+const displayReward = computed(() => localizeSpaceReward(props.reward, t, te));
 
 const zoneLabel = computed(() => {
-  const key = ZONE_LABELS[props.reward?.zone_key] || "";
-  return key ? t(key) : props.reward?.zone_key || t("spaceUnlock.room");
+  const zoneKey = props.reward?.zone_key;
+  return spaceZoneTitle(zoneKey, t, te, zoneKey || t("spaceUnlock.room"));
 });
 
 const objectGlyph = computed(() => {
-  const title = String(props.reward?.title || props.reward?.key || "?").trim();
+  const title = String(displayReward.value?.title || props.reward?.key || "?").trim();
   return title.slice(0, 1).toUpperCase();
 });
 

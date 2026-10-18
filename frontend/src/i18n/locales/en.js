@@ -74,6 +74,115 @@ export default {
     fallbackMessage: "I am here to keep your next step small and clear.",
   },
   space: {
+    zoneNames: {
+      work_desk: "Work Desk",
+      creative_corner: "Creative Corner",
+      fitness_corner: "Fitness Corner",
+      learning_corner: "Learning Corner",
+      sleep_corner: "Sleep Corner",
+    },
+    roomObjects: {
+      career_planner: {
+        title: "Career Planner",
+        description: "Unlocked because you completed your first Career mission.",
+      },
+      career_desk_lamp: {
+        title: "Desk Lamp",
+        description: "A calm work light for early Career consistency.",
+      },
+      career_monitor: {
+        title: "Focus Monitor",
+        description: "A clearer workspace for Career progress milestones.",
+      },
+      career_project_board: {
+        title: "Project Board",
+        description: "A visible board for Career achievements.",
+      },
+      career_trophy: {
+        title: "Career Trophy",
+        description: "A major Career milestone marker.",
+      },
+      creativity_sketchbook: {
+        title: "Sketchbook",
+        description: "Unlocked because you completed your first Creativity mission.",
+      },
+      creativity_desk_lamp: {
+        title: "Creative Lamp",
+        description: "A warm light for early Creativity consistency.",
+      },
+      creativity_easel_upgrade: {
+        title: "Easel Upgrade",
+        description: "A stronger creative setup for path progress.",
+      },
+      creativity_art_wall: {
+        title: "Art Wall",
+        description: "A wall that reflects your creative achievements.",
+      },
+      creativity_trophy: {
+        title: "Creativity Trophy",
+        description: "A major Creativity milestone marker.",
+      },
+      fitness_water_bottle: {
+        title: "Water Bottle",
+        description: "Unlocked because you completed your first Fitness mission.",
+      },
+      fitness_dumbbells: {
+        title: "Dumbbells",
+        description: "A steady Fitness consistency reward.",
+      },
+      fitness_better_mat: {
+        title: "Better Mat",
+        description: "A more grounded Fitness setup for path progress.",
+      },
+      fitness_training_bench: {
+        title: "Training Bench",
+        description: "A visible marker for Fitness achievements.",
+      },
+      fitness_trophy: {
+        title: "Fitness Trophy",
+        description: "A major Fitness milestone marker.",
+      },
+      learning_first_book: {
+        title: "First Book",
+        description: "Unlocked because you completed your first Learning mission.",
+      },
+      learning_study_lamp: {
+        title: "Study Lamp",
+        description: "A steady Learning consistency reward.",
+      },
+      learning_book_stack: {
+        title: "Book Stack",
+        description: "A visible stack for Learning progress.",
+      },
+      learning_bookshelf: {
+        title: "Bookshelf",
+        description: "A shelf that reflects Learning achievements.",
+      },
+      learning_trophy: {
+        title: "Learning Trophy",
+        description: "A major Learning milestone marker.",
+      },
+      sleep_pillow: {
+        title: "Pillow",
+        description: "Unlocked because you completed your first Sleep mission.",
+      },
+      sleep_bedside_lamp: {
+        title: "Bedside Lamp",
+        description: "A soft Sleep consistency reward.",
+      },
+      sleep_blanket: {
+        title: "Blanket",
+        description: "A cozy marker for Sleep path progress.",
+      },
+      sleep_moon_decoration: {
+        title: "Moon Decoration",
+        description: "A calm decoration for Sleep achievements.",
+      },
+      sleep_trophy: {
+        title: "Recovery Trophy",
+        description: "A major Sleep milestone marker.",
+      },
+    },
     eyebrow: "Living Space",
     title: "Your progress room",
     subtitle: "Real progress adds visible objects to this room. Each zone belongs to one path.",
@@ -296,13 +405,6 @@ export default {
     savedNote: "This object is now saved in your Living Space and will stay after refresh.",
     continue: "View it in the room",
     room: "room",
-    zones: {
-      workDesk: "Work Desk",
-      creativeCorner: "Creative Corner",
-      fitnessCorner: "Fitness Corner",
-      learningCorner: "Learning Corner",
-      sleepCorner: "Sleep Corner",
-    },
   },
   paths: {
     eyebrow: "Growth paths",

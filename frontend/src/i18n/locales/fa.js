@@ -74,6 +74,115 @@ export default {
     fallbackMessage: "من اینجام تا قدم بعدی‌ات کوچک و روشن بمونه.",
   },
   space: {
+    zoneNames: {
+      work_desk: "میز کار",
+      creative_corner: "گوشه خلاقیت",
+      fitness_corner: "گوشه حرکت",
+      learning_corner: "گوشه یادگیری",
+      sleep_corner: "گوشه خواب",
+    },
+    roomObjects: {
+      career_planner: {
+        title: "برنامه‌ریز کار",
+        description: "چون اولین مأموریت مسیر شغلی‌ات را انجام دادی باز شد.",
+      },
+      career_desk_lamp: {
+        title: "چراغ رومیزی",
+        description: "یک نور آرام برای ثبات اولیه در مسیر شغلی.",
+      },
+      career_monitor: {
+        title: "مانیتور تمرکز",
+        description: "یک فضای کار شفاف‌تر برای نقطه‌های پیشرفت مسیر شغلی.",
+      },
+      career_project_board: {
+        title: "تابلوی پروژه",
+        description: "تابلویی که دستاوردهای مسیر شغلی‌ات را نشان می‌دهد.",
+      },
+      career_trophy: {
+        title: "جام مسیر شغلی",
+        description: "نشانه یک نقطه عطف بزرگ در مسیر شغلی.",
+      },
+      creativity_sketchbook: {
+        title: "دفتر طراحی",
+        description: "چون اولین مأموریت خلاقیت‌ات را انجام دادی باز شد.",
+      },
+      creativity_desk_lamp: {
+        title: "چراغ خلاقیت",
+        description: "یک نور گرم برای ثبات اولیه در خلاقیت.",
+      },
+      creativity_easel_upgrade: {
+        title: "سه‌پایه بهتر",
+        description: "یک چیدمان خلاقانه‌تر برای پیشرفت در مسیر.",
+      },
+      creativity_art_wall: {
+        title: "دیوار هنر",
+        description: "دیواری که دستاوردهای خلاقانه‌ات را نشان می‌دهد.",
+      },
+      creativity_trophy: {
+        title: "جام خلاقیت",
+        description: "نشانه یک نقطه عطف بزرگ در خلاقیت.",
+      },
+      fitness_water_bottle: {
+        title: "بطری آب",
+        description: "چون اولین مأموریت تناسب و انرژی‌ات را انجام دادی باز شد.",
+      },
+      fitness_dumbbells: {
+        title: "دمبل‌ها",
+        description: "پاداشی برای ثبات در تناسب و انرژی.",
+      },
+      fitness_better_mat: {
+        title: "مت ورزشی بهتر",
+        description: "یک چیدمان محکم‌تر برای پیشرفت در تناسب و انرژی.",
+      },
+      fitness_training_bench: {
+        title: "نیمکت تمرین",
+        description: "نشانه‌ای قابل دیدن برای دستاوردهای تناسب و انرژی.",
+      },
+      fitness_trophy: {
+        title: "جام تناسب",
+        description: "نشانه یک نقطه عطف بزرگ در تناسب و انرژی.",
+      },
+      learning_first_book: {
+        title: "اولین کتاب",
+        description: "چون اولین مأموریت یادگیری‌ات را انجام دادی باز شد.",
+      },
+      learning_study_lamp: {
+        title: "چراغ مطالعه",
+        description: "پاداشی برای ثبات در یادگیری.",
+      },
+      learning_book_stack: {
+        title: "دسته کتاب",
+        description: "یک دسته کتاب که پیشرفت یادگیری‌ات را نشان می‌دهد.",
+      },
+      learning_bookshelf: {
+        title: "قفسه کتاب",
+        description: "قفسه‌ای که دستاوردهای یادگیری‌ات را نشان می‌دهد.",
+      },
+      learning_trophy: {
+        title: "جام یادگیری",
+        description: "نشانه یک نقطه عطف بزرگ در یادگیری.",
+      },
+      sleep_pillow: {
+        title: "بالش",
+        description: "چون اولین مأموریت آرامش و خواب‌ات را انجام دادی باز شد.",
+      },
+      sleep_bedside_lamp: {
+        title: "چراغ خواب",
+        description: "پاداشی نرم برای ثبات در خواب.",
+      },
+      sleep_blanket: {
+        title: "پتو",
+        description: "نشانه‌ای دنج برای پیشرفت در مسیر خواب.",
+      },
+      sleep_moon_decoration: {
+        title: "تزئین ماه",
+        description: "یک تزئین آرام برای دستاوردهای خواب.",
+      },
+      sleep_trophy: {
+        title: "جام ریکاوری",
+        description: "نشانه یک نقطه عطف بزرگ در خواب و ریکاوری.",
+      },
+    },
     eyebrow: "فضای زندگی",
     title: "اتاق پیشرفت تو",
     subtitle: "پیشرفت واقعی، اشیای قابل دیدن به این اتاق اضافه می‌کند. هر بخش به یک مسیر وصل است.",
@@ -296,13 +405,6 @@ export default {
     savedNote: "این شیء حالا در فضای زندگی‌ات ذخیره شده و بعد از رفرش هم می‌ماند.",
     continue: "دیدنش در اتاق",
     room: "اتاق",
-    zones: {
-      workDesk: "میز کار",
-      creativeCorner: "گوشه خلاقیت",
-      fitnessCorner: "گوشه حرکت",
-      learningCorner: "گوشه یادگیری",
-      sleepCorner: "گوشه خواب",
-    },
   },
   paths: {
     eyebrow: "مسیرهای رشد",

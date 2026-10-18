@@ -1,4 +1,13 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+
+import en from "../src/i18n/locales/en.js";
+import fa from "../src/i18n/locales/fa.js";
+import {
+  localizeSpaceReward,
+  localizeSpaceZone,
+  spacePathName,
+} from "../src/lib/livingSpaceCopy.js";
 
 import {
   getChallengeDisplayCopy,
@@ -174,3 +183,75 @@ function runRingoContentLocalizationSmoke() {
 runMissionDisplayCopySmoke();
 runPathChallengeDisplayCopySmoke();
 runRingoContentLocalizationSmoke();
+
+function createTranslator(catalog) {
+  const lookup = (key) => key.split(".").reduce((node, part) => node?.[part], catalog);
+
+  return {
+    t: (key) => lookup(key),
+    te: (key) => typeof lookup(key) === "string",
+  };
+}
+
+function backendLivingSpaceKeys() {
+  const source = readFileSync(
+    new URL("../../backend/services/living_space_service.py", import.meta.url),
+    "utf8",
+  );
+  const rewards = [...source.matchAll(/^\s*\("(\w+)", "(\w+)", "(\w+)", "([^"]+)", "([^"]+)"/gm)]
+    .map(([, pathKey, zoneKey, key, title, description]) => ({ pathKey, zoneKey, key, title, description }));
+  const zones = [...source.matchAll(/^\s*\("(\w+)", "(\w+)", "([^"]+)"\),$/gm)]
+    .map(([, pathKey, zoneKey, title]) => ({ pathKey, zoneKey, title }));
+
+  return { rewards, zones };
+}
+
+function runLivingSpaceRoomCopySmoke() {
+  const { rewards, zones } = backendLivingSpaceKeys();
+  assert.equal(zones.length, 5);
+  assert.equal(rewards.length, 25);
+
+  const english = createTranslator(en);
+  const persian = createTranslator(fa);
+  const latin = /[A-Za-z]/;
+
+  for (const zone of zones) {
+    const backendZone = {
+      path_key: zone.pathKey,
+      zone_key: zone.zoneKey,
+      title: zone.title,
+      unlocked_objects: [],
+      locked_preview_objects: rewards
+        .filter((reward) => reward.zoneKey === zone.zoneKey)
+        .map((reward) => ({ key: reward.key, title: reward.title, description: reward.description })),
+      next_reward: null,
+    };
+    const before = clone(backendZone);
+
+    const faZone = localizeSpaceZone(backendZone, persian.t, persian.te);
+    assert.doesNotMatch(faZone.title, latin, `${zone.zoneKey} zone title in FA`);
+    assert.doesNotMatch(faZone.pathName, latin, `${zone.pathKey} path name in FA`);
+    for (const reward of faZone.locked_preview_objects) {
+      assert.doesNotMatch(reward.title, latin, `${reward.key} title in FA`);
+      assert.doesNotMatch(reward.description, latin, `${reward.key} description in FA`);
+    }
+
+    const enZone = localizeSpaceZone(backendZone, english.t, english.te);
+    assert.equal(enZone.title, zone.title);
+    enZone.locked_preview_objects.forEach((reward, index) => {
+      assert.equal(reward.title, backendZone.locked_preview_objects[index].title);
+      assert.equal(reward.description, backendZone.locked_preview_objects[index].description);
+    });
+
+    assertUnchanged(backendZone, before, "localized zone source");
+  }
+
+  assert.equal(spacePathName("career", persian.t, persian.te), "مسیر شغلی");
+  assert.equal(spacePathName("unknown_path", persian.t, persian.te), "unknown_path");
+
+  const unknownReward = { key: "future_reward", title: "Future Reward", description: "Later." };
+  assert.deepEqual(localizeSpaceReward(unknownReward, persian.t, persian.te), unknownReward);
+  assert.equal(localizeSpaceReward(null, persian.t, persian.te), null);
+}
+
+runLivingSpaceRoomCopySmoke();

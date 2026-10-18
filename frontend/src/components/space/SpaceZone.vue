@@ -23,7 +23,7 @@
           <img :src="pathIcon" alt="" class="pathIcon iconOnDark" />
         </span>
         <span class="zoneLabel">
-          <span class="zoneKicker">{{ zone.path_key }}</span>
+          <span class="zoneKicker">{{ zone.pathName || zone.path_key }}</span>
           <strong>{{ zone.title }}</strong>
         </span>
       </span>
