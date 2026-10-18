@@ -83,6 +83,15 @@ import { useI18n } from "vue-i18n";
 import api from "@/lib/api";
 import UiState from "@/components/ui/UiState.vue";
 import { getChallengePathKey } from "@/lib/guidedExperience";
+import {
+  dueReminderFocusForZone,
+  findDueReminderZone,
+  isDueReminderMission,
+  normalizeId,
+  normalizePathKey,
+  normalizedMissionStatus,
+  reminderTimestamp,
+} from "@/lib/livingSpaceState";
 import { localizeChallenge, localizePath } from "@/lib/ringoContentLocalization";
 import { missionIconUrl } from "@/utils/missionMomentumUtils";
 import { humanizeJoinError, submitJoinFlow } from "@/views/challengeFlow";
@@ -149,19 +158,7 @@ const displayActiveZone = computed(() => {
 const dueReminderFocus = computed(() => dueReminders.value[0] || null);
 
 const dueReminderZone = computed(() => {
-  const reminder = dueReminderFocus.value;
-  if (!reminder) return null;
-
-  const reminderPathKey = normalizePathKey(reminder.pathKey || "");
-  const reminderPathId = normalizeId(reminder.pathId);
-
-  return displayZones.value.find((zone) => {
-    const zonePathKey = normalizePathKey(zone.path_key || "");
-    const zonePathId = normalizeId(zone.pathDetail?.pathId);
-
-    return (reminderPathKey && zonePathKey === reminderPathKey)
-      || (reminderPathId && zonePathId === reminderPathId);
-  }) || null;
+  return findDueReminderZone(dueReminderFocus.value, displayZones.value);
 });
 
 const visualActiveZone = computed(() => {
@@ -204,12 +201,8 @@ const panelZone = computed(() => {
 });
 
 const activeDueReminderFocus = computed(() => {
-  const reminder = dueReminderFocus.value;
-  const reminderZone = dueReminderZone.value;
   const zone = panelZone.value || workSurfaceZone.value;
-
-  if (!reminder || !reminderZone || !zone) return null;
-  return reminderZone.zone_key === zone.zone_key ? reminder : null;
+  return dueReminderFocusForZone(dueReminderFocus.value, dueReminderZone.value, zone);
 });
 
 const workSurfaceZone = computed(() => {
@@ -396,16 +389,6 @@ function isCheckedToday(challenge) {
   }
 
   return false;
-}
-
-function normalizePathKey(pathKey) {
-  const aliases = {
-    body: "fitness",
-    focus: "career",
-    mind: "sleep",
-  };
-
-  return aliases[pathKey] || pathKey || "";
 }
 
 function challengeName(challenge) {
@@ -725,11 +708,7 @@ async function ensurePathChallenges(zone = displayActiveZone.value, options = {}
 
 const dueReminders = computed(() => {
   return props.missions
-    .filter((mission) => {
-      return normalizedMissionStatus(mission) === "remind_later"
-        && reminderTimestamp(mission) <= Date.now()
-        && !mission?.reminder_sent_at;
-    })
+    .filter((mission) => isDueReminderMission(mission, Date.now()))
     .map((mission) => ({
       id: mission?.mission_id || mission?.id || `${mission?.title || "mission"}-${mission?.reminder_at || ""}`,
       title: mission?.title || mission?.mission_title || t("common.mission"),
@@ -781,10 +760,6 @@ const dailyMomentum = computed(() => {
   };
 });
 
-function normalizedMissionStatus(mission) {
-  return String(mission?.status || mission?.today_status || "pending").toLowerCase();
-}
-
 function missionPathKey(mission) {
   const directKey = normalizePathKey(mission?.path_key || mission?.path || "");
   if (directKey) return directKey;
@@ -797,15 +772,6 @@ function missionPathKey(mission) {
   });
 
   return normalizePathKey(path?.key || path?.path_key || path?.slug || "");
-}
-
-function reminderTimestamp(mission) {
-  if (!mission?.reminder_at) return Number.POSITIVE_INFINITY;
-
-  const date = new Date(mission.reminder_at);
-  const timestamp = date.getTime();
-
-  return Number.isNaN(timestamp) ? Number.POSITIVE_INFINITY : timestamp;
 }
 
 async function preloadZonePathChallenges(options = {}) {
@@ -998,11 +964,6 @@ watch(
     showRoomFeedback(event.feedback);
   },
 );
-
-function normalizeId(value) {
-  const id = String(value ?? "").trim();
-  return id && id !== "null" && id !== "undefined" ? id : "";
-}
 
 function missionStatusRank(mission) {
   const status = String(mission?.status || "").toLowerCase();

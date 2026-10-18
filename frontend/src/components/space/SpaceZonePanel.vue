@@ -547,6 +547,7 @@
 import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import RingoMoodFigure from "@/components/ringo/RingoMoodFigure.vue";
+import { findFirstReward } from "@/lib/livingSpaceState";
 import { resolveActionIcon } from "@/utils/actionIconUtils";
 import { resolveChallengeIcon, resolvePathIcon } from "@/utils/missionMomentumUtils";
 
@@ -602,16 +603,7 @@ const SKIP_REASON_OPTIONS = [
 const unlockedCount = computed(() => props.zone?.unlocked_objects?.length || 0);
 const lockedPreviewCount = computed(() => props.zone?.locked_preview_objects?.length || 0);
 
-const firstReward = computed(() => {
-  const rewards = [
-    ...(props.zone?.unlocked_objects || []),
-    ...(props.zone?.locked_preview_objects || []),
-  ];
-
-  return rewards.find((reward) => {
-    return reward?.unlock_condition_type === "first_path_mission_done";
-  }) || null;
-});
+const firstReward = computed(() => findFirstReward(props.zone));
 
 const firstRewardUnlocked = computed(() => Boolean(firstReward.value?.unlocked));
 

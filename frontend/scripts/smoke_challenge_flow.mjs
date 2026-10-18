@@ -56,11 +56,36 @@ async function run() {
     path: "/challenges/9/join",
     payload: {},
   });
+  // Joining keeps the user in place by default (join success moment, onboarding, Living Space).
   assert.deepEqual(joinResult, {
+    challengeId: 9,
+    challengeName: "",
+    challengeDescription: "",
     enrollmentId: 44,
+    mode: "joined",
+    navigated: false,
+  });
+  assert.deepEqual(pushes, []);
+
+  const navigatingRouter = createRouterRecorder();
+  const navigatingResult = await submitJoinFlow({
+    apiClient: {
+      post: async () => ({ data: { ok: true, enrollment_id: 45, mode: "existing" } }),
+    },
+    router: navigatingRouter.router,
+    challenge: { challenge_id: 11, name: "Daily Strike", visibility: "Public" },
+    navigateOnJoin: true,
+  });
+
+  assert.deepEqual(navigatingResult, {
+    challengeId: 11,
+    challengeName: "Daily Strike",
+    challengeDescription: "",
+    enrollmentId: 45,
+    mode: "existing",
     navigated: true,
   });
-  assert.deepEqual(pushes, ["/enrollment/44"]);
+  assert.deepEqual(navigatingRouter.pushes, ["/enrollment/45"]);
 
   let reloaded = false;
   const noNavigationResult = await submitJoinFlow({
@@ -75,7 +100,11 @@ async function run() {
   });
 
   assert.deepEqual(noNavigationResult, {
+    challengeId: 10,
+    challengeName: "",
+    challengeDescription: "",
     enrollmentId: null,
+    mode: "joined",
     navigated: false,
   });
   assert.equal(reloaded, true);
