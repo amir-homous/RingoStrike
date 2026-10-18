@@ -98,3 +98,63 @@ export function ringoCardState({
   if (focusDone) return "done";
   return "fallback";
 }
+
+// B8 recommendation priority (spec): due reminder > user-picked > unfinished main >
+// tiny substitute (only once the user chose smaller) > optional bonus offer > rest.
+// A bonus is never auto-focused; it is only offered (see bonusOfferCandidates).
+export function pickFocusMission(missions = [], { dueMission = null, pickedId = null } = {}) {
+  if (dueMission) return dueMission;
+
+  const picked = pickedId
+    ? missions.find((mission) => sameId(mission?.id, pickedId))
+    : null;
+  if (picked) return picked;
+
+  // Once the main step or its tiny substitute is done, today's step is satisfied:
+  // focus the done mission (today-safe state) instead of re-offering the main.
+  if (todayMainDone(missions)) {
+    return missions.find((mission) => missionIntensity(mission) === "main" && missionDone(mission))
+      || missions.find((mission) => missionIntensity(mission) === "tiny" && missionDone(mission));
+  }
+
+  const unfinishedMain = missions.find((mission) => {
+    return missionIntensity(mission) === "main"
+      && mission?.availableToday
+      && missionStatus(mission) === "pending";
+  });
+  if (unfinishedMain) return unfinishedMain;
+
+  const tinySubstitute = missions.find((mission) => {
+    return missionIntensity(mission) === "tiny"
+      && !missionDone(mission)
+      && missionStatus(mission) !== "skipped";
+  });
+  if (tinySubstitute) return tinySubstitute;
+
+  return missions.find((mission) => missionIntensity(mission) === "main")
+    || missions.find((mission) => missionIntensity(mission) === "tiny")
+    || missions.find((mission) => missionIntensity(mission) !== "bonus" && mission?.availableToday)
+    || null;
+}
+
+// Bonus missions that can be offered: available today, not done or skipped, in a joined
+// challenge whose main step (or tiny substitute) is done today.
+export function bonusOfferCandidates(challenges = []) {
+  return challenges.flatMap((challenge) => {
+    const missions = challenge?.missions || [];
+    if (!challenge?.isJoined || !todayMainDone(missions)) return [];
+
+    return missions
+      .filter((mission) => {
+        return missionIntensity(mission) === "bonus"
+          && mission?.availableToday
+          && !missionDone(mission)
+          && missionStatus(mission) !== "skipped";
+      })
+      .map((mission) => ({ challenge, mission }));
+  });
+}
+
+export function shouldOfferBonus({ mainDone = false, dueReminderCount = 0, candidates = [], focusIsBonus = false } = {}) {
+  return Boolean(mainDone && dueReminderCount === 0 && candidates.length && !focusIsBonus);
+}

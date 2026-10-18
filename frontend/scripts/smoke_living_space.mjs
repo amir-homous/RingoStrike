@@ -8,8 +8,11 @@ import {
 } from "../src/lib/challengeIconKeys.js";
 import { localizeChallenge, localizeMission } from "../src/lib/ringoContentLocalization.js";
 import {
+  bonusOfferCandidates,
   buildTodayMissionRows,
+  pickFocusMission,
   ringoCardState,
+  shouldOfferBonus,
   todayMainDone,
 } from "../src/lib/livingSpacePanel.js";
 
@@ -110,6 +113,7 @@ function run() {
 
   runChallengeIconKeySmoke();
   runPanelV2Smoke();
+  runRecommendationPrioritySmoke();
 
   console.log("Living Space smoke test passed.");
 }
@@ -204,6 +208,44 @@ function runPanelV2Smoke() {
   assert.equal(ringoCardState({ focusGated: true }), "locked");
   assert.equal(ringoCardState({ focusDone: true }), "done");
   assert.equal(ringoCardState({}), "fallback");
+}
+
+function runRecommendationPrioritySmoke() {
+  const main = { id: 1, intensity: "main", status: "pending", availableToday: true };
+  const tiny = { id: 2, intensity: "tiny", status: "remind_later", availableToday: true, parentMissionId: 1 };
+  const bonus = { id: 3, intensity: "bonus", status: "pending", availableToday: true };
+  const due = { ...main, status: "remind_later" };
+
+  // 1. Due reminder beats everything, including an explicit pick.
+  assert.equal(pickFocusMission([main, bonus], { dueMission: due, pickedId: 3 }), due);
+  // 2. User pick beats the default order.
+  assert.equal(pickFocusMission([main, bonus], { pickedId: 3 }), bonus);
+  // 3. Unfinished main beats a tiny with an earlier decision.
+  assert.equal(pickFocusMission([main, tiny, bonus]), main);
+  // 4. Tiny substitute when the main is not pending.
+  assert.equal(pickFocusMission([{ ...main, status: "skipped" }, tiny, bonus]).id, 2);
+  // 5. Bonus is never auto-focused.
+  assert.notEqual(pickFocusMission([{ ...main, status: "skipped" }, bonus])?.id, 3);
+  assert.equal(pickFocusMission([bonus]), null);
+  // Main or tiny done: focus the done mission (today-safe), not the bonus or a still-pending main.
+  assert.equal(pickFocusMission([{ ...main, status: "done" }, bonus]).id, 1);
+  assert.equal(pickFocusMission([main, { ...tiny, status: "done" }, bonus]).id, 2);
+  assert.equal(pickFocusMission([]), null);
+
+  // Bonus offer: only for joined challenges whose main (or tiny) is done today.
+  const open = { id: 10, isJoined: true, missions: [main, bonus] };
+  const safe = { id: 11, isJoined: true, missions: [{ ...main, status: "done" }, bonus] };
+  const tinySafe = { id: 12, isJoined: true, missions: [main, { ...tiny, status: "done" }, { ...bonus, id: 4 }] };
+  const preview = { id: 13, isJoined: false, missions: [{ ...main, status: "done" }, bonus] };
+  const usedBonus = { id: 14, isJoined: true, missions: [{ ...main, status: "done" }, { ...bonus, status: "done" }] };
+  const candidates = bonusOfferCandidates([open, safe, tinySafe, preview, usedBonus]);
+  assert.deepEqual(candidates.map((item) => [item.challenge.id, item.mission.id]), [[11, 3], [12, 4]]);
+
+  assert.equal(shouldOfferBonus({ mainDone: true, candidates }), true);
+  assert.equal(shouldOfferBonus({ mainDone: false, candidates }), false);
+  assert.equal(shouldOfferBonus({ mainDone: true, dueReminderCount: 1, candidates }), false);
+  assert.equal(shouldOfferBonus({ mainDone: true, candidates, focusIsBonus: true }), false);
+  assert.equal(shouldOfferBonus({ mainDone: true, candidates: [] }), false);
 }
 
 run();

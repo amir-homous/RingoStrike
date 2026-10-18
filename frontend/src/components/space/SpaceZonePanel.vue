@@ -33,6 +33,15 @@
     </p>
 
     <div class="panelWorkSurface">
+      <BonusOfferCard
+        v-if="showBonusOffer"
+        :title="currentBonus.mission.title"
+        :meta="bonusMeta"
+        :can-switch="bonusCandidates.length > 1"
+        @accept="acceptBonus"
+        @another="nextBonus"
+      />
+
       <ZoneTodayStrip
         :done="todayProgress.done"
         :total="todayProgress.total"
@@ -153,11 +162,19 @@
 <script setup>
 import { computed, nextTick, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
+import BonusOfferCard from "./BonusOfferCard.vue";
 import ChallengeTodayMissions from "./ChallengeTodayMissions.vue";
 import RingoActionCard from "./RingoActionCard.vue";
 import ZoneDetailsRow from "./ZoneDetailsRow.vue";
 import ZoneTodayStrip from "./ZoneTodayStrip.vue";
-import { buildTodayMissionRows, ringoCardState, todayMainDone } from "@/lib/livingSpacePanel";
+import {
+  bonusOfferCandidates,
+  buildTodayMissionRows,
+  pickFocusMission,
+  ringoCardState,
+  shouldOfferBonus,
+  todayMainDone,
+} from "@/lib/livingSpacePanel";
 import { findFirstReward } from "@/lib/livingSpaceState";
 import { resolveChallengeIcon, resolvePathIcon } from "@/utils/missionMomentumUtils";
 
@@ -195,6 +212,9 @@ const ringoChoicePanel = ref(null);
 const ringoCardRef = ref(null);
 // Accordion: at most one details row open; an open row collapses the Ringo card.
 const openRow = ref(null);
+// B8: which bonus suggestion is shown, and a focus to apply after switching challenge.
+const bonusIndex = ref(0);
+const pendingFocusId = ref(null);
 
 const REMINDER_OPTION_KEYS = [
   "fifteenMinutes",
@@ -345,35 +365,10 @@ const mainMissionDone = computed(() => {
 });
 
 const selectedMission = computed(() => {
-  const missions = visibleSelectedMissions.value;
-
-  const dueMission = missionForReminder(props.dueReminderFocus);
-  if (dueMission) return dueMission;
-
-  if (!missions.length) return null;
-
-  if (selectedMissionId.value) {
-    const selected = missions.find((mission) => {
-      return String(mission.id || "") === String(selectedMissionId.value || "");
-    });
-
-    if (selected) return selected;
-  }
-
-  const decidedTiny = missions.find((mission) => {
-    return missionIntensity(mission) === "tiny" && missionHasUserDecision(mission);
+  return pickFocusMission(visibleSelectedMissions.value, {
+    dueMission: missionForReminder(props.dueReminderFocus),
+    pickedId: selectedMissionId.value,
   });
-
-  return decidedTiny || missions.find((mission) => {
-    return mission.availableToday
-      && mission.status === "pending"
-      && mission.intensity === "main";
-  })
-    || missions.find((mission) => missionIntensity(mission) === "main")
-    || missions.find((mission) => missionCanComplete(mission))
-    || missions.find((mission) => mission.status === "remind_later")
-    || missions.find((mission) => mission.availableToday)
-    || missions[0];
 });
 
 const challengeMission = computed(() => {
@@ -512,6 +507,38 @@ const cardState = computed(() => {
   });
 });
 
+const bonusCandidates = computed(() => bonusOfferCandidates(pathChallenges.value));
+
+const currentBonus = computed(() => {
+  const candidates = bonusCandidates.value;
+  if (!candidates.length) return null;
+  return candidates[bonusIndex.value % candidates.length];
+});
+
+const bonusSuppressedByReminder = computed(() => {
+  return dueReminderCount.value > 0 && bonusCandidates.value.length > 0;
+});
+
+const showBonusOffer = computed(() => {
+  return !openRow.value
+    && cardState.value === "safe"
+    && shouldOfferBonus({
+      mainDone: mainMissionDone.value || challengeDone.value,
+      dueReminderCount: dueReminderCount.value,
+      candidates: bonusCandidates.value,
+      focusIsBonus: missionIntensity(activeShellMission.value) === "bonus",
+    });
+});
+
+const bonusMeta = computed(() => {
+  const mission = currentBonus.value?.mission;
+  const parts = [
+    mission?.estimatedMinutes ? t("space.shell.minutes", { count: mission.estimatedMinutes }) : "",
+    t("space.panel.bonusMetaSuffix"),
+  ];
+  return parts.filter(Boolean).join(" · ");
+});
+
 const ringoCard = computed(() => {
   const state = cardState.value;
   const path = props.zone?.title || t("space.eyebrow");
@@ -534,6 +561,7 @@ const ringoCard = computed(() => {
       title,
       body: t("space.panel.reminderBody"),
       chips: missionChips(mission),
+      note: bonusSuppressedByReminder.value ? t("space.panel.reminderPriorityNote") : "",
       primary: completeAction(mission),
       support: missionSupportActions(mission, { reminder: true }),
       collapsedText: title,
@@ -582,7 +610,9 @@ const ringoCard = computed(() => {
 
   if (state === "mission") {
     const bonus = missionIntensity(mission) === "bonus";
-    const title = t("space.panel.missionTitle", { mission: missionTitle });
+    const title = bonus
+      ? t("space.panel.bonusFocusTitle", { mission: missionTitle })
+      : t("space.panel.missionTitle", { mission: missionTitle });
     return {
       tone: bonus ? "bonus" : "ready",
       mood: bonus ? "happy" : "focus",
@@ -606,12 +636,15 @@ const ringoCard = computed(() => {
       mood: "proud",
       label: t("space.panel.stateSafe"),
       title: t("space.panel.doneTitle"),
-      body: t("space.panel.doneBody"),
+      body: bonusCandidates.value.length
+        ? t("space.panel.doneBody")
+        : t("space.panel.doneBodyNoBonus"),
       primary: {
         key: "finish-today",
         label: t("space.panel.actionFinishToday"),
         type: "finish-today",
       },
+      note: bonusSuppressedByReminder.value ? t("space.panel.reminderPriorityNote") : "",
       collapsedText: t("space.panel.collapsedSafe"),
     };
   }
@@ -688,7 +721,8 @@ const challengeItems = computed(() => {
 watch(
   () => selectedPathChallenge.value?.id,
   () => {
-    selectedMissionId.value = null;
+    selectedMissionId.value = pendingFocusId.value;
+    pendingFocusId.value = null;
     closeRingoChoicePanel();
   },
 );
@@ -704,8 +738,26 @@ watch(
   () => props.zone?.zone_key,
   () => {
     openRow.value = null;
+    bonusIndex.value = 0;
   },
 );
+
+function acceptBonus() {
+  const offer = currentBonus.value;
+  if (!offer?.mission?.id) return;
+
+  if (String(offer.challenge?.id || "") === String(selectedPathChallenge.value?.id || "")) {
+    selectedMissionId.value = offer.mission.id;
+  } else {
+    pendingFocusId.value = offer.mission.id;
+    emit("select-challenge", offer.challenge);
+  }
+  focusRingoCard();
+}
+
+function nextBonus() {
+  bonusIndex.value += 1;
+}
 
 function missionChips(mission) {
   if (!mission) return [];

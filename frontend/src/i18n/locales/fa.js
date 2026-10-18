@@ -75,6 +75,8 @@ export default {
   },
   space: {
     panel: {
+      bonusFocusTitle: "قدم اضافه: {mission}.",
+      doneBodyNoBonus: "برای امروز همین کافیه. اتاقت امروز یک قدم جلو رفت.",
       firstRewardHint: "یک مأموریت اصلی یا کوچیک از این مسیر انجام بده تا {object} در اتاقت جا بگیره.",
       stateSafe: "امروز امنه",
       reminderBadge: "یادآور رسیده",
