@@ -140,7 +140,11 @@ Current frontend display responsibilities:
 - Support `path_strengthened` and `challenge_strengthened` only when before/after deltas are available.
 - Support `challenge_secured` when a new non-bonus challenge check-in is recorded by the mission completion response.
 - Resolve mission completion icons from `frontend/src/assets/missions-icons/{mission.key}.png`, with `default_missions_icon.png` fallback.
-- Resolve challenge reward icons from `frontend/src/assets/challenge-icons/{challenge_id}.png`, with `default_challenge_icon.png` fallback.
+- Resolve challenge icons by stable key, not by DB id (decision D5): `frontend/src/assets/challenge-icons/{key}.png`, where `key` is the slug of the English seed name from `backend/services/path_seed_service.py` (challenges are upserted by name), e.g. `Deep Work Sprint` -> `deep-work-sprint.png`. Logic lives in `frontend/src/lib/challengeIconKeys.js`.
+  - Resolution order: explicit icon key (`icon_key` / `iconKey` / `challenge_icon_key`), then the slug of `name` / `challenge_name`, then the legacy numeric alias (`LEGACY_CHALLENGE_ICON_IDS`, ids 30-44 from databases seeded before keys existed), then `default_challenge_icon.png`.
+  - Persian localization replaces challenge names, so `localizeChallenge` / `localizeMission` keep the English-derived key in `icon_key` / `challenge_icon_key`.
+  - New challenge icons are added as `{slug}.png`; no backend field is required.
+- `default_challenge_icon.png` and `default_path_icon.png` are neutral black glyphs (100×100 RGBA, same style as other icons) rendered white through the shared `.iconOnDark` class. Never use a Ringo sprite as an icon fallback.
 - Suppress the legacy Dashboard `RewardMoment` card for mission-completion reward flows so the staged sequence is the mission-completion overlay.
 - Resume the optional explorer / next-action flow after the sequence is dismissed.
 - Use English and Persian localized copy through the existing i18n system; RTL remains controlled by the root language/direction behavior.

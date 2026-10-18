@@ -134,7 +134,10 @@ const stepVisualIcon = computed(() => {
     return resolvePathIcon(currentStep.value.pathIcon || currentStep.value.pathId || "");
   }
   if (currentStep.value?.type === "challenge_strengthened" || currentStep.value?.type === "challenge_secured") {
-    return resolveChallengeIcon(currentStep.value.challengeId || "");
+    return resolveChallengeIcon({
+      id: currentStep.value.challengeId,
+      name: currentStep.value.challengeTitle,
+    });
   }
   return "";
 });

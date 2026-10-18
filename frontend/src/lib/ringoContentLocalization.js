@@ -3,6 +3,7 @@ import {
   getMissionDisplayCopy,
   getPathDisplayCopy,
 } from "./missionDisplayCopy.js";
+import { challengeIconKey } from "./challengeIconKeys.js";
 
 const FA_PATHS = {
   fitness: {
@@ -213,7 +214,9 @@ export function localizeChallenge(item, locale) {
     ? item.missions.map((mission) => localizeMission(mission, locale))
     : item.missions;
 
-  return copy ? { ...item, ...copy, missions } : { ...item, missions };
+  return copy
+    ? { ...item, ...copy, icon_key: item.icon_key || challengeIconKey(item.name), missions }
+    : { ...item, missions };
 }
 
 export function localizeMission(item, locale) {
@@ -234,6 +237,7 @@ export function localizeMission(item, locale) {
     title,
     description,
     challenge_name: challenge?.name || item.challenge_name,
+    challenge_icon_key: item.challenge_icon_key || challengeIconKey(item.challenge_name),
     path_title: FA_PATH_TITLES[item.path_title] || item.path_title,
     ringo_message: `رینگو می‌گه: «${title}» برای مأموریت امروز کافیه.`,
   };
