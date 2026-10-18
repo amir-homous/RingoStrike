@@ -115,7 +115,7 @@
                   { selected: isSelected(mission) },
                 ]" @click="$emit('select', mission)">
                 <span class="missionChoiceIcon" :class="{ fallback: !missionIconUrl(mission) }" aria-hidden="true">
-                  <img v-if="missionIconUrl(mission)" :src="missionIconUrl(mission)" alt="" />
+                  <img v-if="missionIconUrl(mission)" :src="missionIconUrl(mission)" alt="" class="iconOnDark" />
                   <span v-else>{{ initialsFor(missionTitle(mission)) }}</span>
                 </span>
                 <span class="missionChoiceCopy">
@@ -1094,7 +1094,7 @@ function isSelected(mission) {
   width: 74%;
   height: 74%;
   object-fit: contain;
-  filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.22));
+  --icon-on-dark-shadow: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.22));
 }
 
 .missionChoiceIcon.fallback span {

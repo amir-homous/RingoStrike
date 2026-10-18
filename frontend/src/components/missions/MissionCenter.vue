@@ -20,7 +20,7 @@
       <div v-if="restModeSummaryItems.length" class="restModeSummary" :aria-label="t('missions.restMode.summaryLabel')">
         <article v-for="item in restModeSummaryItems" :key="item.key" class="restModeSummaryItem">
           <span class="restModeSummaryIcon" aria-hidden="true">
-            <img v-if="missionActionIcon(item.icon)" :src="missionActionIcon(item.icon)" alt="" />
+            <img v-if="missionActionIcon(item.icon)" :src="missionActionIcon(item.icon)" alt="" class="iconOnDark" />
           </span>
           <span class="restModeSummaryCopy">
             <strong>{{ item.value }}</strong>

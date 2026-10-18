@@ -20,7 +20,7 @@
     <span class="zoneHeader">
       <span class="zoneTitleWrap">
         <span v-if="pathIcon" class="iconFrame pathIconFrame" aria-hidden="true">
-          <img :src="pathIcon" alt="" class="pathIcon" />
+          <img :src="pathIcon" alt="" class="pathIcon iconOnDark" />
         </span>
         <span class="zoneLabel">
           <span class="zoneKicker">{{ zone.path_key }}</span>
@@ -326,17 +326,17 @@ const pathIcon = computed(() => {
 }
 
 .pathIconFrame {
-  width: 31px;
-  height: 31px;
+  width: 36px;
+  height: 36px;
 }
 
 .pathIcon {
   display: block;
-  width: 18px;
-  height: 18px;
+  width: 22px;
+  height: 22px;
   flex: 0 0 auto;
   object-fit: contain;
-  filter: invert(1) brightness(1.45) drop-shadow(0 5px 8px rgba(0, 0, 0, 0.38));
+  --icon-on-dark-shadow: drop-shadow(0 5px 8px rgba(0, 0, 0, 0.38));
 }
 
 .zoneHeader strong {

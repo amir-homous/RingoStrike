@@ -3,7 +3,7 @@
     <div class="panelHead">
       <div class="panelTitleWrap">
         <span v-if="pathIcon" class="iconFrame panelIconFrame" aria-hidden="true">
-          <img :src="pathIcon" alt="" class="pathIcon" />
+          <img :src="pathIcon" alt="" class="pathIcon iconOnDark" />
         </span>
         <div>
           <p class="panelKicker">{{ zone.path_key }}</p>
@@ -43,7 +43,7 @@
               v-if="action.compact && actionIcon(action)"
               :src="actionIcon(action)"
               alt=""
-              class="actionIcon"
+              class="actionIcon iconOnDark"
               aria-hidden="true"
             />
             <span :class="{ srOnly: action.compact }">{{ action.label }}</span>
@@ -273,7 +273,7 @@
       <span class="sectionLabel">{{ t("space.shell.pathLabel") }}</span>
       <span class="shellTitleLine">
         <span v-if="pathIcon" class="iconFrame inlineIconFrame" aria-hidden="true">
-          <img :src="pathIcon" alt="" class="inlineIcon" />
+          <img :src="pathIcon" alt="" class="inlineIcon iconOnDark" />
         </span>
         <strong>{{ t("space.shell.pathTitle", { path: zone.title }) }}</strong>
       </span>
@@ -335,7 +335,7 @@
           @keydown.space.prevent="selectChallenge(challenge)"
         >
           <span class="iconFrame ladderIconFrame" aria-hidden="true">
-            <img :src="challengeIconFor(challenge)" alt="" class="ladderIcon" />
+            <img :src="challengeIconFor(challenge)" alt="" class="ladderIcon iconOnDark" />
           </span>
 
           <div class="ladderCopy">
@@ -372,7 +372,7 @@
         <span class="sectionLabel">{{ t("space.shell.selectedChallengeLabel") }}</span>
         <span class="shellTitleLine">
           <span class="iconFrame inlineIconFrame" aria-hidden="true">
-            <img :src="challengeIconFor(selectedPathChallenge)" alt="" class="inlineIcon" />
+            <img :src="challengeIconFor(selectedPathChallenge)" alt="" class="inlineIcon iconOnDark" />
           </span>
           <strong>{{ selectedPathChallenge.name }}</strong>
         </span>
@@ -386,7 +386,7 @@
               class="iconFrame selectedMissionIconFrame"
               aria-hidden="true"
             >
-              <img :src="selectedMission.iconUrl" alt="" class="selectedMissionIcon" />
+              <img :src="selectedMission.iconUrl" alt="" class="selectedMissionIcon iconOnDark" />
             </span>
             <div>
               <span class="ladderStatus">{{ missionStatusLabel(selectedMission) }}</span>
@@ -426,7 +426,7 @@
               class="iconFrame selectedMissionIconFrame"
               aria-hidden="true"
             >
-              <img :src="mission.iconUrl" alt="" class="selectedMissionIcon" />
+              <img :src="mission.iconUrl" alt="" class="selectedMissionIcon iconOnDark" />
             </span>
             <div>
               <span class="ladderStatus">{{ missionStatusLabel(mission) }}</span>
@@ -466,7 +466,7 @@
       <span class="sectionLabel">{{ t("space.shell.challengeLabel") }}</span>
       <span class="shellTitleLine">
         <span v-if="challengeIcon" class="iconFrame inlineIconFrame" aria-hidden="true">
-          <img :src="challengeIcon" alt="" class="inlineIcon" />
+          <img :src="challengeIcon" alt="" class="inlineIcon iconOnDark" />
         </span>
         <strong>{{ activeShellChallenge?.name || t("common.challenge") }}</strong>
       </span>
@@ -487,7 +487,7 @@
           class="iconFrame missionIconFrame"
           aria-hidden="true"
         >
-          <img :src="activeShellMission.iconUrl" alt="" class="missionIcon" />
+          <img :src="activeShellMission.iconUrl" alt="" class="missionIcon iconOnDark" />
         </span>
         <div>
           <span class="sectionLabel">{{ t("space.shell.todayMission") }}</span>
@@ -514,7 +514,7 @@
           class="iconFrame inlineIconFrame"
           aria-hidden="true"
         >
-          <img :src="activeShellMission.iconUrl" alt="" class="inlineIcon" />
+          <img :src="activeShellMission.iconUrl" alt="" class="inlineIcon iconOnDark" />
         </span>
         <strong>{{ activeShellMission?.title || t("common.mission") }}</strong>
       </span>
@@ -1937,17 +1937,17 @@ function formattedReminderTime(value) {
 .missionIcon {
   display: block;
   object-fit: contain;
-  filter: brightness(0) invert(1) drop-shadow(0 5px 8px rgba(0, 0, 0, 0.38));
+  --icon-on-dark-shadow: drop-shadow(0 5px 8px rgba(0, 0, 0, 0.38));
 }
 
 .panelIconFrame {
-  width: 36px;
-  height: 36px;
+  width: 40px;
+  height: 40px;
 }
 
 .pathIcon {
-  width: 21px;
-  height: 21px;
+  width: 24px;
+  height: 24px;
 }
 
 .panelKicker,
@@ -2243,18 +2243,19 @@ function formattedReminderTime(value) {
 }
 
 .actionLink.compact {
-  width: 34px;
-  min-width: 34px;
+  width: 44px;
+  min-width: 44px;
+  height: 44px;
+  min-height: 44px;
   padding: 0;
   border-radius: 999px;
 }
 
 .actionIcon {
-  width: 17px;
-  height: 17px;
+  width: 22px;
+  height: 22px;
   object-fit: contain;
-  filter: brightness(0) invert(1) drop-shadow(0 4px 7px rgba(0, 0, 0, 0.36));
-  opacity: 0.88;
+  --icon-on-dark-shadow: drop-shadow(0 4px 7px rgba(0, 0, 0, 0.36));
 }
 
 .actionTooltip {
@@ -2335,13 +2336,13 @@ function formattedReminderTime(value) {
 }
 
 .inlineIcon {
-  width: 17px;
-  height: 17px;
+  width: 20px;
+  height: 20px;
 }
 
 .inlineIconFrame {
-  width: 27px;
-  height: 27px;
+  width: 32px;
+  height: 32px;
 }
 
 .shellPanel p {
@@ -2605,16 +2606,16 @@ function formattedReminderTime(value) {
 }
 
 .ladderIconFrame {
-  width: 38px;
-  height: 38px;
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
 }
 
 .ladderIcon {
-  width: 22px;
-  height: 22px;
+  width: 24px;
+  height: 24px;
   object-fit: contain;
-  filter: brightness(0) invert(1) drop-shadow(0 5px 8px rgba(0, 0, 0, 0.38));
+  --icon-on-dark-shadow: drop-shadow(0 5px 8px rgba(0, 0, 0, 0.38));
 }
 
 .ladderCopy {
@@ -2760,16 +2761,16 @@ function formattedReminderTime(value) {
 }
 
 .selectedMissionIconFrame {
-  width: 34px;
-  height: 34px;
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
 }
 
 .selectedMissionIcon {
-  width: 20px;
-  height: 20px;
+  width: 24px;
+  height: 24px;
   object-fit: contain;
-  filter: brightness(0) invert(1) drop-shadow(0 5px 8px rgba(0, 0, 0, 0.38));
+  --icon-on-dark-shadow: drop-shadow(0 5px 8px rgba(0, 0, 0, 0.38));
 }
 
 .selectedMission strong {
@@ -2812,14 +2813,14 @@ function formattedReminderTime(value) {
 }
 
 .missionIconFrame {
-  width: 37px;
-  height: 37px;
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
 }
 
 .missionIcon {
-  width: 22px;
-  height: 22px;
+  width: 24px;
+  height: 24px;
 }
 
 .missionBrief p {
