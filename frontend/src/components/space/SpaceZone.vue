@@ -9,6 +9,7 @@
         hasProgress,
         hasReminderDue,
         subdued: hasActiveSelection && !active,
+        suggested,
         roomFeedback: hasRoomFeedback,
         rewardFeedback: hasRoomFeedback && feedback?.type === 'reward',
         progressFeedback: hasRoomFeedback && feedback?.type === 'progress',
@@ -48,6 +49,8 @@
       </span>
     </span>
 
+    <span v-if="suggested" class="suggestedTag">{{ t("space.room.suggestLabel") }}</span>
+
     <span class="objectShelf">
       <SpaceObject
         v-for="reward in visibleObjects"
@@ -85,6 +88,7 @@ const props = defineProps({
   active: { type: Boolean, default: false },
   hasActiveSelection: { type: Boolean, default: false },
   feedback: { type: Object, default: null },
+  suggested: { type: Boolean, default: false },
 });
 
 defineEmits(["select"]);
@@ -372,6 +376,22 @@ const pathIcon = computed(() => {
   font-weight: 900;
   letter-spacing: 0.10em;
   text-transform: uppercase;
+}
+
+.spaceZone.suggested {
+  box-shadow:
+    inset 0 0 0 1px rgba(247, 215, 116, 0.32),
+    0 0 26px rgba(247, 215, 116, 0.12);
+}
+
+.suggestedTag {
+  justify-self: start;
+  padding: 3px 8px;
+  border-radius: 999px;
+  color: rgba(247, 215, 116, 0.96);
+  background: rgba(247, 215, 116, 0.10);
+  font-size: 0.66rem;
+  font-weight: 900;
 }
 
 .scheduledBell {

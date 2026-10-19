@@ -41,12 +41,30 @@
             :active="visualActiveZone?.zone_key === zone.zone_key"
             :has-active-selection="hasActiveZoneSelection"
             :feedback="recentRoomFeedback"
+            :suggested="roomLevel && suggestedZone?.zone_key === zone.zone_key"
             @select="selectZone"
           />
         </div>
       </div>
 
-      <div v-if="workSurfaceZone" class="roomSafeZone">
+      <div v-if="roomLevel" class="roomSafeZone">
+        <RoomOverviewPanel
+          :title="roomOverviewGuidance?.title || t('space.title')"
+          :text="roomOverviewGuidance?.text || ''"
+          :mood="roomMood"
+          :tone="todaySafe ? 'safe' : 'neutral'"
+          :today-safe="todaySafe"
+          :completed="Number(dailyMomentum.completed || 0)"
+          :total="Number(dailyMomentum.total || 0)"
+          :due-count="dueReminders.length"
+          :scheduled-count="scheduledReminders.length"
+          :objects-today="objectsPlacedToday"
+          :suggested-zone="suggestedZone"
+          @select-zone="selectZone"
+        />
+      </div>
+
+      <div v-else-if="workSurfaceZone" class="roomSafeZone">
         <SpaceZonePanel
           :mode="workSurfaceMode"
           :zone="workSurfaceZone"
@@ -65,7 +83,7 @@
           :requested-mission-id="requestedMissionId"
           :now="now"
           :room-feedback="panelRoomFeedback"
-          :closable="hasActiveZoneSelection"
+          :closable="true"
           @change-mode="changeShellMode"
           @select-challenge="selectPathChallenge"
           @start-challenge="startChallenge"
@@ -102,6 +120,7 @@ import { localizeChallenge, localizePath } from "@/lib/ringoContentLocalization"
 import { missionIconUrl } from "@/utils/missionMomentumUtils";
 import { humanizeJoinError, submitJoinFlow } from "@/views/challengeFlow";
 import SpaceZone from "./SpaceZone.vue";
+import RoomOverviewPanel from "./RoomOverviewPanel.vue";
 import SpaceZonePanel from "./SpaceZonePanel.vue";
 
 const props = defineProps({
@@ -130,6 +149,8 @@ const pathSummaries = ref({});
 const pathLoading = ref({});
 const pathErrors = ref({});
 const selectedPathChallengeId = ref(null);
+// B23: room-level overview after "Back to room" or "Enough for today" (no zone panel open).
+const roomLevel = ref(false);
 // B24: mission the user asked to focus from the reminder list (may be in another zone).
 const requestedMissionId = ref(null);
 // Ticks so reminders move from "time left" to due without a reload.
@@ -175,6 +196,7 @@ const dueReminderZone = computed(() => {
 });
 
 const visualActiveZone = computed(() => {
+  if (roomLevel.value) return null;
   return displayActiveZone.value || dueReminderZone.value;
 });
 
@@ -216,6 +238,37 @@ const panelZone = computed(() => {
 const activeDueReminderFocus = computed(() => {
   const zone = panelZone.value || workSurfaceZone.value;
   return dueReminderFocusForZone(dueReminderFocus.value, dueReminderZone.value, zone);
+});
+
+// B23: the zone Ringo suggests next on the room overview (due reminder, ready, or start zone).
+const suggestedZone = computed(() => {
+  const zones = displayZones.value;
+  const due = zones.find((zone) => Number(zone.dueReminderCount || 0) > 0);
+  if (due) return due;
+
+  const ready = zones.find((zone) => zone.action?.state === "ready_today");
+  const start = zones.find((zone) => zone.action?.state === "not_started");
+  const unseen = zones.find((zone) => zone.has_unseen_rewards);
+
+  // After today is safe, suggest looking at what changed rather than more work.
+  return props.todaySafe
+    ? unseen || ready || start || null
+    : ready || start || unseen || null;
+});
+
+const roomMood = computed(() => {
+  if (dueReminders.value.length) return "thinking";
+  return props.todaySafe ? "sleeping" : "welcome";
+});
+
+const objectsPlacedToday = computed(() => {
+  const today = new Date().toDateString();
+  return (spaceState.value?.zones || []).reduce((count, zone) => {
+    return count + (zone.unlocked_objects || []).filter((reward) => {
+      const unlockedAt = reward?.unlocked_at ? new Date(reward.unlocked_at) : null;
+      return unlockedAt && !Number.isNaN(unlockedAt.getTime()) && unlockedAt.toDateString() === today;
+    }).length;
+  }, 0);
 });
 
 const workSurfaceZone = computed(() => {
@@ -356,6 +409,7 @@ async function loadPaths() {
 }
 
 function selectZone(zone) {
+  roomLevel.value = false;
   requestedMissionId.value = null;
   activeZone.value = zone;
   shellMode.value = "zone";
@@ -364,6 +418,7 @@ function selectZone(zone) {
 }
 
 function closePanel() {
+  roomLevel.value = true;
   requestedMissionId.value = null;
   activeZone.value = null;
   shellMode.value = "zone";
@@ -376,6 +431,7 @@ function focusReminder(reminder) {
   const zone = displayZones.value.find((item) => item.zone_key === zoneKey) || workSurfaceZone.value;
   if (!zone) return;
 
+  roomLevel.value = false;
   activeZone.value = zone;
   shellMode.value = "zone";
   selectedPathChallengeId.value = reminder?.challengeId || null;
@@ -386,6 +442,8 @@ function focusReminder(reminder) {
 function changeShellMode(mode) {
   if (!["zone", "path", "challenge", "mission", "rest"].includes(mode)) return;
   if (mode === "rest") {
+    roomLevel.value = true;
+    requestedMissionId.value = null;
     activeZone.value = null;
     shellMode.value = mode;
     selectedPathChallengeId.value = null;

@@ -74,7 +74,18 @@ export default {
     fallbackMessage: "من اینجام تا قدم بعدی‌ات کوچک و روشن بمونه.",
   },
   space: {
+    room: {
+      summaryLabel: "امروز تا الان",
+      missionsDone: "مأموریت‌های انجام‌شده امروز",
+      remindersLabel: "یادآورها",
+      remindersValue: "{due} رسیده · {scheduled} بعداً",
+      objectsToday: "اشیای جدید امروز",
+      suggestLabel: "پیشنهاد رینگو",
+      openZone: "رفتن به {zone}",
+      invite: "یا هر گوشه‌ای از اتاق رو که دوست داری انتخاب کن.",
+    },
     panel: {
+      backToRoom: "بازگشت به اتاق",
       reminderReady: "رسیده",
       reminderNoTime: "زمان‌بندی‌شده",
       timeLeftHoursMinutes: "{hours} ساعت و {minutes} دقیقه دیگه",

@@ -74,7 +74,18 @@ export default {
     fallbackMessage: "I am here to keep your next step small and clear.",
   },
   space: {
+    room: {
+      summaryLabel: "Today so far",
+      missionsDone: "Missions done today",
+      remindersLabel: "Reminders",
+      remindersValue: "{due} due · {scheduled} later",
+      objectsToday: "Objects placed today",
+      suggestLabel: "Ringo suggests",
+      openZone: "Go to {zone}",
+      invite: "Or pick any corner of the room to continue.",
+    },
     panel: {
+      backToRoom: "Back to room",
       reminderReady: "Ready now",
       reminderNoTime: "Scheduled",
       timeLeftHoursMinutes: "{hours} h {minutes} min left",
