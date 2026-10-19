@@ -71,6 +71,8 @@
             :reminder-count="livingSpaceReminderCount"
             :checking-id="checkingId"
             :room-feedback-event="livingSpaceRoomFeedbackEvent"
+            :hold-rewards="livingSpaceHoldRewards"
+            :materialize-event="livingSpaceMaterializeEvent"
             @checkin="checkin"
             @challenge-started="handleLivingSpaceChallengeStarted"
             @mission-completed="handleLivingSpaceMissionCompleted"
@@ -330,11 +332,19 @@ const missionCenterStatus = ref({
 });
 const missionCenterKey = ref(0);
 const spaceRefreshKey = ref(0);
+// B21: newly unlocked objects stay ghosts while the Ringo Moment or the reward card is open,
+// then materialize in the room after the card closes.
+const livingSpaceMaterializeEvent = ref(null);
 const livingSpaceRewardSequenceSteps = ref([]);
 const livingSpaceRewardSequenceSprite = ref("celebration");
 const pendingLivingSpaceRoomFeedback = ref(null);
 const pendingLivingSpaceRewardMoment = ref(null);
 const livingSpaceRoomFeedbackEvent = ref(null);
+const livingSpaceHoldRewards = computed(() => Boolean(
+  livingSpaceRewardSequenceSteps.value.length
+  || spaceRewardMoment.value
+  || pendingLivingSpaceRewardMoment.value,
+));
 const livingSpaceFrozenState = ref(null);
 const showOnboardingFallback = computed(() => {
   if (typeof window === "undefined") return false;
@@ -690,6 +700,10 @@ async function handleMissionCheckin(payload = {}) {
 }
 
 async function handleSpaceRewardClose(reward) {
+  // B21: the room materializes this reward once the card is gone (announced before the hold ends).
+  if (reward?.key) {
+    livingSpaceMaterializeEvent.value = { id: `${Date.now()}-${reward.key}`, reward };
+  }
   spaceRewardMoment.value = null;
 
   if (reward?.id) {

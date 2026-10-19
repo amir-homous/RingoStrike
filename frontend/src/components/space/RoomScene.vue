@@ -52,15 +52,37 @@
               draggable="false"
               :style="at(item.x, item.y)"
             />
-            <img
-              v-for="item in ghostObjects"
-              :key="`ghost-${item.key}`"
-              :src="asset(item.path)"
-              alt=""
-              class="layer ghostLayer"
-              draggable="false"
-              :style="{ ...at(item.x, item.y), ...ghostStyle }"
-            />
+            <template v-for="item in ghostObjects" :key="`ghost-${item.key}`">
+              <img
+                :src="asset(item.path)"
+                alt=""
+                class="layer ghostLayer"
+                :class="item.phase ? `mat-${item.phase}` : null"
+                draggable="false"
+                :data-reward="item.key"
+                :style="{ ...at(item.x, item.y), ...ghostStyle }"
+              />
+              <!-- B21: the full-colour object fades in over the ghost, settles 1px, then a glint. -->
+              <img
+                v-if="['resolve', 'settle', 'glint'].includes(item.phase)"
+                :src="asset(item.path)"
+                alt=""
+                class="layer matColor"
+                :class="`mat-${item.phase}`"
+                draggable="false"
+                :data-reward="item.key"
+                :style="at(item.x, item.y)"
+              />
+              <img
+                v-if="item.phase === 'glint' && layout.markers?.glint"
+                :src="asset(layout.markers.glint)"
+                alt=""
+                class="layer glintLayer"
+                draggable="false"
+                :style="markerStyle({ file: layout.markers.glint, point: [item.x + item.w / 2, item.y + 2] })"
+                @load="rememberSize(layout.markers.glint, $event)"
+              />
+            </template>
 
             <img
               v-if="ringo"
@@ -84,6 +106,10 @@
               :src="asset(selectedLayout.light.file)"
               alt=""
               class="layer lightLayer"
+              :class="{
+                lightHidden: materializing?.phase === 'camera' && materializing.zoneKey === selectedZoneKey,
+                lightRise: materializing?.phase === 'light' && materializing.zoneKey === selectedZoneKey,
+              }"
               draggable="false"
               :style="at(selectedLayout.light.x, selectedLayout.light.y)"
             />
@@ -178,6 +204,10 @@ const props = defineProps({
   // B22 phones (< 600px): overview fitted to the phone room height and centred on Ringo
   // (drag to look around); a selected zone zooms the camera to x2 on its camera rect.
   phone: { type: Boolean, default: false },
+  // B21: keys of unlocked rewards still waiting to materialize (drawn as their zone's ghost).
+  pendingRewardKeys: { type: Array, default: () => [] },
+  // B21: { rewardKey, zoneKey, phase } while a reward materializes (camera, light, resolve, settle, glint).
+  materializing: { type: Object, default: null },
 });
 
 defineEmits(["select"]);
@@ -360,11 +390,18 @@ const ringo = computed(() => ringoPlacement(layout, { rest: props.rest }));
 
 const sceneObjects = computed(() => {
   const hasAsset = (path) => Boolean(assetUrls[path]);
-  return orderedLayoutZones.value.map((zone) => zoneObjects(zone, zonesByKey.value[zone.key], hasAsset));
+  const pendingKeys = props.pendingRewardKeys;
+  return orderedLayoutZones.value.map((zone) => zoneObjects(zone, zonesByKey.value[zone.key], hasAsset, { pendingKeys }));
 });
 
 const placedObjects = computed(() => sceneObjects.value.flatMap((objects) => objects.placed));
-const ghostObjects = computed(() => sceneObjects.value.map((objects) => objects.ghost).filter(Boolean));
+const ghostObjects = computed(() => {
+  const active = props.materializing;
+  return sceneObjects.value
+    .map((objects) => objects.ghost)
+    .filter(Boolean)
+    .map((item) => ({ ...item, phase: active?.rewardKey === item.key ? active.phase : "" }));
+});
 
 // Ghost treatment from room_layout.json (spec §5); the 2x2 checker dither is a CSS mask.
 const ghostStyle = {
@@ -608,6 +645,62 @@ onUnmounted(() => {
   mix-blend-mode: screen;
 }
 
+/* B21 materialize (spec §6): light rises 300 ms; ghost fades out while colour fades in 600 ms;
+   1px settle drop 200 ms (base px: the layers are inside the scaled base); glint 500 ms. */
+.lightLayer.lightHidden {
+  opacity: 0;
+}
+
+.lightLayer.lightRise {
+  animation: matLightRise 300ms ease-out both;
+}
+
+.ghostLayer.mat-resolve {
+  animation: matGhostOut 600ms ease-in-out forwards;
+}
+
+.ghostLayer.mat-settle,
+.ghostLayer.mat-glint {
+  visibility: hidden;
+}
+
+.matColor.mat-resolve {
+  animation: matColorIn 600ms ease-in-out both;
+}
+
+.matColor.mat-settle {
+  animation: matSettle 200ms ease-in both;
+}
+
+.glintLayer {
+  animation: matGlint 500ms ease-out both;
+}
+
+@keyframes matLightRise {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes matGhostOut {
+  to { opacity: 0; }
+}
+
+@keyframes matColorIn {
+  from { opacity: 0; transform: translateY(-1px); }
+  to { opacity: 1; transform: translateY(-1px); }
+}
+
+@keyframes matSettle {
+  from { transform: translateY(-1px); }
+  to { transform: translateY(0); }
+}
+
+@keyframes matGlint {
+  0% { opacity: 0; }
+  30% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
 .restOverlay {
   position: absolute;
   inset: 0;
@@ -718,6 +811,13 @@ onUnmounted(() => {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .lightLayer.lightRise,
+  .ghostLayer.mat-resolve,
+  .matColor,
+  .glintLayer {
+    animation: none;
+  }
+
   .zoneOutline,
   .zoneLabel,
   .roomViewport.panning .roomScene {

@@ -24,7 +24,16 @@ import {
   slotForReward,
   zoneMarker,
   zoneObjects,
+  pixelIconScale,
 } from "../src/lib/roomScene.js";
+import {
+  BACKFILL_SOURCE,
+  MATERIALIZE_TOTAL_MS,
+  createMaterializeQueue,
+  materializeCandidates,
+  materializePhaseAt,
+  materializeTimeline,
+} from "../src/lib/roomMaterialize.js";
 import {
   bonusOfferCandidates,
   buildTodayMissionRows,
@@ -136,6 +145,7 @@ function run() {
   runReminderTimeLeftSmoke();
   runRoomSceneSmoke();
   runRoomObjectsSmoke();
+  runMaterializeSmoke();
 
   console.log("Living Space smoke test passed.");
 }
@@ -445,6 +455,68 @@ function runRoomObjectsSmoke() {
   objects = zoneObjects(creative, { unlocked_objects: [sketchbook], locked_preview_objects: [sketchbook] }, hasAsset);
   assert.equal(objects.ghost, null);
   assert.deepEqual(zoneObjects(creative, null, hasAsset), { placed: [], ghost: null });
+
+  // B21: an unlocked reward still waiting to materialize is the zone's ghost, not placed.
+  objects = zoneObjects(creative, { unlocked_objects: [sketchbook], locked_preview_objects: [lamp, easel] }, hasAsset, { pendingKeys: [sketchbook.key] });
+  assert.deepEqual(objects.placed, []);
+  assert.equal(objects.ghost.key, sketchbook.key);
+  objects = zoneObjects(creative, { unlocked_objects: [sketchbook, lamp], locked_preview_objects: [easel] }, hasAsset, { pendingKeys: [lamp.key] });
+  assert.deepEqual(objects.placed.map((item) => item.key), [sketchbook.key]);
+  assert.equal(objects.ghost.key, lamp.key);
+}
+
+function runMaterializeSmoke() {
+  // Sequence (spec §6): light 300, resolve 600, settle 200, glint 500 = 1.6 s, then placed.
+  const timeline = materializeTimeline();
+  assert.deepEqual(timeline.map((step) => [step.name, step.at, step.ms]), [
+    ["light", 0, 300],
+    ["resolve", 300, 600],
+    ["settle", 900, 200],
+    ["glint", 1100, 500],
+  ]);
+  assert.equal(MATERIALIZE_TOTAL_MS, 1600);
+  assert.equal(materializePhaseAt(0, timeline), "light");
+  assert.equal(materializePhaseAt(299, timeline), "light");
+  assert.equal(materializePhaseAt(300, timeline), "resolve");
+  assert.equal(materializePhaseAt(1000, timeline), "settle");
+  assert.equal(materializePhaseAt(1599, timeline), "glint");
+  assert.equal(materializePhaseAt(1600, timeline), "placed");
+  // Reduced motion: no steps, the placed state at once.
+  assert.deepEqual(materializeTimeline({ reducedMotion: true }), []);
+  assert.equal(materializePhaseAt(0, materializeTimeline({ reducedMotion: true })), "placed");
+
+  // Candidates: unlocked, unseen, not backfilled; oldest unlock first.
+  const reward = (key, extra = {}) => ({ id: key.length, key, zone_key: "creative_corner", unlocked: true, is_seen: false, source_type: "mission_reward", unlocked_at: "2026-10-19 10:00:00", ...extra });
+  const rewards = [
+    reward("late", { unlocked_at: "2026-10-19 12:00:00" }),
+    reward("early", { unlocked_at: "2026-10-19 09:00:00" }),
+    reward("seen", { is_seen: true }),
+    reward("backfilled", { source_type: BACKFILL_SOURCE, is_seen: false }),
+    reward("locked", { unlocked: false, unlocked_at: null }),
+  ];
+  assert.deepEqual(materializeCandidates(rewards).map((item) => item.key), ["early", "late"]);
+  assert.deepEqual(materializeCandidates([]), []);
+
+  // Once only: a key that was queued is never queued again (reloads, repeated events).
+  const queue = createMaterializeQueue();
+  assert.deepEqual(queue.enqueue(materializeCandidates(rewards)), ["early", "late"]);
+  assert.deepEqual(queue.enqueue([reward("early"), reward("late")]), []);
+  assert.deepEqual(queue.enqueue([reward("backfilled", { source_type: BACKFILL_SOURCE })]), []);
+  assert.equal(queue.next().key, "early");
+  queue.done("early");
+  assert.deepEqual(queue.pendingKeys(), ["late"]);
+  assert.deepEqual(queue.enqueue([reward("early")]), [], "played rewards never queue again");
+  queue.done("late");
+  assert.equal(queue.next(), null);
+  assert.equal(queue.size(), 0);
+
+  // Reward card: integer scale to fit the 66px icon box, never below 1.
+  assert.equal(pixelIconScale(27, 16, 66), 2);
+  assert.equal(pixelIconScale(23, 33, 66), 2);
+  assert.equal(pixelIconScale(60, 11, 66), 1);
+  assert.equal(pixelIconScale(13, 10, 66), 5);
+  assert.equal(pixelIconScale(200, 100, 66), 1);
+  assert.equal(pixelIconScale(0, 0, 66), 1);
 }
 
 run();

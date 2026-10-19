@@ -22,9 +22,11 @@
 
         <RoomScene
           :zones="displayZones"
-          :selected-zone-key="visualActiveZone?.zone_key || ''"
-          :suggested-zone-key="roomLevel ? suggestedZone?.zone_key || '' : ''"
-          :rest="roomLevel"
+          :selected-zone-key="materializeZoneKey || visualActiveZone?.zone_key || ''"
+          :suggested-zone-key="roomLevel && !materializeZoneKey ? suggestedZone?.zone_key || '' : ''"
+          :rest="roomLevel && !materializeZoneKey"
+          :pending-reward-keys="pendingRewardKeys"
+          :materializing="materializing"
           :min-scale="roomPanLayout ? 2 : 1"
           :phone="!roomPanLayout"
           @select="selectZone"
@@ -145,6 +147,7 @@ import {
   reminderTimestamp,
 } from "@/lib/livingSpaceState";
 import { localizeChallenge, localizePath } from "@/lib/ringoContentLocalization";
+import { createMaterializeQueue, materializeCandidates, materializeTimeline } from "@/lib/roomMaterialize";
 import { missionIconUrl } from "@/utils/missionMomentumUtils";
 import { humanizeJoinError, submitJoinFlow } from "@/views/challengeFlow";
 import SpaceZone from "./SpaceZone.vue";
@@ -161,6 +164,10 @@ const props = defineProps({
   reminderCount: { type: Number, default: 0 },
   checkingId: { type: [Number, String, null], default: null },
   roomFeedbackEvent: { type: Object, default: null },
+  // B21: true while the Ringo Moment or the reward card is open (newly unlocked objects stay ghosts).
+  holdRewards: { type: Boolean, default: false },
+  // B21: { id, reward } when a reward card closes; that reward materializes in the room.
+  materializeEvent: { type: Object, default: null },
 });
 
 const emit = defineEmits(["checkin", "challenge-started", "mission-completed"]);
@@ -434,6 +441,8 @@ async function loadSpace(options = {}) {
   try {
     const { data } = await api.get("/me/space");
     spaceState.value = data;
+    // B21: unseen, non-backfilled unlocks wait as ghosts until they materialize (once each).
+    enqueueMaterialize(materializeCandidates(data?.rewards || []));
 
     if (activeZone.value) {
       activeZone.value = data.zones.find(
@@ -449,6 +458,95 @@ async function loadSpace(options = {}) {
   } finally {
     if (!silent) {
       loading.value = false;
+    }
+  }
+
+  runMaterializeQueue();
+}
+
+// B21: materialize sequence (spec §6). Plays once per newly unlocked reward, after the reward
+// card closes (or on load for an unlock that was never seen), each in its own zone in turn.
+// Desktop/tablet select the zone (camera pan); phones zoom to it and open the sheet afterwards.
+const CAMERA_SETTLE_MS = 320;
+const materializeQueue = createMaterializeQueue();
+const pendingRewardKeys = ref([]);
+const materializing = ref(null);
+const materializeZoneKey = ref("");
+let materializeRunning = false;
+let materializeTimers = [];
+let livingSpaceUnmounted = false;
+
+function enqueueMaterialize(rewards) {
+  if (materializeQueue.enqueue(rewards).length) {
+    pendingRewardKeys.value = materializeQueue.pendingKeys();
+  }
+}
+
+function prefersReducedMotion() {
+  return typeof window !== "undefined"
+    && Boolean(window.matchMedia?.("(prefers-reduced-motion: reduce)").matches);
+}
+
+function materializeWait(ms) {
+  return new Promise((resolve) => {
+    materializeTimers.push(setTimeout(resolve, ms));
+  });
+}
+
+async function runMaterializeQueue() {
+  if (materializeRunning || props.holdRewards || !spaceState.value) return;
+  materializeRunning = true;
+  let lastZone = null;
+  let played = 0;
+
+  try {
+    while (!livingSpaceUnmounted && !props.holdRewards) {
+      const item = materializeQueue.next();
+      if (!item) break;
+      const reward = (spaceState.value?.rewards || []).find((entry) => entry.key === item.key);
+      // The room has not loaded this unlock yet; the next load retries.
+      if (!reward?.unlocked) break;
+
+      // Seen first, so a reload never plays it again (idempotent after the card's own call).
+      if (!reward.is_seen && reward.id) {
+        await api.post(`/me/space/rewards/${reward.id}/seen`).catch(() => {});
+      }
+
+      const zone = displayZones.value.find((entry) => entry.zone_key === reward.zone_key) || null;
+      if (zone) {
+        lastZone = zone;
+        if (roomPanLayout.value) selectZone(zone);
+        else materializeZoneKey.value = zone.zone_key;
+      }
+
+      const timeline = materializeTimeline({ reducedMotion: prefersReducedMotion() });
+      if (timeline.length) {
+        // Camera first (the zone light stays off), then the sequence.
+        materializing.value = { rewardKey: item.key, zoneKey: reward.zone_key, phase: "camera" };
+        await materializeWait(CAMERA_SETTLE_MS);
+        for (const step of timeline) {
+          if (livingSpaceUnmounted) return;
+          materializing.value = { rewardKey: item.key, zoneKey: reward.zone_key, phase: step.name };
+          await materializeWait(step.ms);
+        }
+      }
+
+      materializing.value = null;
+      materializeQueue.done(item.key);
+      pendingRewardKeys.value = materializeQueue.pendingKeys();
+      played += 1;
+    }
+  } finally {
+    materializeRunning = false;
+    materializing.value = null;
+    if (!livingSpaceUnmounted) {
+      // Phones: the sheet opens after the sequence, on the last zone.
+      if (materializeZoneKey.value) {
+        materializeZoneKey.value = "";
+        if (lastZone) selectZone(lastZone);
+      }
+      // Refresh the "new reward" state now that these rewards are seen.
+      if (played) loadSpace({ silent: true });
     }
   }
 }
@@ -1212,6 +1310,9 @@ onMounted(async () => {
 });
 
 onUnmounted(() => {
+  livingSpaceUnmounted = true;
+  materializeTimers.forEach((id) => clearTimeout(id));
+  materializeTimers = [];
   roomPanMedia?.removeEventListener?.("change", syncRoomPanLayout);
   if (reminderClock) {
     clearInterval(reminderClock);
@@ -1220,6 +1321,22 @@ onUnmounted(() => {
     clearTimeout(roomFeedbackTimer);
   }
 });
+
+watch(
+  () => props.holdRewards,
+  (hold) => {
+    if (!hold) runMaterializeQueue();
+  },
+);
+
+watch(
+  () => props.materializeEvent,
+  async (event) => {
+    if (!event?.id || !event?.reward?.key) return;
+    enqueueMaterialize([event.reward]);
+    await loadSpace({ silent: true });
+  },
+);
 
 watch(
   () => props.refreshKey,
