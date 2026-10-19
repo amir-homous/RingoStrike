@@ -395,6 +395,22 @@ onUnmounted(() => {
   gap: 6px;
 }
 
+/* Phones: the x1 room is too small for an overlay (it would cover the zone labels),
+   so the chips sit in their own row above the room. */
+@media (max-width: 599px) {
+  .roomViewportWrap {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .roomCorner {
+    position: static;
+    order: -1;
+    justify-content: flex-end;
+    margin-bottom: 6px;
+  }
+}
+
 .roomScene {
   transition: transform 300ms ease;
 }
