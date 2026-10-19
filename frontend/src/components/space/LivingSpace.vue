@@ -25,7 +25,7 @@
           :selected-zone-key="visualActiveZone?.zone_key || ''"
           :suggested-zone-key="roomLevel ? suggestedZone?.zone_key || '' : ''"
           :rest="roomLevel"
-          :min-scale="desktopLayout ? 2 : 1"
+          :min-scale="roomPanLayout ? 2 : 1"
           @select="selectZone"
         >
           <!-- Room corner (inline-end): objects chip, new-reward chip and the room info popover. -->
@@ -169,13 +169,15 @@ const selectedPathChallengeId = ref(null);
 // B19: room info popover in the room corner (the rule text); click/hover/focus opens, Esc closes.
 const roomInfoOpen = ref(false);
 
-// B19: desktop layout (panel beside the room, room at least x2 and panned when needed).
-const DESKTOP_QUERY = "(min-width: 1160px)";
-const desktopLayout = ref(false);
-let desktopMedia = null;
+// B19: from tablet width (600px) the room is at least x2 (if the height allows) and, when x2 is
+// wider than its column, cropped with the camera pan instead of shrinking to x1. Phones keep x1
+// and scroll the room inside its own frame (B22 adds the mobile zoom).
+const ROOM_PAN_QUERY = "(min-width: 600px)";
+const roomPanLayout = ref(false);
+let roomPanMedia = null;
 
-function syncDesktopLayout() {
-  desktopLayout.value = Boolean(desktopMedia?.matches);
+function syncRoomPanLayout() {
+  roomPanLayout.value = Boolean(roomPanMedia?.matches);
 }
 
 // B23: room-level overview after "Back to room" or "Enough for today" (no zone panel open).
@@ -1167,9 +1169,9 @@ function findChallengeMission(challenge) {
 
 onMounted(async () => {
   if (typeof window !== "undefined" && window.matchMedia) {
-    desktopMedia = window.matchMedia(DESKTOP_QUERY);
-    syncDesktopLayout();
-    desktopMedia.addEventListener?.("change", syncDesktopLayout);
+    roomPanMedia = window.matchMedia(ROOM_PAN_QUERY);
+    syncRoomPanLayout();
+    roomPanMedia.addEventListener?.("change", syncRoomPanLayout);
   }
   reminderClock = setInterval(() => {
     now.value = Date.now();
@@ -1179,7 +1181,7 @@ onMounted(async () => {
 });
 
 onUnmounted(() => {
-  desktopMedia?.removeEventListener?.("change", syncDesktopLayout);
+  roomPanMedia?.removeEventListener?.("change", syncRoomPanLayout);
   if (reminderClock) {
     clearInterval(reminderClock);
   }

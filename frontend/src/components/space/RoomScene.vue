@@ -143,8 +143,8 @@ const props = defineProps({
   selectedZoneKey: { type: String, default: "" },
   suggestedZoneKey: { type: String, default: "" },
   rest: { type: Boolean, default: false },
-  // Desktop asks for at least x2; when the x2 room is wider than its column it is clipped and
-  // panned to the selected zone (or Ringo A). Mobile keeps 1 (scrollable crop until B22).
+  // From tablet width the room asks for at least x2; when the x2 room is wider than its column it
+  // is clipped and panned to the selected zone (or Ringo A). Phones keep 1 (in-frame scroll, B22).
   minScale: { type: Number, default: 1 },
 });
 
@@ -176,7 +176,7 @@ const scale = computed(() => {
   return Math.max(fit, Math.min(Math.floor(props.minScale) || 1, heightLimit));
 });
 
-// Pan only when a minimum scale makes the room wider than its column (desktop mid widths).
+// Pan only when a minimum scale makes the room wider than its column (tablet and desktop mid widths).
 const panning = computed(() => props.minScale > 1 && baseWidth * scale.value > availableWidth.value);
 
 // Phones: a room wider than the frame scrolls inside its own viewport (never the page).
