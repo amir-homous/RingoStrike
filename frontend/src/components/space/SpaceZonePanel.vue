@@ -12,7 +12,7 @@
       </div>
 
       <button v-if="closable" type="button" class="closeButton" @click="$emit('close')">
-        {{ t("space.close") }}
+        {{ t("space.panel.backToRoom") }}
       </button>
     </div>
 
@@ -352,6 +352,18 @@ const selectedPathChallenge = computed(() => {
 });
 
 const selectedMissionId = ref(null);
+
+// Declared before any watcher whose getter reaches it (watch getters run during setup).
+const requestedTinyMission = computed(() => {
+  const selectedId = selectedMissionId.value;
+  if (!selectedId) return null;
+
+  return (selectedPathChallenge.value?.missions || []).find((mission) => {
+    return missionIntensity(mission) === "tiny"
+      && String(mission.id || "") === String(selectedId || "");
+  }) || null;
+});
+
 
 const visibleSelectedMissions = computed(() => {
   const challenge = selectedPathChallenge.value;
@@ -1079,16 +1091,6 @@ function missionSkipped(mission) {
 function missionHasUserDecision(mission) {
   return ["done", "completed", "remind_later", "skipped"].includes(missionStatus(mission));
 }
-
-const requestedTinyMission = computed(() => {
-  const selectedId = selectedMissionId.value;
-  if (!selectedId) return null;
-
-  return (selectedPathChallenge.value?.missions || []).find((mission) => {
-    return missionIntensity(mission) === "tiny"
-      && String(mission.id || "") === String(selectedId || "");
-  }) || null;
-});
 
 function isRequestedTinyMission(mission) {
   return Boolean(
