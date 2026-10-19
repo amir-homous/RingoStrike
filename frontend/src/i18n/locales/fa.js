@@ -75,6 +75,13 @@ export default {
   },
   space: {
     panel: {
+      reminderReady: "رسیده",
+      reminderNoTime: "زمان‌بندی‌شده",
+      timeLeftHoursMinutes: "{hours} ساعت و {minutes} دقیقه دیگه",
+      timeLeftHours: "{hours} ساعت دیگه",
+      timeLeftMinutes: "{minutes} دقیقه دیگه",
+      reminderWhere: "{zone} · {path}",
+      scheduledMarker: "یادآور برای بعداً امروز تنظیم شده",
       bonusFocusTitle: "قدم اضافه: {mission}.",
       doneBodyNoBonus: "برای امروز همین کافیه. اتاقت امروز یک قدم جلو رفت.",
       firstRewardHint: "یک مأموریت اصلی یا کوچیک از این مسیر انجام بده تا {object} در اتاقت جا بگیره.",

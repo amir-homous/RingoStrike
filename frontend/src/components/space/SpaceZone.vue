@@ -35,6 +35,15 @@
         >
           {{ zoneStatus.label }}
         </span>
+        <span
+          v-if="hasScheduledReminder"
+          class="scheduledBell"
+          role="img"
+          :aria-label="t('space.panel.scheduledMarker')"
+          :title="t('space.panel.scheduledMarker')"
+        >
+          <img v-if="bellIcon" :src="bellIcon" alt="" class="iconOnDark" />
+        </span>
         <span v-if="zone.has_unseen_rewards" class="unseenDot" aria-hidden="true"></span>
       </span>
     </span>
@@ -67,6 +76,7 @@
 <script setup>
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
+import { resolveActionIcon } from "@/utils/actionIconUtils";
 import { resolvePathIcon } from "@/utils/missionMomentumUtils";
 import SpaceObject from "./SpaceObject.vue";
 
@@ -111,6 +121,13 @@ const pathProgress = computed(() => {
   const percent = total > 0 ? Math.round((done / total) * 100) : 0;
 
   return { done, total, percent };
+});
+
+const bellIcon = resolveActionIcon("remindLater");
+
+// B24: calm marker for a reminder scheduled later today (the due state keeps its badge).
+const hasScheduledReminder = computed(() => {
+  return !hasReminderDue.value && Number(props.zone?.scheduledReminderCount || 0) > 0;
 });
 
 const zoneStatus = computed(() => {
@@ -355,6 +372,23 @@ const pathIcon = computed(() => {
   font-weight: 900;
   letter-spacing: 0.10em;
   text-transform: uppercase;
+}
+
+.scheduledBell {
+  display: inline-grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: rgba(110, 229, 255, 0.10);
+  border: 1px solid rgba(110, 229, 255, 0.22);
+}
+
+.scheduledBell img {
+  width: 13px;
+  height: 13px;
+  object-fit: contain;
+  opacity: 0.85;
 }
 
 .unseenDot {

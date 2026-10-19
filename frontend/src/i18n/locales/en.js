@@ -75,6 +75,13 @@ export default {
   },
   space: {
     panel: {
+      reminderReady: "Ready now",
+      reminderNoTime: "Scheduled",
+      timeLeftHoursMinutes: "{hours} h {minutes} min left",
+      timeLeftHours: "{hours} h left",
+      timeLeftMinutes: "{minutes} min left",
+      reminderWhere: "{zone} · {path}",
+      scheduledMarker: "Reminder scheduled later today",
       bonusFocusTitle: "Extra step: {mission}.",
       doneBodyNoBonus: "That's enough for today. Your room moved forward today.",
       firstRewardHint: "Finish a main or smaller mission in this path to place {object} in your room.",

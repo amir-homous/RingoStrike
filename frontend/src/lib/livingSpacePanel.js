@@ -158,3 +158,18 @@ export function bonusOfferCandidates(challenges = []) {
 export function shouldOfferBonus({ mainDone = false, dueReminderCount = 0, candidates = [], focusIsBonus = false } = {}) {
   return Boolean(mainDone && dueReminderCount === 0 && candidates.length && !focusIsBonus);
 }
+
+// B24: time left until a reminder, in whole hours and minutes (rounded up to the next minute).
+export function reminderTimeLeft(timestamp, now = Date.now()) {
+  if (!Number.isFinite(timestamp)) return { state: "unknown", hours: 0, minutes: 0 };
+
+  const diff = timestamp - now;
+  if (diff <= 0) return { state: "due", hours: 0, minutes: 0 };
+
+  const totalMinutes = Math.ceil(diff / 60000);
+  return {
+    state: "scheduled",
+    hours: Math.floor(totalMinutes / 60),
+    minutes: totalMinutes % 60,
+  };
+}
