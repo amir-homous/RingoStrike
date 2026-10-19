@@ -1,0 +1,400 @@
+{
+  "version": 1,
+  "base": {
+    "width": 480,
+    "height": 270
+  },
+  "perspective": {
+    "vanishing_point": [
+      240,
+      -60
+    ],
+    "wall_floor_y": 118,
+    "note": "Floor projection: x=240+(xb-240)*k, y=yf-h*k, k=(yf+60)/178. New art must use the same projection."
+  },
+  "stage": "room_stage0.png",
+  "overlay": "vignette.png",
+  "ghost": {
+    "opacity": 0.38,
+    "filter": "grayscale(1) brightness(1.5) sepia(.2) hue-rotate(180deg)",
+    "mask": "2x2 checker"
+  },
+  "selected": {
+    "others_dim": 0.62,
+    "light_blend": "screen"
+  },
+  "rest": {
+    "room_dim": 0.74,
+    "ringo": "sleeping",
+    "ringo_pos": "A"
+  },
+  "ringo_positions": {
+    "A": [
+      270,
+      214
+    ],
+    "B": [
+      372,
+      246
+    ],
+    "C": [
+      150,
+      240
+    ]
+  },
+  "ringo_sprites": {
+    "idle": {
+      "file": "ringo/ringo_idle.png",
+      "anchor": "bottom-center",
+      "w": 34,
+      "h": 33
+    },
+    "sleeping": {
+      "file": "ringo/ringo_sleeping.png",
+      "anchor": "bottom-center",
+      "w": 32,
+      "h": 15
+    }
+  },
+  "markers": {
+    "bell": "markers/bell.png",
+    "bell_due": "markers/bell_due.png",
+    "glint": "markers/glint.png",
+    "anchor": "center"
+  },
+  "zones": {
+    "work_desk": {
+      "path": "career",
+      "footprint": [
+        [
+          10,
+          60
+        ],
+        [
+          150,
+          60
+        ],
+        [
+          150,
+          170
+        ],
+        [
+          10,
+          170
+        ]
+      ],
+      "prop": {
+        "file": "props/prop_work_desk.png",
+        "x": 4,
+        "y": 69
+      },
+      "slots": {
+        "work_desk_first_reward": {
+          "asset_key": "career_planner",
+          "x": 78,
+          "y": 87,
+          "w": 30,
+          "h": 12
+        },
+        "work_desk_consistency": {
+          "asset_key": "career_desk_lamp",
+          "x": 114,
+          "y": 61,
+          "w": 23,
+          "h": 33
+        }
+      },
+      "light": {
+        "file": "lights/light_work_desk.png",
+        "x": 0,
+        "y": 0,
+        "color": "#d6e2ff",
+        "pool": [
+          84,
+          110,
+          74,
+          52
+        ]
+      },
+      "dim": "lights/dim_work_desk.png",
+      "marker": [
+        140,
+        64
+      ],
+      "camera": [
+        0,
+        37,
+        195,
+        135
+      ]
+    },
+    "learning_corner": {
+      "path": "learning",
+      "footprint": [
+        [
+          150,
+          52
+        ],
+        [
+          212,
+          52
+        ],
+        [
+          242,
+          100
+        ],
+        [
+          242,
+          165
+        ],
+        [
+          150,
+          165
+        ]
+      ],
+      "prop": {
+        "file": "props/prop_learning_corner.png",
+        "x": 146,
+        "y": 57
+      },
+      "slots": {
+        "learning_corner_first_reward": {
+          "asset_key": "learning_first_book",
+          "x": 157,
+          "y": 75,
+          "w": 28,
+          "h": 12
+        },
+        "learning_corner_consistency": {
+          "asset_key": "learning_study_lamp",
+          "x": 177,
+          "y": 57,
+          "w": 23,
+          "h": 28
+        }
+      },
+      "light": {
+        "file": "lights/light_learning_corner.png",
+        "x": 0,
+        "y": 0,
+        "color": "#8cbeff",
+        "pool": [
+          196,
+          112,
+          50,
+          50
+        ]
+      },
+      "dim": "lights/dim_learning_corner.png",
+      "marker": [
+        206,
+        52
+      ],
+      "camera": [
+        99,
+        39,
+        195,
+        135
+      ]
+    },
+    "creative_corner": {
+      "path": "creativity",
+      "footprint": [
+        [
+          256,
+          48
+        ],
+        [
+          346,
+          48
+        ],
+        [
+          346,
+          172
+        ],
+        [
+          250,
+          172
+        ],
+        [
+          242,
+          100
+        ]
+      ],
+      "prop": {
+        "file": "props/prop_creative_corner.png",
+        "x": 262,
+        "y": 55
+      },
+      "slots": {
+        "creative_corner_first_reward": {
+          "asset_key": "creativity_sketchbook",
+          "x": 308,
+          "y": 84,
+          "w": 27,
+          "h": 16
+        },
+        "creative_corner_consistency": {
+          "asset_key": "creativity_desk_lamp",
+          "x": 326,
+          "y": 67,
+          "w": 23,
+          "h": 30
+        }
+      },
+      "light": {
+        "file": "lights/light_creative_corner.png",
+        "x": 0,
+        "y": 0,
+        "color": "#ffc46e",
+        "pool": [
+          302,
+          112,
+          58,
+          54
+        ]
+      },
+      "dim": "lights/dim_creative_corner.png",
+      "marker": [
+        312,
+        52
+      ],
+      "camera": [
+        205,
+        39,
+        195,
+        135
+      ]
+    },
+    "sleep_corner": {
+      "path": "sleep",
+      "footprint": [
+        [
+          346,
+          70
+        ],
+        [
+          476,
+          70
+        ],
+        [
+          476,
+          200
+        ],
+        [
+          346,
+          200
+        ]
+      ],
+      "prop": {
+        "file": "props/prop_sleep_corner.png",
+        "x": 347,
+        "y": 75
+      },
+      "slots": {
+        "sleep_corner_first_reward": {
+          "asset_key": "sleep_pillow",
+          "x": 356,
+          "y": 99,
+          "w": 60,
+          "h": 11
+        },
+        "sleep_corner_consistency": {
+          "asset_key": "sleep_bedside_lamp",
+          "x": 422,
+          "y": 82,
+          "w": 21,
+          "h": 26
+        }
+      },
+      "light": {
+        "file": "lights/light_sleep_corner.png",
+        "x": 0,
+        "y": 0,
+        "color": "#bea0ff",
+        "pool": [
+          410,
+          135,
+          66,
+          56
+        ]
+      },
+      "dim": "lights/dim_sleep_corner.png",
+      "marker": [
+        462,
+        86
+      ],
+      "camera": [
+        285,
+        62,
+        195,
+        135
+      ]
+    },
+    "fitness_corner": {
+      "path": "fitness",
+      "footprint": [
+        [
+          16,
+          186
+        ],
+        [
+          204,
+          186
+        ],
+        [
+          204,
+          252
+        ],
+        [
+          16,
+          252
+        ]
+      ],
+      "prop": {
+        "file": "props/prop_fitness_corner.png",
+        "x": 22,
+        "y": 196
+      },
+      "slots": {
+        "fitness_corner_first_reward": {
+          "asset_key": "fitness_water_bottle",
+          "x": 185,
+          "y": 191,
+          "w": 13,
+          "h": 33
+        },
+        "fitness_corner_consistency": {
+          "asset_key": "fitness_dumbbells",
+          "x": 117,
+          "y": 213,
+          "w": 28,
+          "h": 21
+        }
+      },
+      "light": {
+        "file": "lights/light_fitness_corner.png",
+        "x": 0,
+        "y": 0,
+        "color": "#96f0be",
+        "pool": [
+          112,
+          222,
+          92,
+          40
+        ]
+      },
+      "dim": "lights/dim_fitness_corner.png",
+      "marker": [
+        196,
+        190
+      ],
+      "camera": [
+        15,
+        135,
+        195,
+        135
+      ]
+    }
+  }
+}
