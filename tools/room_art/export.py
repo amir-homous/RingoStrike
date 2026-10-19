@@ -22,7 +22,7 @@ vg.save(f'{OUT}/vignette.png')
 SLOT={'work_desk':('work_desk_first_reward','work_desk_consistency'),'learning_corner':('learning_corner_first_reward','learning_corner_consistency'),
 'creative_corner':('creative_corner_first_reward','creative_corner_consistency'),'sleep_corner':('sleep_corner_first_reward','sleep_corner_consistency'),
 'fitness_corner':('fitness_corner_first_reward','fitness_corner_consistency')}
-layout={'version':1,'base':{'width':W,'height':H},'perspective':{'vanishing_point':[240,-60],'wall_floor_y':118,
+layout={'version':1,'base':{'width':W,'height':H},'safe_area':{'y0':10,'y1':252},'perspective':{'vanishing_point':[240,-60],'wall_floor_y':118,
  'note':'Floor projection: x=240+(xb-240)*k, y=yf-h*k, k=(yf+60)/178. New art must use the same projection.'},
  'stage':'room_stage0.png','overlay':'vignette.png',
  'ghost':{'opacity':0.38,'filter':'grayscale(1) brightness(1.5) sepia(.2) hue-rotate(180deg)','mask':'2x2 checker'},
