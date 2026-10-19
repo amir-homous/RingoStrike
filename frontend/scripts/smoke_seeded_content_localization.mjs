@@ -286,7 +286,8 @@ async function runB10CopySmoke() {
   }
 
   // No streak words left in FA; path names are the new ones.
-  assert.doesNotMatch(JSON.stringify(fa), /استریک|استرایک/);
+  // The brand name «رینگو استرایک» (the app) is allowed; the streak words are not.
+  assert.doesNotMatch(JSON.stringify(fa).replaceAll("رینگو استرایک", ""), /استریک|استرایک/);
   assert.equal(fa.pathContent.sleep.title, "استراحت و انرژی");
   assert.equal(en.pathContent.sleep.title, "Rest & Energy");
   assert.equal(fa.onboarding.paths.career.label, fa.pathContent.career.title);
