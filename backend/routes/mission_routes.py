@@ -9,6 +9,7 @@ from services.mission_service import (
     remind_mission_later,
     skip_mission,
 )
+from services.checkin_context import parse_checkin_context
 from services.ringo_brain_service import get_today_ringo_guidance
 from utils.api_response import error_response, service_response
 from utils.validation_utils import parse_json_object_payload
@@ -33,7 +34,15 @@ def today_ringo_guidance_route(claims):
 @mission_bp.post("/me/missions/<int:mission_id>/done")
 @require_auth()
 def mission_done_route(claims, mission_id):
-    payload, code = mark_mission_done(int(claims["user_id"]), mission_id)
+    # B26: optional context in the body; validated before anything is written.
+    body, payload_error = parse_json_object_payload(request)
+    if payload_error:
+        return error_response(payload_error, 400)
+    context, context_error = parse_checkin_context(body)
+    if context_error:
+        return error_response(context_error, 400)
+
+    payload, code = mark_mission_done(int(claims["user_id"]), mission_id, context=context)
     return service_response(payload, code)
 
 

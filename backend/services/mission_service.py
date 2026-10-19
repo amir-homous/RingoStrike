@@ -2,6 +2,7 @@ from datetime import datetime, timedelta, timezone
 
 from database import get_db_connection
 from services.achievement_service import evaluate_and_unlock
+from services.checkin_context import public_context
 from services.enrollment_service import checkin
 from services.living_space_service import (
     backfill_first_path_rewards_from_history,
@@ -67,6 +68,10 @@ ALLOWED_SKIP_REASONS = {
 #     return {
 #         "ok": True,
 #     }
+
+
+# B26: mission_logs context columns, in insert order.
+CONTEXT_COLUMNS = ("performed_at", "mode", "place_key", "place_label", "feeling_key", "duration_seconds")
 
 
 def _row_status(row):
@@ -441,7 +446,13 @@ def _upsert_mission_log(
     reminder_at=None,
     notes=None,
     skip_reason=None,
+    context=None,
 ):
+    # B26: context (already validated) is stored with a done status only; notes reuse the column.
+    context = context if status == "done" else None
+    if context and context.get("notes") is not None:
+        notes = context["notes"]
+    context_values = tuple((context or {}).get(key) for key in CONTEXT_COLUMNS)
     today = utc_today_iso()
     conn = get_db_connection()
     try:
@@ -517,6 +528,8 @@ def _upsert_mission_log(
                     "skip_reason": None,
                     "today_done_before_you": done_before_you,
                     "today_done_count": done_before_you + 1,
+                    # B26: already done today: any new context is ignored (no write).
+                    "context": None,
                 },
             }, 200
 
@@ -534,9 +547,15 @@ def _upsert_mission_log(
                 skip_reason,
                 notes,
                 xp_earned,
-                updated_at
+                updated_at,
+                performed_at,
+                mode,
+                place_key,
+                place_label,
+                feeling_key,
+                duration_seconds
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(user_id, mission_id, date) DO UPDATE SET
                 status = excluded.status,
                 reminder_at = excluded.reminder_at,
@@ -544,7 +563,13 @@ def _upsert_mission_log(
                 skip_reason = excluded.skip_reason,
                 notes = COALESCE(excluded.notes, mission_logs.notes),
                 xp_earned = excluded.xp_earned,
-                updated_at = excluded.updated_at
+                updated_at = excluded.updated_at,
+                performed_at = COALESCE(excluded.performed_at, mission_logs.performed_at),
+                mode = COALESCE(excluded.mode, mission_logs.mode),
+                place_key = COALESCE(excluded.place_key, mission_logs.place_key),
+                place_label = COALESCE(excluded.place_label, mission_logs.place_label),
+                feeling_key = COALESCE(excluded.feeling_key, mission_logs.feeling_key),
+                duration_seconds = COALESCE(excluded.duration_seconds, mission_logs.duration_seconds)
             """,
             (
                 user_id,
@@ -558,6 +583,7 @@ def _upsert_mission_log(
                 notes,
                 xp_earned,
                 event_at,
+                *context_values,
             ),
         )
         conn.commit()
@@ -589,13 +615,14 @@ def _upsert_mission_log(
                 "skip_reason": skip_reason,
                 "today_done_before_you": done_before_you,
                 "today_done_count": done_before_you + 1 if status == "done" else None,
+                "context": public_context(context),
             },
         }, 200
     finally:
         conn.close()
 
 
-def mark_mission_done(user_id, mission_id):
+def mark_mission_done(user_id, mission_id, context=None):
     before_missions_payload, _ = get_today_missions(user_id)
     before_missions = (
         before_missions_payload.get("missions")
@@ -605,7 +632,7 @@ def mark_mission_done(user_id, mission_id):
     was_today_saved = _today_satisfied_by_missions(before_missions or [])
 
     backfill_first_path_rewards_from_history(user_id)
-    payload, code = _upsert_mission_log(user_id, mission_id, "done")
+    payload, code = _upsert_mission_log(user_id, mission_id, "done", context=context)
 
     if not payload.get("ok"):
         return payload, code
