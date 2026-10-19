@@ -100,7 +100,7 @@
                 preserveAspectRatio="none"
                 aria-hidden="true"
               >
-                <polygon :points="item.points" vector-effect="non-scaling-stroke" />
+                <polygon :points="item.points" />
               </svg>
               <span class="zoneLabel" :style="item.labelStyle" aria-hidden="true">
                 <span v-if="item.suggested" class="suggestedTag">{{ t("space.room.suggestLabel") }}</span>
@@ -429,6 +429,8 @@ onUnmounted(() => {
   outline: none;
 }
 
+/* Keyboard focus only: a soft outline that follows the footprint polygon, stroked in base px
+   (the SVG viewBox is in base px, so 1 unit = 1 room pixel at any integer scale). */
 .zoneOutline {
   position: absolute;
   overflow: visible;
@@ -438,9 +440,11 @@ onUnmounted(() => {
 }
 
 .zoneOutline polygon {
-  fill: rgba(255, 255, 255, 0.04);
-  stroke: rgba(214, 240, 255, 0.85);
-  stroke-width: 1.5;
+  fill: none;
+  stroke: rgba(150, 236, 255, 0.78);
+  stroke-width: 1;
+  stroke-linejoin: round;
+  filter: drop-shadow(0 0 2px rgba(110, 229, 255, 0.55));
 }
 
 .zoneLabel {
@@ -470,30 +474,18 @@ onUnmounted(() => {
   font-weight: 800;
 }
 
-/* Labels and outline only on hover, keyboard focus, or selection (spec §4). */
-.zoneHit:hover ~ .zoneOutline,
-.zoneHit:focus-visible ~ .zoneOutline,
-.zoneHitWrap.selected .zoneOutline,
+/* Zone label on hover, keyboard focus, selection and suggestion. No boxes: selection is the
+   dim + light layers, a suggestion is its label only. */
 .zoneHit:hover ~ .zoneLabel,
 .zoneHit:focus-visible ~ .zoneLabel,
-.zoneHitWrap.selected .zoneLabel {
-  opacity: 1;
-}
-
-.zoneHit:focus-visible ~ .zoneOutline polygon {
-  stroke: rgba(110, 229, 255, 1);
-  stroke-width: 2;
-}
-
-/* B23 temporary suggestion (until the visual suggestion is designed): gold outline + tag, always shown. */
-.zoneHitWrap.suggested .zoneOutline,
+.zoneHitWrap.selected .zoneLabel,
 .zoneHitWrap.suggested .zoneLabel {
   opacity: 1;
 }
 
-.zoneHitWrap.suggested .zoneOutline polygon {
-  stroke: rgba(247, 215, 116, 0.92);
-  fill: rgba(247, 215, 116, 0.05);
+/* The footprint outline appears only for keyboard focus (never on a mouse click). */
+.zoneHit:focus-visible ~ .zoneOutline {
+  opacity: 1;
 }
 
 .zoneHitWrap.suggested .zoneLabel {
