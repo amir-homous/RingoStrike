@@ -74,6 +74,11 @@ export default {
     fallbackMessage: "I am here to keep your next step small and clear.",
   },
   space: {
+    scene: {
+      objectsPlaced: "no objects placed | 1 object placed | {count} objects placed",
+      reminderDue: "reminder due",
+      reminderScheduled: "reminder scheduled",
+    },
     room: {
       summaryLabel: "Today so far",
       missionsDone: "Missions done today",

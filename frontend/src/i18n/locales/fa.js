@@ -74,6 +74,11 @@ export default {
     fallbackMessage: "من اینجام تا قدم بعدی‌ات کوچک و روشن بمونه.",
   },
   space: {
+    scene: {
+      objectsPlaced: "هنوز شیئی قرار نگرفته | 1 شیء قرار گرفته | {count} شیء قرار گرفته",
+      reminderDue: "یادآور رسیده",
+      reminderScheduled: "یادآور تنظیم شده",
+    },
     room: {
       summaryLabel: "امروز تا الان",
       missionsDone: "مأموریت‌های انجام‌شده امروز",

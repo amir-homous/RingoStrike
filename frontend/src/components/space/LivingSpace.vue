@@ -33,18 +33,29 @@
           </div>
         </div>
 
-        <div class="roomStage" :aria-label="t('space.roomLabel')">
-          <SpaceZone
-            v-for="zone in displayZones"
-            :key="zone.zone_key"
-            :zone="zone"
-            :active="visualActiveZone?.zone_key === zone.zone_key"
-            :has-active-selection="hasActiveZoneSelection"
-            :feedback="recentRoomFeedback"
-            :suggested="roomLevel && suggestedZone?.zone_key === zone.zone_key"
-            @select="selectZone"
-          />
-        </div>
+        <RoomScene
+          :zones="displayZones"
+          :selected-zone-key="visualActiveZone?.zone_key || ''"
+          :suggested-zone-key="roomLevel ? suggestedZone?.zone_key || '' : ''"
+          :rest="roomLevel"
+          @select="selectZone"
+        >
+          <!-- Fallback when the room art cannot load: the previous zone card grid. -->
+          <template #fallback>
+            <div class="roomStage" :aria-label="t('space.roomLabel')">
+              <SpaceZone
+                v-for="zone in displayZones"
+                :key="zone.zone_key"
+                :zone="zone"
+                :active="visualActiveZone?.zone_key === zone.zone_key"
+                :has-active-selection="hasActiveZoneSelection"
+                :feedback="recentRoomFeedback"
+                :suggested="roomLevel && suggestedZone?.zone_key === zone.zone_key"
+                @select="selectZone"
+              />
+            </div>
+          </template>
+        </RoomScene>
       </div>
 
       <div v-if="roomLevel" class="roomSafeZone">
@@ -121,6 +132,7 @@ import { missionIconUrl } from "@/utils/missionMomentumUtils";
 import { humanizeJoinError, submitJoinFlow } from "@/views/challengeFlow";
 import SpaceZone from "./SpaceZone.vue";
 import RoomOverviewPanel from "./RoomOverviewPanel.vue";
+import RoomScene from "./RoomScene.vue";
 import SpaceZonePanel from "./SpaceZonePanel.vue";
 
 const props = defineProps({

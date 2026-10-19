@@ -8,6 +8,15 @@ import {
 } from "../src/lib/challengeIconKeys.js";
 import { localizeChallenge, localizeMission } from "../src/lib/ringoContentLocalization.js";
 import {
+  ROOM_BASE_WIDTH,
+  ZONE_ORDER,
+  footprintBox,
+  footprintClipPath,
+  ringoPlacement,
+  roomScale,
+  zoneMarker,
+} from "../src/lib/roomScene.js";
+import {
   bonusOfferCandidates,
   buildTodayMissionRows,
   pickFocusMission,
@@ -116,6 +125,7 @@ function run() {
   runPanelV2Smoke();
   runRecommendationPrioritySmoke();
   runReminderTimeLeftSmoke();
+  runRoomSceneSmoke();
 
   console.log("Living Space smoke test passed.");
 }
@@ -259,6 +269,52 @@ function runReminderTimeLeftSmoke() {
   assert.equal(reminderTimeLeft(base, base).state, "due");
   assert.equal(reminderTimeLeft(base - 60000, base).state, "due");
   assert.equal(reminderTimeLeft(Number.POSITIVE_INFINITY, base).state, "unknown");
+}
+
+function roomLayout() {
+  return JSON.parse(readFileSync(new URL("../src/assets/room/room_layout.json", import.meta.url), "utf8"));
+}
+
+function runRoomSceneSmoke() {
+  const layout = roomLayout();
+  assert.equal(layout.base.width, ROOM_BASE_WIDTH);
+
+  // Integer scaling only.
+  assert.equal(roomScale(0), 1);
+  assert.equal(roomScale(479), 1);
+  assert.equal(roomScale(959), 1);
+  assert.equal(roomScale(960), 2);
+  assert.equal(roomScale(1440), 3);
+
+  // Every layout zone has a footprint, prop, marker and the PNG files the renderer needs.
+  const roomDir = new URL("../src/assets/room/", import.meta.url);
+  assert.deepEqual([...ZONE_ORDER].sort(), Object.keys(layout.zones).sort());
+  for (const key of ZONE_ORDER) {
+    const zone = layout.zones[key];
+    const box = footprintBox(zone.footprint);
+    assert.ok(box.w > 0 && box.h > 0, `${key} footprint`);
+    assert.ok(existsSync(new URL(zone.prop.file, roomDir)), `${key} prop`);
+    assert.ok(existsSync(new URL(zone.dim, roomDir)), `${key} dim`);
+    assert.ok(existsSync(new URL(zone.light.file, roomDir)), `${key} light`);
+  }
+  for (const file of [layout.stage, layout.overlay, layout.markers.bell, layout.markers.bell_due]) {
+    assert.ok(existsSync(new URL(file, roomDir)), file);
+  }
+
+  // clip-path is relative to the footprint box and scales with the room.
+  const fp = layout.zones.work_desk.footprint;
+  assert.deepEqual(footprintBox(fp), { x: 10, y: 60, w: 140, h: 110 });
+  assert.equal(footprintClipPath(fp, 2), "polygon(0px 0px, 280px 0px, 280px 220px, 0px 220px)");
+
+  // Markers: due wins over scheduled.
+  assert.equal(zoneMarker({ dueReminderCount: 1, scheduledReminderCount: 2 }), "bell_due");
+  assert.equal(zoneMarker({ scheduledReminderCount: 1 }), "bell");
+  assert.equal(zoneMarker({}), "");
+
+  // Ringo anchors bottom-center at safe position A; sleeping in rest.
+  const idle = ringoPlacement(layout);
+  assert.deepEqual(idle, { file: "ringo/ringo_idle.png", x: 270 - 17, y: 214 - 33, w: 34, h: 33 });
+  assert.equal(ringoPlacement(layout, { rest: true }).file, "ringo/ringo_sleeping.png");
 }
 
 run();
