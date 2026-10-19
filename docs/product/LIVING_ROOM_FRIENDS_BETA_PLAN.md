@@ -7,7 +7,7 @@ Baseline: `dev` @ `9a19e48` (2026-10-14). Audit: project doc `context/LIVING_SPA
 ## Milestone
 
 - **Title:** Living Room Friends Beta
-- **Description:** Ship the current Living Room as a stable, bilingual, deployed build that 3–5 friends can use daily for one week. Room art (diorama) is the next milestone, informed by tester feedback.
+- **Description:** Ship the Living Room as a stable, bilingual, deployed build that 3–5 friends can use daily for one week, including the visual pixel-art Living Space on desktop and mobile (D7, D8).
 
 ### Definition of done
 
@@ -23,14 +23,18 @@ Baseline: `dev` @ `9a19e48` (2026-10-14). Audit: project doc `context/LIVING_SPA
 
 | # | Decision |
 | --- | --- |
-| D1 | The beta ships the current room shell. Diorama art moves to the next milestone (Living Room Visual v1). |
+| D1 | ~~The beta ships the current room shell. Diorama art moves to the next milestone (Living Room Visual v1).~~ Replaced by D7 on 2026-10-19. |
 | D2 | The room is the whole Home. MissionCenter becomes Ringo's guide layer inside the room; no separate dashboard surface. |
 | D3 | Room panel = one Ringo message + one primary action; details on demand (no tab-heavy panel). Mock-up approval required before build (B9). |
 | D4 | Later rewards (Lamp etc.) stay ghost previews with no unlock rule shown until v1.1. |
 | D5 | Challenge icons resolve by a stable key, not the DB auto-increment id. |
 | D6 | Testers use the website on phone and desktop. PWA install is a later issue; no app-store build. |
+| D7 | (2026-10-19, replaces D1) This milestone reaches the first presentable **visual** Living Space on desktop and mobile: a real room scene with zones and objects. The friends beta ships with this visual room. |
+| D8 | (2026-10-19) Visual v1 is **layered pixel art**: 480×270 base, integer scaling only, one transparent PNG layer per zone/object keyed by `asset_key`. See [Living Space Visual v1 Spec](LIVING_SPACE_VISUAL_V1_SPEC.md). |
+| D9 | (2026-10-19) v1 art per zone: one Stage 0 base prop, the first-reward object (placed when unlocked), and the second reward as a ghost preview — 5 zones × 3 = 15 elements. Other rewards appear only in the panel's object list. |
+| D10 | (2026-10-19) RTL never mirrors the room; only the panel and text are mirrored. |
 
-Open note: earlier project notes mention lightweight vector-style room assets; the art format (vector vs layered WebP) is decided in the next milestone.
+Scope update 2026-10-19: see [Living Room Beta Scope Update](LIVING_ROOM_BETA_SCOPE_UPDATE.md) for D7–D10 and issues B17–B25. The art format is settled by D8 (pixel art).
 
 ## Phases and gates
 
@@ -38,11 +42,13 @@ Open note: earlier project notes mention lightweight vector-style room assets; t
 | --- | --- | --- |
 | 0 Foundations | B1, B2 | Decisions recorded, milestone and issues exist on GitHub |
 | 1 Stabilize | B3–B7 | All tests green, icon sizes measured in a render |
-| 2 Beta UX | B8–B11 | A new account reaches the first reward unaided |
-| 3 Release | B12–B14 | Smoke script passes on the live URL |
+| 2 Beta UX | B8–B9 | Room panel v2 and bonus/recommendation priority merged |
+| 2b Room behavior | B23, B24, then B10, B11 | A new account reaches the first reward unaided; Close/"Enough for today" return to the room; reminders are visible |
+| 2c Visual v1 | B17 → B18 (approval gate) → B19 → B20 → B21 → B22 | Visual pixel-art room matches the approved mock-ups on desktop and mobile, EN and FA |
+| 3 Release | B12–B14 | Smoke script passes on the live URL; QA covers the visual room |
 | 4 Beta week | B15–B16 | Feedback synthesized into next-milestone issues |
 
-B10 (copy) and B15 (tester kit) may start during Phase 1.
+B10 (copy) and B15 (tester kit) may start during Phase 1. Phase 2b runs while the visual design (B17, B18) happens on the canvas. B25 (final pixel Ringo sprite) is in the next milestone, "Living Room Visual polish", and is not a beta blocker.
 
 ## Labels
 
@@ -231,4 +237,4 @@ Labels: beta, ux
 
 ## Next milestone (not in this one)
 
-**Living Room Visual v1:** asset contract (anchors, Ringo-safe positions, format), Creativity diorama vertical slice, other four zones, in-room reward materialization, #336 ambient music idea.
+**Living Room Visual polish:** B25 final pixel Ringo sprite (Amir retouch), art for the remaining reward definitions beyond the 15 v1 elements, #336 ambient music idea. (The asset contract, room scene, v1 objects, materialization and mobile room moved into this milestone as B17–B22 under D7.)
