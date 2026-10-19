@@ -170,6 +170,12 @@ function runRingoContentLocalizationSmoke() {
   const localizedPath = localizePath(path, "fa");
   assert.equal(localizedPath.title, "استراحت و انرژی");
   assertUnchanged(path, pathBefore, "localized path source");
+  // B11: EN path names come from i18n too (the backend still says "Sleep").
+  assert.equal(localizePath(path, "en").title, "Rest & Energy");
+  assert.equal(localizePath(path, "en").description, path.description);
+  const unknownPath = { key: "custom", title: "Custom Path" };
+  assert.equal(localizePath(unknownPath, "en"), unknownPath);
+  assertUnchanged(path, pathBefore, "EN localized path source");
 
   const customMission = {
     key: "custom",

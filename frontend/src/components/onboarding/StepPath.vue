@@ -348,9 +348,15 @@ h1 {
   min-height: 112px;
 }
 
+/* B11: Continue stays in view on short screens (it sat below the fold at 1366x768). */
 .actions {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
   display: flex;
   justify-content: flex-end;
+  padding: 12px 0 calc(12px + env(safe-area-inset-bottom));
+  background: linear-gradient(to top, rgba(8, 12, 22, 0.96) 60%, rgba(8, 12, 22, 0));
 }
 
 @media (max-width: 980px) {

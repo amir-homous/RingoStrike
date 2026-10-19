@@ -1566,7 +1566,7 @@ export default {
     body: "Do this once, and today becomes safe. XP, streak, and the rest come after.",
     readyPill: "Ready on dashboard",
     fallbackMission: "Today’s first mission",
-    text: "Small enough to finish today. Go to MissionCenter and focus only on this first step.",
+    text: "Small enough to finish today. It opens in your room; focus only on this first step.",
     cta: "Go to my first mission",
     hints: {
       safe: {

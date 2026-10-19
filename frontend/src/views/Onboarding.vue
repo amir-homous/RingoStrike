@@ -432,6 +432,8 @@ onMounted(resumeOnboarding);
 .shell {
   position: relative;
   overflow: hidden;
+  /* B11: clip (not a scroll container) so the path step's sticky Continue works. */
+  overflow: clip;
   display: grid;
   gap: var(--s-20);
   padding: 30px;
