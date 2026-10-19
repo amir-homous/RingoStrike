@@ -18,13 +18,24 @@
     >
       <div class="roomStageShell">
         <div class="roomStageHead">
-          <div>
+          <div class="headCopy">
             <p class="spaceKicker">{{ t("space.eyebrow") }}</p>
             <h2>{{ t("space.title") }}</h2>
-            <p v-if="roomOverviewGuidance" class="spaceStatus">
+            <p v-if="roomOverviewGuidance" class="spaceStatus" :title="roomOverviewGuidance.title">
               {{ roomOverviewGuidance.title }}
             </p>
-            <p class="spaceRule">{{ t("space.rule") }}</p>
+            <!-- On short desktop viewports this line truncates; the full text is in the tooltip
+                 and expands on click / Enter. -->
+            <button
+              type="button"
+              class="spaceRule"
+              :class="{ expanded: ruleExpanded }"
+              :title="t('space.rule')"
+              :aria-expanded="ruleExpanded ? 'true' : 'false'"
+              @click="ruleExpanded = !ruleExpanded"
+            >
+              {{ t("space.rule") }}
+            </button>
           </div>
 
           <div class="spaceMeta">
@@ -162,6 +173,9 @@ const pathSummaries = ref({});
 const pathLoading = ref({});
 const pathErrors = ref({});
 const selectedPathChallengeId = ref(null);
+// B19: compact head card (short desktop viewports) keeps the rule on one line; click expands it.
+const ruleExpanded = ref(false);
+
 // B19: desktop layout (panel beside the room, room at least x2 and panned when needed).
 const DESKTOP_QUERY = "(min-width: 1160px)";
 const desktopLayout = ref(false);
@@ -1314,10 +1328,96 @@ watch(
 }
 
 .roomStageHead .spaceRule {
-  margin-top: 6px;
+  display: block;
+  max-width: 520px;
+  margin: 6px 0 0;
+  padding: 0;
+  border: 0;
   color: rgba(110, 229, 255, 0.70);
+  background: transparent;
+  font: inherit;
   font-size: 0.76rem;
   font-weight: 760;
+  line-height: 1.45;
+  text-align: start;
+  cursor: default;
+}
+
+/*
+ * B19: compact head card on short desktop viewports (< 900px tall), so the room can reach x2.
+ * Same content on one line: kicker, title, Ringo's status line and the rule (truncated with an
+ * ellipsis; full text in the tooltip, click / Enter expands it), then the object chips.
+ */
+@media (min-width: 1160px) and (max-height: 899.98px) {
+  .roomStageShell {
+    gap: 6px;
+  }
+
+  .roomStageHead {
+    align-items: center;
+    padding: 6px 10px;
+    border-radius: 14px;
+  }
+
+  .headCopy {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    min-width: 0;
+    flex: 1 1 auto;
+  }
+
+  .headCopy > * {
+    flex: 0 0 auto;
+    margin: 0 !important;
+    white-space: nowrap;
+  }
+
+  .roomStageHead .spaceKicker {
+    font-size: 0.66rem;
+  }
+
+  .roomStageHead h2 {
+    font-size: 0.98rem;
+  }
+
+  .roomStageHead .spaceStatus {
+    flex: 0 1 auto;
+    min-width: 0;
+    max-width: 260px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .roomStageHead .spaceRule {
+    flex: 1 1 0;
+    min-width: 80px;
+    max-width: none;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    cursor: pointer;
+  }
+
+  .roomStageHead .spaceRule.expanded {
+    white-space: normal;
+  }
+
+  .roomStageHead .spaceRule:focus-visible {
+    outline: 2px solid rgba(110, 229, 255, 0.6);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  .spaceMeta {
+    flex: 0 0 auto;
+    flex-wrap: nowrap;
+  }
+
+  .spaceMeta span {
+    min-height: 26px;
+    padding: 4px 9px;
+    white-space: nowrap;
+  }
 }
 
 .spaceMeta {
