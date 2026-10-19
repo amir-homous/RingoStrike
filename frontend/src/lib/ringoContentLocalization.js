@@ -7,7 +7,7 @@ import { challengeIconKey } from "./challengeIconKeys.js";
 
 const FA_PATHS = {
   fitness: {
-    title: "تناسب و انرژی",
+    title: "بدن و حرکت",
     description: "با مأموریت‌های کوچک حرکتی، انرژی بدن و ریتم روزانه‌ات را بساز.",
   },
   learning: {
@@ -15,7 +15,7 @@ const FA_PATHS = {
     description: "کنجکاوی‌ات را به پیشرفت روزانه و قابل دیدن تبدیل کن.",
   },
   career: {
-    title: "مسیر شغلی",
+    title: "کار و حرفه",
     description: "با بردهای کوچک روزانه، تمرکز و پیشرفت کاری‌ات را حفظ کن.",
   },
   creativity: {
@@ -23,7 +23,7 @@ const FA_PATHS = {
     description: "با آیین‌های کوچک ساختن، هویت خلاقانه‌ات را زنده نگه دار.",
   },
   sleep: {
-    title: "آرامش و خواب",
+    title: "استراحت و انرژی",
     description: "با ریست‌های کوچک، شب‌های آرام‌تر و بازیابی بهتر بساز.",
   },
 };

@@ -84,7 +84,7 @@ function runPathChallengeDisplayCopySmoke() {
   const pathBefore = clone(path);
   const persianPath = getPathDisplayCopy(path, "fa");
   assert.equal(persianPath.found, true);
-  assert.equal(persianPath.title, "تناسب و انرژی");
+  assert.equal(persianPath.title, "بدن و حرکت");
   assert.match(persianPath.description, /مأموریت‌های کوچک/);
   assert.equal(getPathDisplayCopy(path, "en").title, "Fitness");
   assertUnchanged(path, pathBefore, "path display copy");
@@ -141,7 +141,7 @@ function runRingoContentLocalizationSmoke() {
   const localizedMission = localizeMission(mainMission, "fa");
   assert.equal(localizedMission.title, "ده دقیقه حرکت کن");
   assert.equal(localizedMission.challenge_name, "حرکت روزانه");
-  assert.equal(localizedMission.path_title, "تناسب و انرژی");
+  assert.equal(localizedMission.path_title, "بدن و حرکت");
   assertUnchanged(mainMission, mainMissionBefore, "localized mission source");
 
   const challenge = {
@@ -168,7 +168,7 @@ function runRingoContentLocalizationSmoke() {
   };
   const pathBefore = clone(path);
   const localizedPath = localizePath(path, "fa");
-  assert.equal(localizedPath.title, "آرامش و خواب");
+  assert.equal(localizedPath.title, "استراحت و انرژی");
   assertUnchanged(path, pathBefore, "localized path source");
 
   const customMission = {
@@ -240,13 +240,14 @@ function runLivingSpaceRoomCopySmoke() {
     assert.equal(enZone.title, zone.title);
     enZone.locked_preview_objects.forEach((reward, index) => {
       assert.equal(reward.title, backendZone.locked_preview_objects[index].title);
-      assert.equal(reward.description, backendZone.locked_preview_objects[index].description);
+      // B10 rewrote some EN descriptions in i18n (first rewards, path renames); EN shows the catalog text.
+      assert.equal(reward.description, en.space.roomObjects[reward.key]?.description ?? backendZone.locked_preview_objects[index].description);
     });
 
     assertUnchanged(backendZone, before, "localized zone source");
   }
 
-  assert.equal(spacePathName("career", persian.t, persian.te), "مسیر شغلی");
+  assert.equal(spacePathName("career", persian.t, persian.te), "کار و حرفه");
   assert.equal(spacePathName("unknown_path", persian.t, persian.te), "unknown_path");
 
   const unknownReward = { key: "future_reward", title: "Future Reward", description: "Later." };
@@ -255,3 +256,91 @@ function runLivingSpaceRoomCopySmoke() {
 }
 
 runLivingSpaceRoomCopySmoke();
+
+// B10 copy pass (docs/product/B10_COPY_PROPOSAL.md): keys in both locales, Persian digits in FA,
+// EN plurals for 1 and 2, backend English never shown in FA, no streak words in FA.
+async function runB10CopySmoke() {
+  const { createI18n } = await import("vue-i18n");
+  const { formatNumber, numberAwareT } = await import("../src/lib/i18nNumbers.js");
+  const { BACKEND_STEP_COPY, localizeBackendCopy } = await import("../src/lib/backendStepCopy.js");
+  const i18n = createI18n({ legacy: false, locale: "en", fallbackLocale: "en", messages: { en, fa }, missingWarn: false, fallbackWarn: false });
+  const g = i18n.global;
+  const has = (catalog, key) => typeof key.split(".").reduce((node, part) => node?.[part], catalog) === "string";
+  const tFor = (locale) => {
+    const t = (key, named, plural) => (plural === undefined ? g.t(key, named, { locale }) : g.t(key, named, { locale, plural }));
+    return numberAwareT(t, () => locale);
+  };
+  const en_ = tFor("en");
+  const fa_ = tFor("fa");
+
+  // Every key the proposal changes or adds exists in both locales.
+  const proposal = readFileSync(new URL("../../docs/product/B10_COPY_PROPOSAL.md", import.meta.url), "utf8");
+  const keys = [...proposal.matchAll(/^\| `([a-zA-Z][\w.]+)` \|/gm)].map(([, key]) => key);
+  assert.ok(keys.length > 100, `proposal keys: ${keys.length}`);
+  for (const key of keys) {
+    assert.ok(has(en, key), `EN missing ${key}`);
+    assert.ok(has(fa, key), `FA missing ${key}`);
+  }
+  for (const key of ["common.countOf", "common.percent", "common.listSeparator", "common.labelSeparator", "common.arrowForward"]) {
+    assert.ok(has(en, key) && has(fa, key), key);
+  }
+
+  // No streak words left in FA; path names are the new ones.
+  assert.doesNotMatch(JSON.stringify(fa), /استریک|استرایک/);
+  assert.equal(fa.pathContent.sleep.title, "استراحت و انرژی");
+  assert.equal(en.pathContent.sleep.title, "Rest & Energy");
+  assert.equal(fa.onboarding.paths.career.label, fa.pathContent.career.title);
+
+  // Digits: Persian in FA, Latin in EN, through the one formatter.
+  assert.equal(formatNumber(1234, "fa"), "۱٬۲۳۴");
+  assert.equal(formatNumber(20, "en"), "20");
+  assert.equal(fa_("common.countOf", { done: 2, total: 5 }), "۲ از ۵");
+  assert.equal(en_("common.countOf", { done: 2, total: 5 }), "2/5");
+  assert.equal(fa_("common.percent", { value: 40 }), "۴۰٪");
+  assert.equal(fa_("ringoRewardSequence.local.xpValue", { count: 20 }), "+۲۰ XP");
+  assert.equal(fa_("common.arrowForward"), "←");
+  for (const [key, named] of [
+    ["space.objects", { count: 3 }],
+    ["space.room.remindersValue", { due: 1, scheduled: 2 }],
+    ["space.shell.minutes", { count: 15 }],
+    ["space.panel.missionBody", { minutes: 10 }],
+    ["ringoRewardSequence.staged.streakValue", { count: 4 }],
+    ["space.overview.progressText", { count: 2 }],
+  ]) {
+    assert.doesNotMatch(fa_(key, named), /[0-9]/, `${key} has Latin digits in FA`);
+  }
+
+  // EN plurals: singular for 1, plural for 2.
+  const plurals = {
+    "space.objects": ["1 object", "2 objects"],
+    "ringoRewardSequence.staged.streakValue": ["1 day in a row", "2 days in a row"],
+    "space.shell.restReminderDue": ["1 reminder waiting", "2 reminders waiting"],
+    "space.shell.restReminderFuture": ["1 reminder later today", "2 reminders later today"],
+    "space.panel.futureMissions": ["Later in this challenge: 1 more mission", "Later in this challenge: 2 more missions"],
+    "space.overview.progressText": ["1 object in your room, all from real progress.", "2 objects in your room, all from real progress."],
+    "space.shell.unlocksInDays": ["Opens in 1 day if you keep this challenge going.", "Opens in 2 days if you keep this challenge going."],
+  };
+  for (const [key, [one, two]] of Object.entries(plurals)) {
+    assert.equal(en_(key, { count: 1 }), one, key);
+    assert.equal(en_(key, { count: 2 }), two, key);
+  }
+  assert.equal(en_("space.scene.objectsPlaced", { count: 1 }), "1 object placed");
+  assert.equal(en_("space.scene.objectsPlaced", { count: 2 }), "2 objects placed");
+  assert.equal(fa_("space.scene.objectsPlaced", { count: 1 }), "۱ شیء جا گرفته");
+
+  // Backend English: every mapped sentence has EN and FA keys; an unmapped one never shows in FA.
+  for (const [sentence, key] of Object.entries(BACKEND_STEP_COPY)) {
+    assert.ok(has(en, key), `EN missing ${key} (${sentence})`);
+    assert.ok(has(fa, key), `FA missing ${key} (${sentence})`);
+    assert.notEqual(fa_(key), sentence);
+  }
+  const faTranslate = Object.assign(fa_, { locale: "fa" });
+  const enTranslate = Object.assign(en_, { locale: "en" });
+  assert.equal(localizeBackendCopy("Today is safe.", faTranslate), fa.ringoRewardSequence.backend.todaySafeTitle);
+  assert.equal(localizeBackendCopy("A brand new backend line.", faTranslate, { role: "title" }), fa.ringoRewardSequence.fallbackTitle);
+  assert.equal(localizeBackendCopy("A brand new backend line.", faTranslate), "");
+  assert.equal(localizeBackendCopy("A brand new backend line.", enTranslate), "A brand new backend line.");
+}
+
+await runB10CopySmoke();
+console.log("B10 copy smoke test passed.");
