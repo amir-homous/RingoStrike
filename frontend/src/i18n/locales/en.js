@@ -74,6 +74,11 @@ export default {
     fallbackMessage: "I am here to keep your next step small and clear.",
   },
   space: {
+    scene: {
+      objectsPlaced: "no objects placed | 1 object placed | {count} objects placed",
+      reminderDue: "reminder due",
+      reminderScheduled: "reminder scheduled",
+    },
     room: {
       summaryLabel: "Today so far",
       missionsDone: "Missions done today",
@@ -239,6 +244,7 @@ export default {
     eyebrow: "Living Space",
     title: "Your progress room",
     subtitle: "Real progress adds visible objects to this room. Each zone belongs to one path.",
+    roomInfoLabel: "About this room",
     rule: "Real mission progress changes the room. Previews only show what can become visible later.",
     emptyStatus: "No objects yet. Complete one non-bonus mission in any path to place the first object.",
     progressStatus: "{count} objects are now saved here. Locked previews show future room growth.",

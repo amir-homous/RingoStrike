@@ -44,6 +44,8 @@ backend/.env.*
 
 # --- Frontend (Vue/Vite) ---
 frontend/node_modules/
+# Also ignore a node_modules symlink (e.g. in a git worktree), which the slash pattern misses.
+frontend/node_modules
 frontend/dist/
 frontend/dist-ssr/
 frontend/.vite/

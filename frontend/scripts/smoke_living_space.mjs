@@ -8,6 +8,20 @@ import {
 } from "../src/lib/challengeIconKeys.js";
 import { localizeChallenge, localizeMission } from "../src/lib/ringoContentLocalization.js";
 import {
+  ROOM_BASE_HEIGHT,
+  ROOM_BASE_WIDTH,
+  ZONE_ORDER,
+  cameraPan,
+  cameraTarget,
+  footprintBox,
+  footprintClipPath,
+  ringoPlacement,
+  roomScale,
+  roomFit,
+  FRACTIONAL_SNAP,
+  zoneMarker,
+} from "../src/lib/roomScene.js";
+import {
   bonusOfferCandidates,
   buildTodayMissionRows,
   pickFocusMission,
@@ -116,6 +130,7 @@ function run() {
   runPanelV2Smoke();
   runRecommendationPrioritySmoke();
   runReminderTimeLeftSmoke();
+  runRoomSceneSmoke();
 
   console.log("Living Space smoke test passed.");
 }
@@ -259,6 +274,99 @@ function runReminderTimeLeftSmoke() {
   assert.equal(reminderTimeLeft(base, base).state, "due");
   assert.equal(reminderTimeLeft(base - 60000, base).state, "due");
   assert.equal(reminderTimeLeft(Number.POSITIVE_INFINITY, base).state, "unknown");
+}
+
+function roomLayout() {
+  return JSON.parse(readFileSync(new URL("../src/assets/room/room_layout.json", import.meta.url), "utf8"));
+}
+
+function runRoomSceneSmoke() {
+  const layout = roomLayout();
+  assert.equal(layout.base.width, ROOM_BASE_WIDTH);
+
+  // Hybrid scale: the integer below the fit, or the fit itself when its fraction is >= 0.85.
+  assert.equal(FRACTIONAL_SNAP, 0.85);
+  assert.equal(roomScale(0), 1);
+  assert.equal(roomScale(479), 1);
+  assert.equal(roomScale(840), 1); // fit 1.75
+  assert.equal(roomScale(887), 1); // fit 1.848
+  assert.equal(roomScale(888), 1.85); // fit 1.85
+  assert.equal(roomScale(959), 1.99);
+  assert.equal(roomScale(960), 2);
+  assert.equal(roomScale(1300), 2); // fit 2.708
+  assert.equal(roomScale(1440), 3);
+  // Height is a limit too: x3 needs 810px of height; 1920x940 gives fit 2.93 -> fractional.
+  assert.equal(roomScale(1446, 766), 2); // fit 2.837
+  assert.equal(roomScale(1446, 780), 2.88);
+  assert.equal(roomScale(1446, 810), 3);
+  assert.equal(roomScale(1446, 200), 1);
+  assert.equal(roomScale(966, null), 2);
+  assert.equal(roomScale(1446, 791), 2.92); // floor to 1/100: 791 / 270 = 2.9296
+  assert.ok(Math.abs(roomFit(1446, 791) - 791 / 270) < 1e-9);
+  // A fractional scale never makes the room wider or taller than the space it was fitted to.
+  for (const [w, h] of [[1406, 940], [1446, 791], [959, 1000], [1919, 1079]]) {
+    const scale = roomScale(w, h);
+    assert.ok(ROOM_BASE_WIDTH * scale <= w + 1e-9 && ROOM_BASE_HEIGHT * scale <= h + 1e-9, `${w}x${h}`);
+  }
+
+  // Camera pan at a fractional scale snaps to whole base pixels of that scale.
+  const fractionalPan = cameraPan({ viewportWidth: 1000, viewportHeight: 791, scale: 2.92, target: cameraTarget(layout, "sleep_corner") });
+  assert.ok(fractionalPan.x < 0);
+  assert.ok(Math.abs(fractionalPan.x / 2.92 - Math.round(fractionalPan.x / 2.92)) < 1e-9);
+  assert.ok(fractionalPan.x >= 1000 - ROOM_BASE_WIDTH * 2.92 - 1e-9);
+
+  // Camera pan (x2 room = 960x540 in an 830px-wide viewport).
+  const view = { viewportWidth: 830, viewportHeight: 540, scale: 2 };
+  // Room fits vertically -> no vertical pan.
+  assert.equal(cameraPan({ ...view, target: { x: 240, y: 135 } }).y, 0);
+  // Centered on a point, snapped to whole base px (multiples of the scale).
+  const centre = cameraPan({ ...view, target: { x: 240, y: 135 } });
+  assert.equal(centre.x, -64);
+  assert.equal(Math.abs(centre.x % 2), 0);
+  // Clamped at the left edge (work desk) and the right edge (sleep corner): never past the room.
+  const work = cameraPan({ ...view, target: cameraTarget(layout, "work_desk") });
+  assert.equal(work.x, 0);
+  const sleep = cameraPan({ ...view, target: cameraTarget(layout, "sleep_corner") });
+  assert.equal(sleep.x, 830 - 960);
+  // Odd viewport: snapping never reveals space past the room edge.
+  const odd = cameraPan({ viewportWidth: 829, viewportHeight: 540, scale: 2, target: { x: 480, y: 0 } });
+  assert.ok(odd.x <= 0 && odd.x + 960 >= 829 && Math.abs(odd.x % 2) === 0, `odd viewport ${odd.x}`);
+  // Room fits -> no pan.
+  assert.deepEqual(cameraPan({ viewportWidth: 1000, viewportHeight: 600, scale: 2, target: { x: 0, y: 0 } }), { x: 0, y: 0 });
+  // Targets: zone camera rect, else Ringo A.
+  assert.deepEqual(cameraTarget(layout, "creative_corner"), { x: 205, y: 39, w: 195, h: 135 });
+  assert.deepEqual(cameraTarget(layout, ""), { x: 270, y: 214, w: 0, h: 0 });
+  assert.deepEqual(cameraTarget(layout, "unknown"), { x: 270, y: 214, w: 0, h: 0 });
+
+  // Every layout zone has a footprint, prop, marker and the PNG files the renderer needs.
+  const roomDir = new URL("../src/assets/room/", import.meta.url);
+  assert.deepEqual([...ZONE_ORDER].sort(), Object.keys(layout.zones).sort());
+  for (const key of ZONE_ORDER) {
+    const zone = layout.zones[key];
+    const box = footprintBox(zone.footprint);
+    assert.ok(box.w > 0 && box.h > 0, `${key} footprint`);
+    assert.ok(existsSync(new URL(zone.prop.file, roomDir)), `${key} prop`);
+    assert.ok(existsSync(new URL(zone.dim, roomDir)), `${key} dim`);
+    assert.ok(existsSync(new URL(zone.light.file, roomDir)), `${key} light`);
+  }
+  for (const file of [layout.stage, layout.overlay, layout.markers.bell, layout.markers.bell_due]) {
+    assert.ok(existsSync(new URL(file, roomDir)), file);
+  }
+
+  // clip-path is relative to the footprint box and scales with the room.
+  const fp = layout.zones.work_desk.footprint;
+  assert.deepEqual(footprintBox(fp), { x: 10, y: 60, w: 140, h: 110 });
+  assert.equal(footprintClipPath(fp, 2), "polygon(0px 0px, 280px 0px, 280px 220px, 0px 220px)");
+
+  // Markers: due wins over scheduled.
+  assert.equal(zoneMarker({ dueReminderCount: 1, scheduledReminderCount: 2 }), "bell_due");
+  assert.equal(zoneMarker({ scheduledReminderCount: 1 }), "bell");
+  assert.equal(zoneMarker({}), "");
+
+  // Ringo anchors bottom-center at safe position A; sleeping in rest.
+  const idle = ringoPlacement(layout);
+  assert.deepEqual(idle, { file: "ringo/ringo_idle.png", x: 270 - 17, y: 214 - 33, w: 34, h: 33 });
+  assert.equal(ringoPlacement(layout, { rest: true }).file, "ringo/ringo_sleeping.png");
 }
 
 run();

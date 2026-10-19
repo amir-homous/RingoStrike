@@ -17,34 +17,50 @@
       :class="{ hasPanel: Boolean(workSurfaceZone) }"
     >
       <div class="roomStageShell">
-        <div class="roomStageHead">
-          <div>
-            <p class="spaceKicker">{{ t("space.eyebrow") }}</p>
-            <h2>{{ t("space.title") }}</h2>
-            <p v-if="roomOverviewGuidance" class="spaceStatus">
-              {{ roomOverviewGuidance.title }}
-            </p>
-            <p class="spaceRule">{{ t("space.rule") }}</p>
-          </div>
+        <!-- Desktop: no head card (the panel already names the room). Below 1160px: one-line title. -->
+        <h2 class="roomTitleCompact">{{ t("space.title") }}</h2>
 
-          <div class="spaceMeta">
-            <span>{{ t("space.objects", { count: unlockedCount }) }}</span>
-            <span v-if="spaceState.has_unseen_rewards">{{ t("space.newReward") }}</span>
-          </div>
-        </div>
+        <RoomScene
+          :zones="displayZones"
+          :selected-zone-key="visualActiveZone?.zone_key || ''"
+          :suggested-zone-key="roomLevel ? suggestedZone?.zone_key || '' : ''"
+          :rest="roomLevel"
+          :min-scale="roomPanLayout ? 2 : 1"
+          @select="selectZone"
+        >
+          <!-- Room corner (inline-end): objects chip, new-reward chip and the room info popover. -->
+          <template #corner>
+            <span class="cornerChip">{{ t("space.objects", { count: unlockedCount }) }}</span>
+            <span v-if="spaceState.has_unseen_rewards" class="cornerChip isNew">{{ t("space.newReward") }}</span>
+            <span class="roomInfo" :class="{ open: roomInfoOpen }" @keydown.esc="roomInfoOpen = false">
+              <button
+                type="button"
+                class="roomInfoButton"
+                :aria-label="t('space.roomInfoLabel')"
+                :aria-expanded="roomInfoOpen ? 'true' : 'false'"
+                aria-describedby="room-info-popover"
+                @click="roomInfoOpen = !roomInfoOpen"
+              >i</button>
+              <span id="room-info-popover" role="tooltip" class="roomInfoPopover">{{ t("space.rule") }}</span>
+            </span>
+          </template>
 
-        <div class="roomStage" :aria-label="t('space.roomLabel')">
-          <SpaceZone
-            v-for="zone in displayZones"
-            :key="zone.zone_key"
-            :zone="zone"
-            :active="visualActiveZone?.zone_key === zone.zone_key"
-            :has-active-selection="hasActiveZoneSelection"
-            :feedback="recentRoomFeedback"
-            :suggested="roomLevel && suggestedZone?.zone_key === zone.zone_key"
-            @select="selectZone"
-          />
-        </div>
+          <!-- Fallback when the room art cannot load: the previous zone card grid. -->
+          <template #fallback>
+            <div class="roomStage" :aria-label="t('space.roomLabel')">
+              <SpaceZone
+                v-for="zone in displayZones"
+                :key="zone.zone_key"
+                :zone="zone"
+                :active="visualActiveZone?.zone_key === zone.zone_key"
+                :has-active-selection="hasActiveZoneSelection"
+                :feedback="recentRoomFeedback"
+                :suggested="roomLevel && suggestedZone?.zone_key === zone.zone_key"
+                @select="selectZone"
+              />
+            </div>
+          </template>
+        </RoomScene>
       </div>
 
       <div v-if="roomLevel" class="roomSafeZone">
@@ -121,6 +137,7 @@ import { missionIconUrl } from "@/utils/missionMomentumUtils";
 import { humanizeJoinError, submitJoinFlow } from "@/views/challengeFlow";
 import SpaceZone from "./SpaceZone.vue";
 import RoomOverviewPanel from "./RoomOverviewPanel.vue";
+import RoomScene from "./RoomScene.vue";
 import SpaceZonePanel from "./SpaceZonePanel.vue";
 
 const props = defineProps({
@@ -149,6 +166,20 @@ const pathSummaries = ref({});
 const pathLoading = ref({});
 const pathErrors = ref({});
 const selectedPathChallengeId = ref(null);
+// B19: room info popover in the room corner (the rule text); click/hover/focus opens, Esc closes.
+const roomInfoOpen = ref(false);
+
+// B19: from tablet width (600px) the room is at least x2 (if the height allows) and, when x2 is
+// wider than its column, cropped with the camera pan instead of shrinking to x1. Phones keep x1
+// and scroll the room inside its own frame (B22 adds the mobile zoom).
+const ROOM_PAN_QUERY = "(min-width: 600px)";
+const roomPanLayout = ref(false);
+let roomPanMedia = null;
+
+function syncRoomPanLayout() {
+  roomPanLayout.value = Boolean(roomPanMedia?.matches);
+}
+
 // B23: room-level overview after "Back to room" or "Enough for today" (no zone panel open).
 const roomLevel = ref(false);
 // B24: mission the user asked to focus from the reminder list (may be in another zone).
@@ -1137,6 +1168,11 @@ function findChallengeMission(challenge) {
 }
 
 onMounted(async () => {
+  if (typeof window !== "undefined" && window.matchMedia) {
+    roomPanMedia = window.matchMedia(ROOM_PAN_QUERY);
+    syncRoomPanLayout();
+    roomPanMedia.addEventListener?.("change", syncRoomPanLayout);
+  }
   reminderClock = setInterval(() => {
     now.value = Date.now();
   }, 30000);
@@ -1145,6 +1181,7 @@ onMounted(async () => {
 });
 
 onUnmounted(() => {
+  roomPanMedia?.removeEventListener?.("change", syncRoomPanLayout);
   if (reminderClock) {
     clearInterval(reminderClock);
   }
@@ -1212,94 +1249,133 @@ watch(
     inset 0 0 0 1px rgba(255, 255, 255, 0.025);
 }
 
+/*
+ * Room + panel layout (B19), desktop >= 1160px: the 380px panel sits at the inline-start side
+ * (left in EN, right in FA) and the room fills the rest. Grid areas are logical, so RTL flips the
+ * sides; the room art itself is never mirrored (D10). The room scales by whole numbers to fit the
+ * column width and the viewport height; when x2 is wider than the column it is clipped and panned.
+ */
 @media (min-width: 1160px) {
   .spaceLayout.hasPanel {
-    grid-template-columns: minmax(560px, 1fr) minmax(420px, 500px);
-    gap: var(--s-16);
+    grid-template-columns: 380px minmax(0, 1fr);
+    grid-template-areas: "panel room";
+    padding: 8px;
+    gap: 12px;
   }
 
   .spaceLayout.hasPanel .roomStageShell {
+    grid-area: room;
     min-height: 620px;
   }
 
   .spaceLayout.hasPanel .roomSafeZone {
+    grid-area: panel;
     min-height: 620px;
   }
 }
 
 .roomStageShell {
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
-  gap: 10px;
-  min-width: 0;
-}
-
-.roomStageHead {
-  display: flex;
-  justify-content: space-between;
-  gap: var(--s-12);
-  align-items: flex-start;
-  min-width: 0;
-  padding: 12px;
-  border-radius: 18px;
-  background: rgba(255, 255, 255, 0.032);
-  border: 1px solid rgba(255, 255, 255, 0.075);
-}
-
-.spaceKicker {
-  margin: 0 0 6px;
-  color: rgba(110, 229, 255, 0.82);
-  font-size: 0.72rem;
-  font-weight: 900;
-  letter-spacing: 0.11em;
-  text-transform: uppercase;
-}
-
-.roomStageHead h2 {
-  margin: 0;
-  color: rgba(255, 255, 255, 0.94);
-  font-size: 1.1rem;
-  line-height: 1.14;
-}
-
-.roomStageHead p {
-  margin: 6px 0 0;
-  max-width: 520px;
-  color: rgba(255, 255, 255, 0.62);
-  line-height: 1.45;
-}
-
-.roomStageHead .spaceStatus {
-  color: rgba(255, 255, 255, 0.72);
-  font-weight: 750;
-  font-size: 0.82rem;
-}
-
-.roomStageHead .spaceRule {
-  margin-top: 6px;
-  color: rgba(110, 229, 255, 0.70);
-  font-size: 0.76rem;
-  font-weight: 760;
-}
-
-.spaceMeta {
-  display: flex;
-  flex-wrap: wrap;
+  align-content: start;
   gap: 8px;
-  justify-content: flex-end;
+  min-width: 0;
 }
 
-.spaceMeta span {
+.roomTitleCompact {
+  margin: 0;
+  padding: 2px 4px;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 0.98rem;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+@media (min-width: 1160px) {
+  .roomTitleCompact {
+    display: none;
+  }
+}
+
+.cornerChip {
   display: inline-flex;
   align-items: center;
-  min-height: 31px;
-  padding: 7px 10px;
+  min-height: 26px;
+  padding: 3px 9px;
   border-radius: 999px;
-  color: rgba(255, 255, 255, 0.78);
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.09);
-  font-size: 0.76rem;
+  color: rgba(255, 255, 255, 0.86);
+  background: rgba(5, 9, 16, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  font-size: 0.72rem;
   font-weight: 850;
+  white-space: nowrap;
+  backdrop-filter: blur(6px);
+}
+
+.cornerChip.isNew {
+  color: rgba(247, 215, 116, 0.96);
+  border-color: rgba(247, 215, 116, 0.3);
+}
+
+.roomInfo {
+  position: relative;
+  display: inline-flex;
+}
+
+.roomInfoButton {
+  display: inline-grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border-radius: 50%;
+  color: rgba(214, 240, 255, 0.92);
+  background: rgba(5, 9, 16, 0.72);
+  border: 1px solid rgba(110, 229, 255, 0.3);
+  font: 900 0.8rem/1 serif;
+  font-style: italic;
+  cursor: pointer;
+  backdrop-filter: blur(6px);
+}
+
+.roomInfoButton:focus-visible {
+  outline: 2px solid rgba(110, 229, 255, 0.8);
+  outline-offset: 2px;
+}
+
+.roomInfoPopover {
+  position: absolute;
+  z-index: 5;
+  top: calc(100% + 6px);
+  inset-inline-end: 0;
+  width: max-content;
+  max-width: 260px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  color: rgba(255, 255, 255, 0.88);
+  background: rgba(8, 13, 22, 0.96);
+  border: 1px solid rgba(110, 229, 255, 0.18);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.4);
+  font-size: 0.74rem;
+  line-height: 1.45;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 140ms ease;
+}
+
+.roomInfo.open .roomInfoPopover,
+.roomInfo:hover .roomInfoPopover,
+.roomInfo:focus-within .roomInfoPopover {
+  opacity: 1;
+  visibility: visible;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .roomInfoPopover {
+    transition: none;
+  }
 }
 
 .roomStage {
@@ -1354,16 +1430,6 @@ watch(
 .roomStage :deep(.zone-sleep_corner) {
   grid-column: 5 / span 2;
   grid-row: 2;
-}
-
-@media (max-width: 920px) {
-  .roomStageHead {
-    flex-direction: column;
-  }
-
-  .spaceMeta {
-    justify-content: flex-start;
-  }
 }
 
 @media (max-width: 720px) {

@@ -4,10 +4,12 @@ Status: draft for Amir's approval, 2026-10-19.
 Decisions: D7 (visual room in this milestone), **D8 = pixel art** (approved 2026-10-19), D9 (15 v1 art elements, assumed approved unless changed), D10 (RTL never mirrors the room).
 Reference: canvas row "Room art style test", pixel version.
 
+> **Addendum (2026-10-19, after B18):** [LIVING_SPACE_VISUAL_V1_ADDENDUM.md](LIVING_SPACE_VISUAL_V1_ADDENDUM.md) overrides parts of this spec: perspective model, sleep-corner nightstand position, PNG lights/dim and vignette, final asset contract and layer order. `frontend/src/assets/room/room_layout.json` is the source of truth for positions. Where they disagree, the addendum wins.
+
 ## 1. Format
 
 - One room scene with a **base resolution of 480×270 px** (16:9).
-- The scene is displayed **only at integer scales**, using `image-rendering: pixelated`. It is never scaled by a fraction.
+- The scene is displayed at **integer scales**, using `image-rendering: pixelated`. The one exception is the hybrid rule in the addendum (§7): a fractional fit is used only when it is within 0.15 of the next integer.
 - Each layer is a transparent PNG drawn at base resolution, positioned by base-pixel coordinates.
 - Palette: one shared night palette of 32–48 colors. Accents use the UI tokens: cyan `#6ee5ff` and gold `#f7d774`.
 - UI (panel, labels, buttons) stays smooth HTML. Only the room is pixel art.
