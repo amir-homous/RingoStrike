@@ -189,7 +189,13 @@ function shouldLocalize(locale) {
 }
 
 export function localizePath(item, locale) {
-  if (!item || !shouldLocalize(locale)) return item;
+  if (!item) return item;
+  if (!shouldLocalize(locale)) {
+    // B11: EN path names also come from i18n (B10 renamed Sleep to "Rest & Energy"); the
+    // backend title stays only for paths without a catalog entry.
+    const english = getPathDisplayCopy(item, "en");
+    return english.found && english.title !== item.title ? { ...item, title: english.title } : item;
+  }
   const displayCopy = getPathDisplayCopy(item, locale);
   const fallbackCopy = FA_PATHS[item.key];
   const copy = displayCopy.found

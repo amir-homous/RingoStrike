@@ -1037,7 +1037,13 @@ const futureReminderCount = computed(() => scheduledReminders.value.length);
 
 const dailyMomentum = computed(() => {
   const missions = props.missions || [];
-  const completedCount = missions.filter((mission) => {
+  // B11: count like the zone's today strip: a tiny substitute counts only once the user used it
+  // (a new user saw "0/3" here but "0/2" in the zone).
+  const counted = missions.filter((mission) => {
+    return String(mission?.mission_intensity || mission?.intensity || "main").toLowerCase() !== "tiny"
+      || ["done", "completed", "remind_later", "skipped"].includes(normalizedMissionStatus(mission));
+  });
+  const completedCount = counted.filter((mission) => {
     return ["done", "completed"].includes(normalizedMissionStatus(mission));
   }).length;
   const pendingCount = missions.filter((mission) => normalizedMissionStatus(mission) === "pending").length;
@@ -1045,7 +1051,7 @@ const dailyMomentum = computed(() => {
 
   return {
     todaySafe: props.todaySafe,
-    total: missions.length,
+    total: counted.length,
     completed: completedCount,
     pending: pendingCount,
     reminded: remindedCount,
@@ -1311,7 +1317,17 @@ onMounted(async () => {
   }, 30000);
   await Promise.all([loadSpace(), loadPaths()]);
   await preloadZonePathChallenges();
+  // B11: the onboarding handoff ("Go to my first mission", /dashboard?firstRun=1) opens the
+  // first mission's zone on phones too, instead of the room overview.
+  if (!roomPanLayout.value && roomLevel.value && isFirstRunArrival()) {
+    const zone = suggestedZone.value || workSurfaceZone.value;
+    if (zone) selectZone(zone);
+  }
 });
+
+function isFirstRunArrival() {
+  return typeof window !== "undefined" && new URLSearchParams(window.location.search).get("firstRun") === "1";
+}
 
 onUnmounted(() => {
   livingSpaceUnmounted = true;
