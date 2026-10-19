@@ -4,6 +4,10 @@
     "width": 480,
     "height": 270
   },
+  "safe_area": {
+    "y0": 10,
+    "y1": 252
+  },
   "perspective": {
     "vanishing_point": [
       240,

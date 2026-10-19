@@ -26,11 +26,12 @@
           :suggested-zone-key="roomLevel ? suggestedZone?.zone_key || '' : ''"
           :rest="roomLevel"
           :min-scale="roomPanLayout ? 2 : 1"
+          :phone="!roomPanLayout"
           @select="selectZone"
         >
           <!-- Room corner (inline-end): objects chip, new-reward chip and the room info popover. -->
           <template #corner>
-            <span class="cornerChip">{{ t("space.objects", { count: unlockedCount }) }}</span>
+            <span class="cornerChip">{{ t("space.objects", { count: unlockedCount }, unlockedCount) }}</span>
             <span v-if="spaceState.has_unseen_rewards" class="cornerChip isNew">{{ t("space.newReward") }}</span>
             <span class="roomInfo" :class="{ open: roomInfoOpen }" @keydown.esc="roomInfoOpen = false">
               <button
@@ -80,7 +81,18 @@
         />
       </div>
 
-      <div v-else-if="workSurfaceZone" class="roomSafeZone">
+      <!-- Phones: the zone panel is a bottom sheet over the lower part of the screen (B22). -->
+      <div
+        v-else-if="workSurfaceZone"
+        ref="zoneSheet"
+        class="roomSafeZone"
+        :class="{ zoneSheet: !roomPanLayout }"
+        :role="roomPanLayout ? null : 'dialog'"
+        :aria-label="roomPanLayout ? null : workSurfaceZone.title"
+        :tabindex="roomPanLayout ? null : -1"
+        :style="roomPanLayout || !sheetTop ? null : { '--sheet-top': `${sheetTop}px` }"
+        @keydown.esc="!roomPanLayout && closePanel()"
+      >
         <SpaceZonePanel
           :mode="workSurfaceMode"
           :zone="workSurfaceZone"
@@ -116,7 +128,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, onUnmounted, ref, watch } from "vue";
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import api from "@/lib/api";
 import UiState from "@/components/ui/UiState.vue";
@@ -178,6 +190,17 @@ let roomPanMedia = null;
 
 function syncRoomPanLayout() {
   roomPanLayout.value = Boolean(roomPanMedia?.matches);
+}
+
+// B22 phones: the zone panel is a bottom sheet; opening one moves focus into it. The sheet stops
+// at the room's bottom edge so the zoomed zone stays visible above it.
+const zoneSheet = ref(null);
+const sheetTop = ref(0);
+
+function measureSheetTop() {
+  if (roomPanLayout.value || typeof document === "undefined") return;
+  const bottom = document.querySelector(".livingSpace .roomViewport")?.getBoundingClientRect().bottom || 0;
+  sheetTop.value = Math.max(0, Math.round(bottom));
 }
 
 // B23: room-level overview after "Back to room" or "Enough for today" (no zone panel open).
@@ -440,7 +463,12 @@ async function loadPaths() {
 }
 
 function selectZone(zone) {
+  const openingSheet = !roomPanLayout.value && roomLevel.value;
   roomLevel.value = false;
+  if (openingSheet) {
+    measureSheetTop();
+    nextTick(() => zoneSheet.value?.focus({ preventScroll: true }));
+  }
   requestedMissionId.value = null;
   activeZone.value = zone;
   shellMode.value = "zone";
@@ -462,6 +490,7 @@ function focusReminder(reminder) {
   const zone = displayZones.value.find((item) => item.zone_key === zoneKey) || workSurfaceZone.value;
   if (!zone) return;
 
+  if (roomLevel.value) measureSheetTop();
   roomLevel.value = false;
   activeZone.value = zone;
   shellMode.value = "zone";
@@ -1171,6 +1200,8 @@ onMounted(async () => {
   if (typeof window !== "undefined" && window.matchMedia) {
     roomPanMedia = window.matchMedia(ROOM_PAN_QUERY);
     syncRoomPanLayout();
+    // Phones start at the room overview (no sheet over the room).
+    if (!roomPanLayout.value) roomLevel.value = true;
     roomPanMedia.addEventListener?.("change", syncRoomPanLayout);
   }
   reminderClock = setInterval(() => {
@@ -1324,6 +1355,7 @@ watch(
 }
 
 .roomInfoButton {
+  position: relative;
   display: inline-grid;
   place-items: center;
   width: 26px;
@@ -1337,6 +1369,13 @@ watch(
   font-style: italic;
   cursor: pointer;
   backdrop-filter: blur(6px);
+}
+
+/* 44px touch target around the 26px button (inset is from the padding box, inside the 1px border). */
+.roomInfoButton::after {
+  content: "";
+  position: absolute;
+  inset: -10px;
 }
 
 .roomInfoButton:focus-visible {
@@ -1454,6 +1493,65 @@ watch(
     min-height: 0;
     max-height: none;
     overflow: visible;
+  }
+}
+
+/* B22 phones: the zone panel (v2 content, unchanged) as a bottom sheet over the lower part of
+   the screen and the bottom navigation; the zoomed room stays visible above it. */
+@media (max-width: 599px) {
+  .roomSafeZone.zoneSheet {
+    position: fixed;
+    z-index: 40;
+    inset-inline: 0;
+    bottom: 0;
+    height: auto;
+    min-height: 0;
+    /* Below the room (measured when the sheet opens), never less than 40% of the screen. */
+    max-height: max(40dvh, calc(100dvh - var(--sheet-top, 42dvh)));
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 6px 8px calc(8px + env(safe-area-inset-bottom));
+    border-radius: 20px 20px 0 0;
+    background: rgba(5, 9, 16, 0.96);
+    border-top: 1px solid rgba(110, 229, 255, 0.18);
+    box-shadow: 0 -18px 40px rgba(0, 0, 0, 0.45);
+    animation: sheetIn 300ms ease;
+  }
+
+  .roomSafeZone.zoneSheet:focus {
+    outline: none;
+  }
+
+  /* 44px touch targets for every control in the sheet (panel content unchanged). */
+  .roomSafeZone.zoneSheet :deep(button),
+  .roomSafeZone.zoneSheet :deep(a) {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  .roomSafeZone.zoneSheet::before {
+    content: "";
+    display: block;
+    justify-self: center;
+    width: 40px;
+    height: 4px;
+    margin: 2px auto 6px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.24);
+  }
+}
+
+@keyframes sheetIn {
+  from {
+    transform: translateY(40%);
+    opacity: 0;
+  }
+}
+
+@media (max-width: 599px) and (prefers-reduced-motion: reduce) {
+  .roomSafeZone.zoneSheet {
+    animation: none;
   }
 }
 </style>

@@ -7,18 +7,25 @@
       <div
         ref="viewport"
         class="roomViewport"
-        :class="{ panning, scrolling }"
-        :style="{ height: `${baseHeight * scale}px` }"
+        :class="{ panning, phone, zoomed, dragging }"
+        :style="{ height: `${viewportHeight}px` }"
+        @pointerdown="onPointerDown"
+        @pointermove="onPointerMove"
+        @pointerup="onPointerUp"
+        @pointercancel="onPointerUp"
+        @click.capture="onClickCapture"
+        @focusin="onFocusIn"
       >
         <div
           class="roomScene"
           dir="ltr"
           role="group"
           :aria-label="t('space.roomLabel')"
+          :class="{ flipping: Boolean(flip) }"
           :style="{
             width: `${baseWidth * scale}px`,
             height: `${baseHeight * scale}px`,
-            transform: panning ? `translate(${pan.x}px, ${pan.y}px)` : null,
+            transform: sceneTransform,
           }"
         >
           <!-- Pixel layers at base resolution, scaled by the one effective room scale (addendum §5 order). -->
@@ -121,7 +128,7 @@
               >
                 <polygon :points="item.points" />
               </svg>
-              <span class="zoneLabel" :style="item.labelStyle" aria-hidden="true">
+              <span class="zoneLabel" :class="{ below: item.labelBelow }" :style="item.labelStyle" aria-hidden="true">
                 <span v-if="item.suggested" class="suggestedTag">{{ t("space.room.suggestLabel") }}</span>
                 <strong>{{ item.title }}</strong>
                 <small v-if="item.pathName">{{ item.pathName }}</small>
@@ -140,7 +147,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, onUnmounted, reactive, ref } from "vue";
+import { computed, nextTick, onMounted, onUnmounted, onUpdated, reactive, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import layout from "@/assets/room/room_layout.json";
 import {
@@ -154,6 +161,8 @@ import {
   cameraPan,
   cameraTarget,
   roomScale,
+  safeArea,
+  safeAreaPanY,
   zoneMarker,
   zoneObjects,
 } from "@/lib/roomScene";
@@ -166,6 +175,9 @@ const props = defineProps({
   // From tablet width the room asks for at least x2; when the x2 room is wider than its column it
   // is clipped and panned to the selected zone (or Ringo A). Phones keep 1 (in-frame scroll, B22).
   minScale: { type: Number, default: 1 },
+  // B22 phones (< 600px): overview fitted to the phone room height and centred on Ringo
+  // (drag to look around); a selected zone zooms the camera to x2 on its camera rect.
+  phone: { type: Boolean, default: false },
 });
 
 defineEmits(["select"]);
@@ -189,33 +201,142 @@ let resizeObserver = null;
 
 // Room bottom margin kept free below the scene when fitting the viewport height.
 const BOTTOM_MARGIN = 24;
+// Phones: share of the screen height the room frame may take (the rest is the panel or sheet).
+const PHONE_ROOM_SHARE = 0.45;
+// Phones: camera scale for a selected zone (x2 of the base, spec B22).
+const PHONE_ZOOM_SCALE = 2;
+// Pointer travel before a press on the phone room becomes a drag instead of a tap.
+const DRAG_THRESHOLD = 6;
+
+const safe = safeArea(layout);
+const viewportHeightLimit = ref(Number.POSITIVE_INFINITY);
+const reducedMotion = ref(false);
+
+// Phone zoom: a zone is selected (not the rest overview).
+const zoomed = computed(() => props.phone && Boolean(props.selectedZoneKey) && !props.rest);
+
+// Phone overview scale: the largest (hybrid) scale whose safe-area height fits the phone room height.
+const phoneOverviewScale = computed(() => roomScale(Number.POSITIVE_INFINITY, viewportHeightLimit.value, safe.h));
 
 // The one effective scale for every layer: pixel layers (scale transform), hit regions, labels,
 // focus polygon and camera pan all multiply base px by it. Integer, or fractional only when the
-// fit is close to the next integer (roomScale); x2 minimum from tablet width as before.
+// fit is close to the next integer (roomScale). The fit uses the safe-area height (B22), so the
+// empty strips above and below it may be cropped. x2 minimum from tablet width as before.
 const scale = computed(() => {
-  const fit = roomScale(availableWidth.value, availableHeight.value);
-  const heightLimit = Math.max(1, Math.floor(availableHeight.value / baseHeight));
+  if (props.phone) {
+    return zoomed.value ? Math.max(PHONE_ZOOM_SCALE, phoneOverviewScale.value) : phoneOverviewScale.value;
+  }
+  const fit = roomScale(availableWidth.value, availableHeight.value, safe.h);
+  const heightLimit = Math.max(1, Math.floor(availableHeight.value / safe.h));
   return Math.max(fit, Math.min(Math.floor(props.minScale) || 1, heightLimit));
 });
 
-// Pan only when a minimum scale makes the room wider than its column (tablet and desktop mid widths).
-const panning = computed(() => props.minScale > 1 && baseWidth * scale.value > availableWidth.value);
-
-// Phones: a room wider than the frame scrolls inside its own viewport (never the page).
-const scrolling = computed(() => !panning.value && baseWidth * scale.value > availableWidth.value);
-
 const viewportWidth = computed(() => Math.min(baseWidth * scale.value, Math.max(0, availableWidth.value)));
+
+// Visible room height: phones keep the overview frame height while zoomed; elsewhere the whole
+// room when it fits, else cropped down to (never below) the safe area.
+const viewportHeight = computed(() => {
+  if (props.phone) return Math.min(baseHeight, safe.h) * phoneOverviewScale.value;
+  const room = baseHeight * scale.value;
+  const limit = Number.isFinite(availableHeight.value) ? availableHeight.value : room;
+  return Math.min(room, Math.max(safe.h * scale.value, limit));
+});
+
+// The camera (a translate on the scene) runs whenever the room is larger than its viewport.
+const panning = computed(() => {
+  return props.phone
+    || baseWidth * scale.value > availableWidth.value
+    || viewportHeight.value < baseHeight * scale.value;
+});
+
+// Phones: drag offset (screen px) added to the overview camera; keyboard focus re-targets it.
+const dragX = ref(0);
+const dragging = ref(false);
+const focusZoneKey = ref("");
+let dragStart = null;
+let suppressClick = false;
 
 const pan = computed(() => {
   if (!panning.value) return { x: 0, y: 0 };
-  return cameraPan({
-    viewportWidth: availableWidth.value,
-    viewportHeight: baseHeight * scale.value,
-    scale: scale.value,
-    target: cameraTarget(layout, props.rest ? "" : props.selectedZoneKey),
-  });
+  const s = scale.value;
+  const view = { viewportWidth: viewportWidth.value, viewportHeight: viewportHeight.value, scale: s };
+
+  if (zoomed.value) {
+    return cameraPan({ ...view, target: cameraTarget(layout, props.selectedZoneKey) });
+  }
+
+  const zoneKey = props.phone ? focusZoneKey.value : (props.rest ? "" : props.selectedZoneKey);
+  const x = cameraPan({ ...view, target: cameraTarget(layout, zoneKey) }).x;
+  const minX = Math.min(0, viewportWidth.value - baseWidth * s);
+  return {
+    x: props.phone ? Math.min(0, Math.max(minX, x + dragX.value)) : x,
+    y: safeAreaPanY({ viewportHeight: viewportHeight.value, scale: s, safe }),
+  };
 });
+
+// Phones: zooming in or out animates the camera (300 ms) with a FLIP: the new layout is first
+// drawn with the old camera (translate + relative scale), then eased to the new one.
+// The scene's children scale with it, so hit regions and labels stay on the art throughout.
+const flip = ref(null);
+watch(
+  () => ({ zoomed: zoomed.value, s: scale.value, x: pan.value.x, y: pan.value.y }),
+  (next, prev) => {
+    if (!prev || next.zoomed === prev.zoomed) return;
+    dragX.value = 0;
+    if (!props.phone || reducedMotion.value || !prev.s || !next.s) return;
+    flip.value = { x: prev.x, y: prev.y, k: prev.s / next.s };
+    nextTick(() => requestAnimationFrame(() => requestAnimationFrame(() => { flip.value = null; })));
+  },
+);
+
+const sceneTransform = computed(() => {
+  if (flip.value) return `translate(${flip.value.x}px, ${flip.value.y}px) scale(${flip.value.k})`;
+  return panning.value ? `translate(${pan.value.x}px, ${pan.value.y}px)` : null;
+});
+
+function onPointerDown(event) {
+  if (!props.phone || zoomed.value || event.button > 0) return;
+  dragStart = { x: event.clientX, offset: dragX.value, base: pan.value.x - dragX.value };
+}
+
+function onPointerMove(event) {
+  if (!dragStart) return;
+  const dx = event.clientX - dragStart.x;
+  if (!dragging.value && Math.abs(dx) < DRAG_THRESHOLD) return;
+  dragging.value = true;
+  const minX = Math.min(0, viewportWidth.value - baseWidth * scale.value);
+  const x = Math.min(0, Math.max(minX, dragStart.base + dragStart.offset + dx));
+  dragX.value = x - dragStart.base;
+}
+
+function onPointerUp() {
+  if (dragging.value) {
+    // Snap to whole base pixels so the art stays crisp, and swallow the click that ends the drag.
+    const s = scale.value;
+    const base = pan.value.x - dragX.value;
+    dragX.value = Math.round((base + dragX.value) / s) * s - base;
+    suppressClick = true;
+    setTimeout(() => { suppressClick = false; }, 0);
+  }
+  dragging.value = false;
+  dragStart = null;
+}
+
+function onClickCapture(event) {
+  if (!suppressClick) return;
+  suppressClick = false;
+  event.preventDefault();
+  event.stopPropagation();
+}
+
+// Keyboard on the phone overview: bring the focused zone into the cropped view.
+function onFocusIn(event) {
+  if (!props.phone || zoomed.value || !event.target?.matches?.(":focus-visible")) return;
+  const key = event.target?.closest?.(".zoneHitWrap")?.dataset?.zone;
+  if (!key) return;
+  dragX.value = 0;
+  focusZoneKey.value = key;
+}
 
 // Rest dims the room to layout.rest.room_dim brightness (addendum §3: overlay opacity 0.26).
 const restOverlayOpacity = computed(() => {
@@ -261,6 +382,10 @@ const markers = computed(() => {
     .filter(Boolean);
 });
 
+// Measured label heights (they differ with the "Ringo suggests" tag and the language).
+const labelHeights = reactive({});
+const LABEL_GAP = 6;
+
 const hitZones = computed(() => {
   const s = scale.value;
 
@@ -295,6 +420,9 @@ const hitZones = computed(() => {
           left: `${(box.x + box.w / 2) * s}px`,
           top: `${box.y * s}px`,
         },
+        // No room above the anchor inside the visible frame (e.g. the phone overview, or a zone at
+        // the top of a cropped view): show the label below the anchor instead of clipping it.
+        labelBelow: box.y * s + pan.value.y < (labelHeights[zone.key] || 40) + LABEL_GAP,
       };
     });
 });
@@ -323,24 +451,36 @@ function measure() {
   const el = frame.value;
   availableWidth.value = el?.clientWidth || 0;
 
-  // Height left for the room in the viewport, below where the room starts (header + head card).
+  // Height left for the room in the viewport, below where the room starts (header + title).
   if (el && typeof window !== "undefined") {
     const top = el.getBoundingClientRect().top + window.scrollY;
     availableHeight.value = Math.max(0, window.innerHeight - top - BOTTOM_MARGIN);
-  }
-
-  // When the room scrolls inside its viewport (phones), start centered on Ringo.
-  // The real mobile crop and zoom is B22.
-  const view = viewport.value;
-  const roomWidth = baseWidth * scale.value;
-  if (view && scrolling.value && ringo.value) {
-    const ringoCenter = (ringo.value.x + ringo.value.w / 2) * scale.value;
-    view.scrollLeft = Math.max(0, Math.min(roomWidth - view.clientWidth, ringoCenter - view.clientWidth / 2));
+    viewportHeightLimit.value = Math.max(0, window.innerHeight * PHONE_ROOM_SHARE);
   }
 }
 
+function measureLabels() {
+  frame.value?.querySelectorAll(".zoneHitWrap").forEach((wrap) => {
+    const height = wrap.querySelector(".zoneLabel")?.offsetHeight || 0;
+    if (height && labelHeights[wrap.dataset.zone] !== height) labelHeights[wrap.dataset.zone] = height;
+  });
+}
+
+let motionQuery = null;
+function syncMotion() {
+  reducedMotion.value = Boolean(motionQuery?.matches);
+}
+
+onUpdated(measureLabels);
+
 onMounted(() => {
+  if (typeof window !== "undefined" && window.matchMedia) {
+    motionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
+    syncMotion();
+    motionQuery.addEventListener?.("change", syncMotion);
+  }
   measure();
+  nextTick(measureLabels);
   if (typeof ResizeObserver !== "undefined" && frame.value) {
     resizeObserver = new ResizeObserver(measure);
     resizeObserver.observe(frame.value);
@@ -353,6 +493,7 @@ onMounted(() => {
 onUnmounted(() => {
   resizeObserver?.disconnect();
   if (typeof window !== "undefined") window.removeEventListener("resize", measure);
+  motionQuery?.removeEventListener?.("change", syncMotion);
 });
 </script>
 
@@ -378,15 +519,24 @@ onUnmounted(() => {
   border-radius: 6px;
 }
 
-.roomViewport.scrolling {
-  overflow-x: auto;
-  overflow-y: hidden;
-  scrollbar-width: thin;
-}
-
-/* Mid widths: the x2 room is clipped to its column and panned (300 ms). */
+/* The room is clipped to its viewport and the camera pans (and on phones zooms) in 300 ms. */
 .roomViewport.panning .roomScene {
   transition: transform 300ms ease;
+}
+
+/* Phones: horizontal drags look around the overview; vertical swipes still scroll the page. */
+.roomViewport.phone:not(.zoomed) {
+  touch-action: pan-y;
+  cursor: grab;
+}
+
+.roomViewport.dragging {
+  cursor: grabbing;
+}
+
+.roomViewport.dragging .roomScene,
+.roomViewport .roomScene.flipping {
+  transition: none;
 }
 
 .roomCorner {
@@ -407,20 +557,20 @@ onUnmounted(() => {
     flex-direction: column;
   }
 
+  /* 44px tall so the info button's 44px touch area is not clipped by the frame. */
   .roomCorner {
     position: static;
     order: -1;
     justify-content: flex-end;
-    margin-bottom: 6px;
+    min-height: 44px;
+    margin-bottom: 2px;
+    padding-inline-end: 9px;
   }
 }
 
 .roomScene {
-  transition: transform 300ms ease;
-}
-
-.roomScene {
   position: relative;
+  transform-origin: 0 0;
   flex: 0 0 auto;
   overflow: hidden;
   border-radius: 6px;
@@ -527,6 +677,11 @@ onUnmounted(() => {
   pointer-events: none;
   transform: translate(-50%, -100%) translateY(-4px);
   transition: opacity 140ms ease;
+}
+
+/* Flipped below the anchor when there is no room above it in the visible frame. */
+.zoneLabel.below {
+  transform: translate(-50%, 0) translateY(4px);
 }
 
 .zoneLabel small {

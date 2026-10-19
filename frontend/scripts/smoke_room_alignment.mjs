@@ -3,10 +3,12 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawn } from "node:child_process";
-import { footprintBox } from "../src/lib/roomScene.js";
+import { footprintBox, safeArea } from "../src/lib/roomScene.js";
 
 // Room alignment at integer and fractional scales (hybrid rule): the pixel layers, zone hit
 // regions, focus polygons, labels, dim/light layers and camera pan must all use one scale.
+// B22: the safe area (base y 10..252) is always visible, and on phones the overview, the x2 zone
+// zoom with the bottom sheet, and "Back to room" keep the same alignment, with 44px touch targets.
 
 const FRONTEND_BASE = process.env.FRONTEND_BASE_URL || "http://localhost:5173";
 const API_BASE = process.env.VITE_API_BASE || "http://localhost:5005";
@@ -14,12 +16,19 @@ const CHROME_BIN = process.env.CHROME_BIN || "/usr/bin/google-chrome";
 const DEBUG_PORT = Number(process.env.ROOM_ALIGNMENT_DEBUG_PORT || 9233);
 const TOLERANCE = 0.75; // screen px (sub-pixel layout rounding)
 
-// [width, height, expected kind]: 1920x940 has fit ~2.93 -> fractional; the others are integer.
+// [width, height, expected kind]. The fit uses the safe-area height (242 base px):
+// 1920x850 -> ~2.89 (fractional), 1920x940 -> x3 (x2.92 before the safe area), the others integer.
 const VIEWPORTS = [
-  [1920, 940, "fractional"],
-  [1920, 1080, "integer"],
-  [1440, 900, "integer"],
-  [1366, 768, "integer-pan"],
+  [1920, 850, "fractional"],
+  [1920, 940, "integer", 3],
+  [1920, 1080, "integer", 3],
+  [1440, 900, "integer", 2],
+  [1366, 768, "integer-pan", 2],
+];
+// Phones (< 600px): [width, height]. Overview x1, a selected zone zooms to x2.
+const PHONES = [
+  [390, 844],
+  [320, 640],
 ];
 
 function delay(ms) {
@@ -161,7 +170,14 @@ const MEASURE = `(() => {
   const light = document.querySelector(".lightLayer");
   const dim = document.querySelector(".dimLayer");
   const viewport = document.querySelector(".roomViewport").getBoundingClientRect();
+  const sheet = document.querySelector(".zoneSheet");
   return {
+    viewportTop: viewport.top - scene.top, viewportBottom: viewport.bottom - scene.top,
+    viewportW: viewport.width,
+    panY: new DOMMatrixReadOnly(getComputedStyle(document.querySelector(".roomScene")).transform).f,
+    hits: [...document.querySelectorAll(".zoneHit")].map((hit) => { const r = hit.getBoundingClientRect(); return [r.width, r.height]; }),
+    sheet: sheet ? { top: sheet.getBoundingClientRect().top, bottom: sheet.getBoundingClientRect().bottom, height: innerHeight, focused: sheet.contains(document.activeElement) } : null,
+    pageScroll: document.documentElement.scrollWidth - innerWidth,
     sceneW: scene.width, sceneH: scene.height, baseScale,
     pan: new DOMMatrixReadOnly(getComputedStyle(document.querySelector(".roomScene")).transform).e,
     viewportH: viewport.height,
@@ -176,11 +192,24 @@ function near(actual, expected, what) {
   assert.ok(Math.abs(actual - expected) <= TOLERANCE, `${what}: ${actual} vs ${expected}`);
 }
 
+function checkSafeArea(m, label, { full = true } = {}) {
+  const s = m.baseScale;
+  const safe = safeArea(LAYOUT);
+  // The visible rows (relative to the scene) must include the safe area, vertically.
+  assert.ok(m.viewportTop <= safe.y0 * s + TOLERANCE, `${label} safe area top cropped: ${m.viewportTop} > ${safe.y0 * s}`);
+  assert.ok(m.viewportBottom >= safe.y1 * s - TOLERANCE, `${label} safe area bottom cropped: ${m.viewportBottom} < ${safe.y1 * s}`);
+  const panBase = m.panY / s;
+  assert.ok(Math.abs(panBase - Math.round(panBase)) < 0.01, `${label} pan y ${m.panY} is not whole base px`);
+  if (full) assert.ok(m.viewportBottom - m.viewportTop >= safe.h * s - TOLERANCE, `${label} viewport shorter than the safe area`);
+}
+
+let LAYOUT = null;
+
 function checkLayout(m, layout, label) {
   const s = m.baseScale;
   near(m.sceneW, 480 * s, `${label} scene width`);
   near(m.sceneH, 270 * s, `${label} scene height`);
-  near(m.viewportH, 270 * s, `${label} viewport height`);
+  assert.ok(m.viewportH <= 270 * s + TOLERANCE, `${label} viewport taller than the room`);
   assert.equal(m.hscroll, false, `${label} page-level horizontal scroll`);
   assert.ok(m.zones.length >= 5, `${label} zones rendered`);
 
@@ -204,6 +233,7 @@ async function run() {
   await waitForOk(`${FRONTEND_BASE}/`);
 
   const layout = JSON.parse(await readFile(new URL("../src/assets/room/room_layout.json", import.meta.url), "utf8"));
+  LAYOUT = layout;
   const user = await createUser();
   const userDataDir = await mkdtemp(join(tmpdir(), "ringo-room-alignment-"));
   const chrome = spawn(CHROME_BIN, [
@@ -228,11 +258,11 @@ async function run() {
     await page.send("Page.enable");
     await page.send("Page.addScriptToEvaluateOnNewDocument", {
       source: `localStorage.setItem("ringo_token", ${JSON.stringify(user.token)});
-        localStorage.setItem("ringostrike_locale", "en");
+        if (!localStorage.getItem("ringostrike_locale")) localStorage.setItem("ringostrike_locale", "en");
         localStorage.setItem(${JSON.stringify(`ringostrike_onboarding_done:user:${user.id}`)}, "1");`,
     });
 
-    for (const [width, height, kind] of VIEWPORTS) {
+    for (const [width, height, kind, expectedScale] of VIEWPORTS) {
       const label = `${width}x${height}`;
       await page.send("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: 1, mobile: false });
       await page.send("Page.navigate", { url: `${FRONTEND_BASE}/dashboard` });
@@ -247,7 +277,9 @@ async function run() {
       } else {
         assert.ok(Number.isInteger(s) && s >= 2, `${label} expected an integer scale >= 2, got ${s}`);
       }
+      if (expectedScale) assert.equal(s, expectedScale, `${label} scale`);
       checkLayout(overview, layout, `${label} overview`);
+      checkSafeArea(overview, `${label} overview`);
 
       // Select each zone: dim covers the scene, light sits at its base position, pan snaps to base px.
       for (const key of Object.keys(layout.zones)) {
@@ -257,6 +289,7 @@ async function run() {
         const selected = await evaluate(page, MEASURE);
         const zl = layout.zones[key];
         checkLayout(selected, layout, `${label} ${key}`);
+        checkSafeArea(selected, `${label} ${key}`);
         near(selected.dim.x, 0, `${label} ${key} dim x`);
         near(selected.dim.y, 0, `${label} ${key} dim y`);
         near(selected.dim.w, 480 * s, `${label} ${key} dim w`);
@@ -269,7 +302,66 @@ async function run() {
         assert.ok(Math.abs(panBase - Math.round(panBase)) < 0.01, `${label} ${key} pan ${selected.pan} is not whole base px at x${s}`);
         if (kind !== "integer-pan") assert.equal(selected.pan, 0, `${label} ${key} unexpected pan`);
       }
-      console.log(`${label}: x${s} aligned`);
+      console.log(`${label}: x${s} aligned, safe area visible`);
+    }
+
+    for (const [width, height] of PHONES) {
+      for (const locale of ["en", "fa"]) {
+        const label = `${width}x${height} ${locale}`;
+        await page.send("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: 1, mobile: true });
+        await page.send("Runtime.evaluate", { expression: `localStorage.setItem("ringostrike_locale", "${locale}")` });
+        await page.send("Page.navigate", { url: `${FRONTEND_BASE}/dashboard` });
+        await waitFor(page, `Boolean(document.querySelector(".roomScene .zoneHitWrap"))`);
+        await delay(900);
+
+        assert.equal(await evaluate(page, "document.documentElement.dir || 'ltr'"), locale === "fa" ? "rtl" : "ltr", `${label} page direction`);
+
+        // Overview: x1 fitted to the phone room height, safe area visible, no sheet, no page scroll.
+        const overview = await evaluate(page, MEASURE);
+        assert.equal(overview.baseScale, 1, `${label} overview scale`);
+        assert.equal(overview.sheet, null, `${label} no sheet on the overview`);
+        assert.ok(overview.pageScroll <= 0, `${label} page-level horizontal scroll ${overview.pageScroll}`);
+        checkLayout(overview, layout, `${label} overview`);
+        checkSafeArea(overview, `${label} overview`);
+        for (const [w, h] of overview.hits) assert.ok(w >= 44 && h >= 44, `${label} zone touch target ${w}x${h}`);
+        // The 26px info button has a 44px touch area.
+        const infoHit = await evaluate(page, `(() => { const r = document.querySelector(".roomInfoButton").getBoundingClientRect(); const cx = r.left + r.width / 2, cy = r.top + r.height / 2; return [[cx - 21, cy], [cx + 21, cy], [cx, cy - 21], [cx, cy + 21]].every(([x, y]) => document.elementFromPoint(x, y)?.closest(".roomInfoButton")); })()`);
+        assert.ok(infoHit, `${label} info button touch area < 44px`);
+
+        for (const key of Object.keys(layout.zones)) {
+          // Tap: the camera zooms to x2 on the zone and the sheet opens below the room.
+          await evaluate(page, `document.querySelector('.zoneHitWrap[data-zone="${key}"] .zoneHit').click()`);
+          await waitFor(page, `Boolean(document.querySelector(".zoneSheet") && document.querySelector(".lightLayer")?.naturalWidth)`);
+          await delay(500); // 300 ms camera transition
+          const zoomed = await evaluate(page, MEASURE);
+          assert.equal(zoomed.baseScale, 2, `${label} ${key} zoom scale`);
+          checkLayout(zoomed, layout, `${label} ${key} zoomed`);
+          const zl = layout.zones[key];
+          near(zoomed.light.x, zl.light.x * 2, `${label} ${key} light x`);
+          near(zoomed.dim.w, 480 * 2, `${label} ${key} dim w`);
+          // The camera centres the zone's camera rect (clamped to the room edges).
+          const [cx, , cw] = zl.camera;
+          const centre = -zoomed.pan + zoomed.viewportW / 2;
+          const wanted = Math.min(Math.max((cx + cw / 2) * 2, zoomed.viewportW / 2), 960 - zoomed.viewportW / 2);
+          assert.ok(Math.abs(centre - wanted) <= 2, `${label} ${key} camera centre ${centre} vs ${wanted}`);
+          assert.ok(zoomed.sheet.focused, `${label} ${key} focus moves into the sheet`);
+          const smallTargets = await evaluate(page, `[...document.querySelectorAll(".zoneSheet button, .zoneSheet a")].filter((e) => e.offsetParent).map((e) => { const r = e.getBoundingClientRect(); return [e.textContent.trim().slice(0, 20), Math.round(r.width), Math.round(r.height)]; }).filter(([, w, h]) => w < 44 || h < 44)`);
+          assert.deepEqual(smallTargets, [], `${label} ${key} sheet touch targets < 44px`);
+          assert.ok(zoomed.sheet.bottom <= zoomed.sheet.height + 1, `${label} ${key} sheet off screen`);
+          assert.ok(zoomed.pageScroll <= 0, `${label} ${key} page-level horizontal scroll`);
+
+          // Back to room: the camera returns to the overview.
+          await evaluate(page, `document.querySelector(".zoneSheet .closeButton").click()`);
+          await waitFor(page, `!document.querySelector(".zoneSheet")`);
+          await delay(500);
+          const back = await evaluate(page, MEASURE);
+          assert.equal(back.baseScale, 1, `${label} ${key} back scale`);
+          assert.equal(back.pan, overview.pan, `${label} ${key} back pan x`);
+          assert.equal(back.panY, overview.panY, `${label} ${key} back pan y`);
+          checkLayout(back, layout, `${label} ${key} back`);
+        }
+        console.log(`${label}: overview x1, zoom x2 + sheet, back to room aligned`);
+      }
     }
 
     page.close();

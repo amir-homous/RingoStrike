@@ -253,7 +253,7 @@ export default {
     loadingText: "Checking which objects you have earned.",
     errorTitle: "Room could not load",
     roomLabel: "Living Space room zones",
-    objects: "{count} objects",
+    objects: "{count} object | {count} objects",
     newReward: "New reward",
     close: "Close",
     unlocked: "Unlocked",

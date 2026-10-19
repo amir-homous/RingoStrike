@@ -77,7 +77,24 @@ The room was re-assembled from these files and `room_layout.json` alone, and it 
 
 ## 7. Room scale: hybrid rule (decided in B19 review round 6)
 
-- `fit = min(availableWidth / 480, availableHeight / 270)`.
+- `fit = min(availableWidth / 480, availableHeight / safeAreaHeight)` (242 base px since B22, see §8; 270 before).
 - If `fit - floor(fit) >= 0.85`, the room uses `fit`, kept to 1/100 and rounded down, with `image-rendering: pixelated`. Otherwise it uses `floor(fit)`. The scale is never below 1.
 - From 600 px wide the minimum stays ×2: a room wider than its column is cropped with the camera pan. Phones keep ×1, scrolling inside the room frame.
 - Every layer uses the same effective scale: the pixel layers (one `scale()` on the base layer), the hit regions, the labels, the focus polygon, the dim and light layers, and the camera pan (snapped to whole base pixels of that scale). `npm run test:room-alignment` checks this at 1920×940 (fractional), 1920×1080, 1440×900 and 1366×768.
+
+## 8. Safe area and the phone camera (B22)
+
+**Safe area.** `room_layout.json` has `"safe_area": {"y0": 10, "y1": 252}`. Base rows 10–252 must always be visible.
+- The scale fit uses the safe-area height (242), so the empty wall strip above the window and the floor below the mat may be cropped.
+- The visible height is the whole room when it fits. Otherwise it is cropped down to the available height, but never below the safe area, with the crop centred on the safe area and snapped to whole base pixels.
+- At 1920×940 this gives ×3 instead of ×2.92.
+
+**Phones (< 600 px).**
+- **Overview:** the largest (hybrid) scale whose safe-area height fits the phone room frame. The frame is 45% of the screen height, so the scale is ×1 on current phones. The camera centres on Ringo.
+- **Moving around:** a horizontal drag looks around inside the frame (vertical swipes still scroll the page). Keyboard focus brings the focused zone into view.
+- **Zoom:** tapping a zone zooms the camera to ×2 on that zone's `camera` rect (`cameraPan`), with a 300 ms transform (instant with reduced motion). The v2 zone panel opens as a bottom sheet below the room, and focus moves into it.
+- **Return:** "Back to room", "Enough for today" or Esc closes the sheet and returns the camera to the overview.
+- **Overview content:** below the room is the room-level overview panel. There is no sheet until a zone is tapped.
+
+Touch targets are at least 44 px (zones, the info button and the sheet buttons), in EN and FA. There is no page-level horizontal overflow from 320 to 599 px. `npm run test:room-alignment` covers this at 390×844 and 320×640.
+

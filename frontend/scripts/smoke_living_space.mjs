@@ -19,6 +19,8 @@ import {
   roomScale,
   roomFit,
   FRACTIONAL_SNAP,
+  safeArea,
+  safeAreaPanY,
   slotForReward,
   zoneMarker,
   zoneObjects,
@@ -312,7 +314,26 @@ function runRoomSceneSmoke() {
     assert.ok(ROOM_BASE_WIDTH * scale <= w + 1e-9 && ROOM_BASE_HEIGHT * scale <= h + 1e-9, `${w}x${h}`);
   }
 
-  // Camera pan at a fractional scale snaps to whole base pixels of that scale.
+  // B22 safe area: base y 10..252 must stay visible; the fit uses its height (242).
+  const safe = safeArea(layout);
+  assert.deepEqual(safe, { y0: 10, y1: 252, h: 242 });
+  assert.deepEqual(safeArea({}), { y0: 0, y1: ROOM_BASE_HEIGHT, h: ROOM_BASE_HEIGHT });
+  assert.equal(roomScale(1460, 791), 2.92); // full height: x2.92 at 1920x940
+  assert.equal(roomScale(1460, 791, safe.h), 3); // safe-area height: x3
+  assert.equal(roomScale(1460, 701, safe.h), 2.89); // 701 / 242 = 2.896 -> fractional
+  assert.equal(roomScale(Number.POSITIVE_INFINITY, 380, safe.h), 1); // phone room height
+  for (const [view, s] of [[791, 3], [726, 3], [701, 2.89], [484, 2], [242, 1], [810, 3], [1000, 3]]) {
+    const y = safeAreaPanY({ viewportHeight: view, scale: s, safe });
+    const top = -y / s;
+    assert.ok(y <= 0, `pan y ${y}`);
+    if (view < ROOM_BASE_HEIGHT * s) {
+      assert.ok(top <= safe.y0 + 1e-9 && top + view / s >= safe.y1 - 1e-9, `safe area visible at ${view}/x${s}: top ${top}`);
+      assert.ok(Math.abs(top - Math.round(top)) < 1e-9, "whole base px");
+    } else {
+      assert.equal(y, 0);
+    }
+  }
+
   const fractionalPan = cameraPan({ viewportWidth: 1000, viewportHeight: 791, scale: 2.92, target: cameraTarget(layout, "sleep_corner") });
   assert.ok(fractionalPan.x < 0);
   assert.ok(Math.abs(fractionalPan.x / 2.92 - Math.round(fractionalPan.x / 2.92)) < 1e-9);

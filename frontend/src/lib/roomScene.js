@@ -19,23 +19,52 @@ export const ZONE_ORDER = Object.freeze([
 // instead of dropping to the integer below it (Amir's hybrid rule, review round 6).
 export const FRACTIONAL_SNAP = 0.85;
 
+// Safe area (B22): the base rows that must always be visible (room_layout.json "safe_area",
+// base y 10..252). The empty wall strip above it and the floor strip below it may be cropped.
+export function safeArea(layout) {
+  const area = layout?.safe_area;
+  const y0 = Number.isFinite(Number(area?.y0)) ? Number(area.y0) : 0;
+  const y1 = Number.isFinite(Number(area?.y1)) ? Number(area.y1) : ROOM_BASE_HEIGHT;
+  return { y0, y1, h: Math.max(1, y1 - y0) };
+}
+
 // Largest scale that fits both the available width and height (not rounded).
-export function roomFit(availableWidth, availableHeight = Number.POSITIVE_INFINITY) {
-  const width = Number(availableWidth) || 0;
+// fitHeight is the base height that has to fit: the full room, or the safe-area height.
+export function roomFit(availableWidth, availableHeight = Number.POSITIVE_INFINITY, fitHeight = ROOM_BASE_HEIGHT) {
+  const width = Number(availableWidth);
   const height = availableHeight === undefined || availableHeight === null
     ? Number.POSITIVE_INFINITY
     : Number(availableHeight);
-  const byHeight = Number.isFinite(height) ? height / ROOM_BASE_HEIGHT : Number.POSITIVE_INFINITY;
-  return Math.max(0, Math.min(width / ROOM_BASE_WIDTH, byHeight));
+  const byWidth = Number.isNaN(width) ? 0 : width / ROOM_BASE_WIDTH;
+  const byHeight = Number.isFinite(height) ? height / (Number(fitHeight) || ROOM_BASE_HEIGHT) : Number.POSITIVE_INFINITY;
+  return Math.max(0, Math.min(byWidth, byHeight));
 }
 
 // Room scale: the integer below the fit, unless the fit is within 0.15 of the next integer;
 // then the fit itself (kept to 1/100 and rounded down so it never overflows). Never below 1.
-export function roomScale(availableWidth, availableHeight = Number.POSITIVE_INFINITY) {
-  const fit = roomFit(availableWidth, availableHeight);
+export function roomScale(availableWidth, availableHeight = Number.POSITIVE_INFINITY, fitHeight = ROOM_BASE_HEIGHT) {
+  const fit = roomFit(availableWidth, availableHeight, fitHeight);
   const whole = Math.floor(fit);
   const scale = fit - whole >= FRACTIONAL_SNAP ? Math.floor(fit * 100) / 100 : whole;
   return Math.max(1, scale);
+}
+
+// Vertical crop that keeps the safe area visible: the translate (screen px, <= 0) for a room of
+// scale s in a viewport shorter than the room. Centred on the safe area, snapped to whole base px.
+export function safeAreaPanY({ viewportHeight, scale = 1, safe = { y0: 0, y1: ROOM_BASE_HEIGHT } } = {}) {
+  const s = Math.max(1, Number(scale) || 1);
+  const view = Number(viewportHeight);
+  const room = ROOM_BASE_HEIGHT * s;
+  if (!Number.isFinite(view) || room <= view) return 0;
+
+  // Scroll offset (in base px) range that keeps [y0, y1] inside the viewport and the room edges out.
+  const viewBase = view / s;
+  const low = Math.max(0, safe.y1 - viewBase);
+  const high = Math.min(safe.y0, ROOM_BASE_HEIGHT - viewBase);
+  const offset = high >= low
+    ? clamp(Math.round((low + high) / 2), Math.ceil(low), Math.floor(high))
+    : Math.round((safe.y0 + safe.y1 - viewBase) / 2);
+  return -clamp(offset, 0, Math.floor(ROOM_BASE_HEIGHT - viewBase)) * s || 0;
 }
 
 function clamp(value, min, max) {
