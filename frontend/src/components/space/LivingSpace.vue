@@ -1523,9 +1523,10 @@ watch(
     outline: none;
   }
 
-  /* 44px touch targets for the panel's header buttons in the sheet (content unchanged). */
-  .roomSafeZone.zoneSheet :deep(.closeButton),
-  .roomSafeZone.zoneSheet :deep(.backButton) {
+  /* 44px touch targets for every control in the sheet (panel content unchanged). */
+  .roomSafeZone.zoneSheet :deep(button),
+  .roomSafeZone.zoneSheet :deep(a) {
+    min-width: 44px;
     min-height: 44px;
   }
 
