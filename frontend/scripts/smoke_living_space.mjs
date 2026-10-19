@@ -10,6 +10,8 @@ import { localizeChallenge, localizeMission } from "../src/lib/ringoContentLocal
 import {
   ROOM_BASE_WIDTH,
   ZONE_ORDER,
+  cameraPan,
+  cameraTarget,
   footprintBox,
   footprintClipPath,
   ringoPlacement,
@@ -288,6 +290,34 @@ function runRoomSceneSmoke() {
   assert.equal(roomScale(959), 1);
   assert.equal(roomScale(960), 2);
   assert.equal(roomScale(1440), 3);
+  // Height is a limit too: x3 needs 810px of height, else it falls back to x2.
+  assert.equal(roomScale(1446, 766), 2);
+  assert.equal(roomScale(1446, 810), 3);
+  assert.equal(roomScale(1446, 200), 1);
+  assert.equal(roomScale(966, null), 2);
+
+  // Camera pan (x2 room = 960x540 in an 830px-wide viewport).
+  const view = { viewportWidth: 830, viewportHeight: 540, scale: 2 };
+  // Room fits vertically -> no vertical pan.
+  assert.equal(cameraPan({ ...view, target: { x: 240, y: 135 } }).y, 0);
+  // Centered on a point, snapped to whole base px (multiples of the scale).
+  const centre = cameraPan({ ...view, target: { x: 240, y: 135 } });
+  assert.equal(centre.x, -64);
+  assert.equal(Math.abs(centre.x % 2), 0);
+  // Clamped at the left edge (work desk) and the right edge (sleep corner): never past the room.
+  const work = cameraPan({ ...view, target: cameraTarget(layout, "work_desk") });
+  assert.equal(work.x, 0);
+  const sleep = cameraPan({ ...view, target: cameraTarget(layout, "sleep_corner") });
+  assert.equal(sleep.x, 830 - 960);
+  // Odd viewport: snapping never reveals space past the room edge.
+  const odd = cameraPan({ viewportWidth: 829, viewportHeight: 540, scale: 2, target: { x: 480, y: 0 } });
+  assert.ok(odd.x <= 0 && odd.x + 960 >= 829 && Math.abs(odd.x % 2) === 0, `odd viewport ${odd.x}`);
+  // Room fits -> no pan.
+  assert.deepEqual(cameraPan({ viewportWidth: 1000, viewportHeight: 600, scale: 2, target: { x: 0, y: 0 } }), { x: 0, y: 0 });
+  // Targets: zone camera rect, else Ringo A.
+  assert.deepEqual(cameraTarget(layout, "creative_corner"), { x: 205, y: 39, w: 195, h: 135 });
+  assert.deepEqual(cameraTarget(layout, ""), { x: 270, y: 214, w: 0, h: 0 });
+  assert.deepEqual(cameraTarget(layout, "unknown"), { x: 270, y: 214, w: 0, h: 0 });
 
   // Every layout zone has a footprint, prop, marker and the PNG files the renderer needs.
   const roomDir = new URL("../src/assets/room/", import.meta.url);

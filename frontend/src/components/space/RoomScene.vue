@@ -1,5 +1,10 @@
 <template>
-  <div ref="frame" class="roomFrame">
+  <div
+    ref="frame"
+    class="roomFrame"
+    :class="{ panning }"
+    :style="panning ? { height: `${baseHeight * scale}px` } : null"
+  >
     <slot v-if="failed" name="fallback" />
 
     <div
@@ -8,7 +13,11 @@
       dir="ltr"
       role="group"
       :aria-label="t('space.roomLabel')"
-      :style="{ width: `${baseWidth * scale}px`, height: `${baseHeight * scale}px` }"
+      :style="{
+        width: `${baseWidth * scale}px`,
+        height: `${baseHeight * scale}px`,
+        transform: panning ? `translate(${pan.x}px, ${pan.y}px)` : null,
+      }"
     >
       <!-- Pixel layers at base resolution, integer-scaled (addendum §5 order). -->
       <div class="sceneBase" :style="{ transform: `scale(${scale})` }" aria-hidden="true">
@@ -132,6 +141,8 @@ import {
   footprintClipPath,
   footprintPoints,
   ringoPlacement,
+  cameraPan,
+  cameraTarget,
   roomScale,
   zoneMarker,
   zoneObjects,
@@ -142,6 +153,9 @@ const props = defineProps({
   selectedZoneKey: { type: String, default: "" },
   suggestedZoneKey: { type: String, default: "" },
   rest: { type: Boolean, default: false },
+  // Desktop asks for at least x2; when the x2 room is wider than its column it is clipped and
+  // panned to the selected zone (or Ringo A). Mobile keeps 1 (scrollable crop until B22).
+  minScale: { type: Number, default: 1 },
 });
 
 defineEmits(["select"]);
@@ -157,11 +171,32 @@ const baseWidth = layout.base?.width || ROOM_BASE_WIDTH;
 const baseHeight = layout.base?.height || ROOM_BASE_HEIGHT;
 const frame = ref(null);
 const availableWidth = ref(0);
+const availableHeight = ref(Number.POSITIVE_INFINITY);
 const failed = ref(false);
 const naturalSizes = reactive({});
 let resizeObserver = null;
 
-const scale = computed(() => roomScale(availableWidth.value));
+// Room bottom margin kept free below the scene when fitting the viewport height.
+const BOTTOM_MARGIN = 24;
+
+const scale = computed(() => {
+  const fit = roomScale(availableWidth.value, availableHeight.value);
+  const heightLimit = Math.max(1, Math.floor(availableHeight.value / baseHeight));
+  return Math.max(fit, Math.min(Math.floor(props.minScale) || 1, heightLimit));
+});
+
+// Pan only when a minimum scale makes the room wider than its column (desktop mid widths).
+const panning = computed(() => props.minScale > 1 && baseWidth * scale.value > availableWidth.value);
+
+const pan = computed(() => {
+  if (!panning.value) return { x: 0, y: 0 };
+  return cameraPan({
+    viewportWidth: availableWidth.value,
+    viewportHeight: baseHeight * scale.value,
+    scale: scale.value,
+    target: cameraTarget(layout, props.rest ? "" : props.selectedZoneKey),
+  });
+});
 
 // Rest dims the room to layout.rest.room_dim brightness (addendum §3: overlay opacity 0.26).
 const restOverlayOpacity = computed(() => {
@@ -269,10 +304,16 @@ function measure() {
   const el = frame.value;
   availableWidth.value = el?.clientWidth || 0;
 
+  // Height left for the room in the viewport, below where the room starts (header + head card).
+  if (el && typeof window !== "undefined") {
+    const top = el.getBoundingClientRect().top + window.scrollY;
+    availableHeight.value = Math.max(0, window.innerHeight - top - BOTTOM_MARGIN);
+  }
+
   // When the room is wider than its frame (narrow screens), start centered on Ringo.
   // The real mobile crop and zoom is B22.
   const roomWidth = baseWidth * scale.value;
-  if (el && roomWidth > el.clientWidth && ringo.value) {
+  if (el && !panning.value && roomWidth > el.clientWidth && ringo.value) {
     const ringoCenter = (ringo.value.x + ringo.value.w / 2) * scale.value;
     el.scrollLeft = Math.max(0, Math.min(roomWidth - el.clientWidth, ringoCenter - el.clientWidth / 2));
   }
@@ -284,10 +325,14 @@ onMounted(() => {
     resizeObserver = new ResizeObserver(measure);
     resizeObserver.observe(frame.value);
   }
+  if (typeof window !== "undefined") {
+    window.addEventListener("resize", measure);
+  }
 });
 
 onUnmounted(() => {
   resizeObserver?.disconnect();
+  if (typeof window !== "undefined") window.removeEventListener("resize", measure);
 });
 </script>
 
@@ -299,6 +344,19 @@ onUnmounted(() => {
   overflow-x: auto;
   overflow-y: hidden;
   scrollbar-width: thin;
+}
+
+/* Desktop mid widths: the x2 room is clipped to its column and panned (300 ms). */
+.roomFrame.panning {
+  display: block;
+  overflow: hidden;
+  /* The frame only clips the (always-LTR) room. In an RTL page a wider block would otherwise be
+     anchored to the right edge, adding to the pan offset. */
+  direction: ltr;
+}
+
+.roomFrame.panning .roomScene {
+  transition: transform 300ms ease;
 }
 
 .roomScene {
@@ -454,7 +512,8 @@ onUnmounted(() => {
 
 @media (prefers-reduced-motion: reduce) {
   .zoneOutline,
-  .zoneLabel {
+  .zoneLabel,
+  .roomFrame.panning .roomScene {
     transition: none;
   }
 }
