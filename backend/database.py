@@ -185,6 +185,14 @@ def init_db():
 
     _add_column_if_missing(c, "mission_logs", "reminder_sent_at", "reminder_sent_at TEXT")
     _add_column_if_missing(c, "mission_logs", "skip_reason", "skip_reason TEXT")
+    # B26 (#383): optional, owner-only check-in context. Nullable, no backfill; the note
+    # reuses mission_logs.notes and checkins is not widened.
+    _add_column_if_missing(c, "mission_logs", "performed_at", "performed_at TEXT")
+    _add_column_if_missing(c, "mission_logs", "mode", "mode TEXT")
+    _add_column_if_missing(c, "mission_logs", "place_key", "place_key TEXT")
+    _add_column_if_missing(c, "mission_logs", "place_label", "place_label TEXT")
+    _add_column_if_missing(c, "mission_logs", "feeling_key", "feeling_key TEXT")
+    _add_column_if_missing(c, "mission_logs", "duration_seconds", "duration_seconds INTEGER")
 
     c.execute("""
     CREATE TABLE IF NOT EXISTS user_paths (
