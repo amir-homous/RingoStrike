@@ -15,14 +15,27 @@ export const ZONE_ORDER = Object.freeze([
   "fitness_corner",
 ]);
 
-// Integer scaling only (spec §7), fitting both the available width and height.
-export function roomScale(availableWidth, availableHeight = Number.POSITIVE_INFINITY) {
+// Fractional part of the fit at or above which the room uses the fractional fit (pixelated)
+// instead of dropping to the integer below it (Amir's hybrid rule, review round 6).
+export const FRACTIONAL_SNAP = 0.85;
+
+// Largest scale that fits both the available width and height (not rounded).
+export function roomFit(availableWidth, availableHeight = Number.POSITIVE_INFINITY) {
   const width = Number(availableWidth) || 0;
   const height = availableHeight === undefined || availableHeight === null
     ? Number.POSITIVE_INFINITY
     : Number(availableHeight);
   const byHeight = Number.isFinite(height) ? height / ROOM_BASE_HEIGHT : Number.POSITIVE_INFINITY;
-  return Math.max(1, Math.floor(Math.min(width / ROOM_BASE_WIDTH, byHeight)));
+  return Math.max(0, Math.min(width / ROOM_BASE_WIDTH, byHeight));
+}
+
+// Room scale: the integer below the fit, unless the fit is within 0.15 of the next integer;
+// then the fit itself (kept to 1/100 and rounded down so it never overflows). Never below 1.
+export function roomScale(availableWidth, availableHeight = Number.POSITIVE_INFINITY) {
+  const fit = roomFit(availableWidth, availableHeight);
+  const whole = Math.floor(fit);
+  const scale = fit - whole >= FRACTIONAL_SNAP ? Math.floor(fit * 100) / 100 : whole;
+  return Math.max(1, scale);
 }
 
 function clamp(value, min, max) {
@@ -33,9 +46,10 @@ function clamp(value, min, max) {
 // target is in base px: a point { x, y } or a rect { x, y, w, h } (its center is used).
 // Returns the translate in screen px for the scaled room: centered on the target, clamped so the
 // room's edges are never passed, and snapped to whole base pixels so the pixel art stays crisp.
+// scale may be fractional (hybrid rule); the snap is then to multiples of that scale.
 // An axis where the room fits the viewport gets 0 (the caller centers or aligns it).
 export function cameraPan({ viewportWidth, viewportHeight, scale = 1, target } = {}) {
-  const s = Math.max(1, Math.floor(Number(scale) || 1));
+  const s = Math.max(1, Number(scale) || 1);
   const roomWidth = ROOM_BASE_WIDTH * s;
   const roomHeight = ROOM_BASE_HEIGHT * s;
   const cx = (Number(target?.x) || 0) + (Number(target?.w) || 0) / 2;

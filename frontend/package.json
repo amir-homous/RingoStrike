@@ -12,6 +12,7 @@
     "test:dashboard": "node scripts/smoke_dashboard_flow.mjs",
     "test:localization": "node scripts/smoke_seeded_content_localization.mjs",
     "test:living-space": "node scripts/smoke_living_space.mjs",
+    "test:room-alignment": "node scripts/smoke_room_alignment.mjs",
     "test:profile": "node scripts/smoke_profile_flow.mjs",
     "test:public-profile": "node scripts/smoke_public_profile_flow.mjs",
     "test:router": "node scripts/smoke_router_guard.mjs",
