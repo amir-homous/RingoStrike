@@ -21,7 +21,7 @@
             transform: panning ? `translate(${pan.x}px, ${pan.y}px)` : null,
           }"
         >
-          <!-- Pixel layers at base resolution, integer-scaled (addendum §5 order). -->
+          <!-- Pixel layers at base resolution, scaled by the one effective room scale (addendum §5 order). -->
           <div class="sceneBase" :style="{ transform: `scale(${scale})` }" aria-hidden="true">
             <img :src="asset(layout.stage)" alt="" class="layer" draggable="false" @error="failed = true" />
 
@@ -50,7 +50,7 @@
               v-if="selectedLayout && !rest"
               :src="asset(selectedLayout.dim)"
               alt=""
-              class="layer"
+              class="layer dimLayer"
               draggable="false"
             />
             <div v-if="rest" class="restOverlay" :style="{ opacity: restOverlayOpacity }" />
@@ -84,6 +84,7 @@
               :key="`hit-${item.key}`"
               class="zoneHitWrap"
               :class="{ selected: item.selected, suggested: item.suggested }"
+              :data-zone="item.key"
             >
               <button
                 type="button"
@@ -170,6 +171,9 @@ let resizeObserver = null;
 // Room bottom margin kept free below the scene when fitting the viewport height.
 const BOTTOM_MARGIN = 24;
 
+// The one effective scale for every layer: pixel layers (scale transform), hit regions, labels,
+// focus polygon and camera pan all multiply base px by it. Integer, or fractional only when the
+// fit is close to the next integer (roomScale); x2 minimum from tablet width as before.
 const scale = computed(() => {
   const fit = roomScale(availableWidth.value, availableHeight.value);
   const heightLimit = Math.max(1, Math.floor(availableHeight.value / baseHeight));
@@ -446,7 +450,7 @@ onUnmounted(() => {
 }
 
 /* Keyboard focus only: a soft outline that follows the footprint polygon, stroked in base px
-   (the SVG viewBox is in base px, so 1 unit = 1 room pixel at any integer scale). */
+   (the SVG viewBox is in base px, so 1 unit = 1 room pixel at any scale, fractional too). */
 .zoneOutline {
   position: absolute;
   overflow: visible;

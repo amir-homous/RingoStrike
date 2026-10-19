@@ -8,6 +8,7 @@ import {
 } from "../src/lib/challengeIconKeys.js";
 import { localizeChallenge, localizeMission } from "../src/lib/ringoContentLocalization.js";
 import {
+  ROOM_BASE_HEIGHT,
   ROOM_BASE_WIDTH,
   ZONE_ORDER,
   cameraPan,
@@ -16,6 +17,8 @@ import {
   footprintClipPath,
   ringoPlacement,
   roomScale,
+  roomFit,
+  FRACTIONAL_SNAP,
   zoneMarker,
 } from "../src/lib/roomScene.js";
 import {
@@ -281,17 +284,36 @@ function runRoomSceneSmoke() {
   const layout = roomLayout();
   assert.equal(layout.base.width, ROOM_BASE_WIDTH);
 
-  // Integer scaling only.
+  // Hybrid scale: the integer below the fit, or the fit itself when its fraction is >= 0.85.
+  assert.equal(FRACTIONAL_SNAP, 0.85);
   assert.equal(roomScale(0), 1);
   assert.equal(roomScale(479), 1);
-  assert.equal(roomScale(959), 1);
+  assert.equal(roomScale(840), 1); // fit 1.75
+  assert.equal(roomScale(887), 1); // fit 1.848
+  assert.equal(roomScale(888), 1.85); // fit 1.85
+  assert.equal(roomScale(959), 1.99);
   assert.equal(roomScale(960), 2);
+  assert.equal(roomScale(1300), 2); // fit 2.708
   assert.equal(roomScale(1440), 3);
-  // Height is a limit too: x3 needs 810px of height, else it falls back to x2.
-  assert.equal(roomScale(1446, 766), 2);
+  // Height is a limit too: x3 needs 810px of height; 1920x940 gives fit 2.93 -> fractional.
+  assert.equal(roomScale(1446, 766), 2); // fit 2.837
+  assert.equal(roomScale(1446, 780), 2.88);
   assert.equal(roomScale(1446, 810), 3);
   assert.equal(roomScale(1446, 200), 1);
   assert.equal(roomScale(966, null), 2);
+  assert.equal(roomScale(1446, 791), 2.92); // floor to 1/100: 791 / 270 = 2.9296
+  assert.ok(Math.abs(roomFit(1446, 791) - 791 / 270) < 1e-9);
+  // A fractional scale never makes the room wider or taller than the space it was fitted to.
+  for (const [w, h] of [[1406, 940], [1446, 791], [959, 1000], [1919, 1079]]) {
+    const scale = roomScale(w, h);
+    assert.ok(ROOM_BASE_WIDTH * scale <= w + 1e-9 && ROOM_BASE_HEIGHT * scale <= h + 1e-9, `${w}x${h}`);
+  }
+
+  // Camera pan at a fractional scale snaps to whole base pixels of that scale.
+  const fractionalPan = cameraPan({ viewportWidth: 1000, viewportHeight: 791, scale: 2.92, target: cameraTarget(layout, "sleep_corner") });
+  assert.ok(fractionalPan.x < 0);
+  assert.ok(Math.abs(fractionalPan.x / 2.92 - Math.round(fractionalPan.x / 2.92)) < 1e-9);
+  assert.ok(fractionalPan.x >= 1000 - ROOM_BASE_WIDTH * 2.92 - 1e-9);
 
   // Camera pan (x2 room = 960x540 in an 830px-wide viewport).
   const view = { viewportWidth: 830, viewportHeight: 540, scale: 2 };

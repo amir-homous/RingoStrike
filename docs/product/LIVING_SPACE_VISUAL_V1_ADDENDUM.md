@@ -74,3 +74,10 @@ frontend/src/assets/room/
 ## 6. Verified
 
 The room was re-assembled from these files and `room_layout.json` alone, and it matches the B18 mock-ups.
+
+## 7. Room scale: hybrid rule (decided in B19 review round 6)
+
+- `fit = min(availableWidth / 480, availableHeight / 270)`.
+- If `fit - floor(fit) >= 0.85`, the room uses `fit`, kept to 1/100 and rounded down, with `image-rendering: pixelated`. Otherwise it uses `floor(fit)`. The scale is never below 1.
+- From 600 px wide the minimum stays ×2: a room wider than its column is cropped with the camera pan. Phones keep ×1, scrolling inside the room frame.
+- Every layer uses the same effective scale: the pixel layers (one `scale()` on the base layer), the hit regions, the labels, the focus polygon, the dim and light layers, and the camera pan (snapped to whole base pixels of that scale). `npm run test:room-alignment` checks this at 1920×940 (fractional), 1920×1080, 1440×900 and 1366×768.

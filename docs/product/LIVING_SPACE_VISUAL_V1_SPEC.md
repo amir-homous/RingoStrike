@@ -9,7 +9,7 @@ Reference: canvas row "Room art style test", pixel version.
 ## 1. Format
 
 - One room scene with a **base resolution of 480×270 px** (16:9).
-- The scene is displayed **only at integer scales**, using `image-rendering: pixelated`. It is never scaled by a fraction.
+- The scene is displayed at **integer scales**, using `image-rendering: pixelated`. The one exception is the hybrid rule in the addendum (§7): a fractional fit is used only when it is within 0.15 of the next integer.
 - Each layer is a transparent PNG drawn at base resolution, positioned by base-pixel coordinates.
 - Palette: one shared night palette of 32–48 colors. Accents use the UI tokens: cyan `#6ee5ff` and gold `#f7d774`.
 - UI (panel, labels, buttons) stays smooth HTML. Only the room is pixel art.
