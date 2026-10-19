@@ -15,7 +15,6 @@
       v-if="spaceState && !loading && !error"
       class="spaceLayout"
       :class="{ hasPanel: Boolean(workSurfaceZone) }"
-      :data-mid-layout="midLayout"
     >
       <div class="roomStageShell">
         <div class="roomStageHead">
@@ -39,6 +38,7 @@
           :selected-zone-key="visualActiveZone?.zone_key || ''"
           :suggested-zone-key="roomLevel ? suggestedZone?.zone_key || '' : ''"
           :rest="roomLevel"
+          :min-scale="desktopLayout ? 2 : 1"
           @select="selectZone"
         >
           <!-- Fallback when the room art cannot load: the previous zone card grid. -->
@@ -162,17 +162,14 @@ const pathSummaries = ref({});
 const pathLoading = ref({});
 const pathErrors = ref({});
 const selectedPathChallengeId = ref(null);
-// B19: panel placement between 1160px and the width where the x2 room fits beside a 380px panel.
-// "float" (default): room x2 with the panel as a floating card over its end side.
-// "beside": room x1 with the panel beside it. Temporary switch for the layout comparison
-// (localStorage ringostrike_room_mid_layout = "beside"); the unused option goes once one is chosen.
-const midLayout = (() => {
-  try {
-    return window.localStorage.getItem("ringostrike_room_mid_layout") === "beside" ? "beside" : "float";
-  } catch {
-    return "float";
-  }
-})();
+// B19: desktop layout (panel beside the room, room at least x2 and panned when needed).
+const DESKTOP_QUERY = "(min-width: 1160px)";
+const desktopLayout = ref(false);
+let desktopMedia = null;
+
+function syncDesktopLayout() {
+  desktopLayout.value = Boolean(desktopMedia?.matches);
+}
 
 // B23: room-level overview after "Back to room" or "Enough for today" (no zone panel open).
 const roomLevel = ref(false);
@@ -1162,6 +1159,11 @@ function findChallengeMission(challenge) {
 }
 
 onMounted(async () => {
+  if (typeof window !== "undefined" && window.matchMedia) {
+    desktopMedia = window.matchMedia(DESKTOP_QUERY);
+    syncDesktopLayout();
+    desktopMedia.addEventListener?.("change", syncDesktopLayout);
+  }
   reminderClock = setInterval(() => {
     now.value = Date.now();
   }, 30000);
@@ -1170,6 +1172,7 @@ onMounted(async () => {
 });
 
 onUnmounted(() => {
+  desktopMedia?.removeEventListener?.("change", syncDesktopLayout);
   if (reminderClock) {
     clearInterval(reminderClock);
   }
@@ -1238,66 +1241,27 @@ watch(
 }
 
 /*
- * Room + panel layout (B19). The room only scales by whole numbers (480 base px):
- * - >= 1434px: 380px panel beside the room; the room column is >= 960px, so x2 (x3 from ~1920px).
- * - 1160-1433px: "float" keeps the room at x2 with the panel as a floating card over its end side;
- *   "beside" keeps the panel beside it, with the room at x1.
+ * Room + panel layout (B19), desktop >= 1160px: the 380px panel sits at the inline-start side
+ * (left in EN, right in FA) and the room fills the rest. Grid areas are logical, so RTL flips the
+ * sides; the room art itself is never mirrored (D10). The room scales by whole numbers to fit the
+ * column width and the viewport height; when x2 is wider than the column it is clipped and panned.
  */
 @media (min-width: 1160px) {
   .spaceLayout.hasPanel {
+    grid-template-columns: 380px minmax(0, 1fr);
+    grid-template-areas: "panel room";
     padding: 8px;
     gap: 12px;
   }
 
   .spaceLayout.hasPanel .roomStageShell {
+    grid-area: room;
     min-height: 620px;
   }
 
   .spaceLayout.hasPanel .roomSafeZone {
+    grid-area: panel;
     min-height: 620px;
-  }
-}
-
-@media (min-width: 1434px) {
-  .spaceLayout.hasPanel {
-    grid-template-columns: minmax(0, 1fr) 380px;
-  }
-}
-
-@media (min-width: 1160px) and (max-width: 1433.98px) {
-  .spaceLayout.hasPanel[data-mid-layout="beside"] {
-    grid-template-columns: minmax(0, 1fr) 380px;
-  }
-
-  .spaceLayout.hasPanel[data-mid-layout="float"] {
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-areas: "room";
-  }
-
-  .spaceLayout.hasPanel[data-mid-layout="float"] .roomStageShell {
-    grid-area: room;
-  }
-
-  .spaceLayout.hasPanel[data-mid-layout="float"] .roomStageHead {
-    padding-inline-end: 404px;
-  }
-
-  .spaceLayout.hasPanel[data-mid-layout="float"] :deep(.roomFrame) {
-    justify-items: safe start;
-  }
-
-  .spaceLayout.hasPanel[data-mid-layout="float"] .roomSafeZone {
-    position: relative;
-    z-index: 3;
-    grid-area: room;
-    justify-self: end;
-    align-self: start;
-    width: 380px;
-    margin: 10px;
-    border-radius: 20px;
-    box-shadow:
-      0 24px 60px rgba(0, 0, 0, 0.55),
-      0 0 0 1px rgba(110, 229, 255, 0.10);
   }
 }
 
