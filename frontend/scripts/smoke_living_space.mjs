@@ -19,7 +19,9 @@ import {
   roomScale,
   roomFit,
   FRACTIONAL_SNAP,
+  slotForReward,
   zoneMarker,
+  zoneObjects,
 } from "../src/lib/roomScene.js";
 import {
   bonusOfferCandidates,
@@ -131,6 +133,7 @@ function run() {
   runRecommendationPrioritySmoke();
   runReminderTimeLeftSmoke();
   runRoomSceneSmoke();
+  runRoomObjectsSmoke();
 
   console.log("Living Space smoke test passed.");
 }
@@ -367,6 +370,60 @@ function runRoomSceneSmoke() {
   const idle = ringoPlacement(layout);
   assert.deepEqual(idle, { file: "ringo/ringo_idle.png", x: 270 - 17, y: 214 - 33, w: 34, h: 33 });
   assert.equal(ringoPlacement(layout, { rest: true }).file, "ringo/ringo_sleeping.png");
+}
+
+function runRoomObjectsSmoke() {
+  const layout = roomLayout();
+  const roomDir = new URL("../src/assets/room/", import.meta.url);
+  const hasAsset = (path) => existsSync(new URL(path, roomDir));
+  const creative = layout.zones.creative_corner;
+  const reward = (key, slotKey, assetKey) => ({ key, slot_key: slotKey, asset_key: assetKey });
+  const sketchbook = reward("creativity_sketchbook", "creative_corner_first_reward", "creativity_sketchbook");
+  const lamp = reward("creativity_desk_lamp", "creative_corner_consistency", "creativity_desk_lamp");
+  const easel = reward("creativity_easel_upgrade", "creative_corner_progress", "creativity_easel_upgrade");
+
+  // The 10 v1 objects: first + consistency reward per zone, each with a PNG at its slot.
+  for (const key of ZONE_ORDER) {
+    for (const [slotKey, slot] of Object.entries(layout.zones[key].slots)) {
+      assert.ok(hasAsset(`objects/${slot.asset_key}.png`), `${slotKey} PNG`);
+    }
+  }
+
+  // Slot -> asset placement uses the layout slot position.
+  assert.deepEqual(slotForReward(creative, sketchbook), { key: "creative_corner_first_reward", ...creative.slots.creative_corner_first_reward });
+  // Fallback by asset_key when the reward's slot_key is not in the layout.
+  assert.equal(slotForReward(creative, { asset_key: "creativity_desk_lamp", slot_key: "unknown" }).key, "creative_corner_consistency");
+  assert.equal(slotForReward(creative, easel), null);
+
+  // Fresh user: nothing placed, ghost = first locked reward with a PNG.
+  let objects = zoneObjects(creative, { unlocked_objects: [], locked_preview_objects: [sketchbook, lamp, easel] }, hasAsset);
+  assert.deepEqual(objects.placed, []);
+  assert.equal(objects.ghost.assetKey, "creativity_sketchbook");
+  assert.equal(objects.ghost.path, "objects/creativity_sketchbook.png");
+  assert.equal(objects.ghost.x, creative.slots.creative_corner_first_reward.x);
+
+  // First reward placed: it is drawn at its slot, and the ghost moves to the next reward with a PNG.
+  objects = zoneObjects(creative, { unlocked_objects: [sketchbook], locked_preview_objects: [lamp, easel] }, hasAsset);
+  assert.deepEqual(objects.placed.map((item) => [item.assetKey, item.x, item.y]), [["creativity_sketchbook", 308, 84]]);
+  assert.equal(objects.ghost.assetKey, "creativity_desk_lamp");
+
+  // Both v1 objects placed: no PNG left for later rewards, so no ghost.
+  objects = zoneObjects(creative, { unlocked_objects: [sketchbook, lamp], locked_preview_objects: [easel] }, hasAsset);
+  assert.equal(objects.placed.length, 2);
+  assert.equal(objects.ghost, null);
+
+  // Missing PNG -> not drawn (placed or ghost), even when the slot exists.
+  const noLampPng = (path) => path !== "objects/creativity_desk_lamp.png" && hasAsset(path);
+  objects = zoneObjects(creative, { unlocked_objects: [lamp], locked_preview_objects: [sketchbook] }, noLampPng);
+  assert.deepEqual(objects.placed, []);
+  assert.equal(objects.ghost.assetKey, "creativity_sketchbook");
+  objects = zoneObjects(creative, { unlocked_objects: [sketchbook], locked_preview_objects: [lamp, easel] }, noLampPng);
+  assert.equal(objects.ghost, null);
+
+  // A ghost never sits on a slot that is already placed.
+  objects = zoneObjects(creative, { unlocked_objects: [sketchbook], locked_preview_objects: [sketchbook] }, hasAsset);
+  assert.equal(objects.ghost, null);
+  assert.deepEqual(zoneObjects(creative, null, hasAsset), { placed: [], ghost: null });
 }
 
 run();

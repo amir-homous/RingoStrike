@@ -35,7 +35,25 @@
               :style="at(zone.prop.x, zone.prop.y)"
             />
 
-            <slot name="objects" :asset="asset" :at="at" />
+            <!-- B20: placed objects (unlocked rewards with a PNG), then ghosts (next locked reward with a PNG). -->
+            <img
+              v-for="item in placedObjects"
+              :key="`placed-${item.key}`"
+              :src="asset(item.path)"
+              alt=""
+              class="layer"
+              draggable="false"
+              :style="at(item.x, item.y)"
+            />
+            <img
+              v-for="item in ghostObjects"
+              :key="`ghost-${item.key}`"
+              :src="asset(item.path)"
+              alt=""
+              class="layer ghostLayer"
+              draggable="false"
+              :style="{ ...at(item.x, item.y), ...ghostStyle }"
+            />
 
             <img
               v-if="ringo"
@@ -137,6 +155,7 @@ import {
   cameraTarget,
   roomScale,
   zoneMarker,
+  zoneObjects,
 } from "@/lib/roomScene";
 
 const props = defineProps({
@@ -217,6 +236,20 @@ const selectedLayout = computed(() => {
 });
 
 const ringo = computed(() => ringoPlacement(layout, { rest: props.rest }));
+
+const sceneObjects = computed(() => {
+  const hasAsset = (path) => Boolean(assetUrls[path]);
+  return orderedLayoutZones.value.map((zone) => zoneObjects(zone, zonesByKey.value[zone.key], hasAsset));
+});
+
+const placedObjects = computed(() => sceneObjects.value.flatMap((objects) => objects.placed));
+const ghostObjects = computed(() => sceneObjects.value.map((objects) => objects.ghost).filter(Boolean));
+
+// Ghost treatment from room_layout.json (spec §5); the 2x2 checker dither is a CSS mask.
+const ghostStyle = {
+  opacity: layout.ghost?.opacity ?? 0.38,
+  filter: layout.ghost?.filter || "grayscale(1) brightness(1.5) sepia(.2) hue-rotate(180deg)",
+};
 
 const markers = computed(() => {
   return orderedLayoutZones.value
@@ -411,6 +444,14 @@ onUnmounted(() => {
   image-rendering: pixelated;
   user-select: none;
   pointer-events: none;
+}
+
+.ghostLayer {
+  /* 2x2 base-px checker: a 1px cell pattern, integer-scaled with the room. */
+  -webkit-mask-image: conic-gradient(#000 0 25%, transparent 0 50%, #000 0 75%, transparent 0);
+  mask-image: conic-gradient(#000 0 25%, transparent 0 50%, #000 0 75%, transparent 0);
+  -webkit-mask-size: 2px 2px;
+  mask-size: 2px 2px;
 }
 
 .lightLayer {
