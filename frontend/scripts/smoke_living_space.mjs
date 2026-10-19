@@ -11,6 +11,7 @@ import {
   bonusOfferCandidates,
   buildTodayMissionRows,
   pickFocusMission,
+  reminderTimeLeft,
   ringoCardState,
   shouldOfferBonus,
   todayMainDone,
@@ -114,6 +115,7 @@ function run() {
   runChallengeIconKeySmoke();
   runPanelV2Smoke();
   runRecommendationPrioritySmoke();
+  runReminderTimeLeftSmoke();
 
   console.log("Living Space smoke test passed.");
 }
@@ -246,6 +248,17 @@ function runRecommendationPrioritySmoke() {
   assert.equal(shouldOfferBonus({ mainDone: true, dueReminderCount: 1, candidates }), false);
   assert.equal(shouldOfferBonus({ mainDone: true, candidates, focusIsBonus: true }), false);
   assert.equal(shouldOfferBonus({ mainDone: true, candidates: [] }), false);
+}
+
+function runReminderTimeLeftSmoke() {
+  const base = Date.parse("2026-10-19T10:00:00Z");
+  assert.deepEqual(reminderTimeLeft(base + (2 * 60 + 10) * 60000, base), { state: "scheduled", hours: 2, minutes: 10 });
+  assert.deepEqual(reminderTimeLeft(base + 45 * 60000, base), { state: "scheduled", hours: 0, minutes: 45 });
+  assert.deepEqual(reminderTimeLeft(base + 30000, base), { state: "scheduled", hours: 0, minutes: 1 });
+  assert.deepEqual(reminderTimeLeft(base + 3 * 3600000, base), { state: "scheduled", hours: 3, minutes: 0 });
+  assert.equal(reminderTimeLeft(base, base).state, "due");
+  assert.equal(reminderTimeLeft(base - 60000, base).state, "due");
+  assert.equal(reminderTimeLeft(Number.POSITIVE_INFINITY, base).state, "unknown");
 }
 
 run();

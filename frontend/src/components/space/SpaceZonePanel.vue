@@ -129,30 +129,31 @@
           :open="openRow === 'reminders'"
           @toggle="toggleRow('reminders')"
         >
-          <div v-if="visibleDueReminders.length" class="restReminderList">
-            <article
-              v-for="reminder in visibleDueReminders"
-              :key="reminder.id"
-              class="restReminderItem"
-            >
-              <strong>{{ reminder.title }}</strong>
-              <span>
-                {{ reminder.challengeName || t("common.challenge") }}
-                <template v-if="formattedReminderTime(reminder.reminderAt)">
-                  · {{ formattedReminderTime(reminder.reminderAt) }}
-                </template>
-              </span>
+          <ul class="reminderList">
+            <li v-for="reminder in reminders" :key="reminder.id">
               <button
-                v-if="missionForReminder(reminder)"
                 type="button"
-                class="restReminderAction"
+                class="reminderItem"
+                :class="{ due: reminder.due }"
                 @click="reviewReminder(reminder)"
               >
-                {{ t("space.shell.restReminderReview") }}
+                <img
+                  v-if="bellIcon"
+                  :src="bellIcon"
+                  alt=""
+                  class="reminderBell iconOnDark"
+                  aria-hidden="true"
+                />
+                <span class="reminderCopy">
+                  <strong>{{ reminder.title }}</strong>
+                  <small v-if="reminder.zoneTitle">
+                    {{ t("space.panel.reminderWhere", { zone: reminder.zoneTitle, path: reminder.pathName }) }}
+                  </small>
+                </span>
+                <span class="reminderTime">{{ reminderTimeLabel(reminder) }}</span>
               </button>
-            </article>
-          </div>
-          <p v-else class="emptyText">{{ restReminderEmptyText }}</p>
+            </li>
+          </ul>
         </ZoneDetailsRow>
       </div>
     </div>
@@ -171,11 +172,13 @@ import {
   bonusOfferCandidates,
   buildTodayMissionRows,
   pickFocusMission,
+  reminderTimeLeft,
   ringoCardState,
   shouldOfferBonus,
   todayMainDone,
 } from "@/lib/livingSpacePanel";
 import { findFirstReward } from "@/lib/livingSpaceState";
+import { resolveActionIcon } from "@/utils/actionIconUtils";
 import { resolveChallengeIcon, resolvePathIcon } from "@/utils/missionMomentumUtils";
 
 const props = defineProps({
@@ -194,6 +197,9 @@ const props = defineProps({
   futureReminderCount: { type: Number, default: 0 },
   roomFeedback: { type: Object, default: null },
   closable: { type: Boolean, default: true },
+  reminders: { type: Array, default: () => [] },
+  requestedMissionId: { type: [Number, String, null], default: null },
+  now: { type: Number, default: () => Date.now() },
 });
 
 const emit = defineEmits([
@@ -203,11 +209,13 @@ const emit = defineEmits([
   "complete-mission",
   "remind-mission",
   "skip-mission",
+  "focus-reminder",
   "checkin",
   "close",
 ]);
 
-const { t } = useI18n();
+const { locale, t } = useI18n();
+const bellIcon = resolveActionIcon("remindLater");
 const ringoChoicePanel = ref(null);
 const ringoCardRef = ref(null);
 // Accordion: at most one details row open; an open row collapses the Ringo card.
@@ -367,7 +375,7 @@ const mainMissionDone = computed(() => {
 const selectedMission = computed(() => {
   return pickFocusMission(visibleSelectedMissions.value, {
     dueMission: missionForReminder(props.dueReminderFocus),
-    pickedId: selectedMissionId.value,
+    pickedId: selectedMissionId.value ?? props.requestedMissionId,
   });
 });
 
@@ -430,9 +438,7 @@ const selectedMissionLoading = computed(() => {
 
 const dueReminderCount = computed(() => props.dueReminders.length);
 
-const hasReminders = computed(() => {
-  return dueReminderCount.value > 0 || Number(props.futureReminderCount || 0) > 0;
-});
+const hasReminders = computed(() => props.reminders.length > 0);
 
 const visibleDueReminders = computed(() => props.dueReminders.slice(0, 3));
 
@@ -470,24 +476,15 @@ const restReminderSummary = computed(() => {
   return t("space.shell.restReminderClear");
 });
 
-const restReminderEmptyText = computed(() => {
-  if (Number(props.futureReminderCount || 0) > 0) {
-    return t("space.shell.restReminderFutureText");
-  }
-
-  return t("space.shell.restReminderClearText");
-});
-
 const reminderReviewAction = computed(() => {
   const reminder = primaryDueReminder.value;
-  const mission = missionForReminder(reminder);
-  if (!mission) return null;
+  if (!reminder) return null;
 
   return {
     key: "review-due-reminder",
     label: t("space.shell.restReminderReview"),
     type: "review-reminder",
-    mission,
+    reminder,
   };
 });
 
@@ -848,7 +845,7 @@ function handleRingoAction(action) {
   }
 
   if (action.type === "review-reminder") {
-    reviewReminder({ id: action.mission?.id });
+    reviewReminder(action.reminder);
     return;
   }
 
@@ -917,16 +914,31 @@ function challengeForReminder(reminder) {
   }) || null;
 }
 
+// B24: any reminder (due or scheduled, any zone) becomes the Ringo focus.
+// LivingSpace opens its zone and challenge; a due reminder still keeps priority.
 function reviewReminder(reminder) {
-  const mission = missionForReminder(reminder);
-  if (mission?.id) {
-    selectedMissionId.value = mission.id;
-  }
+  if (!reminder?.id) return;
+
+  selectedMissionId.value = null;
   openRow.value = null;
-  if (props.mode === "rest") {
-    emit("change-mode", "mission");
-  }
+  emit("focus-reminder", reminder);
   focusRingoCard();
+}
+
+function formatCount(value) {
+  return new Intl.NumberFormat(locale.value).format(value);
+}
+
+function reminderTimeLabel(reminder) {
+  const left = reminderTimeLeft(reminder?.timestamp, props.now);
+  if (left.state === "due" || reminder?.due) return t("space.panel.reminderReady");
+  if (left.state === "unknown") return t("space.panel.reminderNoTime");
+
+  const hours = formatCount(left.hours);
+  const minutes = formatCount(left.minutes);
+  if (left.hours && left.minutes) return t("space.panel.timeLeftHoursMinutes", { hours, minutes });
+  if (left.hours) return t("space.panel.timeLeftHours", { hours });
+  return t("space.panel.timeLeftMinutes", { minutes });
 }
 
 function openRingoChoicePanel(type, mission) {
@@ -1180,18 +1192,6 @@ function canUseMissionSupportActions(mission) {
   if (missionGateText(mission)) return false;
   return Boolean(mission.availableToday);
 }
-
-function formattedReminderTime(value) {
-  if (!value) return "";
-
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "";
-
-  return new Intl.DateTimeFormat(undefined, {
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(date);
-}
 </script>
 
 <style scoped>
@@ -1320,27 +1320,8 @@ function formattedReminderTime(value) {
   border: 0;
 }
 
-.restReminderList {
-  display: grid;
-  gap: 7px;
-}
 
-.restReminderItem {
-  background: rgba(5, 10, 18, 0.22);
-}
 
-.restReminderAction {
-  justify-self: start;
-  min-height: 26px;
-  padding: 5px 8px;
-  border-radius: 8px;
-  color: rgba(5, 10, 18, 0.92);
-  background: rgba(110, 229, 255, 0.86);
-  border: 1px solid rgba(110, 229, 255, 0.26);
-  cursor: pointer;
-  font-size: 0.68rem;
-  font-weight: 900;
-}
 
 .pathError {
   padding: 8px 9px;
@@ -1350,25 +1331,8 @@ function formattedReminderTime(value) {
   border: 1px solid rgba(248, 113, 113, 0.16);
 }
 
-.restReminderItem {
-  display: grid;
-  gap: 3px;
-  min-width: 0;
-  padding: 9px;
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-}
 
-.restReminderItem span {
-  color: rgba(255, 255, 255, 0.54);
-  font-size: 0.7rem;
-  line-height: 1.35;
-}
 
-.restReminderItem strong {
-  color: rgba(255, 255, 255, 0.88);
-}
 
 .objectHistoryPanel {
   display: grid;
@@ -1521,6 +1485,75 @@ function formattedReminderTime(value) {
 .pathProgressBlock small {
   color: rgba(255, 255, 255, 0.52);
   font-size: 0.72rem;
+}
+
+.reminderList {
+  display: grid;
+  gap: 7px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.reminderItem {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  min-height: 52px;
+  padding: 9px 10px;
+  border-radius: 12px;
+  color: inherit;
+  background: rgba(5, 10, 18, 0.22);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  cursor: pointer;
+  text-align: start;
+}
+
+.reminderItem.due {
+  border-color: rgba(247, 215, 116, 0.22);
+  background: rgba(247, 215, 116, 0.05);
+}
+
+.reminderItem:hover,
+.reminderItem:focus-visible {
+  border-color: rgba(110, 229, 255, 0.24);
+  outline: none;
+}
+
+.reminderBell {
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
+  opacity: 0.8;
+}
+
+.reminderCopy {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.reminderCopy strong {
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 0.82rem;
+}
+
+.reminderCopy small {
+  color: rgba(255, 255, 255, 0.54);
+  font-size: 0.7rem;
+}
+
+.reminderTime {
+  color: rgba(110, 229, 255, 0.86);
+  font-size: 0.72rem;
+  font-weight: 850;
+  white-space: nowrap;
+}
+
+.reminderItem.due .reminderTime {
+  color: rgba(247, 215, 116, 0.95);
 }
 
 .zoneDetails {

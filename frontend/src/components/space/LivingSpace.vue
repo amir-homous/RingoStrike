@@ -61,6 +61,9 @@
           :due-reminders="dueReminders"
           :due-reminder-focus="activeDueReminderFocus"
           :future-reminder-count="futureReminderCount"
+          :reminders="reminderItems"
+          :requested-mission-id="requestedMissionId"
+          :now="now"
           :room-feedback="panelRoomFeedback"
           :closable="hasActiveZoneSelection"
           @change-mode="changeShellMode"
@@ -69,6 +72,7 @@
           @complete-mission="completeMission"
           @remind-mission="remindMission"
           @skip-mission="skipMission"
+          @focus-reminder="focusReminder"
           @checkin="$emit('checkin', $event)"
           @close="closePanel"
         />
@@ -126,6 +130,11 @@ const pathSummaries = ref({});
 const pathLoading = ref({});
 const pathErrors = ref({});
 const selectedPathChallengeId = ref(null);
+// B24: mission the user asked to focus from the reminder list (may be in another zone).
+const requestedMissionId = ref(null);
+// Ticks so reminders move from "time left" to due without a reload.
+const now = ref(Date.now());
+let reminderClock = null;
 const startingChallengeId = ref(null);
 const completingMissionId = ref(null);
 const recentRoomFeedback = ref(null);
@@ -146,6 +155,7 @@ const displayZones = computed(() => {
       pathDetail,
       action: buildZoneAction(zone, pathDetail),
       dueReminderCount: dueReminderCountByPath.value[zonePathKey] || 0,
+      scheduledReminderCount: scheduledReminderCountByPath.value[zonePathKey] || 0,
     };
   });
 });
@@ -346,6 +356,7 @@ async function loadPaths() {
 }
 
 function selectZone(zone) {
+  requestedMissionId.value = null;
   activeZone.value = zone;
   shellMode.value = "zone";
   selectedPathChallengeId.value = null;
@@ -353,9 +364,23 @@ function selectZone(zone) {
 }
 
 function closePanel() {
+  requestedMissionId.value = null;
   activeZone.value = null;
   shellMode.value = "zone";
   selectedPathChallengeId.value = null;
+}
+
+// B24: open the reminder's zone and challenge and ask the panel to focus that mission.
+function focusReminder(reminder) {
+  const zoneKey = zoneLabelsByPath.value[normalizePathKey(reminder?.pathKey)]?.zoneKey;
+  const zone = displayZones.value.find((item) => item.zone_key === zoneKey) || workSurfaceZone.value;
+  if (!zone) return;
+
+  activeZone.value = zone;
+  shellMode.value = "zone";
+  selectedPathChallengeId.value = reminder?.challengeId || null;
+  requestedMissionId.value = reminder?.id || null;
+  ensurePathChallenges(zone);
 }
 
 function changeShellMode(mode) {
@@ -714,21 +739,68 @@ async function ensurePathChallenges(zone = displayActiveZone.value, options = {}
   await loadPathChallenges(path);
 }
 
+function toReminderItem(mission) {
+  return {
+    id: mission?.mission_id || mission?.id || `${mission?.title || "mission"}-${mission?.reminder_at || ""}`,
+    title: mission?.title || mission?.mission_title || t("common.mission"),
+    challengeName: mission?.challenge_name || mission?.challenge || "",
+    challengeId: mission?.challenge_id || null,
+    enrollmentId: mission?.enrollment_id || null,
+    pathId: mission?.path_id || null,
+    pathKey: missionPathKey(mission),
+    reminderAt: mission?.reminder_at || "",
+    timestamp: reminderTimestamp(mission),
+  };
+}
+
 const dueReminders = computed(() => {
   return props.missions
-    .filter((mission) => isDueReminderMission(mission, Date.now()))
-    .map((mission) => ({
-      id: mission?.mission_id || mission?.id || `${mission?.title || "mission"}-${mission?.reminder_at || ""}`,
-      title: mission?.title || mission?.mission_title || t("common.mission"),
-      challengeName: mission?.challenge_name || mission?.challenge || "",
-      challengeId: mission?.challenge_id || null,
-      enrollmentId: mission?.enrollment_id || null,
-      pathId: mission?.path_id || null,
-      pathKey: missionPathKey(mission),
-      reminderAt: mission?.reminder_at || "",
-      timestamp: reminderTimestamp(mission),
-    }))
+    .filter((mission) => isDueReminderMission(mission, now.value))
+    .map(toReminderItem)
     .sort((a, b) => a.timestamp - b.timestamp);
+});
+
+// Reminders set for later today that are not due yet.
+const scheduledReminders = computed(() => {
+  return props.missions
+    .filter((mission) => {
+      return normalizedMissionStatus(mission) === "remind_later"
+        && reminderTimestamp(mission) > now.value;
+    })
+    .map(toReminderItem)
+    .sort((a, b) => a.timestamp - b.timestamp);
+});
+
+const scheduledReminderCountByPath = computed(() => {
+  return scheduledReminders.value.reduce((counts, reminder) => {
+    const key = normalizePathKey(reminder.pathKey);
+    if (!key) return counts;
+
+    counts[key] = (counts[key] || 0) + 1;
+    return counts;
+  }, {});
+});
+
+// Zone title and path name per path key, for "zone · path" in the reminder list.
+const zoneLabelsByPath = computed(() => {
+  return (spaceState.value?.zones || []).reduce((labels, rawZone) => {
+    const zone = localizeSpaceZone(rawZone, t, te);
+    labels[normalizePathKey(zone.path_key)] = {
+      zoneKey: zone.zone_key,
+      zoneTitle: zone.title,
+      pathName: zone.pathName,
+    };
+    return labels;
+  }, {});
+});
+
+const reminderItems = computed(() => {
+  const label = (reminder) => zoneLabelsByPath.value[normalizePathKey(reminder.pathKey)] || {};
+
+  return [
+    ...dueReminders.value.map((reminder) => ({ ...reminder, ...label(reminder), due: true })),
+    ...scheduledReminders.value.map((reminder) => ({ ...reminder, ...label(reminder), due: false })),
+  ];
 });
 
 const dueReminderCountByPath = computed(() => {
@@ -741,12 +813,7 @@ const dueReminderCountByPath = computed(() => {
   }, {});
 });
 
-const futureReminderCount = computed(() => {
-  return props.missions.filter((mission) => {
-    return normalizedMissionStatus(mission) === "remind_later"
-      && reminderTimestamp(mission) > Date.now();
-  }).length;
-});
+const futureReminderCount = computed(() => scheduledReminders.value.length);
 
 const dailyMomentum = computed(() => {
   const missions = props.missions || [];
@@ -1012,11 +1079,17 @@ function findChallengeMission(challenge) {
 }
 
 onMounted(async () => {
+  reminderClock = setInterval(() => {
+    now.value = Date.now();
+  }, 30000);
   await Promise.all([loadSpace(), loadPaths()]);
   await preloadZonePathChallenges();
 });
 
 onUnmounted(() => {
+  if (reminderClock) {
+    clearInterval(reminderClock);
+  }
   if (roomFeedbackTimer) {
     clearTimeout(roomFeedbackTimer);
   }
