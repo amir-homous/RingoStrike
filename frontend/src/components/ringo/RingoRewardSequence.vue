@@ -20,7 +20,7 @@
             <span class="strikeFlame inactive">
               <img :src="strikeInactiveIcon" alt="" />
             </span>
-            <span class="strikeArrow">→</span>
+            <span class="strikeArrow">{{ t("common.arrowForward") }}</span>
             <span class="strikeFlame active">
               <img :src="strikeActiveIcon" alt="" />
             </span>
@@ -65,6 +65,7 @@
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
+import { formatNumber, numberAwareT } from "@/lib/i18nNumbers";
 import BaseButton from "@/components/ui/BaseButton.vue";
 import { resolveRingoSprite } from "@/constants/ringoSprites";
 import { missionIconUrl, resolveChallengeIcon, resolvePathIcon } from "@/utils/missionMomentumUtils";
@@ -77,7 +78,10 @@ const props = defineProps({
 });
 
 const emit = defineEmits(["finish", "action"]);
-const { t } = useI18n();
+const { locale, t: baseT } = useI18n();
+// B10: numbers in copy use the locale's digits; a numeric count picks the plural form.
+const t = numberAwareT(baseT, () => locale.value);
+const fmt = (value) => formatNumber(value, locale.value);
 const currentIndex = ref(0);
 const animatedProgress = ref(0);
 const displayedProgressOld = ref(0);
@@ -117,10 +121,10 @@ const strikeStreakLabel = computed(() => {
   const oldNumber = Number(oldValue);
 
   if (Number.isFinite(newNumber) && Number.isFinite(oldNumber) && oldNumber !== newNumber) {
-    return `${oldNumber} → ${newNumber}`;
+    return `${fmt(oldNumber)} ${t("common.arrowForward")} ${fmt(newNumber)}`;
   }
 
-  if (Number.isFinite(newNumber)) return String(newNumber);
+  if (Number.isFinite(newNumber)) return fmt(newNumber);
   return "";
 });
 const stepVisualIcon = computed(() => {

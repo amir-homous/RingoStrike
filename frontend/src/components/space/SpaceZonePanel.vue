@@ -54,7 +54,7 @@
         <ZoneDetailsRow
           :row-id="`${zone.zone_key}-path`"
           :title="t('space.panel.rowPath')"
-          :meta="pathStats?.progressTotal ? `${pathStats.progressPercent}%` : ''"
+          :meta="pathStats?.progressTotal ? t('common.percent', { value: pathStats.progressPercent }) : ''"
           :open="openRow === 'path'"
           @toggle="toggleRow('path')"
         >
@@ -65,7 +65,7 @@
           >
             <div class="pathProgressHead">
               <span>{{ t("space.shell.pathProgress") }}</span>
-              <strong>{{ pathStats.progressPercent }}%</strong>
+              <strong>{{ t("common.percent", { value: pathStats.progressPercent }) }}</strong>
             </div>
             <div class="pathProgressTrack" aria-hidden="true">
               <span></span>
@@ -163,6 +163,7 @@
 <script setup>
 import { computed, nextTick, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
+import { formatNumber, numberAwareT } from "@/lib/i18nNumbers";
 import BonusOfferCard from "./BonusOfferCard.vue";
 import ChallengeTodayMissions from "./ChallengeTodayMissions.vue";
 import RingoActionCard from "./RingoActionCard.vue";
@@ -214,7 +215,10 @@ const emit = defineEmits([
   "close",
 ]);
 
-const { locale, t } = useI18n();
+const { locale, t: baseT } = useI18n();
+// B10: numbers in copy use the locale's digits; a numeric count picks the plural form.
+const t = numberAwareT(baseT, () => locale.value);
+const fmt = (value) => formatNumber(value, locale.value);
 const bellIcon = resolveActionIcon("remindLater");
 const ringoChoicePanel = ref(null);
 const ringoCardRef = ref(null);

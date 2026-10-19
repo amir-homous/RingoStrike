@@ -16,6 +16,7 @@
 
 <script setup>
 import { useI18n } from "vue-i18n";
+import { formatNumber, numberAwareT } from "@/lib/i18nNumbers";
 
 defineProps({
   title: { type: String, required: true },
@@ -25,7 +26,10 @@ defineProps({
 
 defineEmits(["accept", "another"]);
 
-const { t } = useI18n();
+const { locale, t: baseT } = useI18n();
+// B10: numbers in copy use the locale's digits; a numeric count picks the plural form.
+const t = numberAwareT(baseT, () => locale.value);
+const fmt = (value) => formatNumber(value, locale.value);
 </script>
 
 <style scoped>
