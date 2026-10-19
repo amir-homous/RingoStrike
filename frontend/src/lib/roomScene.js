@@ -138,6 +138,14 @@ export function objectAssetPath(assetKey) {
   return assetKey ? `objects/${assetKey}.png` : "";
 }
 
+// B21 reward card: largest integer scale at which a w x h pixel PNG fits a square box (never below 1).
+export function pixelIconScale(width, height, box) {
+  const w = Number(width) || 0;
+  const h = Number(height) || 0;
+  if (!w || !h) return 1;
+  return Math.max(1, Math.floor(Math.min(Number(box) / w, Number(box) / h)));
+}
+
 // Find the layout slot for a reward: by slot_key first, then by asset_key.
 export function slotForReward(layoutZone, reward) {
   const slots = layoutZone?.slots || {};
@@ -168,13 +176,18 @@ function drawable(layoutZone, reward, hasAsset) {
 }
 
 // B20: placed objects = unlocked rewards with a PNG; ghost = the zone's next locked reward with a PNG.
-export function zoneObjects(layoutZone, zone, hasAsset = () => true) {
-  const placed = (zone?.unlocked_objects || [])
-    .map((reward) => drawable(layoutZone, reward, hasAsset))
-    .filter(Boolean);
+// B21: rewards still waiting to materialize (pendingKeys) are not placed yet; the first of them in
+// the zone is the zone's ghost instead (the same PNG, so the sequence starts from what was shown).
+export function zoneObjects(layoutZone, zone, hasAsset = () => true, { pendingKeys = [] } = {}) {
+  const pending = new Set(pendingKeys);
+  const unlocked = (zone?.unlocked_objects || [])
+    .map((reward) => ({ reward, item: drawable(layoutZone, reward, hasAsset) }))
+    .filter(({ item }) => item);
+  const placed = unlocked.filter(({ reward }) => !pending.has(reward?.key)).map(({ item }) => item);
   const placedSlots = new Set(placed.map((item) => item.slotKey));
 
-  const ghost = (zone?.locked_preview_objects || [])
+  const waiting = unlocked.find(({ reward }) => pending.has(reward?.key) && !placedSlots.has(slotForReward(layoutZone, reward)?.key));
+  const ghost = waiting?.item || (zone?.locked_preview_objects || [])
     .map((reward) => drawable(layoutZone, reward, hasAsset))
     .find((item) => item && !placedSlots.has(item.slotKey)) || null;
 

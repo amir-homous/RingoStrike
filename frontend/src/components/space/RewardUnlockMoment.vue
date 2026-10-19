@@ -22,7 +22,17 @@
           </div>
 
           <div class="objectCard">
-            <span class="objectGlyph" aria-hidden="true">{{ objectGlyph }}</span>
+            <!-- B21: the object's pixel PNG (integer-scaled); the letter only when there is no PNG. -->
+            <span v-if="objectPng" class="objectGlyph objectPixel" aria-hidden="true">
+              <img
+                :src="objectPng"
+                alt=""
+                draggable="false"
+                :style="pixelSize ? { width: `${pixelSize[0]}px`, height: `${pixelSize[1]}px` } : null"
+                @load="onPixelLoad"
+              />
+            </span>
+            <span v-else class="objectGlyph" aria-hidden="true">{{ objectGlyph }}</span>
             <div>
               <strong>{{ displayReward.title }}</strong>
               <span class="placedLine">{{ t("spaceUnlock.placedIn", { zone: zoneLabel }) }}</span>
@@ -42,12 +52,22 @@
 </template>
 
 <script setup>
-import { computed, onMounted, onUnmounted } from "vue";
+import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 
 import BaseButton from "@/components/ui/BaseButton.vue";
 import RingoMoodFigure from "@/components/ringo/RingoMoodFigure.vue";
 import { localizeSpaceReward, spaceZoneTitle } from "@/lib/livingSpaceCopy";
+import { objectAssetPath, pixelIconScale } from "@/lib/roomScene";
+
+// Room object PNGs by path ("objects/<asset_key>.png"), the same files the room draws.
+const objectUrls = Object.fromEntries(
+  Object.entries(import.meta.glob("../../assets/room/objects/*.png", { eager: true, import: "default" }))
+    .map(([path, url]) => [path.split("/assets/room/")[1], url]),
+);
+// Pixel icon box: 72px with 3px padding, so the 23-33px tall objects show at x2 and the
+// 60px pillow still fits at x1.
+const PIXEL_BOX = 66;
 
 const props = defineProps({
   open: { type: Boolean, default: false },
@@ -69,6 +89,20 @@ const objectGlyph = computed(() => {
   const title = String(displayReward.value?.title || props.reward?.key || "?").trim();
   return title.slice(0, 1).toUpperCase();
 });
+
+const objectPng = computed(() => objectUrls[objectAssetPath(props.reward?.asset_key)] || "");
+const pixelSize = ref(null);
+
+watch(objectPng, () => {
+  pixelSize.value = null;
+});
+
+function onPixelLoad(event) {
+  const { naturalWidth: w, naturalHeight: h } = event?.target || {};
+  if (!w || !h) return;
+  const scale = pixelIconScale(w, h, PIXEL_BOX);
+  pixelSize.value = [w * scale, h * scale];
+}
 
 function finish() {
   emit("close", props.reward);
@@ -182,6 +216,20 @@ onUnmounted(() => {
   background: rgba(255, 255, 255, 0.88);
   font-size: 1.3rem;
   font-weight: 950;
+}
+
+.objectPixel {
+  width: 72px;
+  height: 72px;
+  background:
+    radial-gradient(circle at 50% 70%, rgba(110, 229, 255, 0.14), transparent 70%),
+    rgba(5, 9, 16, 0.92);
+  border: 1px solid rgba(110, 229, 255, 0.2);
+}
+
+.objectPixel img {
+  display: block;
+  image-rendering: pixelated;
 }
 
 .objectCard strong {

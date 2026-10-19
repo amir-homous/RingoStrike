@@ -98,3 +98,29 @@ The room was re-assembled from these files and `room_layout.json` alone, and it 
 
 Touch targets are at least 44 px (zones, the info button and the sheet buttons), in EN and FA. There is no page-level horizontal overflow from 320 to 599 px. `npm run test:room-alignment` covers this at 390×844 and 320×640.
 
+## 9. Materialize (B21)
+
+**When it plays:** once per newly unlocked reward, in the room, after the Ringo Moment and the reward card close (Close, Esc or "View it in the room").
+- While either one is open, the object stays the zone's ghost. Nothing changes behind the modal.
+- An unlock that was never seen (for example, the tab closed while the card was open) plays once on the next load.
+- **Once only:** the room marks the reward seen (`POST /me/space/rewards/<id>/seen`, the existing flow) before playing, and keeps a once-only queue by reward key. A reload never plays it again.
+- **Backfilled rewards** (`source_type = "mission_history"`) are written as seen by the backend and are also excluded by source, so they never play.
+- **Several rewards** play one after another, oldest unlock first, each in its own zone.
+
+**Camera:**
+- Desktop and tablet select the zone (camera pan, panel beside the room).
+- Phones zoom to the zone (×2, as in §8) and open the sheet after the sequence.
+
+**Sequence** (about 1.6 s after a 320 ms camera settle):
+1. The zone light rises (300 ms).
+2. The ghost fades out while the full-colour object fades in (600 ms).
+3. The object settles with a 1 base px drop (200 ms).
+4. A glint shows at the top of the object (500 ms).
+5. The object is placed.
+
+With `prefers-reduced-motion`, the placed state shows at once and the camera does not animate. There is no Ringo acknowledgement yet (the final sprite is B25), and no confetti or sound.
+
+**Reward card:** the object's pixel PNG (`objects/<asset_key>.png`, `image-rendering: pixelated`), at the largest integer scale that fits a 66 px box (×2 for most v1 objects, ×1 for the pillow). It falls back to the letter only when there is no PNG.
+
+`npm run test:room-materialize` covers this end to end at 1440×900 EN and 390×844 FA. `test:living-space` covers the state machine, the once-only queue, the backfill exclusion and reduced motion.
+
