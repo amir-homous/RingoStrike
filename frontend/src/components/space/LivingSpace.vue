@@ -15,6 +15,7 @@
       v-if="spaceState && !loading && !error"
       class="spaceLayout"
       :class="{ hasPanel: Boolean(workSurfaceZone) }"
+      :data-mid-layout="midLayout"
     >
       <div class="roomStageShell">
         <div class="roomStageHead">
@@ -161,6 +162,18 @@ const pathSummaries = ref({});
 const pathLoading = ref({});
 const pathErrors = ref({});
 const selectedPathChallengeId = ref(null);
+// B19: panel placement between 1160px and the width where the x2 room fits beside a 380px panel.
+// "float" (default): room x2 with the panel as a floating card over its end side.
+// "beside": room x1 with the panel beside it. Temporary switch for the layout comparison
+// (localStorage ringostrike_room_mid_layout = "beside"); the unused option goes once one is chosen.
+const midLayout = (() => {
+  try {
+    return window.localStorage.getItem("ringostrike_room_mid_layout") === "beside" ? "beside" : "float";
+  } catch {
+    return "float";
+  }
+})();
+
 // B23: room-level overview after "Back to room" or "Enough for today" (no zone panel open).
 const roomLevel = ref(false);
 // B24: mission the user asked to focus from the reminder list (may be in another zone).
@@ -1224,10 +1237,16 @@ watch(
     inset 0 0 0 1px rgba(255, 255, 255, 0.025);
 }
 
+/*
+ * Room + panel layout (B19). The room only scales by whole numbers (480 base px):
+ * - >= 1434px: 380px panel beside the room; the room column is >= 960px, so x2 (x3 from ~1920px).
+ * - 1160-1433px: "float" keeps the room at x2 with the panel as a floating card over its end side;
+ *   "beside" keeps the panel beside it, with the room at x1.
+ */
 @media (min-width: 1160px) {
   .spaceLayout.hasPanel {
-    grid-template-columns: minmax(560px, 1fr) minmax(420px, 500px);
-    gap: var(--s-16);
+    padding: 8px;
+    gap: 12px;
   }
 
   .spaceLayout.hasPanel .roomStageShell {
@@ -1236,6 +1255,49 @@ watch(
 
   .spaceLayout.hasPanel .roomSafeZone {
     min-height: 620px;
+  }
+}
+
+@media (min-width: 1434px) {
+  .spaceLayout.hasPanel {
+    grid-template-columns: minmax(0, 1fr) 380px;
+  }
+}
+
+@media (min-width: 1160px) and (max-width: 1433.98px) {
+  .spaceLayout.hasPanel[data-mid-layout="beside"] {
+    grid-template-columns: minmax(0, 1fr) 380px;
+  }
+
+  .spaceLayout.hasPanel[data-mid-layout="float"] {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "room";
+  }
+
+  .spaceLayout.hasPanel[data-mid-layout="float"] .roomStageShell {
+    grid-area: room;
+  }
+
+  .spaceLayout.hasPanel[data-mid-layout="float"] .roomStageHead {
+    padding-inline-end: 404px;
+  }
+
+  .spaceLayout.hasPanel[data-mid-layout="float"] :deep(.roomFrame) {
+    justify-items: safe start;
+  }
+
+  .spaceLayout.hasPanel[data-mid-layout="float"] .roomSafeZone {
+    position: relative;
+    z-index: 3;
+    grid-area: room;
+    justify-self: end;
+    align-self: start;
+    width: 380px;
+    margin: 10px;
+    border-radius: 20px;
+    box-shadow:
+      0 24px 60px rgba(0, 0, 0, 0.55),
+      0 0 0 1px rgba(110, 229, 255, 0.10);
   }
 }
 
