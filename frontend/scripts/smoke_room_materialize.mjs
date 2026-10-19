@@ -181,6 +181,15 @@ const NEXT_STEP = `(() => {
   return Boolean(button);
 })()`;
 
+// B10: FA copy shows Persian digits only (no 0-9) in these surfaces.
+const TEXT_OF = (selector) => `(() => { const el = ${selector}; return el ? el.innerText : null; })()`;
+const MOMENT = `(() => { const skip = document.querySelector(".skipButton"); let box = skip?.parentElement; while (box && !box.querySelector("h2, h3, strong, p")) box = box.parentElement; return box?.parentElement || null; })()`;
+async function assertNoLatinDigits(page, label, what, selector) {
+  const text = await evaluate(page, TEXT_OF(selector));
+  assert.ok(text, `${label} ${what} not found`);
+  assert.doesNotMatch(text, /[0-9]/, `${label} ${what} shows Latin digits in FA: ${JSON.stringify(text.match(/.{0,20}[0-9].{0,20}/)?.[0])}`);
+}
+
 async function runViewport(page, [width, height, locale]) {
   const label = `${width}x${height} ${locale}`;
   const user = await createUser("mat");
@@ -194,9 +203,12 @@ async function runViewport(page, [width, height, locale]) {
   await waitFor(page, `Boolean(document.querySelector('.ghostLayer[data-reward="${REWARD}"]'))`);
   await delay(800);
 
+  if (locale === "fa") await assertNoLatinDigits(page, label, "room overview", `document.querySelector(".roomPanel")`);
+
   // Open Creative and complete today's main step from the room.
   await evaluate(page, `document.querySelector('.zoneHitWrap[data-zone="creative_corner"] .zoneHit').click()`);
   await waitFor(page, `Boolean([...document.querySelectorAll(".roomSafeZone button.primaryAction")].find((b) => b.offsetParent))`);
+  if (locale === "fa") await assertNoLatinDigits(page, label, "zone panel", `document.querySelector(".roomSafeZone .zonePanel")`);
   await evaluate(page, `[...document.querySelectorAll(".roomSafeZone button.primaryAction")].find((b) => b.offsetParent).click()`);
 
   // Ringo Moment, then the reward card. The object stays a ghost behind both.
@@ -204,6 +216,7 @@ async function runViewport(page, [width, height, locale]) {
   for (let i = 0; i < 40 && !(await evaluate(page, ROOM)).card; i += 1) {
     const room = await evaluate(page, ROOM);
     assert.ok(room.ghost && !room.placed && !room.phase, `${label} the object changed behind the Ringo Moment: ${JSON.stringify(room)}`);
+    if (locale === "fa" && await evaluate(page, `Boolean(document.querySelector(".skipButton"))`)) await assertNoLatinDigits(page, label, "Ringo Moment", MOMENT);
     if (await evaluate(page, NEXT_STEP)) steps += 1;
     await delay(400);
   }
@@ -215,6 +228,8 @@ async function runViewport(page, [width, height, locale]) {
     { ghost: true, placed: false, phase: "" },
     `${label} object must stay a ghost while the card is open`,
   );
+
+  if (locale === "fa") await assertNoLatinDigits(page, label, "reward card", `document.querySelector(".unlockPanel")`);
 
   // The card shows the object's pixel PNG at an integer scale (not the letter placeholder).
   const icon = await evaluate(page, `(() => { const img = document.querySelector(".objectPixel img"); return img && img.complete ? { src: img.src, w: img.getBoundingClientRect().width, h: img.getBoundingClientRect().height, nw: img.naturalWidth, nh: img.naturalHeight, rendering: getComputedStyle(img).imageRendering } : null; })()`);

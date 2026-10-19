@@ -175,6 +175,7 @@
 <script setup>
 import { computed, nextTick, onMounted, onUnmounted, onUpdated, reactive, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
+import { formatNumber, numberAwareT } from "@/lib/i18nNumbers";
 import layout from "@/assets/room/room_layout.json";
 import {
   ROOM_BASE_HEIGHT,
@@ -212,7 +213,10 @@ const props = defineProps({
 
 defineEmits(["select"]);
 
-const { t } = useI18n();
+const { locale, t: baseT } = useI18n();
+// B10: numbers in copy use the locale's digits; a numeric count picks the plural form.
+const t = numberAwareT(baseT, () => locale.value);
+const fmt = (value) => formatNumber(value, locale.value);
 
 const assetModules = import.meta.glob("../../assets/room/**/*.png", { eager: true, import: "default" });
 const assetUrls = Object.fromEntries(
@@ -443,7 +447,7 @@ const hitZones = computed(() => {
         pathName: data.pathName || "",
         selected: props.selectedZoneKey === zone.key,
         suggested: props.suggestedZoneKey === zone.key,
-        ariaLabel: `${data.title}: ${states.join(", ")}`,
+        ariaLabel: `${data.title}${t("common.labelSeparator")}${states.join(t("common.listSeparator"))}`,
         viewBox: `0 0 ${box.w} ${box.h}`,
         points: footprintPoints(zone.footprint),
         buttonStyle: {

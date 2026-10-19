@@ -19,7 +19,7 @@
           <span class="challengeStatus">{{ item.statusLabel }}</span>
           <strong>{{ item.challenge.name }}</strong>
           <small v-if="item.challenge.missionCount">
-            {{ item.challenge.doneCount || 0 }}/{{ item.challenge.missionCount }}
+            {{ t("common.countOf", { done: item.challenge.doneCount || 0, total: item.challenge.missionCount }) }}
           </small>
         </span>
       </button>
@@ -62,6 +62,7 @@
 
 <script setup>
 import { useI18n } from "vue-i18n";
+import { formatNumber, numberAwareT } from "@/lib/i18nNumbers";
 
 defineProps({
   items: { type: Array, default: () => [] },
@@ -69,7 +70,10 @@ defineProps({
 
 defineEmits(["select-challenge", "select-mission"]);
 
-const { t } = useI18n();
+const { locale, t: baseT } = useI18n();
+// B10: numbers in copy use the locale's digits; a numeric count picks the plural form.
+const t = numberAwareT(baseT, () => locale.value);
+const fmt = (value) => formatNumber(value, locale.value);
 
 function intensityLabel(intensity) {
   return ["tiny", "bonus"].includes(intensity)

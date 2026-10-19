@@ -3,7 +3,7 @@
     <div class="todayHead">
       <span class="stripLabel">{{ t("space.panel.todayStrip") }}</span>
       <strong v-if="total > 0">
-        {{ t("space.shell.todayMissions") }} · {{ done }}/{{ total }}
+        {{ t("space.shell.todayMissions") }} · {{ t("common.countOf", { done, total }) }}
       </strong>
     </div>
     <p v-if="firstRewardText" class="firstRewardLine" :class="{ complete: firstRewardUnlocked }">
@@ -14,6 +14,7 @@
 
 <script setup>
 import { useI18n } from "vue-i18n";
+import { formatNumber, numberAwareT } from "@/lib/i18nNumbers";
 
 defineProps({
   done: { type: Number, default: 0 },
@@ -23,7 +24,10 @@ defineProps({
   firstRewardUnlocked: { type: Boolean, default: false },
 });
 
-const { t } = useI18n();
+const { locale, t: baseT } = useI18n();
+// B10: numbers in copy use the locale's digits; a numeric count picks the plural form.
+const t = numberAwareT(baseT, () => locale.value);
+const fmt = (value) => formatNumber(value, locale.value);
 </script>
 
 <style scoped>

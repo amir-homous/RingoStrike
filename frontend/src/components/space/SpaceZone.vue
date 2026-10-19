@@ -66,8 +66,8 @@
 
     <span v-if="pathProgress" class="zoneProgress">
       <span class="zoneProgressHead">
-        <strong>{{ pathProgress.percent }}%</strong>
-        <small>{{ pathProgress.done }}/{{ pathProgress.total }}</small>
+        <strong>{{ t("common.percent", { value: pathProgress.percent }) }}</strong>
+        <small>{{ t("common.countOf", { done: pathProgress.done, total: pathProgress.total }) }}</small>
       </span>
       <span class="zoneProgressTrack" aria-hidden="true">
         <span :style="{ width: `${pathProgress.percent}%` }"></span>
@@ -79,6 +79,7 @@
 <script setup>
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
+import { formatNumber, numberAwareT } from "@/lib/i18nNumbers";
 import { resolveActionIcon } from "@/utils/actionIconUtils";
 import { resolvePathIcon } from "@/utils/missionMomentumUtils";
 import SpaceObject from "./SpaceObject.vue";
@@ -93,7 +94,10 @@ const props = defineProps({
 
 defineEmits(["select"]);
 
-const { t } = useI18n();
+const { locale, t: baseT } = useI18n();
+// B10: numbers in copy use the locale's digits; a numeric count picks the plural form.
+const t = numberAwareT(baseT, () => locale.value);
+const fmt = (value) => formatNumber(value, locale.value);
 
 const hasProgress = computed(() => {
   return (props.zone?.unlocked_objects || []).length > 0;

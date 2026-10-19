@@ -132,6 +132,7 @@
 <script setup>
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
+import { formatNumber, numberAwareT } from "@/lib/i18nNumbers";
 import api from "@/lib/api";
 import UiState from "@/components/ui/UiState.vue";
 import { challengeIconKey } from "@/lib/challengeIconKeys";
@@ -172,7 +173,10 @@ const props = defineProps({
 
 const emit = defineEmits(["checkin", "challenge-started", "mission-completed"]);
 
-const { locale, t, te } = useI18n();
+const { locale, t: baseT, te } = useI18n();
+// B10: numbers in copy use the locale's digits; a numeric count picks the plural form.
+const t = numberAwareT(baseT, () => locale.value);
+const fmt = (value) => formatNumber(value, locale.value);
 
 const loading = ref(false);
 const error = ref("");

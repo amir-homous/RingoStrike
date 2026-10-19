@@ -18,7 +18,7 @@
       <span class="roomLabel">{{ t("space.room.summaryLabel") }}</span>
       <div class="summaryGrid">
         <article>
-          <strong><bdi dir="ltr">{{ completed }}/{{ total }}</bdi></strong>
+          <strong>{{ t("common.countOf", { done: completed, total }) }}</strong>
           <small>{{ t("space.room.missionsDone") }}</small>
         </article>
         <article :class="{ safe: todaySafe }">
@@ -32,7 +32,7 @@
           <small>{{ t("space.room.remindersLabel") }}</small>
         </article>
         <article>
-          <strong>{{ objectsToday }}</strong>
+          <strong>{{ fmt(objectsToday) }}</strong>
           <small>{{ t("space.room.objectsToday") }}</small>
         </article>
       </div>
@@ -53,6 +53,7 @@
 <script setup>
 import { ref } from "vue";
 import { useI18n } from "vue-i18n";
+import { formatNumber, numberAwareT } from "@/lib/i18nNumbers";
 import RingoMoodFigure from "@/components/ringo/RingoMoodFigure.vue";
 
 defineProps({
@@ -71,7 +72,10 @@ defineProps({
 
 defineEmits(["select-zone"]);
 
-const { t } = useI18n();
+const { locale, t: baseT } = useI18n();
+// B10: numbers in copy use the locale's digits; a numeric count picks the plural form.
+const t = numberAwareT(baseT, () => locale.value);
+const fmt = (value) => formatNumber(value, locale.value);
 const suggestButton = ref(null);
 
 function focusSuggestion() {

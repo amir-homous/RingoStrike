@@ -20,13 +20,17 @@
 <script setup>
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
+import { formatNumber, numberAwareT } from "@/lib/i18nNumbers";
 
 const props = defineProps({
   reward: { type: Object, required: true },
   highlighted: { type: Boolean, default: false },
 });
 
-const { t } = useI18n();
+const { locale, t: baseT } = useI18n();
+// B10: numbers in copy use the locale's digits; a numeric count picks the plural form.
+const t = numberAwareT(baseT, () => locale.value);
+const fmt = (value) => formatNumber(value, locale.value);
 
 const objectMark = computed(() => {
   const title = String(props.reward?.title || props.reward?.key || "?").trim();
@@ -39,7 +43,7 @@ const objectAriaLabel = computed(() => {
     ? t("space.objectUnlocked")
     : t("space.objectLockedPreview");
 
-  return `${title}: ${state}`;
+  return `${title}${t("common.labelSeparator")}${state}`;
 });
 </script>
 
