@@ -1,111 +1,120 @@
 <template>
-  <div
-    ref="frame"
-    class="roomFrame"
-    :class="{ panning }"
-    :style="panning ? { height: `${baseHeight * scale}px` } : null"
-  >
+  <div ref="frame" class="roomFrame">
     <slot v-if="failed" name="fallback" />
 
-    <div
-      v-else
-      class="roomScene"
-      dir="ltr"
-      role="group"
-      :aria-label="t('space.roomLabel')"
-      :style="{
-        width: `${baseWidth * scale}px`,
-        height: `${baseHeight * scale}px`,
-        transform: panning ? `translate(${pan.x}px, ${pan.y}px)` : null,
-      }"
-    >
-      <!-- Pixel layers at base resolution, integer-scaled (addendum §5 order). -->
-      <div class="sceneBase" :style="{ transform: `scale(${scale})` }" aria-hidden="true">
-        <img :src="asset(layout.stage)" alt="" class="layer" draggable="false" @error="failed = true" />
+    <!-- The visible room: hugs the scene (or the column when the scene is wider), centered. -->
+    <div v-else class="roomViewportWrap" :style="{ width: `${viewportWidth}px` }">
+      <div
+        ref="viewport"
+        class="roomViewport"
+        :class="{ panning, scrolling }"
+        :style="{ height: `${baseHeight * scale}px` }"
+      >
+        <div
+          class="roomScene"
+          dir="ltr"
+          role="group"
+          :aria-label="t('space.roomLabel')"
+          :style="{
+            width: `${baseWidth * scale}px`,
+            height: `${baseHeight * scale}px`,
+            transform: panning ? `translate(${pan.x}px, ${pan.y}px)` : null,
+          }"
+        >
+          <!-- Pixel layers at base resolution, integer-scaled (addendum §5 order). -->
+          <div class="sceneBase" :style="{ transform: `scale(${scale})` }" aria-hidden="true">
+            <img :src="asset(layout.stage)" alt="" class="layer" draggable="false" @error="failed = true" />
 
-        <img
-          v-for="zone in orderedLayoutZones"
-          :key="`prop-${zone.key}`"
-          :src="asset(zone.prop.file)"
-          alt=""
-          class="layer"
-          draggable="false"
-          :style="at(zone.prop.x, zone.prop.y)"
-        />
+            <img
+              v-for="zone in orderedLayoutZones"
+              :key="`prop-${zone.key}`"
+              :src="asset(zone.prop.file)"
+              alt=""
+              class="layer"
+              draggable="false"
+              :style="at(zone.prop.x, zone.prop.y)"
+            />
 
-        <slot name="objects" :asset="asset" :at="at" />
+            <slot name="objects" :asset="asset" :at="at" />
 
-        <img
-          v-if="ringo"
-          :src="asset(ringo.file)"
-          alt=""
-          class="layer"
-          draggable="false"
-          :style="at(ringo.x, ringo.y)"
-        />
+            <img
+              v-if="ringo"
+              :src="asset(ringo.file)"
+              alt=""
+              class="layer"
+              draggable="false"
+              :style="at(ringo.x, ringo.y)"
+            />
 
-        <img
-          v-if="selectedLayout && !rest"
-          :src="asset(selectedLayout.dim)"
-          alt=""
-          class="layer"
-          draggable="false"
-        />
-        <div v-if="rest" class="restOverlay" :style="{ opacity: restOverlayOpacity }" />
-        <img
-          v-if="selectedLayout && !rest"
-          :src="asset(selectedLayout.light.file)"
-          alt=""
-          class="layer lightLayer"
-          draggable="false"
-          :style="at(selectedLayout.light.x, selectedLayout.light.y)"
-        />
+            <img
+              v-if="selectedLayout && !rest"
+              :src="asset(selectedLayout.dim)"
+              alt=""
+              class="layer"
+              draggable="false"
+            />
+            <div v-if="rest" class="restOverlay" :style="{ opacity: restOverlayOpacity }" />
+            <img
+              v-if="selectedLayout && !rest"
+              :src="asset(selectedLayout.light.file)"
+              alt=""
+              class="layer lightLayer"
+              draggable="false"
+              :style="at(selectedLayout.light.x, selectedLayout.light.y)"
+            />
 
-        <img
-          v-for="marker in markers"
-          :key="`marker-${marker.key}`"
-          :src="asset(marker.file)"
-          alt=""
-          class="layer"
-          draggable="false"
-          :style="markerStyle(marker)"
-          @load="rememberSize(marker.file, $event)"
-        />
+            <img
+              v-for="marker in markers"
+              :key="`marker-${marker.key}`"
+              :src="asset(marker.file)"
+              alt=""
+              class="layer"
+              draggable="false"
+              :style="markerStyle(marker)"
+              @load="rememberSize(marker.file, $event)"
+            />
 
-        <img :src="asset(layout.overlay)" alt="" class="layer" draggable="false" />
+            <img :src="asset(layout.overlay)" alt="" class="layer" draggable="false" />
+          </div>
+
+          <!-- HTML layer: zone hit regions and labels, in screen px. -->
+          <div class="sceneHtml">
+            <div
+              v-for="item in hitZones"
+              :key="`hit-${item.key}`"
+              class="zoneHitWrap"
+              :class="{ selected: item.selected, suggested: item.suggested }"
+            >
+              <button
+                type="button"
+                class="zoneHit"
+                :style="item.buttonStyle"
+                :aria-label="item.ariaLabel"
+                :aria-pressed="item.selected ? 'true' : 'false'"
+                @click="$emit('select', item.zone)"
+              />
+              <svg
+                class="zoneOutline"
+                :style="item.buttonStyle"
+                :viewBox="item.viewBox"
+                preserveAspectRatio="none"
+                aria-hidden="true"
+              >
+                <polygon :points="item.points" vector-effect="non-scaling-stroke" />
+              </svg>
+              <span class="zoneLabel" :style="item.labelStyle" aria-hidden="true">
+                <span v-if="item.suggested" class="suggestedTag">{{ t("space.room.suggestLabel") }}</span>
+                <strong>{{ item.title }}</strong>
+                <small v-if="item.pathName">{{ item.pathName }}</small>
+              </span>
+            </div>
+          </div>
+        </div>
       </div>
 
-      <!-- HTML layer: zone hit regions and labels, in screen px. -->
-      <div class="sceneHtml">
-        <div
-          v-for="item in hitZones"
-          :key="`hit-${item.key}`"
-          class="zoneHitWrap"
-          :class="{ selected: item.selected, suggested: item.suggested }"
-        >
-          <button
-            type="button"
-            class="zoneHit"
-            :style="item.buttonStyle"
-            :aria-label="item.ariaLabel"
-            :aria-pressed="item.selected ? 'true' : 'false'"
-            @click="$emit('select', item.zone)"
-          />
-          <svg
-            class="zoneOutline"
-            :style="item.buttonStyle"
-            :viewBox="item.viewBox"
-            preserveAspectRatio="none"
-            aria-hidden="true"
-          >
-            <polygon :points="item.points" vector-effect="non-scaling-stroke" />
-          </svg>
-          <span class="zoneLabel" :style="item.labelStyle" aria-hidden="true">
-            <span v-if="item.suggested" class="suggestedTag">{{ t("space.room.suggestLabel") }}</span>
-            <strong>{{ item.title }}</strong>
-            <small v-if="item.pathName">{{ item.pathName }}</small>
-          </span>
-        </div>
+      <!-- Corner overlay at the inline-end top of the visible room (page direction, not mirrored art). -->
+      <div v-if="$slots.corner" class="roomCorner">
+        <slot name="corner" />
       </div>
     </div>
   </div>
@@ -151,6 +160,7 @@ const assetUrls = Object.fromEntries(
 const baseWidth = layout.base?.width || ROOM_BASE_WIDTH;
 const baseHeight = layout.base?.height || ROOM_BASE_HEIGHT;
 const frame = ref(null);
+const viewport = ref(null);
 const availableWidth = ref(0);
 const availableHeight = ref(Number.POSITIVE_INFINITY);
 const failed = ref(false);
@@ -168,6 +178,11 @@ const scale = computed(() => {
 
 // Pan only when a minimum scale makes the room wider than its column (desktop mid widths).
 const panning = computed(() => props.minScale > 1 && baseWidth * scale.value > availableWidth.value);
+
+// Phones: a room wider than the frame scrolls inside its own viewport (never the page).
+const scrolling = computed(() => !panning.value && baseWidth * scale.value > availableWidth.value);
+
+const viewportWidth = computed(() => Math.min(baseWidth * scale.value, Math.max(0, availableWidth.value)));
 
 const pan = computed(() => {
   if (!panning.value) return { x: 0, y: 0 };
@@ -277,12 +292,13 @@ function measure() {
     availableHeight.value = Math.max(0, window.innerHeight - top - BOTTOM_MARGIN);
   }
 
-  // When the room is wider than its frame (narrow screens), start centered on Ringo.
+  // When the room scrolls inside its viewport (phones), start centered on Ringo.
   // The real mobile crop and zoom is B22.
+  const view = viewport.value;
   const roomWidth = baseWidth * scale.value;
-  if (el && !panning.value && roomWidth > el.clientWidth && ringo.value) {
+  if (view && scrolling.value && ringo.value) {
     const ringoCenter = (ringo.value.x + ringo.value.w / 2) * scale.value;
-    el.scrollLeft = Math.max(0, Math.min(roomWidth - el.clientWidth, ringoCenter - el.clientWidth / 2));
+    view.scrollLeft = Math.max(0, Math.min(roomWidth - view.clientWidth, ringoCenter - view.clientWidth / 2));
   }
 }
 
@@ -306,23 +322,47 @@ onUnmounted(() => {
 <style scoped>
 .roomFrame {
   display: grid;
-  justify-items: safe center;
+  justify-items: center;
   min-width: 0;
+  overflow: hidden;
+}
+
+.roomViewportWrap {
+  position: relative;
+  max-width: 100%;
+}
+
+/* The viewport only clips/scrolls the (always-LTR) room; in an RTL page a wider block would
+   otherwise be anchored to the right edge and add to the pan offset. */
+.roomViewport {
+  position: relative;
+  overflow: hidden;
+  direction: ltr;
+  border-radius: 6px;
+}
+
+.roomViewport.scrolling {
   overflow-x: auto;
   overflow-y: hidden;
   scrollbar-width: thin;
 }
 
-/* Desktop mid widths: the x2 room is clipped to its column and panned (300 ms). */
-.roomFrame.panning {
-  display: block;
-  overflow: hidden;
-  /* The frame only clips the (always-LTR) room. In an RTL page a wider block would otherwise be
-     anchored to the right edge, adding to the pan offset. */
-  direction: ltr;
+/* Mid widths: the x2 room is clipped to its column and panned (300 ms). */
+.roomViewport.panning .roomScene {
+  transition: transform 300ms ease;
 }
 
-.roomFrame.panning .roomScene {
+.roomCorner {
+  position: absolute;
+  z-index: 3;
+  top: 8px;
+  inset-inline-end: 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.roomScene {
   transition: transform 300ms ease;
 }
 
@@ -472,7 +512,7 @@ onUnmounted(() => {
 @media (prefers-reduced-motion: reduce) {
   .zoneOutline,
   .zoneLabel,
-  .roomFrame.panning .roomScene {
+  .roomViewport.panning .roomScene {
     transition: none;
   }
 }

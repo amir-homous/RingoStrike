@@ -17,32 +17,8 @@
       :class="{ hasPanel: Boolean(workSurfaceZone) }"
     >
       <div class="roomStageShell">
-        <div class="roomStageHead">
-          <div class="headCopy">
-            <p class="spaceKicker">{{ t("space.eyebrow") }}</p>
-            <h2>{{ t("space.title") }}</h2>
-            <p v-if="roomOverviewGuidance" class="spaceStatus" :title="roomOverviewGuidance.title">
-              {{ roomOverviewGuidance.title }}
-            </p>
-            <!-- On short desktop viewports this line truncates; the full text is in the tooltip
-                 and expands on click / Enter. -->
-            <button
-              type="button"
-              class="spaceRule"
-              :class="{ expanded: ruleExpanded }"
-              :title="t('space.rule')"
-              :aria-expanded="ruleExpanded ? 'true' : 'false'"
-              @click="ruleExpanded = !ruleExpanded"
-            >
-              {{ t("space.rule") }}
-            </button>
-          </div>
-
-          <div class="spaceMeta">
-            <span>{{ t("space.objects", { count: unlockedCount }) }}</span>
-            <span v-if="spaceState.has_unseen_rewards">{{ t("space.newReward") }}</span>
-          </div>
-        </div>
+        <!-- Desktop: no head card (the panel already names the room). Below 1160px: one-line title. -->
+        <h2 class="roomTitleCompact">{{ t("space.title") }}</h2>
 
         <RoomScene
           :zones="displayZones"
@@ -52,6 +28,23 @@
           :min-scale="desktopLayout ? 2 : 1"
           @select="selectZone"
         >
+          <!-- Room corner (inline-end): objects chip, new-reward chip and the room info popover. -->
+          <template #corner>
+            <span class="cornerChip">{{ t("space.objects", { count: unlockedCount }) }}</span>
+            <span v-if="spaceState.has_unseen_rewards" class="cornerChip isNew">{{ t("space.newReward") }}</span>
+            <span class="roomInfo" :class="{ open: roomInfoOpen }" @keydown.esc="roomInfoOpen = false">
+              <button
+                type="button"
+                class="roomInfoButton"
+                :aria-label="t('space.roomInfoLabel')"
+                :aria-expanded="roomInfoOpen ? 'true' : 'false'"
+                aria-describedby="room-info-popover"
+                @click="roomInfoOpen = !roomInfoOpen"
+              >i</button>
+              <span id="room-info-popover" role="tooltip" class="roomInfoPopover">{{ t("space.rule") }}</span>
+            </span>
+          </template>
+
           <!-- Fallback when the room art cannot load: the previous zone card grid. -->
           <template #fallback>
             <div class="roomStage" :aria-label="t('space.roomLabel')">
@@ -173,8 +166,8 @@ const pathSummaries = ref({});
 const pathLoading = ref({});
 const pathErrors = ref({});
 const selectedPathChallengeId = ref(null);
-// B19: compact head card (short desktop viewports) keeps the rule on one line; click expands it.
-const ruleExpanded = ref(false);
+// B19: room info popover in the room corner (the rule text); click/hover/focus opens, Esc closes.
+const roomInfoOpen = ref(false);
 
 // B19: desktop layout (panel beside the room, room at least x2 and panned when needed).
 const DESKTOP_QUERY = "(min-width: 1160px)";
@@ -1281,163 +1274,106 @@ watch(
 
 .roomStageShell {
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
-  gap: 10px;
-  min-width: 0;
-}
-
-.roomStageHead {
-  display: flex;
-  justify-content: space-between;
-  gap: var(--s-12);
-  align-items: flex-start;
-  min-width: 0;
-  padding: 12px;
-  border-radius: 18px;
-  background: rgba(255, 255, 255, 0.032);
-  border: 1px solid rgba(255, 255, 255, 0.075);
-}
-
-.spaceKicker {
-  margin: 0 0 6px;
-  color: rgba(110, 229, 255, 0.82);
-  font-size: 0.72rem;
-  font-weight: 900;
-  letter-spacing: 0.11em;
-  text-transform: uppercase;
-}
-
-.roomStageHead h2 {
-  margin: 0;
-  color: rgba(255, 255, 255, 0.94);
-  font-size: 1.1rem;
-  line-height: 1.14;
-}
-
-.roomStageHead p {
-  margin: 6px 0 0;
-  max-width: 520px;
-  color: rgba(255, 255, 255, 0.62);
-  line-height: 1.45;
-}
-
-.roomStageHead .spaceStatus {
-  color: rgba(255, 255, 255, 0.72);
-  font-weight: 750;
-  font-size: 0.82rem;
-}
-
-.roomStageHead .spaceRule {
-  display: block;
-  max-width: 520px;
-  margin: 6px 0 0;
-  padding: 0;
-  border: 0;
-  color: rgba(110, 229, 255, 0.70);
-  background: transparent;
-  font: inherit;
-  font-size: 0.76rem;
-  font-weight: 760;
-  line-height: 1.45;
-  text-align: start;
-  cursor: default;
-}
-
-/*
- * B19: compact head card on short desktop viewports (< 900px tall), so the room can reach x2.
- * Same content on one line: kicker, title, Ringo's status line and the rule (truncated with an
- * ellipsis; full text in the tooltip, click / Enter expands it), then the object chips.
- */
-@media (min-width: 1160px) and (max-height: 899.98px) {
-  .roomStageShell {
-    gap: 6px;
-  }
-
-  .roomStageHead {
-    align-items: center;
-    padding: 6px 10px;
-    border-radius: 14px;
-  }
-
-  .headCopy {
-    display: flex;
-    align-items: baseline;
-    gap: 10px;
-    min-width: 0;
-    flex: 1 1 auto;
-  }
-
-  .headCopy > * {
-    flex: 0 0 auto;
-    margin: 0 !important;
-    white-space: nowrap;
-  }
-
-  .roomStageHead .spaceKicker {
-    font-size: 0.66rem;
-  }
-
-  .roomStageHead h2 {
-    font-size: 0.98rem;
-  }
-
-  .roomStageHead .spaceStatus {
-    flex: 0 1 auto;
-    min-width: 0;
-    max-width: 260px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .roomStageHead .spaceRule {
-    flex: 1 1 0;
-    min-width: 80px;
-    max-width: none;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    cursor: pointer;
-  }
-
-  .roomStageHead .spaceRule.expanded {
-    white-space: normal;
-  }
-
-  .roomStageHead .spaceRule:focus-visible {
-    outline: 2px solid rgba(110, 229, 255, 0.6);
-    outline-offset: 2px;
-    border-radius: 4px;
-  }
-
-  .spaceMeta {
-    flex: 0 0 auto;
-    flex-wrap: nowrap;
-  }
-
-  .spaceMeta span {
-    min-height: 26px;
-    padding: 4px 9px;
-    white-space: nowrap;
-  }
-}
-
-.spaceMeta {
-  display: flex;
-  flex-wrap: wrap;
+  align-content: start;
   gap: 8px;
-  justify-content: flex-end;
+  min-width: 0;
 }
 
-.spaceMeta span {
+.roomTitleCompact {
+  margin: 0;
+  padding: 2px 4px;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 0.98rem;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+@media (min-width: 1160px) {
+  .roomTitleCompact {
+    display: none;
+  }
+}
+
+.cornerChip {
   display: inline-flex;
   align-items: center;
-  min-height: 31px;
-  padding: 7px 10px;
+  min-height: 26px;
+  padding: 3px 9px;
   border-radius: 999px;
-  color: rgba(255, 255, 255, 0.78);
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.09);
-  font-size: 0.76rem;
+  color: rgba(255, 255, 255, 0.86);
+  background: rgba(5, 9, 16, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  font-size: 0.72rem;
   font-weight: 850;
+  white-space: nowrap;
+  backdrop-filter: blur(6px);
+}
+
+.cornerChip.isNew {
+  color: rgba(247, 215, 116, 0.96);
+  border-color: rgba(247, 215, 116, 0.3);
+}
+
+.roomInfo {
+  position: relative;
+  display: inline-flex;
+}
+
+.roomInfoButton {
+  display: inline-grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border-radius: 50%;
+  color: rgba(214, 240, 255, 0.92);
+  background: rgba(5, 9, 16, 0.72);
+  border: 1px solid rgba(110, 229, 255, 0.3);
+  font: 900 0.8rem/1 serif;
+  font-style: italic;
+  cursor: pointer;
+  backdrop-filter: blur(6px);
+}
+
+.roomInfoButton:focus-visible {
+  outline: 2px solid rgba(110, 229, 255, 0.8);
+  outline-offset: 2px;
+}
+
+.roomInfoPopover {
+  position: absolute;
+  z-index: 5;
+  top: calc(100% + 6px);
+  inset-inline-end: 0;
+  width: max-content;
+  max-width: 260px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  color: rgba(255, 255, 255, 0.88);
+  background: rgba(8, 13, 22, 0.96);
+  border: 1px solid rgba(110, 229, 255, 0.18);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.4);
+  font-size: 0.74rem;
+  line-height: 1.45;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 140ms ease;
+}
+
+.roomInfo.open .roomInfoPopover,
+.roomInfo:hover .roomInfoPopover,
+.roomInfo:focus-within .roomInfoPopover {
+  opacity: 1;
+  visibility: visible;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .roomInfoPopover {
+    transition: none;
+  }
 }
 
 .roomStage {
@@ -1492,16 +1428,6 @@ watch(
 .roomStage :deep(.zone-sleep_corner) {
   grid-column: 5 / span 2;
   grid-row: 2;
-}
-
-@media (max-width: 920px) {
-  .roomStageHead {
-    flex-direction: column;
-  }
-
-  .spaceMeta {
-    justify-content: flex-start;
-  }
 }
 
 @media (max-width: 720px) {
