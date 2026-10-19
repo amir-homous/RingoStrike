@@ -10,6 +10,7 @@
     "test:challenge": "node scripts/smoke_challenge_flow.mjs",
     "test:console": "node scripts/smoke_browser_console.mjs",
     "test:dashboard": "node scripts/smoke_dashboard_flow.mjs",
+    "test:first-run": "node scripts/smoke_first_run.mjs",
     "test:localization": "node scripts/smoke_seeded_content_localization.mjs",
     "test:living-space": "node scripts/smoke_living_space.mjs",
     "test:room-alignment": "node scripts/smoke_room_alignment.mjs",
