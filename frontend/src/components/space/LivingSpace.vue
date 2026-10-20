@@ -1451,14 +1451,16 @@ watch(
     gap: 12px;
   }
 
+  /* B27 fix: never taller than the viewport allows (was a fixed 620px, which overflowed the
+     page at 1366x768), so the panel never runs past the room column. */
   .spaceLayout.hasPanel .roomStageShell {
     grid-area: room;
-    min-height: 620px;
+    min-height: min(620px, calc(100vh - 190px));
   }
 
   .spaceLayout.hasPanel .roomSafeZone {
     grid-area: panel;
-    min-height: 620px;
+    min-height: min(620px, calc(100vh - 190px));
   }
 }
 
@@ -1678,6 +1680,20 @@ watch(
 
   .roomSafeZone.zoneSheet:focus {
     outline: none;
+  }
+
+  /* B27: with a flow open the sheet has a fixed height and the flow scrolls inside it, so the
+     save area stays visible at the bottom. */
+  .roomSafeZone.zoneSheet:has(.missionFlow) {
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
+    height: max(40dvh, calc(100dvh - var(--sheet-top, 42dvh)));
+    overflow: hidden;
+  }
+
+  .roomSafeZone.zoneSheet:has(.missionFlow) :deep(.zonePanel) {
+    height: 100%;
+    min-height: 0;
   }
 
   /* 44px touch targets for every control in the sheet (panel content unchanged). */

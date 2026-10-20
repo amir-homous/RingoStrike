@@ -1,5 +1,5 @@
 <template>
-  <aside class="zonePanel" :class="`card-${cardState}`">
+  <aside class="zonePanel" :class="[`card-${cardState}`, { flowActive: Boolean(actionFlow) }]">
     <!-- B27: "Do it now" / "Already did it" replace the panel content (no new route). -->
     <MissionActionFlow
       v-if="actionFlow"
@@ -1300,6 +1300,13 @@ function canUseMissionSupportActions(mission) {
     0 18px 50px rgba(0, 0, 0, 0.24),
     inset 0 0 0 1px rgba(255, 255, 255, 0.025);
   backdrop-filter: blur(18px);
+}
+
+/* B27: while a flow is open it fills the panel (its body scrolls, Save stays visible). */
+.zonePanel.flowActive {
+  grid-template-rows: minmax(0, 1fr);
+  height: 100%;
+  overflow: hidden;
 }
 
 .panelWorkSurface {

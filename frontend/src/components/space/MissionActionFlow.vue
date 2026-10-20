@@ -2,6 +2,7 @@
   <section class="missionFlow" :aria-labelledby="headingId">
     <!-- Flow A, step 1: focus with a count-up timer (never a countdown). -->
     <template v-if="step === 'focus'">
+      <div class="flowBody">
       <header class="flowHead">
         <span class="flowKicker">{{ t("space.missionAction.focusKicker") }}</span>
         <h3 :id="headingId" ref="heading" tabindex="-1">{{ zoneTitle }}</h3>
@@ -31,14 +32,18 @@
         <span>{{ t("space.missionAction.noteLabel") }}</span>
         <textarea v-model="note" :maxlength="NOTE_MAX" rows="2"></textarea>
       </label>
+      </div>
 
+      <div class="flowActions">
       <button type="button" class="flowPrimary" @click="finishFocus">{{ t("space.missionAction.done") }}</button>
       <button type="button" class="flowQuiet" @click="cancelFocus">{{ t("space.missionAction.cancel") }}</button>
       <p class="flowFooter">{{ t("space.missionAction.cancelCaption") }}</p>
+      </div>
     </template>
 
     <!-- Flow A, step 2 (check-out) and Flow B (already did it): optional questions, Save always on. -->
     <template v-else>
+      <div class="flowBody">
       <header class="flowHead">
         <span class="flowKicker">{{ step === "earlier" ? t("space.missionAction.earlierKicker") : t("space.missionAction.focusKicker") }}</span>
         <h3 :id="headingId" ref="heading" tabindex="-1">
@@ -128,7 +133,10 @@
         <span>{{ t("space.missionAction.noteLabel") }}</span>
         <textarea v-model="note" :maxlength="NOTE_MAX" rows="2"></textarea>
       </label>
+      </div>
 
+      <!-- The save area stays at the bottom of the panel or sheet; the body above scrolls. -->
+      <div class="flowActions">
       <p v-if="error" class="flowError" role="alert">{{ t("space.missionAction.saveError") }}</p>
 
       <button type="button" class="flowPrimary" :disabled="submitting" :aria-busy="submitting ? 'true' : null" @click="save(false)">
@@ -141,6 +149,7 @@
       <p class="flowFooter">
         {{ step === "earlier" ? t("space.missionAction.optionalFooter") : t("space.missionAction.privateFooter") }}
       </p>
+      </div>
     </template>
   </section>
 </template>
@@ -308,10 +317,32 @@ defineExpose({ clearTimer: () => writeFocusStart(props.userKey, props.mission?.i
 </script>
 
 <style scoped>
+/* The flow fills the panel (or sheet): the body scrolls, the save area stays at the bottom. */
 .missionFlow {
   display: grid;
-  gap: 12px;
+  grid-template-rows: minmax(0, 1fr) auto;
   min-width: 0;
+  min-height: 0;
+  height: 100%;
+}
+
+.flowBody {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding: 2px 3px 12px 2px;
+  scrollbar-width: thin;
+}
+
+.flowActions {
+  display: grid;
+  gap: 8px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 -12px 16px -12px rgba(0, 0, 0, 0.45);
 }
 
 .flowHead {

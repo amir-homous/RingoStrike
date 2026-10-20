@@ -17,6 +17,7 @@ const DEBUG_PORT = Number(process.env.MISSION_ACTION_DEBUG_PORT || 9236);
 const DB_PATH = process.env.MISSION_ACTION_DB_PATH || "";
 const RUNS = [
   [1366, 768, "en"],
+  [1920, 1080, "en"],
   [390, 844, "fa"],
 ];
 
@@ -148,7 +149,13 @@ async function api(path, token, body) {
 // A user in the Creative path with its first challenge joined; returns the main mission id.
 async function createUser(tag) {
   const username = `${tag}${Date.now() % 1e9}`.slice(0, 18);
-  const register = await api("/auth/register", null, { username, password: "secret123", name: "Mission Action", email: `${username}@example.com` });
+  // Sign-ups are rate limited (10 per minute per client); this test makes ~21 users, so wait and retry.
+  let register = null;
+  for (let attempt = 0; attempt < 15; attempt += 1) {
+    register = await api("/auth/register", null, { username, password: "secret123", name: "Mission Action", email: `${username}@example.com` });
+    if (register.status !== 429) break;
+    await delay(6000);
+  }
   assert.equal(register.status, 201);
   const token = register.data.access_token;
   const me = await api("/me", token);
@@ -188,6 +195,27 @@ const SET_VALUE = (selector, value) => `(() => {
   return true;
 })()`;
 
+// The save area (Save, the quiet button if any, and the caption) is fully visible inside the panel
+// or sheet and the viewport, without scrolling the page. Desktop: the page does not scroll at all.
+async function assertSaveVisible(page, label, width) {
+  const m = await evaluate(page, `(() => {
+    const flow = document.querySelector(".missionFlow");
+    const panel = flow.closest(".roomSafeZone");
+    const actions = flow.querySelector(".flowActions");
+    const parts = [...actions.querySelectorAll("button, .flowFooter")].map((el) => el.getBoundingClientRect());
+    const p = panel.getBoundingClientRect();
+    return {
+      top: Math.min(...parts.map((r) => r.top)), bottom: Math.max(...parts.map((r) => r.bottom)),
+      panelTop: p.top, panelBottom: p.bottom, vh: innerHeight, scrollY,
+      pageOverflow: document.documentElement.scrollHeight - innerHeight,
+    };
+  })()`);
+  assert.ok(m.top >= m.panelTop - 0.5 && m.bottom <= m.panelBottom + 0.5, `${label} save area outside the panel: ${JSON.stringify(m)}`);
+  assert.ok(m.top >= 0 && m.bottom <= m.vh + 0.5, `${label} save area outside the viewport: ${JSON.stringify(m)}`);
+  assert.equal(m.scrollY, 0, `${label} page scrolled`);
+  if (width >= 600) assert.ok(m.pageOverflow <= 0, `${label} page scrolls by ${m.pageOverflow}px`);
+}
+
 async function click(page, selector, text, label) {
   let ok = false;
   const started = Date.now();
@@ -195,20 +223,35 @@ async function click(page, selector, text, label) {
     ok = await evaluate(page, CLICK(selector, text));
     if (!ok) await delay(150);
   }
-  assert.ok(ok, `could not click ${label || selector} ${text}`);
+  if (!ok) {
+    const seen = await evaluate(page, `[...document.querySelectorAll(${JSON.stringify(selector)})].map((e) => ({ text: e.innerText.trim().slice(0, 20), visible: Boolean(e.offsetParent), disabled: e.disabled }))`);
+    const shot = await page.send("Page.captureScreenshot", { format: "jpeg", quality: 60 });
+    const { writeFileSync } = await import("node:fs");
+    writeFileSync(join(tmpdir(), "mission-action-failure.jpg"), Buffer.from(shot.data, "base64"));
+    const mounts = await evaluate(page, `JSON.stringify(window.__mounts || []) + " url=" + location.pathname + " t=" + Math.round(performance.now())`);
+    assert.fail(`could not click ${label || selector} ${text}: ${JSON.stringify(seen)} mounts=${mounts} (screenshot in ${join(tmpdir(), "mission-action-failure.jpg")})`);
+  }
   await delay(250);
+}
+
+// Navigates and waits for the new document (the old page is marked stale first), so nothing is
+// read from or clicked in the previous page while the new one is still loading.
+async function navigate(page, url) {
+  await evaluate(page, `window.__staleDocument = true`).catch(() => {});
+  await page.send("Page.navigate", { url });
+  await waitFor(page, `!window.__staleDocument && document.readyState !== "loading"`);
 }
 
 async function openZone(page, user, locale, width, height) {
   await page.send("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: 1, mobile: width < 600 });
-  await page.send("Page.navigate", { url: `${FRONTEND_BASE}/login` });
-  await delay(300);
+  await navigate(page, `${FRONTEND_BASE}/login`);
   await evaluate(page, `localStorage.clear(); sessionStorage.clear();
     localStorage.setItem("ringo_token", ${JSON.stringify(user.token)});
     localStorage.setItem("ringostrike_locale", "${locale}");
     localStorage.setItem(${JSON.stringify(`ringostrike_onboarding_done:user:${user.id}`)}, "1"); true`);
-  await page.send("Page.navigate", { url: `${FRONTEND_BASE}/dashboard` });
+  await navigate(page, `${FRONTEND_BASE}/dashboard`);
   await waitFor(page, `Boolean(document.querySelector('.zoneHitWrap[data-zone="creative_corner"] .zoneHit'))`);
+  await evaluate(page, `(() => { window.__mounts = []; const mark = () => { for (const sel of [".livingSpace", ".zonePanel", ".missionFlow"]) { const el = document.querySelector(sel); if (el && !el.__seen) { el.__seen = true; window.__mounts.push(sel + "@" + Math.round(performance.now())); } } }; mark(); new MutationObserver(mark).observe(document.body, { childList: true, subtree: true }); return true; })()`);
   await delay(600);
   await evaluate(page, `document.querySelector('.zoneHitWrap[data-zone="creative_corner"] .zoneHit').click(); true`);
   await waitFor(page, `Boolean([...document.querySelectorAll(".splitAction .splitPrimary")].find((b) => b.offsetParent && !b.disabled))`);
@@ -277,6 +320,7 @@ async function runViewport(page, posts, [width, height, locale]) {
     await evaluate(page, SET_VALUE(".missionFlow textarea", "focus note b27"));
     await click(page, ".missionFlow .flowPrimary", "", "done");
     await waitFor(page, `Boolean(document.querySelector(".missionFlow .flowPill"))`);
+    await assertSaveVisible(page, `${label} flow A check-out`, width);
     await click(page, ".missionFlow .flowChip", fa ? "باشگاه" : "Gym", "place");
     await click(page, ".missionFlow .flowChip", fa ? "سخت ولی" : "Hard but done", "feeling");
     const beforeA = posts.length;
@@ -302,6 +346,7 @@ async function runViewport(page, posts, [width, height, locale]) {
     await click(page, ".missionFlow .flowPrimary", "", "done");
     await waitFor(page, `Boolean(document.querySelector(".missionFlow .flowPill"))`);
     await click(page, ".missionFlow .flowChip", fa ? "خونه" : "Home", "place (ignored)");
+    await assertSaveVisible(page, `${label} flow A check-out (bare)`, width);
     const beforeBare = posts.length;
     await click(page, ".missionFlow .flowQuiet", "", "save without answers");
     await waitForSaved(page, posts, beforeBare + 1, `${label} flow A bare`);
@@ -316,6 +361,7 @@ async function runViewport(page, posts, [width, height, locale]) {
     await openZone(page, user, locale, width, height);
     await click(page, ".splitSecondary", "", "already did it");
     await waitFor(page, `Boolean(document.querySelector(".missionFlow fieldset .flowChip"))`);
+    await assertSaveVisible(page, `${label} flow B`, width);
     await waitFor(page, `(() => { const chips = [...document.querySelectorAll(".missionFlow fieldset:first-of-type .flowChip")]; return chips.length === 5 && !chips[4].disabled; })()`, 8000);
     await evaluate(page, `[...document.querySelectorAll(".missionFlow fieldset:first-of-type .flowChip")][4].click(); true`);
     await waitFor(page, `Boolean(document.querySelector('.missionFlow input[type="time"]'))`);
@@ -323,6 +369,7 @@ async function runViewport(page, posts, [width, height, locale]) {
     const local = await evaluate(page, `(() => { const d = new Date(Date.now() - 60000); const start = new Date(); return (d.getUTCDate() === start.getUTCDate() ? d : start).toTimeString().slice(0, 5); })()`);
     await evaluate(page, SET_VALUE('.missionFlow input[type="time"]', local));
     await click(page, ".missionFlow .flowChip", fa ? "بیرون" : "Outside", "place");
+    await assertSaveVisible(page, `${label} flow B with exact time and a place`, width);
     const beforeExact = posts.length;
     await click(page, ".missionFlow .flowPrimary", "", "save");
     await waitForSaved(page, posts, beforeExact + 1, `${label} flow B exact`);
@@ -351,7 +398,7 @@ async function runViewport(page, posts, [width, height, locale]) {
     checkStored(user, { mode: "earlier", performed_at: null, place_key: null, feeling_key: null }, `${label} flow B none`);
 
     // Done for today: the bar is a non-interactive status.
-    await page.send("Page.navigate", { url: `${FRONTEND_BASE}/dashboard` });
+    await navigate(page, `${FRONTEND_BASE}/dashboard`);
     await waitFor(page, `Boolean(document.querySelector('.zoneHitWrap[data-zone="creative_corner"] .zoneHit'))`);
     await delay(600);
     await evaluate(page, `document.querySelector('.zoneHitWrap[data-zone="creative_corner"] .zoneHit').click(); true`);
