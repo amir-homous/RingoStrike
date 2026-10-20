@@ -244,13 +244,30 @@ async function navigate(page, url) {
 
 async function openZone(page, user, locale, width, height) {
   await page.send("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: 1, mobile: width < 600 });
-  await navigate(page, `${FRONTEND_BASE}/login`);
-  await evaluate(page, `localStorage.clear(); sessionStorage.clear();
-    localStorage.setItem("ringo_token", ${JSON.stringify(user.token)});
-    localStorage.setItem("ringostrike_locale", "${locale}");
-    localStorage.setItem(${JSON.stringify(`ringostrike_onboarding_done:user:${user.id}`)}, "1"); true`);
-  await navigate(page, `${FRONTEND_BASE}/dashboard`);
-  await waitFor(page, `Boolean(document.querySelector('.zoneHitWrap[data-zone="creative_corner"] .zoneHit'))`);
+  // The auth guard sends the page to /login when /me fails (e.g. a slow dev backend right after
+  // the previous test); retry that once, then report what the page shows.
+  for (let attempt = 1; ; attempt += 1) {
+    await navigate(page, `${FRONTEND_BASE}/login`);
+    await evaluate(page, `localStorage.clear(); sessionStorage.clear();
+      localStorage.setItem("ringo_token", ${JSON.stringify(user.token)});
+      localStorage.setItem("ringostrike_locale", "${locale}");
+      localStorage.setItem(${JSON.stringify(`ringostrike_onboarding_done:user:${user.id}`)}, "1"); true`);
+    await navigate(page, `${FRONTEND_BASE}/dashboard`);
+    try {
+      await waitFor(page, `Boolean(document.querySelector('.zoneHitWrap[data-zone="creative_corner"] .zoneHit'))`, 30000);
+      break;
+    } catch (error) {
+      const where = await evaluate(page, `(async () => { const token = localStorage.getItem("ringo_token"); let me = ""; try { const r = await fetch(${JSON.stringify(API_BASE)} + "/me", { headers: { Authorization: "Bearer " + token } }); me = r.status + " " + (await r.text()).slice(0, 120); } catch (e) { me = "fetch error " + e.message; } return location.pathname + " | token=" + (token ? "set" : "none") + " | /me " + me; })()`);
+      if (attempt < 2) {
+        console.warn(`openZone retry (${where})`);
+        continue;
+      }
+      const shot = await page.send("Page.captureScreenshot", { format: "jpeg", quality: 60 });
+      const { writeFileSync } = await import("node:fs");
+      writeFileSync(join(tmpdir(), "mission-action-failure.jpg"), Buffer.from(shot.data, "base64"));
+      throw new Error(`${error.message} at ${where}`);
+    }
+  }
   await evaluate(page, `(() => { window.__mounts = []; const mark = () => { for (const sel of [".livingSpace", ".zonePanel", ".missionFlow"]) { const el = document.querySelector(sel); if (el && !el.__seen) { el.__seen = true; window.__mounts.push(sel + "@" + Math.round(performance.now())); } } }; mark(); new MutationObserver(mark).observe(document.body, { childList: true, subtree: true }); return true; })()`);
   await delay(600);
   await evaluate(page, `document.querySelector('.zoneHitWrap[data-zone="creative_corner"] .zoneHit').click(); true`);
