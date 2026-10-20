@@ -130,6 +130,8 @@
                 type="button"
                 class="zoneHit"
                 :style="item.buttonStyle"
+                :tabindex="item.marker ? -1 : null"
+                :aria-hidden="item.marker ? 'true' : null"
                 :aria-label="item.ariaLabel"
                 :aria-pressed="item.selected ? 'true' : 'false'"
                 @click="$emit('select', item.zone)"
@@ -146,6 +148,7 @@
                 }"
                 :style="item.marker.style"
                 :aria-label="item.marker.ariaLabel"
+                :aria-pressed="item.selected ? 'true' : 'false'"
                 :data-reminder="item.marker.reminder || null"
                 :data-secured="`${item.marker.secured}/${item.marker.joined}`"
                 @click="$emit('select', item.zone)"
@@ -454,39 +457,65 @@ const PM_REMINDER_KEYS = {
   [REMINDER_CHIP.SET]: "space.scene.pathMarker.reminderSet",
 };
 
-function pathMarkerSizes(s) {
-  const ring = Math.round(Math.min(56, Math.max(34, 14 * s)));
-  return { ring, hit: Math.max(44, ring + 10), glyph: Math.max(20, Math.round(ring * 0.56)) };
+// Phones keep the x1 size (ring 34, glyph 20, hit 44) also while zoomed; desktop grows with the
+// room scale up to ring 56, glyph 24, hit 56 at x3.
+function pathMarkerSizes(s, phone = false) {
+  const grow = phone ? 0 : Math.min(2, Math.max(0, s - 1));
+  const ring = Math.round(34 + grow * 11);
+  return { ring, hit: Math.max(44, ring), glyph: Math.round(20 + grow * 2) };
 }
 
-function pathMarkerView(zone, data, s) {
+// Visual extents of the marker from its centre (screen px): ring, check badge (bottom right),
+// reminder chip (top right). Must match the .pmBadge and .pmChip CSS below.
+function pathMarkerExtents(state, ring) {
+  const radius = ring / 2;
+  const chip = state.reminder ? ring * 0.3 + 18 : 0;
+  const badge = state.allSecured ? ring * 0.22 + 16 : 0;
+  return {
+    left: radius,
+    right: Math.max(radius, chip, badge),
+    up: Math.max(radius, chip),
+    down: Math.max(radius, badge),
+  };
+}
+
+const PM_CLAMP_INSET = 4;
+
+function pathMarkerView(zone, data, s, clampTo = null) {
   const state = data?.pathMarker;
   const point = zone.path_marker;
   if (!state || !Array.isArray(point) || point.length !== 2) return null;
 
-  const { ring, hit, glyph } = pathMarkerSizes(s);
+  const { ring, hit, glyph } = pathMarkerSizes(s, props.phone);
   const geometry = ringSegments(state.segments.length, PM_RING_R);
-  const parts = [t("space.scene.pathMarker.path", { path: state.title })];
+  const placed = (data.unlocked_objects || []).length;
+  const parts = [data.title, t("space.scene.pathMarker.path", { path: state.title })];
   parts.push(state.empty
     ? t("space.scene.pathMarker.noneJoined")
     : t("space.scene.pathMarker.secured", { secured: state.secured, joined: state.joined }));
   if (state.lit) parts.push(t("space.scene.pathMarker.doneToday"));
   if (PM_REMINDER_KEYS[state.reminder]) parts.push(t(PM_REMINDER_KEYS[state.reminder]));
+  parts.push(t("space.scene.objectsPlaced", { count: placed }));
 
-  const cx = point[0] * s;
-  const cy = point[1] * s;
-  // Visual extent above (the reminder chip reaches higher than the ring) and below the centre.
-  const reach = Math.max(ring / 2, ring * 0.3 + 18);
+  const extent = pathMarkerExtents(state, ring);
+  let cx = point[0] * s;
+  let cy = point[1] * s;
+  // Phone zoom: keep the selected zone's marker (and its chip and badge) inside the visible
+  // camera rect, inset by 4px. The anchors in room_layout.json do not move.
+  if (clampTo) {
+    cx = Math.min(Math.max(cx, clampTo.x0 + extent.left + PM_CLAMP_INSET), clampTo.x1 - extent.right - PM_CLAMP_INSET);
+    cy = Math.min(Math.max(cy, clampTo.y0 + extent.up + PM_CLAMP_INSET), clampTo.y1 - extent.down - PM_CLAMP_INSET);
+  }
 
   return {
     ...state,
     ring: state.segments.map((segment, index) => ({ ...segment, ...geometry[index] })),
-    ariaLabel: parts.join(t("common.listSeparator")),
-    top: cy - reach,
-    bottom: cy + ring / 2,
+    ariaLabel: parts.filter(Boolean).join(t("common.listSeparator")),
+    top: cy - extent.up,
+    bottom: cy + extent.down,
     style: {
-      left: `${Math.round(point[0] * s - hit / 2)}px`,
-      top: `${Math.round(point[1] * s - hit / 2)}px`,
+      left: `${Math.round(cx - hit / 2)}px`,
+      top: `${Math.round(cy - hit / 2)}px`,
       "--pm-hit": `${hit}px`,
       "--pm-ring": `${ring}px`,
       "--pm-glyph": `${glyph}px`,
@@ -507,7 +536,15 @@ const hitZones = computed(() => {
     .map((zone) => {
       const data = zonesByKey.value[zone.key];
       const box = footprintBox(zone.footprint);
-      const marker = pathMarkerView(zone, data, s);
+      const clampTo = zoomed.value && props.selectedZoneKey === zone.key
+        ? {
+          x0: -pan.value.x,
+          y0: -pan.value.y,
+          x1: -pan.value.x + viewportWidth.value,
+          y1: -pan.value.y + viewportHeight.value,
+        }
+        : null;
+      const marker = pathMarkerView(zone, data, s, clampTo);
       // The label stays centred on the footprint but never covers the path marker: above the
       // marker (and its chip), or below it when there is no room above in the visible frame.
       const labelAbove = marker ? Math.min(box.y * s, marker.top) : box.y * s;
