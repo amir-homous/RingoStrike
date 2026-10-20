@@ -198,6 +198,10 @@ const SET_VALUE = (selector, value) => `(() => {
 // The save area (Save, the quiet button if any, and the caption) is fully visible inside the panel
 // or sheet and the viewport, without scrolling the page. Desktop: the page does not scroll at all.
 async function assertSaveVisible(page, label, width) {
+  if (!(await evaluate(page, `Boolean(document.querySelector(".missionFlow"))`))) {
+    const info = await evaluate(page, `JSON.stringify({ mounts: window.__mounts || null, path: location.pathname, t: Math.round(performance.now()), sheet: Boolean(document.querySelector(".zoneSheet")), panel: Boolean(document.querySelector(".zonePanel")), events: window.__flowEvents || null })`);
+    assert.fail(`${label}: the flow is gone ${info}`);
+  }
   const m = await evaluate(page, `(() => {
     const flow = document.querySelector(".missionFlow");
     const panel = flow.closest(".roomSafeZone");
