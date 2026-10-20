@@ -27,6 +27,19 @@ import {
   pixelIconScale,
 } from "../src/lib/roomScene.js";
 import {
+  EARLIER_SLOTS,
+  buildContext,
+  clampDuration,
+  localTimeToday,
+  performedAtWindow,
+  readFocusStart,
+  readLastPlace,
+  slotEnabled,
+  slotPerformedAt,
+  writeFocusStart,
+} from "../src/lib/missionActionFlow.js";
+import { formatClock } from "../src/lib/i18nNumbers.js";
+import {
   BACKFILL_SOURCE,
   MATERIALIZE_TOTAL_MS,
   createMaterializeQueue,
@@ -146,6 +159,7 @@ function run() {
   runRoomSceneSmoke();
   runRoomObjectsSmoke();
   runMaterializeSmoke();
+  runMissionActionSmoke();
 
   console.log("Living Space smoke test passed.");
 }
@@ -517,6 +531,51 @@ function runMaterializeSmoke() {
   assert.equal(pixelIconScale(13, 10, 66), 5);
   assert.equal(pixelIconScale(200, 100, 66), 1);
   assert.equal(pixelIconScale(0, 0, 66), 1);
+}
+
+function runMissionActionSmoke() {
+  // Only the chosen fields are sent; {} is a valid save.
+  assert.deepEqual(buildContext({}), {});
+  assert.deepEqual(buildContext({ mode: "now", durationSeconds: 125.4 }), { mode: "now", duration_seconds: 125 });
+  assert.deepEqual(buildContext({ mode: "now", durationSeconds: 0 }), { mode: "now", duration_seconds: 1 });
+  assert.deepEqual(buildContext({ mode: "now", durationSeconds: 999999 }), { mode: "now", duration_seconds: 86400 });
+  assert.deepEqual(buildContext({ mode: "earlier", durationSeconds: 60 }), { mode: "earlier" });
+  assert.deepEqual(
+    buildContext({ mode: "earlier", performedAt: "2026-10-20T08:00:00Z", place: "other", placeLabel: "  " + "x".repeat(50), feeling: "hard_but_done", note: "  hi  " }),
+    { mode: "earlier", performed_at: "2026-10-20T08:00:00Z", place_key: "other", place_label: "x".repeat(40), feeling_key: "hard_but_done", note: "hi" },
+  );
+  assert.deepEqual(buildContext({ mode: "now", durationSeconds: 5, place: "home", placeLabel: "ignored", feeling: "happy" }), { mode: "now", duration_seconds: 5, place_key: "home" });
+  assert.equal(clampDuration(-3), 1);
+
+  // The time window comes from the server's ringo day; chips outside it are disabled.
+  const ringoDay = { next_reset_at: "2026-10-21T00:00:00Z", server_now: "2026-10-20T15:00:00Z" };
+  const window = performedAtWindow(ringoDay, { fetchedAt: 1000, clientNow: 1000 });
+  assert.equal(window.start, Date.parse("2026-10-20T00:00:00Z"));
+  assert.equal(window.end, Date.parse("2026-10-20T15:00:00Z"));
+  assert.equal(performedAtWindow(ringoDay, { fetchedAt: 1000, clientNow: 61000 }).end, Date.parse("2026-10-20T15:01:00Z"));
+  assert.equal(performedAtWindow(null), null);
+  const base = new Date(Date.parse("2026-10-20T15:00:00Z"));
+  const inside = (hhmm) => { const t = localTimeToday(hhmm, base); return t >= window.start && t <= window.end; };
+  for (const slot of Object.keys(EARLIER_SLOTS)) {
+    assert.equal(slotEnabled(slot, { window, base }), inside(EARLIER_SLOTS[slot]), slot);
+    const value = slotPerformedAt(slot, { window, base });
+    assert.equal(Boolean(value), inside(EARLIER_SLOTS[slot]), slot);
+    if (value) assert.match(value, /^\d{4}-\d\d-\d\dT\d\d:\d\d:00Z$/);
+  }
+  assert.equal(slotEnabled("exact", { window }), true);
+  assert.equal(slotEnabled("exact", { window: null }), false);
+  assert.equal(slotPerformedAt("exact", { exactTime: "25:00", window, base }), null);
+  assert.equal(localTimeToday("9:5"), null);
+
+  // Storage is guarded: no window/storage in Node, so reads are null and writes do not throw.
+  assert.equal(readFocusStart("user:1", 7), null);
+  writeFocusStart("user:1", 7, Date.now());
+  assert.equal(readLastPlace("user:1", "creativity"), null);
+
+  // Count-up clock in the locale's digits.
+  assert.equal(formatClock(65, "en"), "01:05");
+  assert.equal(formatClock(3725, "en"), "1:02:05");
+  assert.equal(formatClock(65, "fa"), "۰۱:۰۵");
 }
 
 run();
