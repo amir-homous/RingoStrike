@@ -2711,6 +2711,13 @@ async function loadMissions() {
       ringo: localizedRingo.value,
       missions: localizedMissions.value,
       state: ringo.value?.state || "",
+      // B30: the room's reminder chip reuses these settings (null = not loaded, no second request).
+      telegram: telegramResult.status === "fulfilled"
+        ? {
+          connected: Boolean(telegramSettings.value?.connected),
+          reminders_enabled: Boolean(telegramSettings.value?.reminders_enabled),
+        }
+        : null,
     });
   } catch (e) {
     ringoGuidance.value = null;
@@ -2721,6 +2728,7 @@ async function loadMissions() {
       ringo: null,
       missions: [],
       state: "error",
+      telegram: null,
     });
   } finally {
     loading.value = false;

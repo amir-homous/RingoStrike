@@ -22,10 +22,17 @@ import {
   safeArea,
   safeAreaPanY,
   slotForReward,
-  zoneMarker,
   zoneObjects,
   pixelIconScale,
 } from "../src/lib/roomScene.js";
+import {
+  REMINDER_CHIP,
+  pathMarkerColor,
+  pathMarkerState,
+  reminderChip,
+  ringSegments,
+  telegramReady,
+} from "../src/lib/pathMarker.js";
 import {
   BACKFILL_SOURCE,
   MATERIALIZE_TOTAL_MS,
@@ -383,7 +390,7 @@ function runRoomSceneSmoke() {
     assert.ok(existsSync(new URL(zone.dim, roomDir)), `${key} dim`);
     assert.ok(existsSync(new URL(zone.light.file, roomDir)), `${key} light`);
   }
-  for (const file of [layout.stage, layout.overlay, layout.markers.bell, layout.markers.bell_due]) {
+  for (const file of [layout.stage, layout.overlay, layout.markers.glint]) {
     assert.ok(existsSync(new URL(file, roomDir)), file);
   }
 
@@ -392,10 +399,20 @@ function runRoomSceneSmoke() {
   assert.deepEqual(footprintBox(fp), { x: 10, y: 60, w: 140, h: 110 });
   assert.equal(footprintClipPath(fp, 2), "polygon(0px 0px, 280px 0px, 280px 220px, 0px 220px)");
 
-  // Markers: due wins over scheduled.
-  assert.equal(zoneMarker({ dueReminderCount: 1, scheduledReminderCount: 2 }), "bell_due");
-  assert.equal(zoneMarker({ scheduledReminderCount: 1 }), "bell");
-  assert.equal(zoneMarker({}), "");
+  // B30 S1: every zone has a path_marker anchor (new key, not the old bell "marker") and a reserved tray.
+  const pathMarkerAnchors = {
+    work_desk: [78, 46],
+    learning_corner: [160, 47],
+    creative_corner: [311, 46],
+    sleep_corner: [398, 47],
+    fitness_corner: [78, 174],
+  };
+  for (const key of ZONE_ORDER) {
+    assert.deepEqual(layout.zones[key].path_marker, pathMarkerAnchors[key], `${key} path_marker`);
+    assert.ok("tray" in layout.zones[key], `${key} tray reserved`);
+  }
+
+  testPathMarkerState();
 
   // Ringo anchors bottom-center at safe position A; sleeping in rest.
   const idle = ringoPlacement(layout);
@@ -517,6 +534,87 @@ function runMaterializeSmoke() {
   assert.equal(pixelIconScale(13, 10, 66), 5);
   assert.equal(pixelIconScale(200, 100, 66), 1);
   assert.equal(pixelIconScale(0, 0, 66), 1);
+}
+
+// B30 S1: path marker state (ring segments, grey/coloured rule, lit, badge, reminder chip).
+function testPathMarkerState() {
+  const color = "#4ade80";
+  const joined = (total = 0, extra = {}) => ({ isJoined: true, totalCheckins: total, todayChecked: false, ...extra });
+  const open = { isJoined: false, totalCheckins: 0 };
+
+  // 0 joined: grey dashed ring, no segments, neutral, no badge.
+  const none = pathMarkerState({ challenges: [open, open], color });
+  assert.deepEqual(none.segments, []);
+  assert.equal(none.empty, true);
+  assert.equal(none.coloured, false);
+  assert.equal(none.color, "");
+  assert.equal(none.allSecured, false);
+  assert.equal(none.lit, false);
+
+  // 1 joined, not secured yet: one empty segment, still grey.
+  const one = pathMarkerState({ challenges: [joined(0), open], color });
+  assert.deepEqual(one.segments, [{ secured: false }]);
+  assert.equal(one.coloured, false);
+  assert.equal(one.allSecured, false);
+
+  // 3 joined, 2 secured: secured segments first, path colour, no badge.
+  const twoOfThree = pathMarkerState({ challenges: [joined(0), joined(3), joined(1)], color });
+  assert.deepEqual(twoOfThree.segments, [{ secured: true }, { secured: true }, { secured: false }]);
+  assert.equal(twoOfThree.joined, 3);
+  assert.equal(twoOfThree.secured, 2);
+  assert.equal(twoOfThree.coloured, true);
+  assert.equal(twoOfThree.color, color);
+  assert.equal(twoOfThree.allSecured, false);
+
+  // 3/3 secured: check badge.
+  const all = pathMarkerState({ challenges: [joined(1), joined(2), joined(5)], color });
+  assert.equal(all.allSecured, true);
+  assert.equal(all.secured, 3);
+
+  // Joining one more adds an empty segment; nothing earned shrinks.
+  const grown = pathMarkerState({ challenges: [joined(1), joined(2), joined(5), joined(0)], color });
+  assert.equal(grown.segments.filter((segment) => segment.secured).length, 3);
+  assert.equal(grown.segments.length, 4);
+  assert.equal(grown.allSecured, false);
+
+  // Lit: any challenge done today. Raw API shape works too.
+  assert.equal(pathMarkerState({ challenges: [joined(1, { todayChecked: true })], color }).lit, true);
+  const raw = pathMarkerState({ challenges: [{ is_joined: 1, total_checkins: 2, today_checked: true }], color });
+  assert.equal(raw.secured, 1);
+  assert.equal(raw.lit, true);
+  assert.equal(raw.coloured, true);
+
+  // Colour only from a valid hex paths.color; otherwise neutral even when secured.
+  assert.equal(pathMarkerColor("#6EE5FF"), "#6EE5FF");
+  assert.equal(pathMarkerColor("#abc"), "#abc");
+  assert.equal(pathMarkerColor("red; background:url(x)"), "");
+  assert.equal(pathMarkerState({ challenges: [joined(1)], color: "" }).coloured, false);
+
+  // Telegram readiness: connected and reminders on; unknown settings stay null.
+  assert.equal(telegramReady({ connected: true, reminders_enabled: true }), true);
+  assert.equal(telegramReady({ connected: true, reminders_enabled: false }), false);
+  assert.equal(telegramReady({ connected: false, reminders_enabled: true }), false);
+  assert.equal(telegramReady(null), null);
+
+  // Reminder chip precedence: due > Telegram not connected > set; one chip per zone.
+  assert.equal(reminderChip({ dueCount: 1, scheduledCount: 2, telegram: false }), REMINDER_CHIP.DUE);
+  assert.equal(reminderChip({ dueCount: 1, telegram: true }), REMINDER_CHIP.DUE);
+  assert.equal(reminderChip({ scheduledCount: 1, telegram: false }), REMINDER_CHIP.TELEGRAM_OFF);
+  assert.equal(reminderChip({ scheduledCount: 1, telegram: true }), REMINDER_CHIP.SET);
+  assert.equal(reminderChip({ scheduledCount: 1, telegram: null }), REMINDER_CHIP.SET);
+  assert.equal(reminderChip({ telegram: false }), "");
+  assert.equal(reminderChip({}), "");
+  assert.equal(pathMarkerState({ challenges: [], scheduledCount: 1, telegram: false }).reminder, REMINDER_CHIP.TELEGRAM_OFF);
+
+  // Ring geometry: one arc per segment starting at the top; a single segment is a closed ring.
+  assert.deepEqual(ringSegments(0, 10), []);
+  const circumference = 2 * Math.PI * 10;
+  const [single] = ringSegments(1, 10);
+  assert.equal(single.dasharray, `${Math.round(circumference * 100) / 100} 0`);
+  assert.equal(single.dashoffset, Math.round((circumference / 4) * 100) / 100);
+  const three = ringSegments(3, 10);
+  assert.equal(three.length, 3);
+  assert.ok(three.every((segment) => Number(segment.dasharray.split(" ")[0]) > 0));
 }
 
 run();
