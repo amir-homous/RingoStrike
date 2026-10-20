@@ -15,6 +15,7 @@
         @pointercancel="onPointerUp"
         @click.capture="onClickCapture"
         @focusin="onFocusIn"
+        @scroll="onViewportScroll"
       >
         <div
           class="roomScene"
@@ -145,6 +146,7 @@
                   coloured: item.marker.coloured,
                   lit: item.marker.lit,
                   empty: item.marker.empty,
+                  offFrame: item.marker.offFrame,
                 }"
                 :style="item.marker.style"
                 :aria-label="item.marker.ariaLabel"
@@ -407,6 +409,16 @@ function onFocusIn(event) {
   focusZoneKey.value = key;
 }
 
+// The camera (translate) is the only pan. Focusing an element outside the clipped frame makes the
+// browser scroll the overflow-hidden viewport as well, which would double the offset: undo it.
+function onViewportScroll(event) {
+  const el = event.currentTarget;
+  if (el.scrollLeft || el.scrollTop) {
+    el.scrollLeft = 0;
+    el.scrollTop = 0;
+  }
+}
+
 // Rest dims the room to layout.rest.room_dim brightness (addendum §3: overlay opacity 0.26).
 const restOverlayOpacity = computed(() => {
   const roomDim = Number(layout.rest?.room_dim);
@@ -536,15 +548,25 @@ const hitZones = computed(() => {
     .map((zone) => {
       const data = zonesByKey.value[zone.key];
       const box = footprintBox(zone.footprint);
-      const clampTo = zoomed.value && props.selectedZoneKey === zone.key
-        ? {
-          x0: -pan.value.x,
-          y0: -pan.value.y,
-          x1: -pan.value.x + viewportWidth.value,
-          y1: -pan.value.y + viewportHeight.value,
-        }
+      // Visible camera rect in scene px. Phone zoom: the selected zone's marker is clamped inside
+      // it. Phone overview: a marker whose anchor is in view is clamped inside it; one whose anchor
+      // is out of view is hidden (it stays focusable, and focus pans the room to its zone).
+      const frameRect = {
+        x0: -pan.value.x,
+        y0: -pan.value.y,
+        x1: -pan.value.x + viewportWidth.value,
+        y1: -pan.value.y + viewportHeight.value,
+      };
+      const anchor = zone.path_marker || [];
+      const anchorInFrame = anchor.length === 2
+        && anchor[0] * s >= frameRect.x0 && anchor[0] * s <= frameRect.x1
+        && anchor[1] * s >= frameRect.y0 && anchor[1] * s <= frameRect.y1;
+      const overview = props.phone && !zoomed.value;
+      const clampTo = (zoomed.value && props.selectedZoneKey === zone.key) || (overview && anchorInFrame)
+        ? frameRect
         : null;
       const marker = pathMarkerView(zone, data, s, clampTo);
+      if (marker) marker.offFrame = overview && !anchorInFrame;
       // The label stays centred on the footprint but never covers the path marker: above the
       // marker (and its chip), or below it when there is no room above in the visible frame.
       const labelAbove = marker ? Math.min(box.y * s, marker.top) : box.y * s;
@@ -955,6 +977,11 @@ onUnmounted(() => {
   cursor: pointer;
   pointer-events: auto;
   -webkit-tap-highlight-color: transparent;
+}
+
+.pathMarker.offFrame {
+  opacity: 0;
+  pointer-events: none;
 }
 
 .pathMarker.coloured {
