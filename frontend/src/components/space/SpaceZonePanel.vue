@@ -1,5 +1,23 @@
 <template>
-  <aside class="zonePanel" :class="`card-${cardState}`">
+  <aside class="zonePanel" :class="[`card-${cardState}`, { flowActive: Boolean(actionFlow) }]">
+    <!-- B27: "Do it now" / "Already did it" replace the panel content (no new route). -->
+    <MissionActionFlow
+      v-if="actionFlow"
+      ref="flowRef"
+      :key="`${actionFlow.mode}-${actionFlow.mission?.id}`"
+      :mode="actionFlow.mode"
+      :mission="actionFlow.mission"
+      :zone-title="zone.title"
+      :path-key="zone.path_key || ''"
+      :user-key="userKey"
+      :submitting="flowSubmitting"
+      :error="flowError"
+      @save="saveActionFlow"
+      @cancel="closeActionFlow"
+      @close="closeActionFlow"
+    />
+
+    <template v-else>
     <div class="panelHead">
       <div class="panelTitleWrap">
         <span v-if="pathIcon" class="iconFrame panelIconFrame" aria-hidden="true">
@@ -157,6 +175,7 @@
         </ZoneDetailsRow>
       </div>
     </div>
+    </template>
   </aside>
 </template>
 
@@ -167,6 +186,7 @@ import { formatNumber, numberAwareT } from "@/lib/i18nNumbers";
 import BonusOfferCard from "./BonusOfferCard.vue";
 import ChallengeTodayMissions from "./ChallengeTodayMissions.vue";
 import RingoActionCard from "./RingoActionCard.vue";
+import MissionActionFlow from "./MissionActionFlow.vue";
 import ZoneDetailsRow from "./ZoneDetailsRow.vue";
 import ZoneTodayStrip from "./ZoneTodayStrip.vue";
 import {
@@ -190,6 +210,8 @@ const props = defineProps({
   pathError: { type: String, default: "" },
   selectedChallengeId: { type: [Number, String, null], default: null },
   completingMissionId: { type: [Number, String, null], default: null },
+  // B27: user scope for the flow's sessionStorage timer and remembered place.
+  userKey: { type: String, default: "" },
   startingChallengeId: { type: [Number, String, null], default: null },
   todaySafe: { type: Boolean, default: false },
   dailyMomentum: { type: Object, default: () => ({}) },
@@ -652,6 +674,7 @@ const ringoCard = computed(() => {
       body: bonusCandidates.value.length
         ? t("space.panel.doneBody")
         : t("space.panel.doneBodyNoBonus"),
+      doneStatus: true,
       primary: {
         key: "finish-today",
         label: t("space.panel.actionFinishToday"),
@@ -680,6 +703,7 @@ const ringoCard = computed(() => {
       label: t("space.ringoGuide.eyebrow"),
       title: t("space.ringoGuide.missionDoneTitle"),
       body: t("space.ringoGuide.missionDoneMessage", { mission: missionTitle }),
+      doneStatus: missionIntensity(mission) === "main",
       secondary: [openPath],
     };
   }
@@ -793,7 +817,50 @@ function completeAction(mission) {
     disabled: selectedMissionLoading.value,
     type: "complete-mission",
     mission,
+    // B27: main missions get the split action; tiny and bonus keep the single button.
+    split: missionIntensity(mission) === "main",
+    submitting: selectedMissionLoading.value,
   };
+}
+
+// B27 flows. The save goes through the normal completion (and its reward sequence); a failed
+// save keeps the user's answers and shows a calm inline error.
+const actionFlow = ref(null);
+const flowRef = ref(null);
+const flowSubmitting = ref(false);
+const flowError = ref("");
+
+function openActionFlow(mode, mission) {
+  if (!mission?.id) return;
+  flowError.value = "";
+  flowSubmitting.value = false;
+  actionFlow.value = { mode, mission };
+}
+
+function closeActionFlow() {
+  if (flowSubmitting.value) return;
+  actionFlow.value = null;
+  flowError.value = "";
+  nextTick(() => ringoCardRef.value?.focusPrimary());
+}
+
+function saveActionFlow(context) {
+  const mission = actionFlow.value?.mission;
+  if (!mission || flowSubmitting.value) return;
+  flowSubmitting.value = true;
+  flowError.value = "";
+  emit("complete-mission", mission, {
+    context,
+    onResult: (result) => {
+      flowSubmitting.value = false;
+      if (result?.ok) {
+        flowRef.value?.clearTimer();
+        actionFlow.value = null;
+      } else {
+        flowError.value = result?.error || "save_failed";
+      }
+    },
+  });
 }
 
 function missionSupportActions(mission, { reminder = false } = {}) {
@@ -805,6 +872,7 @@ function missionSupportActions(mission, { reminder = false } = {}) {
     actions.push({
       key: "make-selected-mission-smaller",
       label: t("space.panel.actionSmaller"),
+      shortLabel: t("space.missionAction.smallerShort"),
       disabled: selectedMissionLoading.value,
       iconKey: "makeSmaller",
       type: "make-smaller",
@@ -815,6 +883,7 @@ function missionSupportActions(mission, { reminder = false } = {}) {
   actions.push({
     key: "remind-selected-mission",
     label: reminder ? t("space.panel.actionRemindAgain") : t("space.panel.actionRemind"),
+    shortLabel: t("space.missionAction.remindShort"),
     disabled: selectedMissionLoading.value,
     iconKey: "remindLater",
     type: "remind-mission",
@@ -824,6 +893,7 @@ function missionSupportActions(mission, { reminder = false } = {}) {
   actions.push({
     key: "skip-selected-mission",
     label: t("space.panel.actionNotToday"),
+    shortLabel: t("space.missionAction.notTodayShort"),
     disabled: selectedMissionLoading.value,
     iconKey: "skip",
     type: "skip-mission",
@@ -851,6 +921,16 @@ function handleRingoAction(action) {
 
   if (action.type === "complete-mission") {
     emit("complete-mission", action.mission);
+    return;
+  }
+
+  if (action.type === "start-focus") {
+    openActionFlow("focus", action.mission);
+    return;
+  }
+
+  if (action.type === "already-did") {
+    openActionFlow("earlier", action.mission);
     return;
   }
 
@@ -1220,6 +1300,13 @@ function canUseMissionSupportActions(mission) {
     0 18px 50px rgba(0, 0, 0, 0.24),
     inset 0 0 0 1px rgba(255, 255, 255, 0.025);
   backdrop-filter: blur(18px);
+}
+
+/* B27: while a flow is open it fills the panel (its body scrolls, Save stays visible). */
+.zonePanel.flowActive {
+  grid-template-rows: minmax(0, 1fr);
+  height: 100%;
+  overflow: hidden;
 }
 
 .panelWorkSurface {

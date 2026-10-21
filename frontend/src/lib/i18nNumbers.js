@@ -29,3 +29,14 @@ export function numberAwareT(t, getLocale) {
     return count === undefined ? t(key, formatted) : t(key, formatted, count);
   };
 }
+
+// Count-up clock: m:ss (mm:ss) under an hour, then h:mm:ss, in the locale's digits.
+export function formatClock(totalSeconds, locale = "en") {
+  const seconds = Math.max(0, Math.floor(Number(totalSeconds) || 0));
+  const two = new Intl.NumberFormat(locale || "en", { minimumIntegerDigits: 2, useGrouping: false });
+  const one = new Intl.NumberFormat(locale || "en", { useGrouping: false });
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = seconds % 60;
+  return h > 0 ? `${one.format(h)}:${two.format(m)}:${two.format(s)}` : `${two.format(m)}:${two.format(s)}`;
+}

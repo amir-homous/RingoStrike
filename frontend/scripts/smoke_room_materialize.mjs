@@ -207,9 +207,12 @@ async function runViewport(page, [width, height, locale]) {
 
   // Open Creative and complete today's main step from the room.
   await evaluate(page, `document.querySelector('.zoneHitWrap[data-zone="creative_corner"] .zoneHit').click()`);
-  await waitFor(page, `Boolean([...document.querySelectorAll(".roomSafeZone button.primaryAction")].find((b) => b.offsetParent))`);
+  await waitFor(page, `Boolean([...document.querySelectorAll(".roomSafeZone .splitAction .splitSecondary")].find((b) => b.offsetParent))`);
   if (locale === "fa") await assertNoLatinDigits(page, label, "zone panel", `document.querySelector(".roomSafeZone .zonePanel")`);
-  await evaluate(page, `[...document.querySelectorAll(".roomSafeZone button.primaryAction")].find((b) => b.offsetParent).click()`);
+  // B27: main missions use the split bar: "Already did it", then Save with no answers.
+  await evaluate(page, `[...document.querySelectorAll(".roomSafeZone .splitAction .splitSecondary")].find((b) => b.offsetParent).click()`);
+  await waitFor(page, `Boolean(document.querySelector(".roomSafeZone .missionFlow .flowPrimary"))`);
+  await evaluate(page, `[...document.querySelectorAll(".roomSafeZone .missionFlow .flowChip.selected")].forEach((chip) => chip.click()); document.querySelector(".roomSafeZone .missionFlow .flowPrimary").click()`);
 
   // Ringo Moment, then the reward card. The object stays a ghost behind both.
   let steps = 0;
