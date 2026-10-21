@@ -86,12 +86,19 @@ export default {
       // B30: read-only path marker per zone (aria-label parts).
       pathMarker: {
         path: "مسیر {path}",
-        secured: "{secured} از {joined} چالش ثبت‌شده",
+        doneToday: "{done} از {joined} چالش امروز انجام شده",
         noneJoined: "هنوز چالشی شروع نشده",
-        doneToday: "امروز انجام شد",
         reminderDue: "یادآور رسیده",
         reminderSet: "یادآور تنظیم شده",
         reminderTelegramOff: "یادآور تنظیم شده، تلگرام وصل نیست",
+      },
+      // B30 S2: challenge tray of the open zone (aria labels and the Day N pill).
+      tray: {
+        label: "چالش‌های {path}",
+        open: "{name}، هنوز شروع نشده",
+        joined: "{name}، شروع‌شده، امروز هنوز انجام نشده",
+        done: "{name}، امروز انجام شد، روز {n}",
+        day: "روز {n}",
       },
     },
     room: {
@@ -358,6 +365,17 @@ export default {
       pathClearMessage: "همه واحدهای پیشرفت در دسترس {path} انجام شده‌اند. قدم‌های قفل آینده نباید تکمیل امروز را خراب کنند.",
       challengePreviewTitle: "این می‌تونه قدم بعدیت باشه",
       challengePreviewMessage: "{challenge} بخشی از {path} ـه. هر وقت خواستی قدم روزانه‌ت باشه، شروعش کن.",
+      // B30 S2: tapped challenge (D38), invite-only (D40), post-join card (D39), reminder line (D41).
+      joinChallenge: "شروع این چالش",
+      notNow: "الان نه",
+      daysChip: "{count} روز | {count} روز",
+      inviteOnlyTitle: "این چالش کد دعوت می‌خواد",
+      inviteOnlyMessage: "{challenge} فقط با کد دعوت باز می‌شه. کد رو توی صفحهٔ چالش‌ها وارد کن.",
+      openChallenges: "رفتن به چالش‌ها",
+      joinedTitle: "به {challenge} پیوستی",
+      joinedBody: "قدم اولش امروز آماده‌ست. برای شروع، کوچیکش هم کافیه.",
+      joinedPrimary: "قدم امروز رو ببین",
+      reminderLine: "یادآور رسیده: {mission}",
       missionFocusTitle: "اول مأموریت اصلی",
       missionFocusMessage: "{mission} قدم امروزته. قدم‌های اضافه می‌تونن صبر کنن.",
       bonusReadyTitle: "بونوس حالا اختیاری است",
@@ -1510,6 +1528,17 @@ export default {
       finalTitle: "ریتمت رو خودت انتخاب کن",
       finalText: "می‌تونی همین‌جا تمومش کنی. اگه هنوز انرژی داری، گزینه‌ها رو ببین.",
     },
+  },
+  // B30 S2 (D43): join errors from POST /challenges/:id/join, shown in the room, Challenges and onboarding.
+  joinErrors: {
+    codeRequired: "کد دعوت لازمه.",
+    invalidCode: "این کد دعوت جواب نداد.",
+    codeType: "کد دعوت باید متن باشه.",
+    codeTooLong: "کد دعوت خیلی طولانیه.",
+    private: "این چالش خصوصیه.",
+    inactive: "این چالش الان فعال نیست.",
+    inviteNotConfigured: "این چالش هنوز برای دعوت باز نشده.",
+    notFound: "این چالش پیدا نشد.",
   },
   joinSuccess: {
     eyebrow: "مسیر شروع شد",

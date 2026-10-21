@@ -375,7 +375,7 @@ async function startSuggestedPath(selectedIds = []) {
     step.value = 4;
   } catch (error) {
     const message = error?.response?.data?.error || error?.message || String(error);
-    joinError.value = humanizeJoinError(message);
+    joinError.value = humanizeJoinError(message, t);
   } finally {
     joining.value = false;
   }

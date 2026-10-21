@@ -1,4 +1,4 @@
-// B30 S1: read-only path marker per room zone (ring, colour, lit, check badge, reminder chip).
+// B30: read-only path marker per room zone (ring, colour, lit, check badge, reminder chip).
 // Pure state: built from data the room already loads (GET /paths/:id/challenges, the missions
 // prop, the Telegram settings MissionCenter loads). No Vue or Vite, so test:living-space imports it.
 
@@ -30,10 +30,6 @@ function isJoined(challenge) {
   return Boolean(challenge?.isJoined ?? challenge?.is_joined ?? challenge?.enrollmentId ?? challenge?.enrollment_id);
 }
 
-function totalCheckins(challenge) {
-  return Number(challenge?.totalCheckins ?? challenge?.total_checkins ?? 0) || 0;
-}
-
 function todayChecked(challenge) {
   return Boolean(challenge?.todayChecked ?? challenge?.today_checked);
 }
@@ -56,27 +52,30 @@ export function reminderChip({ dueCount = 0, scheduledCount = 0, telegram = null
 }
 
 // challenges: the path's challenge items (camelCase from LivingSpace or the raw API shape).
-// One ring segment per joined challenge, secured (total_checkins >= 1) first so the filled arc is
-// contiguous; joining adds an empty segment and nothing earned shrinks.
+// Daily state (D44): it resets at the day boundary. One ring segment per joined challenge, filled
+// when that challenge has a counted check-in today (today_checked), done ones first so the filled
+// arc is contiguous. The glyph takes the path colour and glows when at least one is done today;
+// the check badge shows only when every joined challenge is done today. total_checkins (Day N)
+// is not read here.
 export function pathMarkerState({ challenges = [], color = "", dueCount = 0, scheduledCount = 0, telegram = null } = {}) {
   const list = Array.isArray(challenges) ? challenges : [];
   const joined = list.filter(isJoined);
-  const secured = joined.filter((challenge) => totalCheckins(challenge) >= 1).length;
   const segments = joined
-    .map((challenge) => ({ secured: totalCheckins(challenge) >= 1 }))
-    .sort((a, b) => Number(b.secured) - Number(a.secured));
-  const coloured = list.some((challenge) => totalCheckins(challenge) >= 1);
+    .map((challenge) => ({ done: todayChecked(challenge) }))
+    .sort((a, b) => Number(b.done) - Number(a.done));
+  const doneToday = segments.filter((segment) => segment.done).length;
   const pathColor = pathMarkerColor(color);
+  const coloured = doneToday > 0 && Boolean(pathColor);
 
   return {
     segments,
     joined: joined.length,
-    secured,
+    doneToday,
     empty: joined.length === 0,
-    coloured: coloured && Boolean(pathColor),
+    coloured,
     color: coloured ? pathColor : "",
-    lit: list.some(todayChecked),
-    allSecured: joined.length > 0 && secured === joined.length,
+    lit: doneToday > 0,
+    allDoneToday: joined.length > 0 && doneToday === joined.length,
     reminder: reminderChip({ dueCount, scheduledCount, telegram }),
   };
 }

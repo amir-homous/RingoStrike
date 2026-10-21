@@ -182,6 +182,7 @@
 <script setup>
 import { computed, nextTick, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
+import { useRouter } from "vue-router";
 import { formatNumber, numberAwareT } from "@/lib/i18nNumbers";
 import BonusOfferCard from "./BonusOfferCard.vue";
 import ChallengeTodayMissions from "./ChallengeTodayMissions.vue";
@@ -223,6 +224,10 @@ const props = defineProps({
   reminders: { type: Array, default: () => [] },
   requestedMissionId: { type: [Number, String, null], default: null },
   now: { type: Number, default: () => Date.now() },
+  // B30 S2: the user tapped a challenge (tray icon or row); it wins over a due reminder (D41).
+  challengePicked: { type: Boolean, default: false },
+  // B30 S2: the challenge just joined from the room (post-join card, D39).
+  joinedChallengeId: { type: [Number, String, null], default: null },
 });
 
 const emit = defineEmits([
@@ -238,6 +243,7 @@ const emit = defineEmits([
 ]);
 
 const { locale, t: baseT } = useI18n();
+const router = useRouter();
 // B10: numbers in copy use the locale's digits; a numeric count picks the plural form.
 const t = numberAwareT(baseT, () => locale.value);
 const fmt = (value) => formatNumber(value, locale.value);
@@ -359,6 +365,11 @@ const todayProgress = computed(() => {
 const selectedPathChallenge = computed(() => {
   if (!pathChallenges.value.length) return null;
 
+  const picked = props.challengePicked && props.selectedChallengeId
+    ? pathChallenges.value.find((challenge) => String(challenge.id || "") === String(props.selectedChallengeId))
+    : null;
+  if (picked) return picked;
+
   const dueChallenge = challengeForReminder(props.dueReminderFocus);
   if (dueChallenge) return dueChallenge;
 
@@ -412,7 +423,7 @@ const mainMissionDone = computed(() => {
 
 const selectedMission = computed(() => {
   return pickFocusMission(visibleSelectedMissions.value, {
-    dueMission: missionForReminder(props.dueReminderFocus),
+    dueMission: props.challengePicked ? null : missionForReminder(props.dueReminderFocus),
     pickedId: selectedMissionId.value ?? props.requestedMissionId,
   });
 });
@@ -539,6 +550,9 @@ const cardState = computed(() => {
     focusCanComplete: Boolean(mission && missionCanCompleteInShell(mission)),
     focusDone: Boolean(mission && missionDone(mission)),
     mainDone: mainMissionDone.value || challengeDone.value,
+    explicitPick: props.challengePicked,
+    justJoined: Boolean(props.joinedChallengeId)
+      && String(props.joinedChallengeId) === String(challenge?.id || ""),
   });
 });
 
@@ -574,7 +588,20 @@ const bonusMeta = computed(() => {
   return parts.filter(Boolean).join(" · ");
 });
 
+// D41: after an explicit pick a due reminder becomes one line in the card.
+const reminderLine = computed(() => {
+  if (!props.challengePicked || !props.dueReminders.length) return "";
+  const first = props.dueReminders[0];
+  return t("space.ringoGuide.reminderLine", { mission: first?.title || t("common.mission") });
+});
+
 const ringoCard = computed(() => {
+  const card = baseRingoCard.value;
+  if (!reminderLine.value || cardState.value === "reminder") return card;
+  return { ...card, note: card.note ? `${card.note} ${reminderLine.value}` : reminderLine.value };
+});
+
+const baseRingoCard = computed(() => {
   const state = cardState.value;
   const path = props.zone?.title || t("space.eyebrow");
   const mission = activeShellMission.value;
@@ -614,6 +641,62 @@ const ringoCard = computed(() => {
       body: restMomentText.value,
       primary: dueReminderCount.value > 0 ? reminderReviewAction.value : null,
       secondary: [openPath],
+    };
+  }
+
+  if (state === "joined") {
+    const name = challenge?.name || t("common.challenge");
+    return {
+      tone: "done",
+      mood: "happy",
+      label: t("space.ringoGuide.eyebrow"),
+      title: t("space.ringoGuide.joinedTitle", { challenge: name }),
+      body: t("space.ringoGuide.joinedBody"),
+      primary: {
+        key: "show-today-step",
+        label: t("space.ringoGuide.joinedPrimary"),
+        type: "show-step",
+        challenge,
+      },
+      collapsedText: t("space.ringoGuide.joinedTitle", { challenge: name }),
+    };
+  }
+
+  // D40: an invite-only challenge cannot be joined from the room; the card points to Challenges.
+  if (state === "preview" && challenge?.needsCode) {
+    const name = challenge?.name || t("common.challenge");
+    return {
+      tone: "start",
+      mood: "thinking",
+      label: t("space.ringoGuide.eyebrow"),
+      title: t("space.ringoGuide.inviteOnlyTitle"),
+      body: t("space.ringoGuide.inviteOnlyMessage", { challenge: name }),
+      primary: { key: "open-challenges", label: t("space.ringoGuide.openChallenges"), type: "open-challenges" },
+      secondary: [{ key: "not-now", label: t("space.ringoGuide.notNow"), type: "not-now" }],
+    };
+  }
+
+  // D38: a tapped challenge that is not joined yet: Ringo introduces it, Join is the primary.
+  if (state === "preview" && props.challengePicked) {
+    const name = challenge?.name || t("common.challenge");
+    const days = Number(challenge?.estimatedDays || 0);
+    const intro = String(challenge?.description || "").trim();
+    return {
+      tone: "start",
+      mood: "welcome",
+      label: t("space.ringoGuide.eyebrow"),
+      title: t("space.ringoGuide.challengePreviewTitle"),
+      body: [t("space.ringoGuide.challengePreviewMessage", { challenge: name, path }), intro].filter(Boolean).join(" "),
+      chips: days > 0 ? [{ key: "days", text: t("space.ringoGuide.daysChip", { count: days }) }] : [],
+      note: props.pathError || "",
+      primary: {
+        key: "join-selected-challenge",
+        label: t("space.ringoGuide.joinChallenge"),
+        disabled: String(props.startingChallengeId || "") === String(challenge?.id || ""),
+        type: "start-challenge",
+        challenge,
+      },
+      secondary: [{ key: "not-now", label: t("space.ringoGuide.notNow"), type: "not-now" }],
     };
   }
 
@@ -913,6 +996,22 @@ function focusRingoCard() {
 
 function handleRingoAction(action) {
   if (!action || action.disabled) return;
+
+  // B30 S2 (D38-D40): "Not now" drops the pick; after joining, show that challenge's step.
+  if (action.type === "not-now") {
+    emit("select-challenge", null);
+    return;
+  }
+
+  if (action.type === "show-step") {
+    emit("select-challenge", action.challenge);
+    return;
+  }
+
+  if (action.type === "open-challenges") {
+    router.push("/challenges");
+    return;
+  }
 
   if (action.type === "start-challenge") {
     emit("start-challenge", action.challenge);

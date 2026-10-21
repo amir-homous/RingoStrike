@@ -261,6 +261,14 @@ function runPanelV2Smoke() {
   assert.equal(ringoCardState({ focusGated: true }), "locked");
   assert.equal(ringoCardState({ focusDone: true }), "done");
   assert.equal(ringoCardState({}), "fallback");
+
+  // B30 S2 (D14, D41): an explicit challenge pick beats a due reminder; the reminder stays a line.
+  assert.equal(ringoCardState({ dueReminderFocused: true, focusCanComplete: true, explicitPick: true }), "mission");
+  assert.equal(ringoCardState({ dueReminderFocused: true, focusCanComplete: true, explicitPick: true, hasChallenge: true, challengeJoined: false }), "preview");
+  // D39: the post-join card for a challenge just joined from the room (not at rest, not unjoined).
+  assert.equal(ringoCardState({ justJoined: true, hasChallenge: true, challengeJoined: true, focusCanComplete: true }), "joined");
+  assert.equal(ringoCardState({ justJoined: true, hasChallenge: true, challengeJoined: false }), "preview");
+  assert.equal(ringoCardState({ justJoined: true, restMode: true }), "rest");
 }
 
 function runRecommendationPrioritySmoke() {
@@ -595,11 +603,12 @@ function runMissionActionSmoke() {
   assert.equal(formatClock(65, "fa"), "۰۱:۰۵");
 }
 
-// B30 S1: path marker state (ring segments, grey/coloured rule, lit, badge, reminder chip).
+// B30: path marker state, daily (D44): ring segments, grey/coloured rule, lit, badge, reminder chip.
 function testPathMarkerState() {
   const color = "#4ade80";
-  const joined = (total = 0, extra = {}) => ({ isJoined: true, totalCheckins: total, todayChecked: false, ...extra });
-  const open = { isJoined: false, totalCheckins: 0 };
+  // A joined challenge; totalCheckins (Day N) must not affect the daily marker.
+  const joined = (todayChecked = false, totalCheckins = 0) => ({ isJoined: true, totalCheckins, todayChecked });
+  const open = { isJoined: false, totalCheckins: 0, todayChecked: false };
 
   // 0 joined: grey dashed ring, no segments, neutral, no badge.
   const none = pathMarkerState({ challenges: [open, open], color });
@@ -607,47 +616,58 @@ function testPathMarkerState() {
   assert.equal(none.empty, true);
   assert.equal(none.coloured, false);
   assert.equal(none.color, "");
-  assert.equal(none.allSecured, false);
+  assert.equal(none.allDoneToday, false);
   assert.equal(none.lit, false);
 
-  // 1 joined, not secured yet: one empty segment, still grey.
-  const one = pathMarkerState({ challenges: [joined(0), open], color });
-  assert.deepEqual(one.segments, [{ secured: false }]);
+  // 1 joined, nothing done today: one empty segment, grey, no glow.
+  const one = pathMarkerState({ challenges: [joined(), open], color });
+  assert.deepEqual(one.segments, [{ done: false }]);
   assert.equal(one.coloured, false);
-  assert.equal(one.allSecured, false);
+  assert.equal(one.lit, false);
+  assert.equal(one.allDoneToday, false);
 
-  // 3 joined, 2 secured: secured segments first, path colour, no badge.
-  const twoOfThree = pathMarkerState({ challenges: [joined(0), joined(3), joined(1)], color });
-  assert.deepEqual(twoOfThree.segments, [{ secured: true }, { secured: true }, { secured: false }]);
+  // Done on earlier days only (total_checkins > 0, not today): still grey, no badge. The day reset.
+  const yesterdayOnly = pathMarkerState({ challenges: [joined(false, 5), joined(false, 1)], color });
+  assert.deepEqual(yesterdayOnly.segments, [{ done: false }, { done: false }]);
+  assert.equal(yesterdayOnly.coloured, false);
+  assert.equal(yesterdayOnly.color, "");
+  assert.equal(yesterdayOnly.lit, false);
+  assert.equal(yesterdayOnly.allDoneToday, false);
+
+  // 3 joined, 2 done today: done segments first, path colour, glow, no badge.
+  const twoOfThree = pathMarkerState({ challenges: [joined(false, 9), joined(true, 3), joined(true, 1)], color });
+  assert.deepEqual(twoOfThree.segments, [{ done: true }, { done: true }, { done: false }]);
   assert.equal(twoOfThree.joined, 3);
-  assert.equal(twoOfThree.secured, 2);
+  assert.equal(twoOfThree.doneToday, 2);
   assert.equal(twoOfThree.coloured, true);
   assert.equal(twoOfThree.color, color);
-  assert.equal(twoOfThree.allSecured, false);
+  assert.equal(twoOfThree.lit, true);
+  assert.equal(twoOfThree.allDoneToday, false);
 
-  // 3/3 secured: check badge.
-  const all = pathMarkerState({ challenges: [joined(1), joined(2), joined(5)], color });
-  assert.equal(all.allSecured, true);
-  assert.equal(all.secured, 3);
+  // 3 of 3 done today: check badge.
+  const all = pathMarkerState({ challenges: [joined(true, 1), joined(true, 2), joined(true, 5)], color });
+  assert.equal(all.allDoneToday, true);
+  assert.equal(all.doneToday, 3);
 
-  // Joining one more adds an empty segment; nothing earned shrinks.
-  const grown = pathMarkerState({ challenges: [joined(1), joined(2), joined(5), joined(0)], color });
-  assert.equal(grown.segments.filter((segment) => segment.secured).length, 3);
+  // Joining one more adds an empty segment; today's filled segments stay.
+  const grown = pathMarkerState({ challenges: [joined(true), joined(true), joined(true), joined()], color });
+  assert.equal(grown.segments.filter((segment) => segment.done).length, 3);
   assert.equal(grown.segments.length, 4);
-  assert.equal(grown.allSecured, false);
+  assert.equal(grown.allDoneToday, false);
 
-  // Lit: any challenge done today. Raw API shape works too.
-  assert.equal(pathMarkerState({ challenges: [joined(1, { todayChecked: true })], color }).lit, true);
+  // A not-joined challenge never fills a segment. Raw API shape works too.
+  assert.equal(pathMarkerState({ challenges: [{ isJoined: false, todayChecked: true }], color }).lit, false);
   const raw = pathMarkerState({ challenges: [{ is_joined: 1, total_checkins: 2, today_checked: true }], color });
-  assert.equal(raw.secured, 1);
+  assert.equal(raw.doneToday, 1);
   assert.equal(raw.lit, true);
   assert.equal(raw.coloured, true);
+  assert.equal(raw.allDoneToday, true);
 
-  // Colour only from a valid hex paths.color; otherwise neutral even when secured.
+  // Colour only from a valid hex paths.color; otherwise neutral even when done today.
   assert.equal(pathMarkerColor("#6EE5FF"), "#6EE5FF");
   assert.equal(pathMarkerColor("#abc"), "#abc");
   assert.equal(pathMarkerColor("red; background:url(x)"), "");
-  assert.equal(pathMarkerState({ challenges: [joined(1)], color: "" }).coloured, false);
+  assert.equal(pathMarkerState({ challenges: [joined(true)], color: "" }).coloured, false);
 
   // Telegram readiness: connected and reminders on; unknown settings stay null.
   assert.equal(telegramReady({ connected: true, reminders_enabled: true }), true);

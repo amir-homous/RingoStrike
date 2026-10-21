@@ -546,7 +546,7 @@ function startSelectedPath() {
 }
 
 function humanizeError(msg) {
-  return humanizeJoinError(msg);
+  return humanizeJoinError(msg, t);
 }
 
 async function load() {

@@ -165,7 +165,7 @@ const MEASURE = `(() => {
   const zones = [...document.querySelectorAll(".zoneHitWrap")].map((wrap) => {
     const svg = wrap.querySelector(".zoneOutline");
     const label = wrap.querySelector(".zoneLabel");
-    return { key: wrap.dataset.zone, hit: rel(wrap.querySelector(".zoneHit")), outline: rel(svg), viewBoxW: svg.viewBox.baseVal.width, viewBoxH: svg.viewBox.baseVal.height, labelCenter: rel(label).x + rel(label).w / 2 };
+    return { key: wrap.dataset.zone, hit: rel(wrap.querySelector(".zoneHit")), outline: rel(svg), viewBoxW: svg.viewBox.baseVal.width, viewBoxH: svg.viewBox.baseVal.height, labelCenter: rel(label).x + rel(label).w / 2, labelW: rel(label).w };
   });
   const light = document.querySelector(".lightLayer");
   const dim = document.querySelector(".dimLayer");
@@ -174,6 +174,7 @@ const MEASURE = `(() => {
   return {
     viewportTop: viewport.top - scene.top, viewportBottom: viewport.bottom - scene.top,
     viewportW: viewport.width,
+    viewportLeft: viewport.left - scene.left,
     panY: new DOMMatrixReadOnly(getComputedStyle(document.querySelector(".roomScene")).transform).f,
     hits: [...document.querySelectorAll(".zoneHit")].map((hit) => { const r = hit.getBoundingClientRect(); return [r.width, r.height]; }),
     sheet: sheet ? { top: sheet.getBoundingClientRect().top, bottom: sheet.getBoundingClientRect().bottom, height: innerHeight, focused: sheet.contains(document.activeElement) } : null,
@@ -224,7 +225,12 @@ function checkLayout(m, layout, label) {
     // The focus polygon's viewBox is the footprint box in base px, so it maps with the same scale.
     near(zone.outline.w / zone.viewBoxW, s, `${label} ${zone.key} polygon scale x`);
     near(zone.outline.h / zone.viewBoxH, s, `${label} ${zone.key} polygon scale y`);
-    near(zone.labelCenter, (box.x + box.w / 2) * s, `${label} ${zone.key} label centre`);
+    // The label is centred on the footprint, clamped inside the visible frame (4px inset, B30 S2).
+    let centre = (box.x + box.w / 2) * s;
+    if (m.viewportW > zone.labelW + 8) {
+      centre = Math.min(Math.max(centre, m.viewportLeft + zone.labelW / 2 + 4), m.viewportLeft + m.viewportW - zone.labelW / 2 - 4);
+    }
+    near(zone.labelCenter, centre, `${label} ${zone.key} label centre`);
   }
 }
 

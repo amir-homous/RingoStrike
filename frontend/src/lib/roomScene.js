@@ -194,6 +194,91 @@ export function zoneObjects(layoutZone, zone, hasAsset = () => true, { pendingKe
   return { placed, ghost };
 }
 
+// B30 S2: compact challenge tray (D45): a 28px flag tab centred on the start edge of a 162x50 list
+// frame holding up to three 44px icons on a 48px pitch (9px padding). Screen px at x2 (desktop and
+// phone zoom); desktop grows like the path marker (ring 45 at x2, 56 at x3).
+export const TRAY_SCREEN = Object.freeze({ flag: 28, length: 162, height: 50, icon: 44, pitch: 48, pad: 9 });
+
+export function trayScreenFactor(scale, { phone = false } = {}) {
+  if (phone) return 1;
+  const grow = Math.min(2, Math.max(0, (Number(scale) || 1) - 1));
+  return (34 + grow * 11) / 45;
+}
+
+// Tray rect in base px for a zone's `tray` ({ flag: [x, y], dir: "right" | "left" }): flag is the
+// centre of the flag tab, dir the side the list runs to. null when the zone has no tray yet.
+export function trayRect(tray, scale = 2, { phone = false } = {}) {
+  const flag = tray?.flag;
+  if (!Array.isArray(flag) || flag.length !== 2) return null;
+  const s = Math.max(1, Number(scale) || 1);
+  const k = trayScreenFactor(s, { phone });
+  const half = (TRAY_SCREEN.flag * k) / 2 / s;
+  const length = (TRAY_SCREEN.length * k) / s;
+  const halfH = (TRAY_SCREEN.height * k) / 2 / s;
+  const [fx, fy] = flag;
+  const x0 = tray.dir === "left" ? fx - length : fx - half;
+  const x1 = tray.dir === "left" ? fx + half : fx + length;
+  return { x: x0, y: fy - halfH, w: x1 - x0, h: halfH * 2 };
+}
+
+function rectsOverlap(a, b) {
+  return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+}
+
+function clampRectInto(rect, frame, inset) {
+  const x = Math.min(Math.max(rect.x, frame.x0 + inset), frame.x1 - inset - rect.w);
+  const y = Math.min(Math.max(rect.y, frame.y0 + inset), frame.y1 - inset - rect.h);
+  return { ...rect, x, y };
+}
+
+// Where the selected zone's tray is drawn, in screen px (scene coordinates).
+// - rect: the tray at its layout anchor (trayRect * scale), dir: the side the list runs to.
+// - marker: the zone's path marker as drawn: centre (cx, cy), its anchor (ax, ay) and its visual
+//   extents (left, right, up, down), all screen px. A clamped marker moves its tray with it.
+// - frame: the visible camera rect { x0, y0, x1, y1 } to clamp into (phone), or null (desktop).
+// On a phone the tray is kept inside the frame (inset px) and off the marker: its own side first,
+// then the other side of the marker, then the row below it, then the row above it.
+export function placeTray({ rect, dir = "right", marker, frame = null, inset = 4, gap = 4 }) {
+  if (!rect) return null;
+  const shifted = marker
+    ? { ...rect, x: rect.x + (marker.cx - marker.ax), y: rect.y + (marker.cy - marker.ay) }
+    : rect;
+  if (!frame || !marker) return { ...shifted, dir };
+
+  const keepOut = {
+    x: marker.cx - marker.left - gap,
+    y: marker.cy - marker.up - gap,
+    w: marker.left + marker.right + gap * 2,
+    h: marker.up + marker.down + gap * 2,
+  };
+  const rowY = marker.cy - rect.h / 2;
+  const candidates = [
+    { ...shifted, dir },
+    dir === "right"
+      ? { ...rect, x: keepOut.x - rect.w, y: rowY, dir: "left" }
+      : { ...rect, x: keepOut.x + keepOut.w, y: rowY, dir: "right" },
+    { ...rect, x: marker.cx - marker.left, y: keepOut.y + keepOut.h, dir: "right" },
+    { ...rect, x: marker.cx - marker.left, y: keepOut.y - rect.h, dir: "right" },
+  ].map((candidate) => clampRectInto(candidate, frame, inset));
+
+  return candidates.find((candidate) => !rectsOverlap(candidate, keepOut)) || candidates[2];
+}
+
+// D46: phone overview pan (screen px) that centres the span of the five path marker anchors in a
+// viewport, clamped to the room's edges and snapped to whole base px.
+export function markerSpanPanX(layout, viewportWidth, scale = 1) {
+  const xs = Object.values(layout?.zones || {})
+    .map((zone) => zone.path_marker?.[0])
+    .filter((x) => Number.isFinite(x));
+  const s = Math.max(1, Number(scale) || 1);
+  const view = Number(viewportWidth) || 0;
+  const room = ROOM_BASE_WIDTH * s;
+  if (!xs.length || room <= view) return 0;
+  const centre = (Math.min(...xs) + Math.max(...xs)) / 2;
+  const raw = clamp(view / 2 - centre * s, view - room, 0);
+  return clamp(Math.round(raw / s) * s, Math.ceil((view - room) / s) * s, 0) || 0;
+}
+
 // Ringo sprite placement: anchor bottom-center at a Ringo-safe position (addendum §4).
 export function ringoPlacement(layout, { rest = false } = {}) {
   const key = rest ? "sleeping" : "idle";
