@@ -31,9 +31,9 @@ layout={'version':1,'base':{'width':W,'height':H},'safe_area':{'y0':10,'y1':252}
  'ringo_sprites':{},'markers':{},'zones':{}}
 # B30: path marker centres (base px, outside the props); 'tray' is reserved for a later slice.
 PATH_MARKER={'work_desk':(78,46),'learning_corner':(160,47),'creative_corner':(311,46),'sleep_corner':(398,47),'fitness_corner':(78,174)}
-# B30 S2: challenge tray per zone: flag-tab centre (base px) and the side the list runs to. None =
-# no valid placement at the S0 tray size yet (Work Desk, Sleep). Checked by test:room-trays.
-TRAY={'learning_corner':{'flag':[139,42],'dir':'left'},'creative_corner':{'flag':[336,46],'dir':'right'},'fitness_corner':{'flag':[103,166],'dir':'right'}}
+# B30 S2: compact challenge tray per zone (D45): flag-tab centre (base px) and the side the list
+# runs to. Checked by test:room-trays.
+TRAY={"work_desk":{"flag":[103,42],"dir":"right"},"learning_corner":{"flag":[139,46],"dir":"left"},"creative_corner":{"flag":[336,46],"dir":"right"},"sleep_corner":{"flag":[377,46],"dir":"left"},"fitness_corner":{"flag":[103,174],"dir":"right"}}
 def cam(zk):
     cx,cy,_,_=scene.ZONES[zk]['pool']; w,h=195,135
     x0=min(max(0,cx-w//2),W-w); y0=min(max(0,cy-h//2-6),H-h); return [x0,y0,w,h]

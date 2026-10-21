@@ -6,7 +6,15 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { inflateSync } from "node:zlib";
 
-import { ROOM_BASE_HEIGHT, ROOM_BASE_WIDTH, ZONE_ORDER, safeArea, trayRect } from "../src/lib/roomScene.js";
+import {
+  ROOM_BASE_HEIGHT,
+  ROOM_BASE_WIDTH,
+  ZONE_ORDER,
+  markerSpanPanX,
+  placeTray,
+  safeArea,
+  trayRect,
+} from "../src/lib/roomScene.js";
 
 const roomDir = new URL("../src/assets/room/", import.meta.url);
 const layout = JSON.parse(readFileSync(new URL("room_layout.json", roomDir), "utf8"));
@@ -148,21 +156,13 @@ function run() {
   // The check itself must catch a tray on the window and one off the room's edge.
   assert.ok(trayConflicts("creative_corner", trayRect({ flag: [214, 40], dir: "right" }, 2), SCALES[0]).includes("window"));
   assert.ok(trayConflicts("work_desk", trayRect({ flag: [20, 46], dir: "left" }, 2), SCALES[0]).includes("outside the room's safe area"));
+  // ...and one on a prop (the learning shelf) and on its own marker.
+  assert.ok(trayConflicts("learning_corner", trayRect({ flag: [170, 80], dir: "right" }, 2), SCALES[0]).includes("prop:learning_corner"));
+  assert.ok(trayConflicts("creative_corner", trayRect({ flag: [300, 46], dir: "right" }, 2), SCALES[0]).includes("own path marker"));
 
-  // Why Work Desk and Sleep have no tray at the S0 size: their marker rows are blocked.
-  const blockedWork = trayConflicts("work_desk", trayRect({ flag: [103, 46], dir: "right" }, 2), SCALES[0]);
-  assert.ok(blockedWork.includes("slot:work_desk_consistency") && blockedWork.includes("window"), blockedWork.join(", "));
-  const blockedSleep = trayConflicts("sleep_corner", trayRect({ flag: [378, 47], dir: "left" }, 2), SCALES[0]);
-  assert.ok(blockedSleep.includes("window"), blockedSleep.join(", "));
-
-  const pending = [];
   for (const key of ZONE_ORDER) {
     const zone = layout.zones[key];
-    assert.ok("tray" in zone, `${key}: tray key present (null = no placement yet)`);
-    if (!zone.tray) {
-      pending.push(key);
-      continue;
-    }
+    assert.ok(zone.tray, `${key}: tray placement present`);
     assert.ok(["left", "right"].includes(zone.tray.dir), `${key}: tray dir`);
     for (const options of SCALES) {
       const rect = trayRect(zone.tray, options.scale, options);
@@ -171,13 +171,32 @@ function run() {
     }
   }
 
-  // Footprint math: S0 size at x2 is 224x66 screen px, 112x33 base px.
+  // Footprint math: the compact tray at x2 is 176x50 screen px (flag included), 88x25 base px.
   const fitness = trayRect(layout.zones.fitness_corner.tray, 2);
-  assert.deepEqual([fitness.w, fitness.h], [112, 33]);
+  assert.deepEqual([fitness.w, fitness.h], [88, 25]);
   assert.ok(ROOM_BASE_HEIGHT === 270);
 
+  // D46: the phone overview centres the marker anchors (x 78..398, centre 238) in the frame.
+  assert.equal(markerSpanPanX(layout, 328, 1), -74);
+  assert.equal(markerSpanPanX(layout, 298, 1), -89);
+  assert.equal(markerSpanPanX(layout, 378, 1), -49);
+  assert.equal(markerSpanPanX(layout, 960, 2), 0);
+
+  // D45 phone: the tray stays inside the frame and off its (possibly clamped) marker.
+  const frame = { x0: 0, y0: 0, x1: 328, y1: 242 };
+  const marker = { cx: 300, cy: 24, ax: 300, ay: 24, left: 22, right: 31, up: 31, down: 22 };
+  const overlaps = (a, b) => a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+  const keepOut = { x: 300 - 22, y: 24 - 31, w: 53, h: 53 };
+  for (const dir of ["right", "left"]) {
+    const placed = placeTray({ rect: { x: dir === "right" ? 314 : 112, y: -1, w: 176, h: 50 }, dir, marker, frame });
+    assert.ok(placed.x >= 4 && placed.x + placed.w <= 324 && placed.y >= 4 && placed.y + placed.h <= 238, `${dir}: in frame`);
+    assert.ok(!overlaps(placed, keepOut), `${dir}: off the marker`);
+  }
+  // Desktop (no frame): the tray stays at its anchor.
+  assert.deepEqual(placeTray({ rect: { x: 10, y: 20, w: 176, h: 50 }, dir: "right", marker, frame: null }), { x: 10, y: 20, w: 176, h: 50, dir: "right" });
+
   console.log(`Prop pixels: ${ZONE_ORDER.map((key) => `${key} ${propCounts[key]}`).join(", ")}`);
-  console.log(`Room tray placement check passed.${pending.length ? ` No tray yet: ${pending.join(", ")}.` : ""}`);
+  console.log("Room tray placement check passed (all five zones, clear space, no furniture fallback).");
 }
 
 run();

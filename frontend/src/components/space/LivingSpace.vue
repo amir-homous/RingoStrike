@@ -29,7 +29,9 @@
           :materializing="materializing"
           :min-scale="roomPanLayout ? 2 : 1"
           :phone="!roomPanLayout"
+          :selected-challenge-id="selectedPathChallengeId"
           @select="selectZone"
+          @select-challenge="selectPathChallenge"
         >
           <!-- Room corner (inline-end): objects chip, new-reward chip and the room info popover. -->
           <template #corner>
@@ -102,6 +104,8 @@
           :path-loading="activePathLoading"
           :path-error="activePathError"
           :selected-challenge-id="selectedPathChallengeId"
+          :challenge-picked="challengePicked"
+          :joined-challenge-id="joinedChallengeId"
           :completing-mission-id="completingMissionId"
           :starting-challenge-id="startingChallengeId"
           :today-safe="todaySafe"
@@ -193,6 +197,10 @@ const pathSummaries = ref({});
 const pathLoading = ref({});
 const pathErrors = ref({});
 const selectedPathChallengeId = ref(null);
+// B30 S2: true after an explicit challenge pick (tray icon or panel row), until the zone changes.
+const challengePicked = ref(false);
+// B30 S2: the challenge just joined from the room; the card shows the post-join state (D39).
+const joinedChallengeId = ref(null);
 // B19: room info popover in the room corner (the rule text); click/hover/focus opens, Esc closes.
 const roomInfoOpen = ref(false);
 
@@ -605,6 +613,8 @@ function selectZone(zone) {
   activeZone.value = zone;
   shellMode.value = "zone";
   selectedPathChallengeId.value = null;
+  challengePicked.value = false;
+  joinedChallengeId.value = null;
   ensurePathChallenges(zone);
 }
 
@@ -614,6 +624,8 @@ function closePanel() {
   activeZone.value = null;
   shellMode.value = "zone";
   selectedPathChallengeId.value = null;
+  challengePicked.value = false;
+  joinedChallengeId.value = null;
 }
 
 // B24: open the reminder's zone and challenge and ask the panel to focus that mission.
@@ -627,6 +639,8 @@ function focusReminder(reminder) {
   activeZone.value = zone;
   shellMode.value = "zone";
   selectedPathChallengeId.value = reminder?.challengeId || null;
+  challengePicked.value = false;
+  joinedChallengeId.value = null;
   requestedMissionId.value = reminder?.id || null;
   ensurePathChallenges(zone);
 }
@@ -639,6 +653,8 @@ function changeShellMode(mode) {
     activeZone.value = null;
     shellMode.value = mode;
     selectedPathChallengeId.value = null;
+    challengePicked.value = false;
+    joinedChallengeId.value = null;
     return;
   }
 
@@ -653,8 +669,13 @@ function changeShellMode(mode) {
   }
 }
 
+// An explicit pick (tray icon or panel row) makes the Ringo card answer for that challenge, ahead
+// of a due reminder (D14, D41); the reminder becomes one line in the card.
 function selectPathChallenge(challenge) {
   selectedPathChallengeId.value = challenge?.id || null;
+  challengePicked.value = Boolean(challenge?.id);
+  joinedChallengeId.value = null;
+  requestedMissionId.value = null;
 }
 
 function isCheckedToday(challenge) {
@@ -916,6 +937,9 @@ function buildPathChallenge(challenge, zone) {
     isJoined,
     isCurrent,
     todayChecked,
+    // D40: invite-only challenges are joined on the Challenges page (the code input lives there).
+    visibility: challenge?.visibility || "Public",
+    needsCode: String(challenge?.visibility || "").toLowerCase() === "invite-only" || Boolean(challenge?.needs_code),
     currentStreak: Number(challenge?.current_streak || challenge?.currentStreak || 0),
     totalCheckins: Number(challenge?.total_checkins || challenge?.totalCheckins || 0),
     missionCount: missionProgress.total,
@@ -1150,6 +1174,7 @@ async function startChallenge(challenge) {
   if (!challenge?.id || !pathId) return;
 
   startingChallengeId.value = challenge.id;
+  pathErrors.value = { ...pathErrors.value, [pathId]: "" };
 
   try {
     await api.post(`/paths/${pathId}/start`, {});
@@ -1160,11 +1185,15 @@ async function startChallenge(challenge) {
     });
     await loadPathChallenges({ path_id: pathId });
     await loadSpace({ silent: true });
+    // D39: the card shows the post-join moment for this challenge (no full-screen dialog).
+    selectedPathChallengeId.value = challenge.id;
+    challengePicked.value = true;
+    joinedChallengeId.value = challenge.id;
     emit("challenge-started", { challengeId: challenge.id, pathId });
   } catch (e) {
     pathErrors.value = {
       ...pathErrors.value,
-      [pathId]: humanizeJoinError(e?.response?.data?.error || e?.message || String(e)),
+      [pathId]: humanizeJoinError(e?.response?.data?.error || e?.message || String(e), t),
     };
   } finally {
     startingChallengeId.value = null;

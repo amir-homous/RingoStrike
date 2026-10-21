@@ -4,8 +4,24 @@ export function isInviteOnlyChallenge(challenge) {
   return String(challenge.visibility || "").toLowerCase() === "invite-only";
 }
 
-export function humanizeJoinError(message) {
+// Join error codes from POST /challenges/:id/join (and the client-side missing-code check) mapped to
+// joinErrors.* in en.js / fa.js (B30 S2, D43).
+const JOIN_ERROR_KEYS = Object.freeze({
+  invite_code_required: "codeRequired",
+  join_code_required: "codeRequired",
+  invalid_join_code: "invalidCode",
+  invalid_join_code_type: "codeType",
+  join_code_too_long: "codeTooLong",
+  challenge_private: "private",
+  challenge_inactive: "inactive",
+  invite_only_not_configured: "inviteNotConfigured",
+  challenge_not_found: "notFound",
+});
+
+// With t (vue-i18n), known codes are translated; anything else keeps the old readable fallback.
+export function humanizeJoinError(message, t) {
   if (!message) return "";
+  if (typeof t === "function" && JOIN_ERROR_KEYS[message]) return t(`joinErrors.${JOIN_ERROR_KEYS[message]}`);
   if (message === "invite_code_required") return "Invite code is required.";
   if (message === "join_code_required") return "Invite code is required.";
   if (message === "invalid_join_code") return "Invalid invite code.";

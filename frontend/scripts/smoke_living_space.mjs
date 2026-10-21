@@ -261,6 +261,14 @@ function runPanelV2Smoke() {
   assert.equal(ringoCardState({ focusGated: true }), "locked");
   assert.equal(ringoCardState({ focusDone: true }), "done");
   assert.equal(ringoCardState({}), "fallback");
+
+  // B30 S2 (D14, D41): an explicit challenge pick beats a due reminder; the reminder stays a line.
+  assert.equal(ringoCardState({ dueReminderFocused: true, focusCanComplete: true, explicitPick: true }), "mission");
+  assert.equal(ringoCardState({ dueReminderFocused: true, focusCanComplete: true, explicitPick: true, hasChallenge: true, challengeJoined: false }), "preview");
+  // D39: the post-join card for a challenge just joined from the room (not at rest, not unjoined).
+  assert.equal(ringoCardState({ justJoined: true, hasChallenge: true, challengeJoined: true, focusCanComplete: true }), "joined");
+  assert.equal(ringoCardState({ justJoined: true, hasChallenge: true, challengeJoined: false }), "preview");
+  assert.equal(ringoCardState({ justJoined: true, restMode: true }), "rest");
 }
 
 function runRecommendationPrioritySmoke() {

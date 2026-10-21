@@ -147,6 +147,7 @@
                   lit: item.marker.lit,
                   empty: item.marker.empty,
                   offFrame: item.marker.offFrame,
+                  otherZone: item.marker.otherZone,
                 }"
                 :style="item.marker.style"
                 :aria-label="item.marker.ariaLabel"
@@ -198,6 +199,45 @@
               </span>
             </div>
 
+            <!-- B30 S2: challenge tray of the selected zone (D44, D45). Icons only select (D13): the
+                 Ringo card answers for the tapped challenge. -->
+            <div
+              v-if="tray"
+              class="challengeTray"
+              :class="`dir-${tray.dir}`"
+              :style="tray.style"
+              role="group"
+              :aria-label="tray.label"
+            >
+              <span class="trayFrame" :style="tray.frameStyle" aria-hidden="true" />
+              <span class="trayFlag" :style="tray.flagStyle" aria-hidden="true">
+                <svg viewBox="0 0 24 24">
+                  <path d="M7 3v18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                  <path d="M7 4.5h10.5l-3 4 3 4H7z" fill="currentColor" fill-opacity=".85" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" />
+                </svg>
+              </span>
+              <button
+                v-for="item in tray.items"
+                :key="`tray-${item.id}`"
+                type="button"
+                class="trayIcon"
+                :class="[`is-${item.state}`, { selected: item.selected }]"
+                :style="item.style"
+                :aria-label="item.ariaLabel"
+                :aria-pressed="item.selected ? 'true' : 'false'"
+                :data-challenge="item.id"
+                :data-state="item.state"
+                @click="$emit('select-challenge', item.challenge)"
+              >
+                <span class="trayRing" aria-hidden="true" />
+                <span class="trayGlyph" :style="{ '--tray-icon': `url(${item.iconUrl})` }" aria-hidden="true" />
+                <span v-if="item.state === 'open'" class="trayPlus" aria-hidden="true">
+                  <svg viewBox="0 0 12 12"><path d="M6 2.5v7M2.5 6h7" /></svg>
+                </span>
+                <span v-if="item.state === 'done'" class="trayDay" aria-hidden="true">{{ item.dayText }}</span>
+              </button>
+            </div>
+
             <!-- B30 S2 placement review only (?trayDebug=1): the selected zone's tray rect. -->
             <div
               v-if="trayDebugBox"
@@ -239,14 +279,21 @@ import {
   roomScale,
   safeArea,
   safeAreaPanY,
+  TRAY_SCREEN,
+  markerSpanPanX,
+  placeTray,
   trayRect,
+  trayScreenFactor,
   zoneObjects,
 } from "@/lib/roomScene";
+import { resolveChallengeIcon } from "@/utils/missionMomentumUtils";
 import { REMINDER_CHIP, ringSegments } from "@/lib/pathMarker";
 
 const props = defineProps({
   zones: { type: Array, default: () => [] },
   selectedZoneKey: { type: String, default: "" },
+  // B30 S2: the challenge the Ringo card answers for (highlighted in the tray).
+  selectedChallengeId: { type: [Number, String, null], default: null },
   suggestedZoneKey: { type: String, default: "" },
   rest: { type: Boolean, default: false },
   // From tablet width the room asks for at least x2; when the x2 room is wider than its column it
@@ -261,7 +308,7 @@ const props = defineProps({
   materializing: { type: Object, default: null },
 });
 
-defineEmits(["select"]);
+defineEmits(["select", "select-challenge"]);
 
 const { locale, t: baseT } = useI18n();
 // B10: numbers in copy use the locale's digits; a numeric count picks the plural form.
@@ -350,7 +397,10 @@ const pan = computed(() => {
   }
 
   const zoneKey = props.phone ? focusZoneKey.value : (props.rest ? "" : props.selectedZoneKey);
-  const x = cameraPan({ ...view, target: cameraTarget(layout, zoneKey) }).x;
+  // D46: the phone overview opens with the span of the five path markers centred.
+  const x = props.phone && !zoneKey
+    ? markerSpanPanX(layout, viewportWidth.value, s)
+    : cameraPan({ ...view, target: cameraTarget(layout, zoneKey) }).x;
   const minX = Math.min(0, viewportWidth.value - baseWidth * s);
   return {
     x: props.phone ? Math.min(0, Math.max(minX, x + dragX.value)) : x,
@@ -568,6 +618,17 @@ function pathMarkerView(zone, data, s, clampTo = null) {
     ariaLabel: parts.filter(Boolean).join(t("common.listSeparator")),
     top: cy - extent.up,
     bottom: cy + extent.down,
+    // For the tray: the marker's visual extents, but never less than its hit area.
+    geometry: {
+      cx,
+      cy,
+      ax: point[0] * s,
+      ay: point[1] * s,
+      left: Math.max(extent.left, hit / 2),
+      right: Math.max(extent.right, hit / 2),
+      up: Math.max(extent.up, hit / 2),
+      down: Math.max(extent.down, hit / 2),
+    },
     style: {
       left: `${Math.round(cx - hit / 2)}px`,
       top: `${Math.round(cy - hit / 2)}px`,
@@ -579,42 +640,164 @@ function pathMarkerView(zone, data, s, clampTo = null) {
   };
 }
 
-// Measured label heights (they differ with the "Ringo suggests" tag and the language).
+// Measured label sizes (they differ with the "Ringo suggests" tag and the language).
 const labelHeights = reactive({});
+const labelWidths = reactive({});
 const LABEL_GAP = 6;
+const LABEL_FRAME_INSET = 4;
+
+// Visible camera rect in scene px.
+const frameRect = computed(() => ({
+  x0: -pan.value.x,
+  y0: -pan.value.y,
+  x1: -pan.value.x + viewportWidth.value,
+  y1: -pan.value.y + viewportHeight.value,
+}));
+
+// A zone is open (its panel or sheet shows): the room is not at rest and a zone is selected.
+const openZoneKey = computed(() => (!props.rest && props.selectedZoneKey) || "");
+
+// Phone zoom: the selected zone's marker is clamped inside the frame. Phone overview: a marker
+// whose anchor is in view is clamped inside it; one whose anchor is out of view is hidden (it stays
+// focusable, and focus pans the room to its zone). While a zone is open the other zones' markers
+// are hidden too (D23); they stay in the Tab order and show again on keyboard focus.
+function markerFor(zone, data, s) {
+  const frame = frameRect.value;
+  const anchor = zone.path_marker || [];
+  const anchorInFrame = anchor.length === 2
+    && anchor[0] * s >= frame.x0 && anchor[0] * s <= frame.x1
+    && anchor[1] * s >= frame.y0 && anchor[1] * s <= frame.y1;
+  const overview = props.phone && !zoomed.value;
+  const clampTo = (zoomed.value && props.selectedZoneKey === zone.key) || (overview && anchorInFrame)
+    ? frame
+    : null;
+  const marker = pathMarkerView(zone, data, s, clampTo);
+  if (marker) {
+    marker.offFrame = overview && !anchorInFrame;
+    marker.otherZone = Boolean(openZoneKey.value) && openZoneKey.value !== zone.key;
+  }
+  return marker;
+}
+
+// B30 S2: the open zone's challenge tray (D44, D45), screen px in scene coordinates.
+const TRAY_DAY_STATES = { open: "open", joined: "joined", done: "done" };
+
+function trayChallengeState(challenge) {
+  if (!challenge?.isJoined) return TRAY_DAY_STATES.open;
+  return challenge.todayChecked ? TRAY_DAY_STATES.done : TRAY_DAY_STATES.joined;
+}
+
+const tray = computed(() => {
+  const key = openZoneKey.value;
+  const zone = key ? orderedLayoutZones.value.find((item) => item.key === key) : null;
+  const data = key ? zonesByKey.value[key] : null;
+  const challenges = (data?.pathDetail?.challenges || []).slice(0, 3);
+  if (!zone?.tray || !data || !challenges.length) return null;
+
+  const s = scale.value;
+  const k = trayScreenFactor(s, { phone: props.phone });
+  const base = trayRect(zone.tray, s, { phone: props.phone });
+  const marker = markerFor(zone, data, s);
+  const rect = placeTray({
+    rect: { x: base.x * s, y: base.y * s, w: base.w * s, h: base.h * s },
+    dir: zone.tray.dir,
+    marker: marker?.geometry || null,
+    frame: props.phone ? frameRect.value : null,
+  });
+  if (!rect) return null;
+
+  const flag = TRAY_SCREEN.flag * k;
+  const icon = TRAY_SCREEN.icon * k;
+  const pitch = TRAY_SCREEN.pitch * k;
+  const pad = TRAY_SCREEN.pad * k;
+  const frameX = rect.dir === "left" ? 0 : flag / 2;
+  const frameW = rect.w - flag / 2;
+  const flagX = rect.dir === "left" ? rect.w - flag / 2 : flag / 2;
+  const iconTop = (rect.h - icon) / 2;
+  const items = challenges.map((challenge, index) => {
+    const state = trayChallengeState(challenge);
+    const offset = pad + index * pitch + (pitch - icon) / 2;
+    const left = rect.dir === "left" ? frameX + frameW - offset - icon : frameX + offset;
+    const name = challenge.name || t("common.challenge");
+    const day = Number(challenge.totalCheckins || 0);
+    return {
+      id: challenge.id,
+      challenge,
+      state,
+      selected: String(props.selectedChallengeId ?? "") === String(challenge.id ?? ""),
+      iconUrl: resolveChallengeIcon({ icon_key: challenge.iconKey, name: challenge.name }),
+      dayText: t("space.scene.tray.day", { n: day }),
+      ariaLabel: t(`space.scene.tray.${state}`, { name, n: day }),
+      style: { left: `${left}px`, top: `${iconTop}px`, width: `${icon}px`, height: `${icon}px` },
+    };
+  });
+
+  return {
+    dir: rect.dir,
+    rect,
+    items,
+    label: t("space.scene.tray.label", { path: data.pathMarker?.title || data.title }),
+    style: {
+      left: `${rect.x}px`,
+      top: `${rect.y}px`,
+      width: `${rect.w}px`,
+      height: `${rect.h}px`,
+      "--tray-k": k,
+    },
+    frameStyle: { left: `${frameX}px`, width: `${frameW}px` },
+    flagStyle: { left: `${flagX}px`, top: `${rect.h / 2}px` },
+  };
+});
+
+function boxesOverlap(a, b) {
+  return a.x0 < b.x1 && a.x1 > b.x0 && a.y0 < b.y1 && a.y1 > b.y0;
+}
 
 const hitZones = computed(() => {
   const s = scale.value;
+  const frame = frameRect.value;
+  const trayBox = tray.value
+    ? { x0: tray.value.rect.x, y0: tray.value.rect.y, x1: tray.value.rect.x + tray.value.rect.w, y1: tray.value.rect.y + tray.value.rect.h }
+    : null;
 
   return orderedLayoutZones.value
     .filter((zone) => zonesByKey.value[zone.key])
     .map((zone) => {
       const data = zonesByKey.value[zone.key];
       const box = footprintBox(zone.footprint);
-      // Visible camera rect in scene px. Phone zoom: the selected zone's marker is clamped inside
-      // it. Phone overview: a marker whose anchor is in view is clamped inside it; one whose anchor
-      // is out of view is hidden (it stays focusable, and focus pans the room to its zone).
-      const frameRect = {
-        x0: -pan.value.x,
-        y0: -pan.value.y,
-        x1: -pan.value.x + viewportWidth.value,
-        y1: -pan.value.y + viewportHeight.value,
-      };
-      const anchor = zone.path_marker || [];
-      const anchorInFrame = anchor.length === 2
-        && anchor[0] * s >= frameRect.x0 && anchor[0] * s <= frameRect.x1
-        && anchor[1] * s >= frameRect.y0 && anchor[1] * s <= frameRect.y1;
-      const overview = props.phone && !zoomed.value;
-      const clampTo = (zoomed.value && props.selectedZoneKey === zone.key) || (overview && anchorInFrame)
-        ? frameRect
-        : null;
-      const marker = pathMarkerView(zone, data, s, clampTo);
-      if (marker) marker.offFrame = overview && !anchorInFrame;
-      // The label stays centred on the footprint but never covers the path marker: above the
-      // marker (and its chip), or below it when there is no room above in the visible frame.
+      const marker = markerFor(zone, data, s);
+      // The label stays centred on the footprint (clamped inside the visible frame) and never
+      // covers the path marker: above the marker (and its chip), or below it when there is no room
+      // above in the visible frame. It never touches the open zone's tray either: it flips to the
+      // other side of the marker, or goes below the tray.
+      const labelH = labelHeights[zone.key] || 40;
+      const labelW = labelWidths[zone.key] || 0;
+      let labelX = (box.x + box.w / 2) * s;
+      if (labelW && frame.x1 - frame.x0 > labelW + LABEL_FRAME_INSET * 2) {
+        labelX = Math.min(Math.max(labelX, frame.x0 + labelW / 2 + LABEL_FRAME_INSET), frame.x1 - labelW / 2 - LABEL_FRAME_INSET);
+      }
       const labelAbove = marker ? Math.min(box.y * s, marker.top) : box.y * s;
       const labelBelowTop = marker ? Math.max(box.y * s, marker.bottom) : box.y * s;
-      const labelBelow = labelAbove + pan.value.y < (labelHeights[zone.key] || 40) + LABEL_GAP;
+      let labelBelow = labelAbove + pan.value.y < labelH + LABEL_GAP;
+      let labelTop = labelBelow ? labelBelowTop : labelAbove;
+      if (trayBox && zone.key === openZoneKey.value) {
+        const spanX = { x0: labelX - labelW / 2, x1: labelX + labelW / 2 };
+        const boxAt = (below, top) => (below
+          ? { ...spanX, y0: top + 4, y1: top + 4 + labelH }
+          : { ...spanX, y0: top - 4 - labelH, y1: top - 4 });
+        if (boxesOverlap(boxAt(labelBelow, labelTop), trayBox)) {
+          const flipped = labelBelow ? labelAbove : labelBelowTop;
+          // Flipping up needs room above inside the visible frame; flipping down always fits.
+          const roomToFlip = labelBelow ? flipped + pan.value.y >= labelH + LABEL_GAP : true;
+          if (roomToFlip && !boxesOverlap(boxAt(!labelBelow, flipped), trayBox)) {
+            labelBelow = !labelBelow;
+            labelTop = flipped;
+          } else {
+            labelBelow = true;
+            labelTop = trayBox.y1;
+          }
+        }
+      }
       const placed = (data.unlocked_objects || []).length;
       const states = [t("space.scene.objectsPlaced", { count: placed })];
       if (Number(data.dueReminderCount || 0) > 0) states.push(t("space.scene.reminderDue"));
@@ -639,8 +822,8 @@ const hitZones = computed(() => {
           clipPath: footprintClipPath(zone.footprint, s),
         },
         labelStyle: {
-          left: `${(box.x + box.w / 2) * s}px`,
-          top: `${labelBelow ? labelBelowTop : labelAbove}px`,
+          left: `${labelX}px`,
+          top: `${labelTop}px`,
         },
         // No room above the anchor inside the visible frame (e.g. the phone overview, or a zone at
         // the top of a cropped view): show the label below the anchor instead of clipping it.
@@ -683,8 +866,11 @@ function measure() {
 
 function measureLabels() {
   frame.value?.querySelectorAll(".zoneHitWrap").forEach((wrap) => {
-    const height = wrap.querySelector(".zoneLabel")?.offsetHeight || 0;
+    const label = wrap.querySelector(".zoneLabel");
+    const height = label?.offsetHeight || 0;
+    const width = label?.offsetWidth || 0;
     if (height && labelHeights[wrap.dataset.zone] !== height) labelHeights[wrap.dataset.zone] = height;
+    if (width && labelWidths[wrap.dataset.zone] !== width) labelWidths[wrap.dataset.zone] = width;
   });
 }
 
@@ -1022,9 +1208,151 @@ onUnmounted(() => {
   -webkit-tap-highlight-color: transparent;
 }
 
-.pathMarker.offFrame {
+.pathMarker.offFrame,
+.pathMarker.otherZone {
   opacity: 0;
   pointer-events: none;
+}
+
+/* Hidden markers stay in the Tab order and show again on keyboard focus. */
+.pathMarker.otherZone:focus-visible {
+  opacity: 1;
+}
+
+/* B30 S2: challenge tray (D44, D45). Sizes scale with --tray-k (1 at x2 and on phones). */
+.challengeTray {
+  position: absolute;
+  z-index: 1;
+}
+
+.trayFrame {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-radius: 999px;
+  background: rgba(10, 12, 18, 0.76);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+}
+
+.trayFlag {
+  position: absolute;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: calc(28px * var(--tray-k));
+  height: calc(28px * var(--tray-k));
+  box-sizing: border-box;
+  border-radius: 50%;
+  color: #b4bac6;
+  background: #090d17;
+  border: 1px solid rgba(127, 125, 125, 0.78);
+  transform: translate(-50%, -50%);
+}
+
+.trayFlag svg {
+  width: 55%;
+  height: 55%;
+}
+
+.trayIcon {
+  position: absolute;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  color: #aeb4c0;
+  background: transparent;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.trayIcon:focus-visible {
+  outline: 2px solid rgba(150, 236, 255, 0.92);
+  outline-offset: 1px;
+}
+
+.trayRing {
+  position: absolute;
+  inset: calc(4px * var(--tray-k));
+  box-sizing: border-box;
+  border-radius: 50%;
+  background: rgba(11, 14, 20, 0.86);
+  border: 3px solid rgba(255, 255, 255, 0.26);
+}
+
+.trayGlyph {
+  position: relative;
+  width: calc(20px * var(--tray-k));
+  height: calc(20px * var(--tray-k));
+  background-color: currentColor;
+  -webkit-mask: var(--tray-icon) center / contain no-repeat;
+  mask: var(--tray-icon) center / contain no-repeat;
+}
+
+/* Needs joining: white dashed ring and a plus badge. */
+.trayIcon.is-open {
+  color: #eef0f5;
+}
+
+.trayIcon.is-open .trayRing {
+  border: 2px dashed rgba(238, 240, 245, 0.9);
+}
+
+.trayPlus {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  box-sizing: border-box;
+  border-radius: 50%;
+  background: #0b0e14;
+  border: 1.5px solid #eef0f5;
+}
+
+.trayPlus svg {
+  width: 10px;
+  height: 10px;
+  fill: none;
+  stroke: #eef0f5;
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+
+/* Done today: lime ring with a glow and the Day N pill (Day N = counted check-ins). */
+.trayIcon.is-done {
+  color: #a3e635;
+}
+
+.trayIcon.is-done .trayRing {
+  border-color: #a3e635;
+  box-shadow: 0 0 8px 1px rgba(163, 230, 53, 0.45);
+}
+
+.trayDay {
+  position: absolute;
+  left: 50%;
+  bottom: calc(-6px * var(--tray-k));
+  padding: 0 5px;
+  border-radius: 999px;
+  color: #10160a;
+  background: #a3e635;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 14px;
+  white-space: nowrap;
+  transform: translateX(-50%);
+}
+
+/* The challenge the Ringo card answers for. */
+.trayIcon.selected .trayRing {
+  outline: 1.5px solid #ffffff;
+  outline-offset: 2px;
 }
 
 .pathMarker.coloured {

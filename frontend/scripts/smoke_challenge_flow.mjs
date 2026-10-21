@@ -26,6 +26,12 @@ async function run() {
   assert.equal(isInviteOnlyChallenge({ visibility: "Invite-only" }), true);
   assert.equal(isInviteOnlyChallenge({ visibility: "Public" }), false);
   assert.equal(humanizeJoinError("invalid_join_code"), "Invalid invite code.");
+  // B30 S2 (D43): with vue-i18n's t, known codes map to joinErrors.*; unknown text stays readable.
+  const fakeT = (key) => `t:${key}`;
+  assert.equal(humanizeJoinError("invalid_join_code", fakeT), "t:joinErrors.invalidCode");
+  assert.equal(humanizeJoinError("join_code_required", fakeT), "t:joinErrors.codeRequired");
+  assert.equal(humanizeJoinError("invite_code_required", fakeT), "t:joinErrors.codeRequired");
+  assert.equal(humanizeJoinError("network_down", fakeT), "network down");
   assert.deepEqual(buildJoinPayload({ challenge_id: 1 }, {}), {});
   assert.deepEqual(
     buildJoinPayload(

@@ -79,6 +79,9 @@ export function buildTodayMissionRows(missions = [], options = {}) {
 }
 
 // Which Ringo card state to show. Inputs are plain booleans so the panel keeps its own predicates.
+// explicitPick (B30 S2, D14/D41): the user tapped a challenge, so the card answers for it and a
+// due reminder no longer takes the card (it stays as one line). justJoined (D39): the challenge
+// was just joined from the room; the card shows the post-join moment until the user moves on.
 export function ringoCardState({
   dueReminderFocused = false,
   restMode = false,
@@ -88,9 +91,12 @@ export function ringoCardState({
   focusCanComplete = false,
   focusDone = false,
   mainDone = false,
+  explicitPick = false,
+  justJoined = false,
 } = {}) {
-  if (dueReminderFocused && focusCanComplete) return "reminder";
+  if (dueReminderFocused && focusCanComplete && !explicitPick) return "reminder";
   if (restMode) return "rest";
+  if (justJoined && hasChallenge && challengeJoined) return "joined";
   if (hasChallenge && !challengeJoined) return "preview";
   if (focusCanComplete && !focusGated) return "mission";
   if (mainDone && (focusDone || !focusCanComplete)) return "safe";

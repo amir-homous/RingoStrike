@@ -92,6 +92,14 @@ export default {
         reminderSet: "reminder set",
         reminderTelegramOff: "reminder set, Telegram not connected",
       },
+      // B30 S2: challenge tray of the open zone (aria labels and the Day N pill).
+      tray: {
+        label: "{path} challenges",
+        open: "{name}, not joined yet",
+        joined: "{name}, joined, not done today",
+        done: "{name}, done today, day {n}",
+        day: "Day {n}",
+      },
     },
     room: {
       summaryLabel: "Today so far",
@@ -357,6 +365,17 @@ export default {
       pathClearMessage: "Every available progress unit in {path} is done. Future locked steps should not block today’s completion.",
       challengePreviewTitle: "This could be your next step",
       challengePreviewMessage: "{challenge} is part of {path}. Start it when you want it as your daily step.",
+      // B30 S2: tapped challenge (D38), invite-only (D40), post-join card (D39), reminder line (D41).
+      joinChallenge: "Join challenge",
+      notNow: "Not now",
+      daysChip: "{count} day | {count} days",
+      inviteOnlyTitle: "This one needs an invite code",
+      inviteOnlyMessage: "{challenge} is invite-only. You can enter the code on the Challenges page.",
+      openChallenges: "Open Challenges",
+      joinedTitle: "You joined {challenge}",
+      joinedBody: "Its first step is ready today. Small is enough to start.",
+      joinedPrimary: "Show today's step",
+      reminderLine: "Reminder due: {mission}",
       missionFocusTitle: "Main mission first",
       missionFocusMessage: "{mission} is today's step. Extra steps can wait.",
       bonusReadyTitle: "Bonus is now optional",
@@ -1509,6 +1528,17 @@ export default {
       finalTitle: "Choose your pace",
       finalText: "You can stop here. If you still have energy, see your choices.",
     },
+  },
+  // B30 S2 (D43): join errors from POST /challenges/:id/join, shown in the room, Challenges and onboarding.
+  joinErrors: {
+    codeRequired: "Invite code is required.",
+    invalidCode: "That invite code didn't work.",
+    codeType: "Invite code must be text.",
+    codeTooLong: "Invite code is too long.",
+    private: "This challenge is private.",
+    inactive: "This challenge is not active right now.",
+    inviteNotConfigured: "This challenge isn't open for invites yet.",
+    notFound: "This challenge could not be found.",
   },
   joinSuccess: {
     eyebrow: "Path started",
