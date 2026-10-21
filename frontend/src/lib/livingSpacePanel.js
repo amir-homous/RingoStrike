@@ -93,10 +93,15 @@ export function ringoCardState({
   mainDone = false,
   explicitPick = false,
   justJoined = false,
+  missionPicked = false,
 } = {}) {
   if (dueReminderFocused && focusCanComplete && !explicitPick) return "reminder";
   if (restMode) return "rest";
   if (justJoined && hasChallenge && challengeJoined) return "joined";
+  // B30 S3: a tapped done mission shows only "done" (D48); a tapped locked one only Ringo's
+  // explanation (D20).
+  if (missionPicked && focusDone) return "done";
+  if (missionPicked && focusGated) return "locked";
   if (hasChallenge && !challengeJoined) return "preview";
   if (focusCanComplete && !focusGated) return "mission";
   if (mainDone && (focusDone || !focusCanComplete)) return "safe";
@@ -108,12 +113,14 @@ export function ringoCardState({
 // B8 recommendation priority (spec): due reminder > user-picked > unfinished main >
 // tiny substitute (only once the user chose smaller) > optional bonus offer > rest.
 // A bonus is never auto-focused; it is only offered (see bonusOfferCandidates).
-export function pickFocusMission(missions = [], { dueMission = null, pickedId = null } = {}) {
-  if (dueMission) return dueMission;
-
+// explicitPick (B30 S3, D51): a mission the user tapped in the room wins over a due reminder.
+export function pickFocusMission(missions = [], { dueMission = null, pickedId = null, explicitPick = false } = {}) {
   const picked = pickedId
     ? missions.find((mission) => sameId(mission?.id, pickedId))
     : null;
+  if (explicitPick && picked) return picked;
+
+  if (dueMission) return dueMission;
   if (picked) return picked;
 
   // Once the main step or its tiny substitute is done, today's step is satisfied:

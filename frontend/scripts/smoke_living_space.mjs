@@ -63,6 +63,15 @@ import {
   shouldOfferBonus,
   todayMainDone,
 } from "../src/lib/livingSpacePanel.js";
+import {
+  MISSION_TRAY_MAX_PAWS,
+  PAW_STATE,
+  missionPawState,
+  missionReminderChip,
+  splitPaws,
+  trayMissions,
+  trayRows,
+} from "../src/lib/missionTray.js";
 
 import {
   dueReminderFocusForZone,
@@ -435,6 +444,7 @@ function runRoomSceneSmoke() {
   }
 
   testPathMarkerState();
+  testMissionTrayState();
 
   // Ringo anchors bottom-center at safe position A; sleeping in rest.
   const idle = ringoPlacement(layout);
@@ -694,6 +704,70 @@ function testPathMarkerState() {
   const three = ringSegments(3, 10);
   assert.equal(three.length, 3);
   assert.ok(three.every((segment) => Number(segment.dasharray.split(" ")[0]) > 0));
+}
+
+// B30 S3: mission tray state (D19, D20, D32, D50, D51).
+function testMissionTrayState() {
+  const m = (id, intensity, status = "pending", availableToday = true, extra = {}) => ({ id, intensity, status, availableToday, ...extra });
+
+  // Paw states: open, locked (not open yet), done; Bonus locked until the main step is done.
+  assert.deepEqual(missionPawState(m(1, "main")), { state: PAW_STATE.OPEN, bonus: false });
+  assert.deepEqual(missionPawState(m(2, "main", "locked", false)), { state: PAW_STATE.LOCKED, bonus: false });
+  assert.deepEqual(missionPawState(m(3, "main", "pending", false)), { state: PAW_STATE.LOCKED, bonus: false });
+  assert.deepEqual(missionPawState(m(4, "main", "done")), { state: PAW_STATE.DONE, bonus: false });
+  assert.deepEqual(missionPawState(m(5, "bonus"), { mainDone: false }), { state: PAW_STATE.LOCKED, bonus: true });
+  assert.deepEqual(missionPawState(m(5, "bonus"), { mainDone: true }), { state: PAW_STATE.OPEN, bonus: true });
+  assert.deepEqual(missionPawState(m(5, "bonus", "done"), { mainDone: true }), { state: PAW_STATE.DONE, bonus: true });
+  // Raw API shape works too.
+  assert.equal(missionPawState({ mission_intensity: "main", today_status: "pending", available_today: true }).state, PAW_STATE.OPEN);
+
+  // Reminder chip per mission from its today-missions row: due > Telegram not connected > set.
+  const now = Date.parse("2026-10-21T12:00:00Z");
+  const due = { status: "remind_later", reminder_at: "2026-10-21T11:00:00Z", reminder_sent_at: null };
+  const later = { status: "remind_later", reminder_at: "2026-10-21T15:00:00Z", reminder_sent_at: null };
+  assert.equal(missionReminderChip(due, { now, telegram: false }), "due");
+  assert.equal(missionReminderChip(later, { now, telegram: false }), "telegram_off");
+  assert.equal(missionReminderChip(later, { now, telegram: true }), "set");
+  assert.equal(missionReminderChip(later, { now, telegram: null }), "set");
+  assert.equal(missionReminderChip({ ...due, reminder_sent_at: "2026-10-21T11:00:05Z" }, { now, telegram: true }), "");
+  assert.equal(missionReminderChip({ status: "pending" }, { now }), "");
+  assert.equal(missionReminderChip(null, { now }), "");
+
+  // Paws: main and Bonus always, a tiny substitute only once it is in play.
+  const seed = [m(1, "main"), m(2, "main", "pending", false), m(3, "main", "pending", false), m(4, "tiny"), m(5, "bonus")];
+  assert.deepEqual(trayMissions(seed).map((x) => x.id), [1, 2, 3, 5]);
+  assert.deepEqual(trayMissions(seed, { activeTinyIds: [4] }).map((x) => x.id), [1, 2, 3, 4, 5]);
+  assert.deepEqual(trayMissions([m(1, "main"), m(4, "tiny", "done")]).map((x) => x.id), [1, 4]);
+
+  // Up to 4 paws; more become one "+N" chip (D50).
+  assert.equal(MISSION_TRAY_MAX_PAWS, 4);
+  const five = [1, 2, 3, 4, 5].map((id) => m(id, "main"));
+  assert.deepEqual(splitPaws(five.slice(0, 1)).visible.length, 1);
+  assert.deepEqual(splitPaws(five.slice(0, 4)), { visible: five.slice(0, 4), hidden: [] });
+  assert.deepEqual(splitPaws(five).visible.map((x) => x.id), [1, 2, 3]);
+  assert.deepEqual(splitPaws(five).hidden.map((x) => x.id), [4, 5]);
+  assert.deepEqual(splitPaws(five.slice(0, 3), 2).visible.map((x) => x.id), [1]);
+
+  // Row sizing: 48px pitch, then 44px, then a second row, then fewer paws (chip takes the rest).
+  // 1 mission: challenge + 1 paw.
+  assert.deepEqual(trayRows({ pawCount: 1, rows: [100] }), { pitch: 48, perRow: [2], pawCapacity: 4 });
+  // 4 missions in 240px: 5 items fit at 48.
+  assert.deepEqual(trayRows({ pawCount: 4, rows: [240] }), { pitch: 48, perRow: [5], pawCapacity: 4 });
+  // 4 missions in 220px: 48 fits 4, 44 fits 5.
+  assert.deepEqual(trayRows({ pawCount: 4, rows: [220] }), { pitch: 44, perRow: [5], pawCapacity: 4 });
+  // 5+ missions (chip): 6 items; 180px + a second row of 180px -> 4 + 2 at 44.
+  assert.deepEqual(trayRows({ pawCount: 5, rows: [180, 180] }), { pitch: 44, perRow: [4, 2], pawCapacity: 4 });
+  // No second row and only 3 slots: challenge + 1 paw + chip.
+  assert.deepEqual(trayRows({ pawCount: 4, rows: [140] }), { pitch: 44, perRow: [3], pawCapacity: 2 });
+
+  // D51: a tapped mission beats a due reminder; without the tap the due mission still leads.
+  const missions = [{ id: 1, intensity: "main", status: "pending", availableToday: true }, { id: 2, intensity: "main", status: "remind_later", availableToday: true }];
+  assert.equal(pickFocusMission(missions, { dueMission: missions[1], pickedId: 1, explicitPick: true }).id, 1);
+  assert.equal(pickFocusMission(missions, { dueMission: missions[1], pickedId: 1 }).id, 2);
+  // D48 / D20: a tapped done mission shows "done", a tapped locked one the explanation.
+  assert.equal(ringoCardState({ missionPicked: true, focusDone: true, mainDone: true }), "done");
+  assert.equal(ringoCardState({ missionPicked: true, focusGated: true, mainDone: true }), "locked");
+  assert.equal(ringoCardState({ mainDone: true, focusDone: true }), "safe");
 }
 
 run();

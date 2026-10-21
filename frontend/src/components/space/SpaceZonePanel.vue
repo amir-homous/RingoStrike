@@ -46,6 +46,12 @@
       @expand="openRow = null"
     />
 
+    <!-- B30 S3 (D49): the path and challenge list moved into the room (trays); the full path stays
+         one quiet link away. -->
+    <RouterLink to="/paths" class="fullPathLink quiet">
+      {{ t("space.panel.fullPath") }}
+    </RouterLink>
+
     <p v-if="roomFeedback" class="srOnly" aria-live="polite">
       {{ roomFeedback.title }} {{ roomFeedback.text }}
     </p>
@@ -69,47 +75,6 @@
       />
 
       <div class="zoneDetails">
-        <ZoneDetailsRow
-          :row-id="`${zone.zone_key}-path`"
-          :title="t('space.panel.rowPath')"
-          :meta="pathStats?.progressTotal ? t('common.percent', { value: pathStats.progressPercent }) : ''"
-          :open="openRow === 'path'"
-          @toggle="toggleRow('path')"
-        >
-          <div
-            v-if="pathStats?.progressTotal"
-            class="pathProgressBlock"
-            :style="{ '--progress-percent': `${pathStats.progressPercent}%` }"
-          >
-            <div class="pathProgressHead">
-              <span>{{ t("space.shell.pathProgress") }}</span>
-              <strong>{{ t("common.percent", { value: pathStats.progressPercent }) }}</strong>
-            </div>
-            <div class="pathProgressTrack" aria-hidden="true">
-              <span></span>
-            </div>
-            <small>
-              {{ t("space.shell.pathProgressCount", {
-                done: pathStats.progressDone,
-                total: pathStats.progressTotal,
-              }) }}
-            </small>
-          </div>
-
-          <p v-if="pathError" class="pathError">{{ pathError }}</p>
-          <p v-else-if="pathLoading" class="emptyText">{{ t("space.shell.pathLoading") }}</p>
-          <ChallengeTodayMissions
-            v-else-if="challengeItems.length"
-            :items="challengeItems"
-            @select-challenge="selectChallengeFromList"
-            @select-mission="selectMissionFromList"
-          />
-          <p v-else class="emptyText">{{ t("space.shell.noPathChallenges") }}</p>
-
-          <RouterLink to="/paths" class="fullPathLink">
-            {{ t("space.panel.fullPath") }}
-          </RouterLink>
-        </ZoneDetailsRow>
 
         <ZoneDetailsRow
           :row-id="`${zone.zone_key}-objects`"
@@ -185,14 +150,12 @@ import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
 import { formatNumber, numberAwareT } from "@/lib/i18nNumbers";
 import BonusOfferCard from "./BonusOfferCard.vue";
-import ChallengeTodayMissions from "./ChallengeTodayMissions.vue";
 import RingoActionCard from "./RingoActionCard.vue";
 import MissionActionFlow from "./MissionActionFlow.vue";
 import ZoneDetailsRow from "./ZoneDetailsRow.vue";
 import ZoneTodayStrip from "./ZoneTodayStrip.vue";
 import {
   bonusOfferCandidates,
-  buildTodayMissionRows,
   pickFocusMission,
   reminderTimeLeft,
   ringoCardState,
@@ -201,7 +164,7 @@ import {
 } from "@/lib/livingSpacePanel";
 import { findFirstReward } from "@/lib/livingSpaceState";
 import { resolveActionIcon } from "@/utils/actionIconUtils";
-import { resolveChallengeIcon, resolvePathIcon } from "@/utils/missionMomentumUtils";
+import { resolvePathIcon } from "@/utils/missionMomentumUtils";
 
 const props = defineProps({
   zone: { type: Object, required: true },
@@ -228,6 +191,9 @@ const props = defineProps({
   challengePicked: { type: Boolean, default: false },
   // B30 S2: the challenge just joined from the room (post-join card, D39).
   joinedChallengeId: { type: [Number, String, null], default: null },
+  // B30 S3: a paw tapped in the room's mission tray (D51), and the "+N" chip's explanation (D50).
+  pickedMissionId: { type: [Number, String, null], default: null },
+  moreMissions: { type: Object, default: null },
 });
 
 const emit = defineEmits([
@@ -337,23 +303,6 @@ const pathChallenges = computed(() => {
   return props.zone?.pathDetail?.challenges || [];
 });
 
-const pathStats = computed(() => {
-  const detail = props.zone?.pathDetail;
-  if (!detail) return null;
-
-  const progressTotal = Number(detail.pathProgressTotal || 0);
-  const progressDone = Math.min(progressTotal, Math.max(0, Number(detail.pathProgressDone || 0)));
-  const progressPercent = progressTotal > 0
-    ? Math.round((progressDone / progressTotal) * 100)
-    : 0;
-
-  return {
-    progressDone,
-    progressTotal,
-    progressPercent,
-  };
-});
-
 const todayProgress = computed(() => {
   const detail = props.zone?.pathDetail || {};
   return {
@@ -424,7 +373,8 @@ const mainMissionDone = computed(() => {
 const selectedMission = computed(() => {
   return pickFocusMission(visibleSelectedMissions.value, {
     dueMission: props.challengePicked ? null : missionForReminder(props.dueReminderFocus),
-    pickedId: selectedMissionId.value ?? props.requestedMissionId,
+    pickedId: props.pickedMissionId ?? selectedMissionId.value ?? props.requestedMissionId,
+    explicitPick: Boolean(props.pickedMissionId),
   });
 });
 
@@ -553,6 +503,8 @@ const cardState = computed(() => {
     explicitPick: props.challengePicked,
     justJoined: Boolean(props.joinedChallengeId)
       && String(props.joinedChallengeId) === String(challenge?.id || ""),
+    missionPicked: Boolean(props.pickedMissionId)
+      && String(props.pickedMissionId) === String(mission?.id ?? ""),
   });
 });
 
@@ -595,8 +547,24 @@ const reminderLine = computed(() => {
   return t("space.ringoGuide.reminderLine", { mission: first?.title || t("common.mission") });
 });
 
+// D50: the tray's "+N" chip: Ringo explains the missions that do not have a paw (no list).
+const moreMissionsCard = computed(() => {
+  const more = props.moreMissions;
+  if (!more?.count) return null;
+  return {
+    tone: "neutral",
+    mood: "explaining",
+    label: t("space.ringoGuide.eyebrow"),
+    title: t("space.ringoGuide.moreMissionsTitle", { count: more.count }),
+    body: t("space.ringoGuide.moreMissionsBody"),
+    collapsedText: t("space.ringoGuide.moreMissionsTitle", { count: more.count }),
+  };
+});
+
 const ringoCard = computed(() => {
-  const card = baseRingoCard.value;
+  let card = moreMissionsCard.value || baseRingoCard.value;
+  // D49: the path list is gone, so its error and loading text live in the card.
+  if (props.pathError && !card.note) card = { ...card, note: props.pathError };
   if (!reminderLine.value || cardState.value === "reminder") return card;
   return { ...card, note: card.note ? `${card.note} ${reminderLine.value}` : reminderLine.value };
 });
@@ -607,12 +575,6 @@ const baseRingoCard = computed(() => {
   const mission = activeShellMission.value;
   const challenge = selectedPathChallenge.value;
   const missionTitle = mission?.title || t("common.mission");
-  const openPath = {
-    key: "open-path-row",
-    label: t("space.panel.rowPath"),
-    type: "open-row",
-    row: "path",
-  };
 
   if (state === "reminder") {
     const title = t("space.panel.reminderTitle", { mission: missionTitle });
@@ -640,7 +602,6 @@ const baseRingoCard = computed(() => {
         : t("space.ringoGuide.restTitle"),
       body: restMomentText.value,
       primary: dueReminderCount.value > 0 ? reminderReviewAction.value : null,
-      secondary: [openPath],
     };
   }
 
@@ -722,7 +683,6 @@ const baseRingoCard = computed(() => {
         type: "start-challenge",
         challenge,
       },
-      secondary: [openPath],
     };
   }
 
@@ -775,7 +735,6 @@ const baseRingoCard = computed(() => {
       label: t("space.ringoGuide.eyebrow"),
       title: t("space.ringoGuide.lockedTitle"),
       body: missionGateTextForShell(mission),
-      secondary: [openPath],
     };
   }
 
@@ -787,7 +746,17 @@ const baseRingoCard = computed(() => {
       title: t("space.ringoGuide.missionDoneTitle"),
       body: t("space.ringoGuide.missionDoneMessage", { mission: missionTitle }),
       doneStatus: missionIntensity(mission) === "main",
-      secondary: [openPath],
+    };
+  }
+
+  // D49: no path list any more, so the fallback card says when challenges are loading or absent.
+  if (!pathChallenges.value.length) {
+    return {
+      tone: "neutral",
+      mood: "thinking",
+      label: t("space.ringoGuide.eyebrow"),
+      title: t("space.ringoGuide.fallbackTitle"),
+      body: props.pathLoading ? t("space.shell.pathLoading") : t("space.shell.noPathChallenges"),
     };
   }
 
@@ -800,42 +769,7 @@ const baseRingoCard = computed(() => {
     body: ready
       ? t("space.ringoGuide.readyMessage", { path })
       : t("space.ringoGuide.fallbackMessage", { path }),
-    secondary: [openPath],
   };
-});
-
-const challengeItems = computed(() => {
-  const selectedId = selectedPathChallenge.value?.id;
-
-  const rank = (challenge) => {
-    if (challenge.isJoined && String(challenge.id || "") === String(selectedId || "")) return 0;
-    return challenge.isJoined ? 1 : 2;
-  };
-  const ordered = pathChallenges.value
-    .map((challenge, index) => ({ challenge, index }))
-    .sort((a, b) => rank(a.challenge) - rank(b.challenge) || a.index - b.index)
-    .map(({ challenge }) => challenge);
-
-  return ordered.map((challenge) => {
-    const selected = String(challenge.id || "") === String(selectedId || "");
-    const expanded = selected && challenge.isJoined;
-
-    return {
-      challenge,
-      iconUrl: challengeIconFor(challenge),
-      statusLabel: challengeStatusLabel(challenge),
-      preview: !challenge.isJoined,
-      selected,
-      expanded,
-      today: expanded
-        ? buildTodayMissionRows(challenge.missions || [], {
-          focusId: activeShellMission.value?.id,
-          requestedTinyId: requestedTinyMission.value?.id,
-          dueReminderId: props.dueReminderFocus?.id,
-        })
-        : null,
-    };
-  });
 });
 
 watch(
@@ -1064,23 +998,6 @@ function handleRingoAction(action) {
   }
 }
 
-function selectChallengeFromList(challenge) {
-  emit("select-challenge", challenge);
-
-  if (!challenge?.isJoined) {
-    openRow.value = null;
-    focusRingoCard();
-  }
-}
-
-function selectMissionFromList(mission) {
-  if (!mission?.id) return;
-
-  selectedMissionId.value = mission.id;
-  openRow.value = null;
-  focusRingoCard();
-}
-
 function missionForReminder(reminder) {
   const reminderId = String(reminder?.id || "");
   if (!reminderId) return null;
@@ -1227,27 +1144,6 @@ function reminderAtForOption(key) {
   }
 
   return new Date(now.getTime() + 2 * 60 * 60 * 1000);
-}
-
-function challengeIconFor(challenge) {
-  return resolveChallengeIcon(challenge);
-}
-
-function challengeStatusLabel(challenge) {
-  if (challenge?.todayChecked) return t("space.shell.statusDoneToday");
-  if (challenge?.isCurrent) return t("space.shell.statusCurrent");
-  if (challenge?.isJoined) return t("space.shell.statusJoined");
-
-  if (isRecommendedChallenge(challenge)) {
-    return t("space.shell.statusRecommended");
-  }
-
-  return t("space.shell.statusAvailable");
-}
-
-function isRecommendedChallenge(challenge) {
-  const nextChallengeId = props.zone?.pathDetail?.nextChallengeId;
-  return Boolean(nextChallengeId && String(nextChallengeId) === String(challenge?.id));
 }
 
 function missionIsDueReminder(mission) {
@@ -1515,13 +1411,6 @@ function canUseMissionSupportActions(mission) {
 
 
 
-.pathError {
-  padding: 8px 9px;
-  border-radius: 10px;
-  color: rgba(255, 204, 204, 0.88) !important;
-  background: rgba(248, 113, 113, 0.10);
-  border: 1px solid rgba(248, 113, 113, 0.16);
-}
 
 
 
@@ -1631,53 +1520,11 @@ function canUseMissionSupportActions(mission) {
   font-weight: 800;
 }
 
-.pathProgressBlock {
-  display: grid;
-  gap: 6px;
-  padding: 10px;
-  border-radius: 13px;
-  background:
-    radial-gradient(circle at 12% 0%, rgba(247, 215, 116, 0.11), transparent 38%),
-    rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(247, 215, 116, 0.13);
-}
 
-.pathProgressHead {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  color: rgba(255, 255, 255, 0.64);
-  font-size: 0.74rem;
-  font-weight: 850;
-}
 
-.pathProgressHead strong {
-  color: rgba(247, 215, 116, 0.94);
-  font-size: 0.9rem;
-}
 
-.pathProgressTrack {
-  position: relative;
-  overflow: hidden;
-  height: 7px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.075);
-}
 
-.pathProgressTrack span {
-  display: block;
-  width: var(--progress-percent, 0%);
-  height: 100%;
-  border-radius: inherit;
-  background: linear-gradient(90deg, rgba(110, 229, 255, 0.86), rgba(247, 215, 116, 0.92));
-  box-shadow: 0 0 16px rgba(247, 215, 116, 0.20);
-}
 
-.pathProgressBlock small {
-  color: rgba(255, 255, 255, 0.52);
-  font-size: 0.72rem;
-}
 
 .reminderList {
   display: grid;
@@ -1760,6 +1607,15 @@ function canUseMissionSupportActions(mission) {
   font-size: 0.76rem;
   font-weight: 850;
   text-decoration: none;
+}
+
+/* D49: a quiet link under the Ringo card; at least 44px tall to tap. */
+.fullPathLink.quiet {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 4px;
+  color: rgba(110, 229, 255, 0.72);
 }
 
 .fullPathLink:hover,
