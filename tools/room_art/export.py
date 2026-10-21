@@ -22,7 +22,7 @@ vg.save(f'{OUT}/vignette.png')
 SLOT={'work_desk':('work_desk_first_reward','work_desk_consistency'),'learning_corner':('learning_corner_first_reward','learning_corner_consistency'),
 'creative_corner':('creative_corner_first_reward','creative_corner_consistency'),'sleep_corner':('sleep_corner_first_reward','sleep_corner_consistency'),
 'fitness_corner':('fitness_corner_first_reward','fitness_corner_consistency')}
-layout={'version':1,'base':{'width':W,'height':H},'safe_area':{'y0':10,'y1':252},'perspective':{'vanishing_point':[240,-60],'wall_floor_y':118,
+layout={'version':1,'base':{'width':W,'height':H},'safe_area':{'y0':10,'y1':252},'keep_clear':{'window':[207,12,277,86],'rug':[205,185,346,246]},'perspective':{'vanishing_point':[240,-60],'wall_floor_y':118,
  'note':'Floor projection: x=240+(xb-240)*k, y=yf-h*k, k=(yf+60)/178. New art must use the same projection.'},
  'stage':'room_stage0.png','overlay':'vignette.png',
  'ghost':{'opacity':0.38,'filter':'grayscale(1) brightness(1.5) sepia(.2) hue-rotate(180deg)','mask':'2x2 checker'},
@@ -31,6 +31,9 @@ layout={'version':1,'base':{'width':W,'height':H},'safe_area':{'y0':10,'y1':252}
  'ringo_sprites':{},'markers':{},'zones':{}}
 # B30: path marker centres (base px, outside the props); 'tray' is reserved for a later slice.
 PATH_MARKER={'work_desk':(78,46),'learning_corner':(160,47),'creative_corner':(311,46),'sleep_corner':(398,47),'fitness_corner':(78,174)}
+# B30 S2: challenge tray per zone: flag-tab centre (base px) and the side the list runs to. None =
+# no valid placement at the S0 tray size yet (Work Desk, Sleep). Checked by test:room-trays.
+TRAY={'learning_corner':{'flag':[139,42],'dir':'left'},'creative_corner':{'flag':[336,46],'dir':'right'},'fitness_corner':{'flag':[103,166],'dir':'right'}}
 def cam(zk):
     cx,cy,_,_=scene.ZONES[zk]['pool']; w,h=195,135
     x0=min(max(0,cx-w//2),W-w); y0=min(max(0,cy-h//2-6),H-h); return [x0,y0,w,h]
@@ -49,7 +52,7 @@ for zk in scene.ORDER:
     dm.save(f'{OUT}/lights/dim_{zk}.png')
     layout['zones'][zk]={'path':z['path'],'footprint':z['footprint'],'prop':{'file':f'props/prop_{zk}.png','x':b[0],'y':b[1]},
       'slots':slots,'light':{'file':f'lights/light_{zk}.png','x':lb[0],'y':lb[1],'color':'#%02x%02x%02x'%z['light'],'pool':list(z['pool'])},
-      'dim':f'lights/dim_{zk}.png','marker':list(z['marker']),'path_marker':list(PATH_MARKER[zk]),'tray':None,'camera':cam(zk)}
+      'dim':f'lights/dim_{zk}.png','marker':list(z['marker']),'path_marker':list(PATH_MARKER[zk]),'tray':TRAY.get(zk),'camera':cam(zk)}
 for st_,rows in (('idle',sprites.IDLE),('sleeping',sprites.SLEEP)):
     sp=sprites.sprite(rows).im; sp.save(f'{OUT}/ringo/ringo_{st_}.png')
     layout['ringo_sprites'][st_]={'file':f'ringo/ringo_{st_}.png','anchor':'bottom-center','w':sp.width,'h':sp.height}

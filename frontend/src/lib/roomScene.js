@@ -194,6 +194,33 @@ export function zoneObjects(layoutZone, zone, hasAsset = () => true, { pendingKe
   return { placed, ghost };
 }
 
+// B30 S2: challenge tray footprint (S0 canvas boards 2, 3 and mobile, drawn at x2): a 28px flag
+// tab centred on the start edge of a 210x66 list frame holding three 60px icons. Screen px at x2
+// (desktop and phone zoom); desktop grows like the path marker (ring 45 at x2, 56 at x3).
+export const TRAY_SCREEN = Object.freeze({ flag: 28, length: 210, height: 66 });
+
+export function trayScreenFactor(scale, { phone = false } = {}) {
+  if (phone) return 1;
+  const grow = Math.min(2, Math.max(0, (Number(scale) || 1) - 1));
+  return (34 + grow * 11) / 45;
+}
+
+// Tray rect in base px for a zone's `tray` ({ flag: [x, y], dir: "right" | "left" }): flag is the
+// centre of the flag tab, dir the side the list runs to. null when the zone has no tray yet.
+export function trayRect(tray, scale = 2, { phone = false } = {}) {
+  const flag = tray?.flag;
+  if (!Array.isArray(flag) || flag.length !== 2) return null;
+  const s = Math.max(1, Number(scale) || 1);
+  const k = trayScreenFactor(s, { phone });
+  const half = (TRAY_SCREEN.flag * k) / 2 / s;
+  const length = (TRAY_SCREEN.length * k) / s;
+  const halfH = (TRAY_SCREEN.height * k) / 2 / s;
+  const [fx, fy] = flag;
+  const x0 = tray.dir === "left" ? fx - length : fx - half;
+  const x1 = tray.dir === "left" ? fx + half : fx + length;
+  return { x: x0, y: fy - halfH, w: x1 - x0, h: halfH * 2 };
+}
+
 // Ringo sprite placement: anchor bottom-center at a Ringo-safe position (addendum §4).
 export function ringoPlacement(layout, { rest = false } = {}) {
   const key = rest ? "sleeping" : "idle";

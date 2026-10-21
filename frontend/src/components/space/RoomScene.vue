@@ -197,6 +197,18 @@
                 <small v-if="item.pathName">{{ item.pathName }}</small>
               </span>
             </div>
+
+            <!-- B30 S2 placement review only (?trayDebug=1): the selected zone's tray rect. -->
+            <div
+              v-if="trayDebugBox"
+              class="trayDebug"
+              :class="{ missing: trayDebugBox.missing }"
+              :style="trayDebugBox.style"
+              aria-hidden="true"
+            >
+              <span v-if="!trayDebugBox.missing" class="trayDebugFlag" :style="trayDebugBox.flagStyle" />
+              <span class="trayDebugText">{{ trayDebugBox.text }}</span>
+            </div>
           </div>
         </div>
       </div>
@@ -227,6 +239,7 @@ import {
   roomScale,
   safeArea,
   safeAreaPanY,
+  trayRect,
   zoneObjects,
 } from "@/lib/roomScene";
 import { REMINDER_CHIP, ringSegments } from "@/lib/pathMarker";
@@ -438,6 +451,37 @@ const selectedLayout = computed(() => {
 });
 
 const ringo = computed(() => ringoPlacement(layout, { rest: props.rest }));
+
+// B30 S2 placement review: `?trayDebug=1` outlines the selected zone's challenge tray rect
+// (room_layout.json `tray`, checked by test:room-trays). Not the real tray.
+const trayDebug = typeof window !== "undefined" && new URLSearchParams(window.location.search).has("trayDebug");
+const trayDebugBox = computed(() => {
+  const key = props.selectedZoneKey;
+  if (!trayDebug || !key || props.rest || !layout.zones?.[key]) return null;
+  const s = scale.value;
+  const zone = layout.zones[key];
+  const rect = trayRect(zone.tray, s, { phone: props.phone });
+  if (!rect) {
+    const [x, y] = zone.path_marker || [0, 0];
+    return {
+      missing: true,
+      text: `${key}: no tray placement`,
+      style: { left: `${Math.round(x * s + 30)}px`, top: `${Math.round(y * s - 12)}px` },
+    };
+  }
+  const [fx, fy] = zone.tray.flag;
+  return {
+    missing: false,
+    text: `tray ${zone.tray.dir} · ${Math.round(rect.w * s)}x${Math.round(rect.h * s)}px`,
+    style: {
+      left: `${rect.x * s}px`,
+      top: `${rect.y * s}px`,
+      width: `${rect.w * s}px`,
+      height: `${rect.h * s}px`,
+    },
+    flagStyle: { left: `${(fx - rect.x) * s}px`, top: `${(fy - rect.y) * s}px` },
+  };
+});
 
 const sceneObjects = computed(() => {
   const hasAsset = (path) => Boolean(assetUrls[path]);
@@ -1117,6 +1161,51 @@ onUnmounted(() => {
 
 .pmChip.is-set .pmBell {
   fill: #ffb759;
+}
+
+.trayDebug {
+  position: absolute;
+  z-index: 3;
+  box-sizing: border-box;
+  border: 2px dashed #ff4fd8;
+  border-radius: 999px;
+  background: rgba(255, 79, 216, 0.16);
+  pointer-events: none;
+}
+
+.trayDebug.missing {
+  border-radius: 6px;
+  padding: 2px 6px;
+  background: rgba(40, 0, 30, 0.85);
+}
+
+.trayDebugFlag {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  margin: -4px 0 0 -4px;
+  border-radius: 50%;
+  background: #ff4fd8;
+}
+
+.trayDebugText {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 2px);
+  transform: translateX(-50%);
+  padding: 1px 6px;
+  border-radius: 4px;
+  color: #fff;
+  background: rgba(40, 0, 30, 0.85);
+  font: 600 10px/1.4 ui-monospace, monospace;
+  white-space: nowrap;
+}
+
+.trayDebug.missing .trayDebugText {
+  position: static;
+  transform: none;
+  padding: 0;
+  background: none;
 }
 
 @media (prefers-reduced-motion: reduce) {
