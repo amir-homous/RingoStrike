@@ -194,13 +194,6 @@ export function zoneObjects(layoutZone, zone, hasAsset = () => true, { pendingKe
   return { placed, ghost };
 }
 
-// Reminder marker for a zone: a due reminder wins over a scheduled one.
-export function zoneMarker(zone) {
-  if (Number(zone?.dueReminderCount || 0) > 0) return "bell_due";
-  if (Number(zone?.scheduledReminderCount || 0) > 0) return "bell";
-  return "";
-}
-
 // Ringo sprite placement: anchor bottom-center at a Ringo-safe position (addendum §4).
 export function ringoPlacement(layout, { rest = false } = {}) {
   const key = rest ? "sleeping" : "idle";

@@ -150,7 +150,8 @@ import {
 } from "@/lib/livingSpaceState";
 import { localizeChallenge, localizePath } from "@/lib/ringoContentLocalization";
 import { createMaterializeQueue, materializeCandidates, materializeTimeline } from "@/lib/roomMaterialize";
-import { missionIconUrl } from "@/utils/missionMomentumUtils";
+import { PATH_ICON_FALLBACK, pathMarkerState, telegramReady } from "@/lib/pathMarker";
+import { missionIconUrl, resolvePathIcon } from "@/utils/missionMomentumUtils";
 import { humanizeJoinError, submitJoinFlow } from "@/views/challengeFlow";
 import SpaceZone from "./SpaceZone.vue";
 import RoomOverviewPanel from "./RoomOverviewPanel.vue";
@@ -170,6 +171,8 @@ const props = defineProps({
   holdRewards: { type: Boolean, default: false },
   // B21: { id, reward } when a reward card closes; that reward materializes in the room.
   materializeEvent: { type: Object, default: null },
+  // B30: { connected, reminders_enabled } from the settings MissionCenter already loads (null = unknown).
+  telegramSettings: { type: Object, default: null },
 });
 
 const emit = defineEmits(["checkin", "challenge-started", "mission-completed"]);
@@ -248,13 +251,27 @@ const displayZones = computed(() => {
     const zone = localizeSpaceZone(rawZone, t, te);
     const pathDetail = buildPathDetail(zone);
     const zonePathKey = normalizePathKey(zone.path_key);
+    const dueReminderCount = dueReminderCountByPath.value[zonePathKey] || 0;
+    const scheduledReminderCount = scheduledReminderCountByPath.value[zonePathKey] || 0;
 
     return {
       ...zone,
       pathDetail,
       action: buildZoneAction(zone, pathDetail),
-      dueReminderCount: dueReminderCountByPath.value[zonePathKey] || 0,
-      scheduledReminderCount: scheduledReminderCountByPath.value[zonePathKey] || 0,
+      dueReminderCount,
+      scheduledReminderCount,
+      // B30: read-only path marker (ring, colour, lit, badge, reminder chip) for the room.
+      pathMarker: {
+        ...pathMarkerState({
+          challenges: pathDetail?.challenges || [],
+          color: pathDetail?.color,
+          dueCount: dueReminderCount,
+          scheduledCount: scheduledReminderCount,
+          telegram: telegramReady(props.telegramSettings),
+        }),
+        title: pathDetail?.title || zone.pathName || zone.title,
+        iconUrl: resolvePathIcon(pathDetail?.icon || PATH_ICON_FALLBACK[zonePathKey] || zonePathKey),
+      },
     };
   });
 });
@@ -860,6 +877,8 @@ function buildPathDetail(zone) {
   return {
     pathId: path.path_id,
     key: path.key || zone.path_key,
+    color: path.color || "",
+    icon: path.icon || "",
     title: localizedPath?.title || zone.title,
     description: localizedPath?.description || "",
     challenges,

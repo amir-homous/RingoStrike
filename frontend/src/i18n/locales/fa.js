@@ -83,6 +83,16 @@ export default {
       objectsPlaced: "هنوز شیئی جا نگرفته | {count} شیء جا گرفته | {count} شیء جا گرفته",
       reminderDue: "یادآور رسیده",
       reminderScheduled: "یادآور تنظیم شده",
+      // B30: read-only path marker per zone (aria-label parts).
+      pathMarker: {
+        path: "مسیر {path}",
+        secured: "{secured} از {joined} چالش ثبت‌شده",
+        noneJoined: "هنوز چالشی شروع نشده",
+        doneToday: "امروز انجام شد",
+        reminderDue: "یادآور رسیده",
+        reminderSet: "یادآور تنظیم شده",
+        reminderTelegramOff: "یادآور تنظیم شده، تلگرام وصل نیست",
+      },
     },
     room: {
       summaryLabel: "امروز تا الان",

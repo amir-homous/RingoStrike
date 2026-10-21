@@ -73,6 +73,7 @@
             :room-feedback-event="livingSpaceRoomFeedbackEvent"
             :hold-rewards="livingSpaceHoldRewards"
             :materialize-event="livingSpaceMaterializeEvent"
+            :telegram-settings="missionCenterStatus.telegram"
             @checkin="checkin"
             @challenge-started="handleLivingSpaceChallengeStarted"
             @mission-completed="handleLivingSpaceMissionCompleted"
@@ -329,6 +330,7 @@ const missionCenterStatus = ref({
   state: "",
   missions: [],
   error: "",
+  telegram: null,
 });
 const missionCenterKey = ref(0);
 const spaceRefreshKey = ref(0);
@@ -851,6 +853,7 @@ function handleMissionCenterLoaded(payload) {
     state: payload?.state || "",
     missions: payload?.missions || [],
     error: payload?.error || "",
+    telegram: payload?.telegram || null,
   };
 }
 

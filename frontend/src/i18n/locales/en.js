@@ -83,6 +83,16 @@ export default {
       objectsPlaced: "no objects yet | {count} object placed | {count} objects placed",
       reminderDue: "reminder due",
       reminderScheduled: "reminder scheduled",
+      // B30: read-only path marker per zone (aria-label parts).
+      pathMarker: {
+        path: "{path} path",
+        secured: "{secured} of {joined} challenges secured",
+        noneJoined: "no challenge joined yet",
+        doneToday: "done today",
+        reminderDue: "reminder due",
+        reminderSet: "reminder set",
+        reminderTelegramOff: "reminder set, Telegram not connected",
+      },
     },
     room: {
       summaryLabel: "Today so far",
