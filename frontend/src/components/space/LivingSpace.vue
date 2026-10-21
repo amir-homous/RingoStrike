@@ -118,6 +118,7 @@
           @select-challenge="selectPathChallenge"
           @start-challenge="startChallenge"
           @complete-mission="completeMission"
+          :user-key="userKey"
           @remind-mission="remindMission"
           @skip-mission="skipMission"
           @focus-reminder="focusReminder"
@@ -136,7 +137,7 @@ import { formatNumber, numberAwareT } from "@/lib/i18nNumbers";
 import api from "@/lib/api";
 import UiState from "@/components/ui/UiState.vue";
 import { challengeIconKey } from "@/lib/challengeIconKeys";
-import { getChallengePathKey } from "@/lib/guidedExperience";
+import { getChallengePathKey, getOnboardingUserKey } from "@/lib/guidedExperience";
 import { localizeSpaceReward, localizeSpaceZone } from "@/lib/livingSpaceCopy";
 import {
   dueReminderFocusForZone,
@@ -204,6 +205,18 @@ let roomPanMedia = null;
 
 function syncRoomPanLayout() {
   roomPanLayout.value = Boolean(roomPanMedia?.matches);
+}
+
+// B27: user scope for the split action's flows (timer in sessionStorage, remembered place).
+const userKey = ref("");
+
+async function loadUserKey() {
+  try {
+    const { data } = await api.get("/me");
+    userKey.value = getOnboardingUserKey(data) || "";
+  } catch {
+    userKey.value = "";
+  }
 }
 
 // B22 phones: the zone panel is a bottom sheet; opening one moves focus into it. The sheet stops
@@ -1158,12 +1171,16 @@ async function startChallenge(challenge) {
   }
 }
 
-async function completeMission(mission) {
-  await mutateMission(
+// B27: the split action's flows send B26 context ({} for the plain button) and get the result
+// back, so a failed save keeps the user's answers.
+async function completeMission(mission, options = {}) {
+  const body = options?.context && typeof options.context === "object" ? options.context : {};
+  const result = await mutateMission(
     mission,
     "done",
-    (missionId) => api.post(`/me/missions/${missionId}/done`, {}),
+    (missionId) => api.post(`/me/missions/${missionId}/done`, body),
   );
+  options?.onResult?.(result);
 }
 
 async function remindMission(payload) {
@@ -1198,7 +1215,7 @@ async function mutateMission(mission, action, request) {
   const missionId = mission?.id;
   const pathId = workSurfaceZone.value?.pathDetail?.pathId;
   const feedbackZone = workSurfaceZone.value || null;
-  if (!missionId || !pathId) return;
+  if (!missionId || !pathId) return { ok: false, error: "mission_unavailable" };
 
   completingMissionId.value = missionId;
   pathErrors.value = { ...pathErrors.value, [pathId]: "" };
@@ -1217,11 +1234,14 @@ async function mutateMission(mission, action, request) {
       living_space_action: action,
       living_space_room_feedback: roomFeedback,
     });
+    return { ok: true };
   } catch (e) {
+    const error = e?.response?.data?.error || e?.message || String(e);
     pathErrors.value = {
       ...pathErrors.value,
-      [pathId]: e?.response?.data?.error || e?.message || String(e),
+      [pathId]: error,
     };
+    return { ok: false, error };
   } finally {
     completingMissionId.value = null;
   }
@@ -1334,7 +1354,7 @@ onMounted(async () => {
   reminderClock = setInterval(() => {
     now.value = Date.now();
   }, 30000);
-  await Promise.all([loadSpace(), loadPaths()]);
+  await Promise.all([loadSpace(), loadPaths(), loadUserKey()]);
   await preloadZonePathChallenges();
   // B11: the onboarding handoff ("Go to my first mission", /dashboard?firstRun=1) opens the
   // first mission's zone on phones too, instead of the room overview.
@@ -1450,14 +1470,16 @@ watch(
     gap: 12px;
   }
 
+  /* B27 fix: never taller than the viewport allows (was a fixed 620px, which overflowed the
+     page at 1366x768), so the panel never runs past the room column. */
   .spaceLayout.hasPanel .roomStageShell {
     grid-area: room;
-    min-height: 620px;
+    min-height: min(620px, calc(100vh - 190px));
   }
 
   .spaceLayout.hasPanel .roomSafeZone {
     grid-area: panel;
-    min-height: 620px;
+    min-height: min(620px, calc(100vh - 190px));
   }
 }
 
@@ -1677,6 +1699,20 @@ watch(
 
   .roomSafeZone.zoneSheet:focus {
     outline: none;
+  }
+
+  /* B27: with a flow open the sheet has a fixed height and the flow scrolls inside it, so the
+     save area stays visible at the bottom. */
+  .roomSafeZone.zoneSheet:has(.missionFlow) {
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
+    height: max(40dvh, calc(100dvh - var(--sheet-top, 42dvh)));
+    overflow: hidden;
+  }
+
+  .roomSafeZone.zoneSheet:has(.missionFlow) :deep(.zonePanel) {
+    height: 100%;
+    min-height: 0;
   }
 
   /* 44px touch targets for every control in the sheet (panel content unchanged). */

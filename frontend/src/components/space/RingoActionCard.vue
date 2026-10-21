@@ -35,8 +35,47 @@
 
       <p v-if="card.note" class="ringoNote">{{ card.note }}</p>
 
+      <!-- B27: main missions get one bar with two real buttons; the primary sits on the
+           inline-start side (right in FA). Tiny and bonus keep the single action. -->
+      <div
+        v-if="card.primary?.split"
+        class="splitAction"
+        :class="{ submitting: card.primary.submitting }"
+        role="group"
+        :aria-label="t('space.missionAction.groupLabel')"
+      >
+        <button
+          ref="primaryButton"
+          type="button"
+          class="splitPrimary"
+          :disabled="card.primary.disabled || card.primary.submitting"
+          :aria-label="t('space.missionAction.doNowAria')"
+          :aria-busy="card.primary.submitting ? 'true' : null"
+          @click="$emit('action', { ...card.primary, type: 'start-focus' })"
+        >
+          <span v-if="card.primary.submitting" class="splitSpinner" aria-hidden="true"></span>
+          <svg v-else class="splitIcon" viewBox="0 0 16 16" aria-hidden="true"><path d="M4.5 2.8v10.4L13 8z" fill="currentColor" /></svg>
+          <span>{{ card.primary.submitting ? t("space.missionAction.saving") : t("space.missionAction.doNow") }}</span>
+        </button>
+        <button
+          type="button"
+          class="splitSecondary"
+          :disabled="card.primary.disabled || card.primary.submitting"
+          :aria-label="t('space.missionAction.alreadyAria')"
+          @click="$emit('action', { ...card.primary, type: 'already-did' })"
+        >
+          {{ t("space.missionAction.already") }}
+        </button>
+      </div>
+
+      <!-- B27: after the main mission is done today the bar becomes a quiet status. -->
+      <p v-else-if="card.doneStatus" class="doneStatus" role="status">
+        <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.2 8.4l3 3 6.6-7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></svg>
+        <span>{{ t("space.missionAction.doneToday") }}</span>
+      </p>
+
       <button
-        v-if="card.primary"
+        v-if="card.primary && !card.primary.split"
         ref="primaryButton"
         type="button"
         class="primaryAction"
@@ -66,7 +105,8 @@
             class="supportIcon iconOnDark"
             aria-hidden="true"
           />
-          <span>{{ action.label }}</span>
+          <span class="supportLabel">{{ action.label }}</span>
+          <span v-if="action.shortLabel" class="supportLabelShort">{{ action.shortLabel }}</span>
         </button>
       </div>
 
@@ -322,6 +362,105 @@ defineExpose({ focusPrimary });
   background: rgba(247, 215, 116, 0.9);
 }
 
+/* B27 split action: one 52px bar, two real buttons, 2px gap; outer corners 14px, inner 0.
+   The primary (flex 2) is first in DOM order, so it sits on the inline-start side. */
+.splitAction {
+  display: flex;
+  gap: 2px;
+  min-height: 52px;
+}
+
+.splitAction button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 52px;
+  margin: 0;
+  padding: 6px 12px;
+  border-radius: 0;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.splitPrimary {
+  flex: 2;
+  border: 0;
+  border-start-start-radius: 14px !important;
+  border-end-start-radius: 14px !important;
+  color: #1a1406;
+  background: #f7d774;
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.splitSecondary {
+  flex: 1;
+  border: 1px solid rgba(247, 215, 116, 0.32);
+  border-start-end-radius: 14px !important;
+  border-end-end-radius: 14px !important;
+  color: #f7e3a1;
+  background: rgba(247, 215, 116, 0.12);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.splitAction button:focus-visible {
+  outline: 2px solid #6ee5ff;
+  outline-offset: 2px;
+}
+
+.splitAction button:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.splitIcon {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+}
+
+.splitSpinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(26, 20, 6, 0.3);
+  border-top-color: #1a1406;
+  border-radius: 50%;
+  animation: splitSpin 0.8s linear infinite;
+}
+
+@keyframes splitSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.doneStatus {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 52px;
+  margin: 0;
+  border-radius: 14px;
+  color: #f7e3a1;
+  background: rgba(247, 215, 116, 0.08);
+  border: 1px solid rgba(247, 215, 116, 0.22);
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.doneStatus svg {
+  width: 18px;
+  height: 18px;
+  color: #f7d774;
+}
+
+.supportLabelShort {
+  display: none;
+}
+
 .supportGrid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -421,6 +560,52 @@ defineExpose({ focusPrimary });
   .ringoCardHead :deep(.ringoMood.size-sm) {
     width: 64px;
     height: 64px;
+  }
+}
+
+/* B27 phones: the three secondary actions are one row of compact 44px buttons (icon + label). */
+@media (max-width: 599px) {
+  .supportAction {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: row;
+    gap: 4px;
+    min-height: 44px;
+    padding: 4px;
+    white-space: nowrap;
+    overflow-wrap: normal;
+  }
+
+  .supportAction .supportIcon {
+    width: 16px;
+    height: 16px;
+  }
+
+  .supportLabel {
+    display: none;
+  }
+
+  .supportLabelShort {
+    display: inline;
+    font-size: 0.7rem;
+  }
+}
+
+/* Very narrow phones (320px): labels may wrap rather than overflow; still at least 44px. */
+@media (max-width: 359px) {
+  .supportAction {
+    white-space: normal;
+  }
+
+  .splitAction button {
+    padding-inline: 8px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .splitSpinner {
+    animation: none;
   }
 }
 </style>

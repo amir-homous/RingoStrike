@@ -200,13 +200,15 @@ async function runFirstRun(page, [width, height, locale]) {
   await waitFor(page, `location.pathname === "/dashboard" && Boolean(document.querySelector(".roomScene .zoneHitWrap"))`);
 
   // The first mission is on screen right away: desktop panel, phone sheet (F1).
-  await waitFor(page, `Boolean([...document.querySelectorAll(".roomSafeZone button.primaryAction")].find((b) => b.offsetParent))`);
+  await waitFor(page, `Boolean([...document.querySelectorAll(".roomSafeZone .splitAction button")].find((b) => b.offsetParent))`);
   if (width < 600) assert.ok(await evaluate(page, `Boolean(document.querySelector(".zoneSheet"))`), `${ctx.label} phone did not open the mission sheet`);
   // Today counts agree between the zone strip and the room overview (F5): 0 of 2.
   const strip = await evaluate(page, `document.querySelector(".zoneTodayStrip, .todayStrip")?.innerText || document.querySelector(".roomSafeZone").innerText`);
   assert.match(strip, fa ? /۰ از ۲/ : /0\/2/, `${ctx.label} zone strip count`);
 
-  await step(page, fa ? "^انجامش دادم$" : "^I did it$", "I did it", ctx);
+  // B27: the main mission's action is the split bar; "Already did it" then Save (no answers).
+  await step(page, fa ? "^قبلاً انجام دادم$" : "^Already did it$", "already did it", ctx);
+  await step(page, fa ? "^ثبت$" : "^Save$", "save", ctx);
   for (let i = 0; i < 12 && !(await evaluate(page, `Boolean(document.querySelector(".unlockPanel"))`)); i += 1) {
     await step(page, fa ? "^(ادامه|برای امروز کافیه)$" : "^(Continue|Enough for today)$", "Ringo Moment", ctx);
   }
