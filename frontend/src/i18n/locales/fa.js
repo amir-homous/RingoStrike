@@ -86,9 +86,8 @@ export default {
       // B30: read-only path marker per zone (aria-label parts).
       pathMarker: {
         path: "مسیر {path}",
-        secured: "{secured} از {joined} چالش ثبت‌شده",
+        doneToday: "{done} از {joined} چالش امروز انجام شده",
         noneJoined: "هنوز چالشی شروع نشده",
-        doneToday: "امروز انجام شد",
         reminderDue: "یادآور رسیده",
         reminderSet: "یادآور تنظیم شده",
         reminderTelegramOff: "یادآور تنظیم شده، تلگرام وصل نیست",

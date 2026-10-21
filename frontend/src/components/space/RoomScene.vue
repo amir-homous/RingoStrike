@@ -152,7 +152,7 @@
                 :aria-label="item.marker.ariaLabel"
                 :aria-pressed="item.selected ? 'true' : 'false'"
                 :data-reminder="item.marker.reminder || null"
-                :data-secured="`${item.marker.secured}/${item.marker.joined}`"
+                :data-done-today="`${item.marker.doneToday}/${item.marker.joined}`"
                 @click="$emit('select', item.zone)"
               >
                 <svg class="pmRing" viewBox="0 0 40 40" aria-hidden="true">
@@ -161,7 +161,7 @@
                     v-for="(segment, index) in item.marker.ring"
                     :key="index"
                     class="pmSegment"
-                    :class="{ secured: segment.secured }"
+                    :class="{ done: segment.done }"
                     cx="20"
                     cy="20"
                     :r="PM_RING_R"
@@ -170,7 +170,7 @@
                   />
                 </svg>
                 <span class="pmGlyph" :style="{ '--pm-icon': `url(${item.marker.iconUrl})` }" aria-hidden="true" />
-                <span v-if="item.marker.allSecured" class="pmBadge" aria-hidden="true">
+                <span v-if="item.marker.allDoneToday" class="pmBadge" aria-hidden="true">
                   <svg viewBox="0 0 12 12"><path d="M2.6 6.3 5 8.6l4.4-5" /></svg>
                 </span>
                 <span v-if="item.marker.reminder" class="pmChip" :class="`is-${item.marker.reminder}`" aria-hidden="true">
@@ -526,7 +526,7 @@ function pathMarkerSizes(s, phone = false) {
 function pathMarkerExtents(state, ring) {
   const radius = ring / 2;
   const chip = state.reminder ? ring * 0.3 + 18 : 0;
-  const badge = state.allSecured ? ring * 0.22 + 16 : 0;
+  const badge = state.allDoneToday ? ring * 0.22 + 16 : 0;
   return {
     left: radius,
     right: Math.max(radius, chip, badge),
@@ -548,8 +548,7 @@ function pathMarkerView(zone, data, s, clampTo = null) {
   const parts = [data.title, t("space.scene.pathMarker.path", { path: state.title })];
   parts.push(state.empty
     ? t("space.scene.pathMarker.noneJoined")
-    : t("space.scene.pathMarker.secured", { secured: state.secured, joined: state.joined }));
-  if (state.lit) parts.push(t("space.scene.pathMarker.doneToday"));
+    : t("space.scene.pathMarker.doneToday", { done: state.doneToday, joined: state.joined }));
   if (PM_REMINDER_KEYS[state.reminder]) parts.push(t(PM_REMINDER_KEYS[state.reminder]));
   parts.push(t("space.scene.objectsPlaced", { count: placed }));
 
@@ -1000,8 +999,8 @@ onUnmounted(() => {
   font-weight: 900;
 }
 
-/* B30: read-only path marker. Neutral grey until a challenge in the path is secured, then the
-   path's own colour (--pm-color). The glyph is the path icon tinted through a CSS mask
+/* B30: read-only path marker, daily (D44). Neutral grey until a challenge in the path is done
+   today, then the path's own colour (--pm-color). The glyph is the path icon tinted through a CSS mask
    (currentColor), not .iconOnDark (that filter can only make white). Physical corners: the room
    never mirrors. */
 .pathMarker {
@@ -1077,7 +1076,7 @@ onUnmounted(() => {
   transition: stroke 200ms ease;
 }
 
-.pmSegment.secured {
+.pmSegment.done {
   stroke: currentColor;
 }
 
@@ -1094,7 +1093,7 @@ onUnmounted(() => {
   filter: drop-shadow(0 0 3px currentColor);
 }
 
-/* All joined challenges secured: check badge on the ring, bottom right. */
+/* Every joined challenge done today: check badge on the ring, bottom right. */
 .pmBadge {
   position: absolute;
   left: calc(50% + var(--pm-ring) * 0.22);

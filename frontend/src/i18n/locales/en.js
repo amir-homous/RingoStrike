@@ -86,9 +86,8 @@ export default {
       // B30: read-only path marker per zone (aria-label parts).
       pathMarker: {
         path: "{path} path",
-        secured: "{secured} of {joined} challenges secured",
+        doneToday: "{done} of {joined} challenges done today",
         noneJoined: "no challenge joined yet",
-        doneToday: "done today",
         reminderDue: "reminder due",
         reminderSet: "reminder set",
         reminderTelegramOff: "reminder set, Telegram not connected",
