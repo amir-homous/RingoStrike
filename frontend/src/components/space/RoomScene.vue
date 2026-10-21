@@ -15,6 +15,7 @@
         @pointercancel="onPointerUp"
         @click.capture="onClickCapture"
         @focusin="onFocusIn"
+        @scroll="onViewportScroll"
       >
         <div
           class="roomScene"
@@ -114,17 +115,6 @@
               :style="at(selectedLayout.light.x, selectedLayout.light.y)"
             />
 
-            <img
-              v-for="marker in markers"
-              :key="`marker-${marker.key}`"
-              :src="asset(marker.file)"
-              alt=""
-              class="layer"
-              draggable="false"
-              :style="markerStyle(marker)"
-              @load="rememberSize(marker.file, $event)"
-            />
-
             <img :src="asset(layout.overlay)" alt="" class="layer" draggable="false" />
           </div>
 
@@ -141,10 +131,57 @@
                 type="button"
                 class="zoneHit"
                 :style="item.buttonStyle"
+                :tabindex="item.marker ? -1 : null"
+                :aria-hidden="item.marker ? 'true' : null"
                 :aria-label="item.ariaLabel"
                 :aria-pressed="item.selected ? 'true' : 'false'"
                 @click="$emit('select', item.zone)"
               />
+              <!-- B30: read-only path marker (replaces the bell markers). Tapping it selects the zone. -->
+              <button
+                v-if="item.marker"
+                type="button"
+                class="pathMarker"
+                :class="{
+                  coloured: item.marker.coloured,
+                  lit: item.marker.lit,
+                  empty: item.marker.empty,
+                  offFrame: item.marker.offFrame,
+                }"
+                :style="item.marker.style"
+                :aria-label="item.marker.ariaLabel"
+                :aria-pressed="item.selected ? 'true' : 'false'"
+                :data-reminder="item.marker.reminder || null"
+                :data-secured="`${item.marker.secured}/${item.marker.joined}`"
+                @click="$emit('select', item.zone)"
+              >
+                <svg class="pmRing" viewBox="0 0 40 40" aria-hidden="true">
+                  <circle v-if="item.marker.empty" class="pmEmpty" cx="20" cy="20" :r="PM_RING_R" />
+                  <circle
+                    v-for="(segment, index) in item.marker.ring"
+                    :key="index"
+                    class="pmSegment"
+                    :class="{ secured: segment.secured }"
+                    cx="20"
+                    cy="20"
+                    :r="PM_RING_R"
+                    :stroke-dasharray="segment.dasharray"
+                    :stroke-dashoffset="segment.dashoffset"
+                  />
+                </svg>
+                <span class="pmGlyph" :style="{ '--pm-icon': `url(${item.marker.iconUrl})` }" aria-hidden="true" />
+                <span v-if="item.marker.allSecured" class="pmBadge" aria-hidden="true">
+                  <svg viewBox="0 0 12 12"><path d="M2.6 6.3 5 8.6l4.4-5" /></svg>
+                </span>
+                <span v-if="item.marker.reminder" class="pmChip" :class="`is-${item.marker.reminder}`" aria-hidden="true">
+                  <svg v-if="item.marker.reminder === 'telegram_off'" viewBox="0 0 16 16">
+                    <path class="pmPlane" d="M14.2 2.3 1.9 7.1c-.5.2-.5.9 0 1.1l3 1 1.2 3.7c.1.4.7.5 1 .2l1.7-1.6 3.1 2.3c.4.3.9.1 1-.4l2.1-10.4c.1-.5-.4-.9-.8-.7ZM6.1 9.1l6.1-4.6-4.9 5.4-.3 2.1-.9-2.9Z" />
+                  </svg>
+                  <svg v-else viewBox="0 0 16 16">
+                    <path class="pmBell" d="M8 1.6c-2.4 0-4.2 1.9-4.2 4.3v2.6L2.6 10.6c-.2.4 0 .8.5.8h9.8c.5 0 .7-.4.5-.8l-1.2-2.1V5.9c0-2.4-1.8-4.3-4.2-4.3ZM6.3 12.4a1.8 1.8 0 0 0 3.4 0Z" />
+                  </svg>
+                </span>
+              </button>
               <svg
                 class="zoneOutline"
                 :style="item.buttonStyle"
@@ -190,9 +227,9 @@ import {
   roomScale,
   safeArea,
   safeAreaPanY,
-  zoneMarker,
   zoneObjects,
 } from "@/lib/roomScene";
+import { REMINDER_CHIP, ringSegments } from "@/lib/pathMarker";
 
 const props = defineProps({
   zones: { type: Array, default: () => [] },
@@ -372,6 +409,16 @@ function onFocusIn(event) {
   focusZoneKey.value = key;
 }
 
+// The camera (translate) is the only pan. Focusing an element outside the clipped frame makes the
+// browser scroll the overflow-hidden viewport as well, which would double the offset: undo it.
+function onViewportScroll(event) {
+  const el = event.currentTarget;
+  if (el.scrollLeft || el.scrollTop) {
+    el.scrollLeft = 0;
+    el.scrollTop = 0;
+  }
+}
+
 // Rest dims the room to layout.rest.room_dim brightness (addendum §3: overlay opacity 0.26).
 const restOverlayOpacity = computed(() => {
   const roomDim = Number(layout.rest?.room_dim);
@@ -413,15 +460,81 @@ const ghostStyle = {
   filter: layout.ghost?.filter || "grayscale(1) brightness(1.5) sepia(.2) hue-rotate(180deg)",
 };
 
-const markers = computed(() => {
-  return orderedLayoutZones.value
-    .map((zone) => {
-      const kind = zoneMarker(zonesByKey.value[zone.key]);
-      if (!kind || !layout.markers?.[kind]) return null;
-      return { key: zone.key, file: layout.markers[kind], point: zone.marker };
-    })
-    .filter(Boolean);
-});
+// B30: path marker size in screen px. The ring grows with the room but stays readable at x1;
+// the button (hit target) is never below 44px and the glyph never below 20px.
+const PM_RING_R = 17;
+const PM_REMINDER_KEYS = {
+  [REMINDER_CHIP.DUE]: "space.scene.pathMarker.reminderDue",
+  [REMINDER_CHIP.TELEGRAM_OFF]: "space.scene.pathMarker.reminderTelegramOff",
+  [REMINDER_CHIP.SET]: "space.scene.pathMarker.reminderSet",
+};
+
+// Phones keep the x1 size (ring 34, glyph 20, hit 44) also while zoomed; desktop grows with the
+// room scale up to ring 56, glyph 24, hit 56 at x3.
+function pathMarkerSizes(s, phone = false) {
+  const grow = phone ? 0 : Math.min(2, Math.max(0, s - 1));
+  const ring = Math.round(34 + grow * 11);
+  return { ring, hit: Math.max(44, ring), glyph: Math.round(20 + grow * 2) };
+}
+
+// Visual extents of the marker from its centre (screen px): ring, check badge (bottom right),
+// reminder chip (top right). Must match the .pmBadge and .pmChip CSS below.
+function pathMarkerExtents(state, ring) {
+  const radius = ring / 2;
+  const chip = state.reminder ? ring * 0.3 + 18 : 0;
+  const badge = state.allSecured ? ring * 0.22 + 16 : 0;
+  return {
+    left: radius,
+    right: Math.max(radius, chip, badge),
+    up: Math.max(radius, chip),
+    down: Math.max(radius, badge),
+  };
+}
+
+const PM_CLAMP_INSET = 4;
+
+function pathMarkerView(zone, data, s, clampTo = null) {
+  const state = data?.pathMarker;
+  const point = zone.path_marker;
+  if (!state || !Array.isArray(point) || point.length !== 2) return null;
+
+  const { ring, hit, glyph } = pathMarkerSizes(s, props.phone);
+  const geometry = ringSegments(state.segments.length, PM_RING_R);
+  const placed = (data.unlocked_objects || []).length;
+  const parts = [data.title, t("space.scene.pathMarker.path", { path: state.title })];
+  parts.push(state.empty
+    ? t("space.scene.pathMarker.noneJoined")
+    : t("space.scene.pathMarker.secured", { secured: state.secured, joined: state.joined }));
+  if (state.lit) parts.push(t("space.scene.pathMarker.doneToday"));
+  if (PM_REMINDER_KEYS[state.reminder]) parts.push(t(PM_REMINDER_KEYS[state.reminder]));
+  parts.push(t("space.scene.objectsPlaced", { count: placed }));
+
+  const extent = pathMarkerExtents(state, ring);
+  let cx = point[0] * s;
+  let cy = point[1] * s;
+  // Phone zoom: keep the selected zone's marker (and its chip and badge) inside the visible
+  // camera rect, inset by 4px. The anchors in room_layout.json do not move.
+  if (clampTo) {
+    cx = Math.min(Math.max(cx, clampTo.x0 + extent.left + PM_CLAMP_INSET), clampTo.x1 - extent.right - PM_CLAMP_INSET);
+    cy = Math.min(Math.max(cy, clampTo.y0 + extent.up + PM_CLAMP_INSET), clampTo.y1 - extent.down - PM_CLAMP_INSET);
+  }
+
+  return {
+    ...state,
+    ring: state.segments.map((segment, index) => ({ ...segment, ...geometry[index] })),
+    ariaLabel: parts.filter(Boolean).join(t("common.listSeparator")),
+    top: cy - extent.up,
+    bottom: cy + extent.down,
+    style: {
+      left: `${Math.round(cx - hit / 2)}px`,
+      top: `${Math.round(cy - hit / 2)}px`,
+      "--pm-hit": `${hit}px`,
+      "--pm-ring": `${ring}px`,
+      "--pm-glyph": `${glyph}px`,
+      ...(state.coloured ? { "--pm-color": state.color } : {}),
+    },
+  };
+}
 
 // Measured label heights (they differ with the "Ringo suggests" tag and the language).
 const labelHeights = reactive({});
@@ -435,6 +548,30 @@ const hitZones = computed(() => {
     .map((zone) => {
       const data = zonesByKey.value[zone.key];
       const box = footprintBox(zone.footprint);
+      // Visible camera rect in scene px. Phone zoom: the selected zone's marker is clamped inside
+      // it. Phone overview: a marker whose anchor is in view is clamped inside it; one whose anchor
+      // is out of view is hidden (it stays focusable, and focus pans the room to its zone).
+      const frameRect = {
+        x0: -pan.value.x,
+        y0: -pan.value.y,
+        x1: -pan.value.x + viewportWidth.value,
+        y1: -pan.value.y + viewportHeight.value,
+      };
+      const anchor = zone.path_marker || [];
+      const anchorInFrame = anchor.length === 2
+        && anchor[0] * s >= frameRect.x0 && anchor[0] * s <= frameRect.x1
+        && anchor[1] * s >= frameRect.y0 && anchor[1] * s <= frameRect.y1;
+      const overview = props.phone && !zoomed.value;
+      const clampTo = (zoomed.value && props.selectedZoneKey === zone.key) || (overview && anchorInFrame)
+        ? frameRect
+        : null;
+      const marker = pathMarkerView(zone, data, s, clampTo);
+      if (marker) marker.offFrame = overview && !anchorInFrame;
+      // The label stays centred on the footprint but never covers the path marker: above the
+      // marker (and its chip), or below it when there is no room above in the visible frame.
+      const labelAbove = marker ? Math.min(box.y * s, marker.top) : box.y * s;
+      const labelBelowTop = marker ? Math.max(box.y * s, marker.bottom) : box.y * s;
+      const labelBelow = labelAbove + pan.value.y < (labelHeights[zone.key] || 40) + LABEL_GAP;
       const placed = (data.unlocked_objects || []).length;
       const states = [t("space.scene.objectsPlaced", { count: placed })];
       if (Number(data.dueReminderCount || 0) > 0) states.push(t("space.scene.reminderDue"));
@@ -448,6 +585,7 @@ const hitZones = computed(() => {
         selected: props.selectedZoneKey === zone.key,
         suggested: props.suggestedZoneKey === zone.key,
         ariaLabel: `${data.title}${t("common.labelSeparator")}${states.join(t("common.listSeparator"))}`,
+        marker,
         viewBox: `0 0 ${box.w} ${box.h}`,
         points: footprintPoints(zone.footprint),
         buttonStyle: {
@@ -459,11 +597,11 @@ const hitZones = computed(() => {
         },
         labelStyle: {
           left: `${(box.x + box.w / 2) * s}px`,
-          top: `${box.y * s}px`,
+          top: `${labelBelow ? labelBelowTop : labelAbove}px`,
         },
         // No room above the anchor inside the visible frame (e.g. the phone overview, or a zone at
         // the top of a cropped view): show the label below the anchor instead of clipping it.
-        labelBelow: box.y * s + pan.value.y < (labelHeights[zone.key] || 40) + LABEL_GAP,
+        labelBelow,
       };
     });
 });
@@ -770,6 +908,7 @@ onUnmounted(() => {
   line-height: 1.25;
   text-align: center;
   white-space: nowrap;
+  z-index: 2;
   opacity: 0;
   pointer-events: none;
   transform: translate(-50%, -100%) translateY(-4px);
@@ -791,13 +930,16 @@ onUnmounted(() => {
    dim + light layers, a suggestion is its label only. */
 .zoneHit:hover ~ .zoneLabel,
 .zoneHit:focus-visible ~ .zoneLabel,
+.pathMarker:hover ~ .zoneLabel,
+.pathMarker:focus-visible ~ .zoneLabel,
 .zoneHitWrap.selected .zoneLabel,
 .zoneHitWrap.suggested .zoneLabel {
   opacity: 1;
 }
 
 /* The footprint outline appears only for keyboard focus (never on a mouse click). */
-.zoneHit:focus-visible ~ .zoneOutline {
+.zoneHit:focus-visible ~ .zoneOutline,
+.pathMarker:focus-visible ~ .zoneOutline {
   opacity: 1;
 }
 
@@ -814,7 +956,175 @@ onUnmounted(() => {
   font-weight: 900;
 }
 
+/* B30: read-only path marker. Neutral grey until a challenge in the path is secured, then the
+   path's own colour (--pm-color). The glyph is the path icon tinted through a CSS mask
+   (currentColor), not .iconOnDark (that filter can only make white). Physical corners: the room
+   never mirrors. */
+.pathMarker {
+  --pm-neutral: #a3abb8;
+  position: absolute;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: var(--pm-hit);
+  height: var(--pm-hit);
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  color: var(--pm-neutral);
+  background: transparent;
+  cursor: pointer;
+  pointer-events: auto;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.pathMarker.offFrame {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.pathMarker.coloured {
+  color: var(--pm-color, var(--pm-neutral));
+}
+
+.pathMarker::before {
+  content: "";
+  position: absolute;
+  width: var(--pm-ring);
+  height: var(--pm-ring);
+  border-radius: 50%;
+  background: rgba(6, 10, 18, 0.78);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.45);
+  transition: box-shadow 200ms ease;
+}
+
+.pathMarker.lit::before {
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, currentColor 45%, transparent),
+    0 0 10px 2px color-mix(in srgb, currentColor 55%, transparent);
+}
+
+.pathMarker:focus-visible {
+  outline: 2px solid rgba(150, 236, 255, 0.92);
+  outline-offset: 1px;
+}
+
+.pmRing {
+  position: absolute;
+  width: var(--pm-ring);
+  height: var(--pm-ring);
+  overflow: visible;
+}
+
+.pmRing circle {
+  fill: none;
+  stroke-width: 3;
+}
+
+.pmEmpty {
+  stroke: var(--pm-neutral);
+  stroke-dasharray: 3 3.2;
+  opacity: 0.7;
+}
+
+.pmSegment {
+  stroke: rgba(163, 171, 184, 0.34);
+  transition: stroke 200ms ease;
+}
+
+.pmSegment.secured {
+  stroke: currentColor;
+}
+
+.pmGlyph {
+  position: relative;
+  width: var(--pm-glyph);
+  height: var(--pm-glyph);
+  background-color: currentColor;
+  -webkit-mask: var(--pm-icon) center / contain no-repeat;
+  mask: var(--pm-icon) center / contain no-repeat;
+}
+
+.pathMarker.lit .pmGlyph {
+  filter: drop-shadow(0 0 3px currentColor);
+}
+
+/* All joined challenges secured: check badge on the ring, bottom right. */
+.pmBadge {
+  position: absolute;
+  left: calc(50% + var(--pm-ring) * 0.22);
+  top: calc(50% + var(--pm-ring) * 0.22);
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 0 2px rgba(6, 10, 18, 0.9);
+}
+
+.pmBadge svg {
+  width: 11px;
+  height: 11px;
+  fill: none;
+  stroke: #05090f;
+  stroke-width: 1.9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* Reminder chip: its own slot top right, outside the ring and apart from the badge. */
+.pmChip {
+  position: absolute;
+  left: calc(50% + var(--pm-ring) * 0.3);
+  top: calc(50% - var(--pm-ring) * 0.3 - 18px);
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  box-sizing: border-box;
+}
+
+.pmChip svg {
+  width: 12px;
+  height: 12px;
+}
+
+.pmChip.is-due {
+  background: #ffb759;
+  box-shadow: 0 0 0 1.5px rgba(6, 10, 18, 0.9);
+}
+
+.pmChip.is-due .pmBell {
+  fill: #05090f;
+}
+
+.pmChip.is-telegram_off {
+  background: #05090f;
+  border: 1.5px solid #ee312a;
+}
+
+.pmChip.is-telegram_off .pmPlane {
+  fill: #ee312a;
+}
+
+.pmChip.is-set {
+  background: #05090f;
+  border: 1.5px solid #ffffff;
+}
+
+.pmChip.is-set .pmBell {
+  fill: #ffb759;
+}
+
 @media (prefers-reduced-motion: reduce) {
+  .pathMarker::before,
+  .pmSegment {
+    transition: none;
+  }
+
   .lightLayer.lightRise,
   .ghostLayer.mat-resolve,
   .matColor,

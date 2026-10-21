@@ -29,6 +29,8 @@ layout={'version':1,'base':{'width':W,'height':H},'safe_area':{'y0':10,'y1':252}
  'selected':{'others_dim':0.62,'light_blend':'screen'},'rest':{'room_dim':0.74,'ringo':'sleeping','ringo_pos':'A'},
  'ringo_positions':{'A':[270,214],'B':[372,246],'C':[150,240]},
  'ringo_sprites':{},'markers':{},'zones':{}}
+# B30: path marker centres (base px, outside the props); 'tray' is reserved for a later slice.
+PATH_MARKER={'work_desk':(78,46),'learning_corner':(160,47),'creative_corner':(311,46),'sleep_corner':(398,47),'fitness_corner':(78,174)}
 def cam(zk):
     cx,cy,_,_=scene.ZONES[zk]['pool']; w,h=195,135
     x0=min(max(0,cx-w//2),W-w); y0=min(max(0,cy-h//2-6),H-h); return [x0,y0,w,h]
@@ -47,7 +49,7 @@ for zk in scene.ORDER:
     dm.save(f'{OUT}/lights/dim_{zk}.png')
     layout['zones'][zk]={'path':z['path'],'footprint':z['footprint'],'prop':{'file':f'props/prop_{zk}.png','x':b[0],'y':b[1]},
       'slots':slots,'light':{'file':f'lights/light_{zk}.png','x':lb[0],'y':lb[1],'color':'#%02x%02x%02x'%z['light'],'pool':list(z['pool'])},
-      'dim':f'lights/dim_{zk}.png','marker':list(z['marker']),'camera':cam(zk)}
+      'dim':f'lights/dim_{zk}.png','marker':list(z['marker']),'path_marker':list(PATH_MARKER[zk]),'tray':None,'camera':cam(zk)}
 for st_,rows in (('idle',sprites.IDLE),('sleeping',sprites.SLEEP)):
     sp=sprites.sprite(rows).im; sp.save(f'{OUT}/ringo/ringo_{st_}.png')
     layout['ringo_sprites'][st_]={'file':f'ringo/ringo_{st_}.png','anchor':'bottom-center','w':sp.width,'h':sp.height}
