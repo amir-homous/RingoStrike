@@ -79,3 +79,10 @@ frontend/.env.development  # (اختیاری) اگر دوست داری کانف�
 
 # VSCode
 .vscode/
+
+# B31: music files stay out of git (copied to the VPS at deploy, see docs/FOCUS_MEDIA.md).
+# The folders (.gitkeep), docs and licences stay tracked.
+frontend/public/Musics/**/*.[mM][pP]3
+frontend/public/Musics/**/*.[oO][gG][gG]
+frontend/public/Musics/**/*.[mM]4[aA]
+frontend/public/Musics/**/*.[wW][aA][vV]

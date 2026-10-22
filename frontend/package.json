@@ -11,6 +11,7 @@
     "test:console": "node scripts/smoke_browser_console.mjs",
     "test:dashboard": "node scripts/smoke_dashboard_flow.mjs",
     "test:first-run": "node scripts/smoke_first_run.mjs",
+    "test:focus-media": "node scripts/smoke_focus_media.mjs",
     "test:mission-action": "node scripts/smoke_mission_action.mjs",
     "test:localization": "node scripts/smoke_seeded_content_localization.mjs",
     "test:living-space": "node scripts/smoke_living_space.mjs",
