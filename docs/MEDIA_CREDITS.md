@@ -16,6 +16,14 @@ distributed on its own (as a standalone audio file).
 
 ## Images
 
-| File | Folder | Source | Date added |
-| --- | --- | --- | --- |
-| `default.webp` | `frontend/src/assets/focus-backgrounds/` | Provided by Amir (sample focus background) | 2026-10-22 |
+Focus backgrounds (`frontend/src/assets/focus-backgrounds/`). Made by Amir with Nano Banana from the
+Ringo character sheet. The five path images were converted from JPEG (1376x768) to WebP, quality 82.
+
+| File | Folder | Source | Size | Date added |
+| --- | --- | --- | --- | --- |
+| `default.webp` | `focus-backgrounds/` (root, the global fallback) | Made by Amir with Nano Banana from the Ringo character sheet | 34,860 B (1600x900) | 2026-10-22 |
+| `default.webp` | `focus-backgrounds/Work/` | Made by Amir with Nano Banana from the Ringo character sheet (`Work.jpeg`) | 23,388 B | 2026-10-23 |
+| `default.webp` | `focus-backgrounds/Learning/` | Made by Amir with Nano Banana from the Ringo character sheet (`Study.jpeg`) | 28,614 B | 2026-10-23 |
+| `default.webp` | `focus-backgrounds/Sleep/` | Made by Amir with Nano Banana from the Ringo character sheet (`Rest.jpeg`) | 22,416 B | 2026-10-23 |
+| `default.webp` | `focus-backgrounds/Fitness/` | Made by Amir with Nano Banana from the Ringo character sheet (`Fitness.jpeg`) | 25,536 B | 2026-10-23 |
+| `default.webp` | `focus-backgrounds/Creative/` | Made by Amir with Nano Banana from the Ringo character sheet (`Creativity.jpeg`) | 30,184 B | 2026-10-23 |

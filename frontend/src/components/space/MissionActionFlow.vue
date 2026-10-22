@@ -223,7 +223,7 @@ const SLOTS = ["morning", "noon", "afternoon", "evening", "exact"];
 
 // B31: focus backgrounds are bundled assets; a new image needs no code change (see docs/FOCUS_MEDIA.md).
 const BACKGROUNDS = globToRelative(
-  import.meta.glob("../../assets/focus-backgrounds/**/*.{webp,png,jpg,jpeg}", { eager: true, import: "default" }),
+  import.meta.glob("../../assets/focus-backgrounds/**/*.{webp,png,jpg,jpeg,WEBP,PNG,JPG,JPEG}", { eager: true, import: "default" }),
 );
 const MUSIC_VOLUME = 0.35;
 
@@ -283,7 +283,9 @@ const paused = computed(() => Boolean(focus.value?.pausedAt));
 const elapsedSeconds = computed(() => Math.floor(focusElapsedMs(focus.value, now.value) / 1000));
 const musicAvailable = computed(() => tracks.length > 0 && !musicFailed.value);
 const musicOn = computed(() => !muted.value && !musicBlocked.value);
-const clock = computed(() => formatClock(elapsedSeconds.value, locale.value));
+// B31: the timer digits are always Latin (0 to 9, tabular), also in FA: the Persian zero reads as a
+// dot next to the other digits. Every other number in FA keeps Persian digits.
+const clock = computed(() => formatClock(elapsedSeconds.value, "en"));
 const durationClock = computed(() => formatClock(durationSeconds.value, locale.value));
 
 const window_ = computed(() => performedAtWindow(ringoDay.value, { fetchedAt: ringoDayFetchedAt.value, clientNow: now.value }));
@@ -559,8 +561,17 @@ defineExpose({ clearTimer: () => writeFocusStart(props.userKey, props.mission?.i
   clip-path: inset(0 round 14px);
   border-radius: 14px;
   background: linear-gradient(160deg, #222a36, #141a23);
-  border: 1px solid rgba(255, 255, 255, 0.12);
   isolation: isolate;
+}
+
+/* The 1px edge is drawn on top, so it never adds to the 348x196 (362x204) size. */
+.flowTimer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: inherit;
+  pointer-events: none;
 }
 
 /* The 348:196 (phone 362:204) ratio as real content height. */
@@ -614,11 +625,14 @@ defineExpose({ clearTimer: () => writeFocusStart(props.userKey, props.mission?.i
   top: 36px;
   inset-inline: 0;
   color: #fff;
+  /* Latin digits with real tabular widths in EN and FA (Vazirmatn's Latin 8 is wider). */
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
   font-size: 44px;
   font-weight: 700;
   line-height: 1.15;
   text-align: center;
-  font-variant-numeric: tabular-nums;
+  font-variant-numeric: tabular-nums lining-nums;
+  font-feature-settings: "tnum" 1, "lnum" 1;
   letter-spacing: 0.02em;
   text-shadow: 0 2px 12px rgba(0, 0, 0, 0.65);
   transition: opacity 0.2s ease;

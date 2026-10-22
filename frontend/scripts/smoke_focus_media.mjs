@@ -1,9 +1,10 @@
 // B31 (#401): focus media and pause, dependency-free.
 // Music and image fallback chains, the music manifest, pause duration math and the mute preference.
 import assert from "node:assert/strict";
-import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, sep } from "node:path";
+import { fileURLToPath } from "node:url";
 
 import {
   MUTE_KEY,
@@ -22,6 +23,8 @@ import {
   writeMusicMuted,
 } from "../src/lib/focusMedia.js";
 import { listAudio } from "../vite/focusMusicManifest.js";
+
+const ASSETS = fileURLToPath(new URL("../src/assets/focus-backgrounds/", import.meta.url));
 
 function runFolders() {
   assert.deepEqual(PATH_FOLDERS, { career: "Work", creativity: "Creative", fitness: "Fitness", learning: "Learning", sleep: "Sleep" });
@@ -107,6 +110,20 @@ function runBackground() {
   // 4. Nothing: null (the plain card).
   assert.equal(resolveBackground({ "Sleep/notes.txt": "/a/n.txt" }, { pathKey: "sleep" }), null);
   assert.equal(resolveBackground(null, { pathKey: "sleep" }), null);
+
+  // Every accepted extension resolves (.webp, .png, .jpg, .jpeg, any case); webp wins a tie.
+  for (const ext of ["webp", "png", "jpg", "jpeg", "JPEG", "Png"]) {
+    assert.equal(resolveBackground({ [`Sleep/default.${ext}`]: `/s.${ext}` }, { pathKey: "sleep" }), `/s.${ext}`, `.${ext}`);
+  }
+  assert.equal(resolveBackground({ "Learning/default.jpeg": "/l.jpeg", "Learning/default.png": "/l.png" }, { pathKey: "learning" }), "/l.png");
+  assert.equal(resolveBackground({ "Learning/default.jpeg": "/l.jpeg", "Learning/default.webp": "/l.webp" }, { pathKey: "learning" }), "/l.webp");
+  assert.equal(resolveBackground({ "Learning/default.gif": "/l.gif", "default.webp": "/d.webp" }, { pathKey: "learning" }), "/d.webp", "other types are ignored");
+  // The real assets: each of the five folders has its own default, the root stays the fallback.
+  const real = Object.fromEntries(readdirSync(join(ASSETS, ""), { recursive: true }).filter((f) => /\.(webp|png|jpe?g)$/i.test(f)).map((f) => [f.split(sep).join("/"), f]));
+  for (const [path, folder] of Object.entries(PATH_FOLDERS)) {
+    assert.equal(resolveBackground(real, { pathKey: path }), `${folder}/default.webp`, `${path} has its own image`);
+  }
+  assert.equal(resolveBackground(real, { pathKey: "unknown" }), "default.webp");
 }
 
 function runPause() {

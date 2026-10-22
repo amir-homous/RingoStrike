@@ -29,11 +29,18 @@ Lookup order, first match wins:
 3. `default.webp` (the root)
 4. No image: the plain dark card.
 
-`.webp` is preferred; `.png`, `.jpg` and `.jpeg` also work (for the same name, webp wins).
+`.webp` is preferred; `.png`, `.jpg` and `.jpeg` also work, in any letter case (for the same name the
+order is webp, png, jpg, jpeg).
 
-Size: 1600x900 (16:9) or similar. The card is about 348x196 (362x204 on a phone) and crops with
-`object-fit: cover`, so keep the subject in the middle. Keep each file under about 80 KB. A dark
-scrim sits over the image so the digits stay readable.
+Current images: one `default.webp` in each of the five folders (Work, Learning, Sleep, Fitness,
+Creative; 1376x768, 22 to 30 KB) and the root `default.webp` (1600x900) as the global fallback.
+Credits are in `docs/MEDIA_CREDITS.md`.
+
+Size: 16:9 or close (1600x900, 1376x768). The card is about 348x196 (362x204 on a phone) and crops
+with `object-fit: cover`, so keep the subject in the middle. A file over 250 KB should be converted
+to WebP (quality about 82); keep each file under about 80 KB. A dark scrim sits over the image so the
+digits and buttons stay readable (aim for at least 4.5:1 for white text in the digits and buttons
+areas).
 
 ## Music (NOT tracked in git)
 
