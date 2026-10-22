@@ -75,35 +75,17 @@
         :first-reward-unlocked="firstRewardUnlocked"
       />
 
+      <!-- B32 (D60, D61): the zone's five objects; placed and next ones show in the room. -->
+      <ObjectTiles
+        :tiles="objectTileList"
+        :selected-key="objectPick?.key || ''"
+        @pick="pickObject"
+      />
+
+      <p v-if="objectAnnouncement" class="srOnly" aria-live="polite">{{ objectAnnouncement }}</p>
+
       <div class="zoneDetails">
 
-        <ZoneDetailsRow
-          :row-id="`${zone.zone_key}-objects`"
-          :title="t('space.panel.rowObjects')"
-          :meta="t('space.objectHistory.summary', { saved: unlockedCount, preview: lockedPreviewCount })"
-          :open="openRow === 'objects'"
-          @toggle="toggleRow('objects')"
-        >
-          <div v-if="zoneObjectHistoryItems.length" class="objectHistoryList">
-            <article
-              v-for="item in zoneObjectHistoryItems"
-              :key="item.key"
-              class="objectHistoryItem"
-              :class="item.state"
-            >
-              <span class="objectHistoryMark" aria-hidden="true">{{ item.mark }}</span>
-              <span class="objectHistoryCopy">
-                <span class="objectHistoryTitle">
-                  <strong>{{ item.title }}</strong>
-                  <em>{{ item.status }}</em>
-                </span>
-                <span>{{ item.text }}</span>
-                <small>{{ item.source }}</small>
-              </span>
-            </article>
-          </div>
-          <p v-else class="emptyText">{{ t("space.objectHistory.empty") }}</p>
-        </ZoneDetailsRow>
 
         <ZoneDetailsRow
           v-if="hasReminders"
@@ -153,6 +135,7 @@ import { formatNumber, numberAwareT } from "@/lib/i18nNumbers";
 import BonusOfferCard from "./BonusOfferCard.vue";
 import RingoActionCard from "./RingoActionCard.vue";
 import MissionActionFlow from "./MissionActionFlow.vue";
+import ObjectTiles from "./ObjectTiles.vue";
 import ZoneDetailsRow from "./ZoneDetailsRow.vue";
 import ZoneTodayStrip from "./ZoneTodayStrip.vue";
 import {
@@ -164,6 +147,9 @@ import {
   todayMainDone,
 } from "@/lib/livingSpacePanel";
 import { challengeIconCandidates } from "@/lib/challengeIconKeys";
+import { TILE_STATE, objectCardCopy, objectTiles, tileTapResult } from "@/lib/objectsGrid";
+import { zoneObjects } from "@/lib/roomScene";
+import roomLayout from "@/assets/room/room_layout.json";
 import { findFirstReward } from "@/lib/livingSpaceState";
 import { resolveActionIcon } from "@/utils/actionIconUtils";
 import { resolvePathIcon } from "@/utils/missionMomentumUtils";
@@ -207,6 +193,7 @@ const emit = defineEmits([
   "focus-reminder",
   "checkin",
   "close",
+  "highlight-object",
 ]);
 
 const { locale, t: baseT } = useI18n();
@@ -251,9 +238,8 @@ const firstRewardText = computed(() => {
   const reward = firstReward.value;
   if (!reward) return "";
 
-  if (firstRewardUnlocked.value) {
-    return t("space.firstRewardPlaced", { reward: reward.title });
-  }
+  // B32 (D60): the "First object placed" line is gone; the objects grid shows it.
+  if (firstRewardUnlocked.value) return "";
 
   return t("space.panel.firstRewardHint", { object: reward.title });
 });
@@ -548,7 +534,72 @@ const reminderLine = computed(() => {
   return t("space.ringoGuide.reminderLine", { mission: first?.title || t("common.mission") });
 });
 
+// B32 (D60 to D63): the objects grid. A tapped tile always answers in Ringo's card; only placed
+// objects and the next ghost (when the room draws them) also lift and glow in the room.
+const OBJECT_ART = import.meta.glob("../../assets/room/objects/*.png", { eager: true, import: "default" });
+const hasObjectArt = (path) => Object.keys(OBJECT_ART).some((file) => file.endsWith(`/${path}`));
+const objectPick = ref(null);
+let objectNonce = 0;
+
+const objectTileList = computed(() => {
+  const zone = props.zone;
+  const layoutZone = roomLayout.zones?.[zone?.zone_key];
+  const drawn = layoutZone ? zoneObjects(layoutZone, zone, hasObjectArt) : { placed: [], ghost: null };
+  const placedKeys = new Set(drawn.placed.map((item) => item.key));
+  return objectTiles(zone, {
+    inRoom: (reward, state) => (state === TILE_STATE.PLACED ? placedKeys.has(reward.key) : drawn.ghost?.key === reward.key),
+  });
+});
+
+const objectCard = computed(() => {
+  const tile = objectPick.value;
+  if (!tile) return null;
+  const placed = tile.state === TILE_STATE.PLACED;
+  const title = tile.reward?.title || t("space.objectHistory.unknown");
+  const body = objectCardCopy(tile, { pathName: props.zone?.pathName || "", locale: locale.value, t });
+  return {
+    tone: placed ? "objectPlaced" : "objectLater",
+    mood: placed ? "happy" : "thinking",
+    label: t("space.ringoGuide.eyebrow"),
+    title,
+    body,
+    chips: [{ key: "state", text: placed ? t("space.objectHistory.savedSource") : t("space.objectHistory.previewSource") }],
+    secondary: [{ key: "back-to-step", type: "back-to-step", label: t("space.objectGrid.backToStep") }],
+    collapsedText: title,
+  };
+});
+
+const objectAnnouncement = computed(() => (objectCard.value ? `${objectCard.value.title}. ${objectCard.value.body}` : ""));
+
+// Picking a challenge or a paw in the room (or a new mission) leaves the object's story.
+watch(
+  () => [props.selectedChallengeId, props.pickedMissionId, props.challengePicked],
+  () => { objectPick.value = null; },
+);
+
+function pickObject(tile) {
+  const result = tileTapResult(tile);
+  if (!result.card) return;
+  // Keep the tile list fresh: the tile object can be stale after a reload of the zone.
+  objectPick.value = objectTileList.value.find((item) => item.key === tile.key) || tile;
+  openRow.value = null;
+  // D61: a locked object answers only in Ringo's card; any earlier room effect ends.
+  if (!result.room) {
+    emit("highlight-object", null);
+    return;
+  }
+  objectNonce += 1;
+  const name = tile.reward?.title || "";
+  emit("highlight-object", {
+    key: tile.key,
+    ghost: tile.state === TILE_STATE.NEXT,
+    label: tile.state === TILE_STATE.NEXT ? t("space.objectGrid.ghostLabel", { name }) : name,
+    nonce: objectNonce,
+  });
+}
+
 const ringoCard = computed(() => {
+  if (objectCard.value) return objectCard.value;
   let card = baseRingoCard.value;
   // D49: the path list is gone, so its error and loading text live in the card.
   if (props.pathError && !card.note) card = { ...card, note: props.pathError };
@@ -780,6 +831,7 @@ watch(
   () => {
     openRow.value = null;
     bonusIndex.value = 0;
+    objectPick.value = null;
   },
 );
 
@@ -836,6 +888,7 @@ const flowError = ref("");
 
 function openActionFlow(mode, mission) {
   if (!mission?.id) return;
+  objectPick.value = null;
   flowError.value = "";
   flowSubmitting.value = false;
   // B31: the challenge picks a challenge-specific focus background or music folder, when one exists.
@@ -921,6 +974,13 @@ function focusRingoCard() {
 
 function handleRingoAction(action) {
   if (!action || action.disabled) return;
+
+  // B32: back from an object's story to today's step.
+  if (action.type === "back-to-step") {
+    objectPick.value = null;
+    nextTick(() => ringoCardRef.value?.focusPrimary());
+    return;
+  }
 
   // B30 S2 (D38-D40): "Not now" drops the pick; after joining, show that challenge's step.
   if (action.type === "not-now") {

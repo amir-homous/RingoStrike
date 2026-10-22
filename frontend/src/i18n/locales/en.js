@@ -304,6 +304,22 @@ export default {
     firstRewardLocked: "First reward: complete one non-bonus mission in this path to place {reward}.",
     nextRewardFirst: "Next action: complete a main mission in this path to unlock {reward}.",
     nextRewardFuture: "Future visible change: {reward}. For now, this is only a preview.",
+    // B32 (D60 to D63): objects grid.
+    objectGrid: {
+      inRoomCount: "{count} in your room",
+      tileLabel: {
+        placed: "{name}, in your room",
+        next: "{name}, coming next",
+        later: "{name}, coming later",
+      },
+      placedFirst: "You received this on {date}, when you completed your first {path} mission.",
+      placedOn: "You received this on {date}.",
+      placedNoDate: "This is already in your room.",
+      firstHint: "Comes with your first {path} mission.",
+      laterHint: "This comes to your corner later.",
+      ghostLabel: "{name} · coming later",
+      backToStep: "Back to today’s step",
+    },
     objectHistory: {
       label: "Room objects in this zone",
       summary: "{saved} in your room · {preview} coming later",

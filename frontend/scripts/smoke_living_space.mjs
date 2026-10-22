@@ -39,6 +39,17 @@ import {
 } from "../src/lib/missionActionFlow.js";
 import { formatClock } from "../src/lib/i18nNumbers.js";
 import {
+  KIND_SILHOUETTES,
+  TILE_STATE,
+  formatUnlockDate,
+  kindSilhouette,
+  objectCardCopy,
+  objectTiles,
+  softHint,
+  tileTapResult,
+  unlockDate,
+} from "../src/lib/objectsGrid.js";
+import {
   REMINDER_CHIP,
   pathMarkerColor,
   pathMarkerState,
@@ -776,4 +787,76 @@ function testMissionTrayState() {
   assert.equal(ringoCardState({ mainDone: true, focusDone: true }), "safe");
 }
 
+// B32 (#402, D60 to D64): objects grid tile states, clickability rule and card copy.
+function runObjectsGridSmoke() {
+  const reward = (id, key, kind, cond, extra = {}) => ({
+    id, key, title: key, description: `About ${key}.`, object_type: kind, stage: 1,
+    unlock_condition_type: cond, asset_key: key, ...extra,
+  });
+  const planner = reward(1, "career_planner", "planner", "first_path_mission_done", { unlocked: true, unlocked_at: "2026-10-20 08:15:00", description: "Unlocked because you completed your first Career mission." });
+  const lamp = reward(2, "career_desk_lamp", "lamp", "early_consistency", { description: "A calm work light for early Career consistency." });
+  const monitor = reward(3, "career_monitor", "monitor", "path_progress_milestone");
+  const board = reward(4, "career_project_board", "wall_board", "achievement_unlocked");
+  const trophy = reward(5, "career_trophy", "trophy", "major_path_milestone");
+  // The backend lists unlocked and locked separately; tiles follow the reward order (stage, id).
+  const zone = { zone_key: "work_desk", unlocked_objects: [planner], locked_preview_objects: [trophy, lamp, monitor, board], next_reward: lamp };
+  const drawn = new Set(["career_planner", "career_desk_lamp"]); // only two objects have art today (D64)
+  const tiles = objectTiles(zone, { inRoom: (r) => drawn.has(r.key) });
+
+  assert.deepEqual(tiles.map((tile) => tile.key), ["career_planner", "career_desk_lamp", "career_monitor", "career_project_board", "career_trophy"]);
+  assert.deepEqual(tiles.map((tile) => tile.state), ["placed", "next", "later", "later", "later"]);
+  assert.deepEqual(tiles.map((tile) => tile.kind), ["planner", "lamp", "monitor", "wall_board", "trophy"]);
+  assert.deepEqual(tiles.map((tile) => tile.ghost), [false, true, false, false, false]);
+
+  // D61: placed and next (drawn in the room) get the room effect and the card; later ones only the card.
+  assert.deepEqual(tiles.map(tileTapResult), [
+    { card: true, room: true },
+    { card: true, room: true },
+    { card: true, room: false },
+    { card: true, room: false },
+    { card: true, room: false },
+  ]);
+  // A later tile never gets a room effect, even if something drew it; a tile without a layer neither.
+  assert.equal(objectTiles(zone, { inRoom: () => true })[4].roomEffect, false);
+  assert.deepEqual(objectTiles(zone, { inRoom: () => false }).map((tile) => tile.roomEffect), [false, false, false, false, false]);
+  assert.deepEqual(tileTapResult(null), { card: false, room: false });
+
+  // Nothing unlocked: the first reward is next; at most five tiles; empty zone has none.
+  const fresh = objectTiles({ unlocked_objects: [], locked_preview_objects: [planner, lamp, monitor, board, trophy, reward(6, "extra", "lamp", "x")].map((r) => ({ ...r, unlocked: false, unlocked_at: null })) }, { inRoom: () => true });
+  assert.equal(fresh.length, 5);
+  assert.deepEqual(fresh.map((tile) => tile.state), ["next", "later", "later", "later", "later"]);
+  assert.deepEqual(objectTiles(null), []);
+  // Everything placed: no next tile.
+  const all = objectTiles({ unlocked_objects: [planner, lamp, monitor, board, trophy], locked_preview_objects: [] });
+  assert.ok(all.every((tile) => tile.state === TILE_STATE.PLACED));
+
+  // A silhouette for every reward kind in the seed; unknown kinds fall back to a plain box.
+  for (const kind of ["planner", "lamp", "monitor", "wall_board", "trophy", "book", "easel", "wall_art", "bottle", "weights", "mat", "bench", "shelf", "books", "pillow", "blanket"]) {
+    assert.ok(KIND_SILHOUETTES[kind]?.length, `silhouette for ${kind}`);
+  }
+  assert.equal(kindSilhouette("rocket")[0][0], "rect");
+
+  // D63 card copy (descriptors without t): the real date and path for the first-mission reward.
+  assert.equal(unlockDate("2026-10-20 08:15:00").toISOString(), "2026-10-20T08:15:00.000Z");
+  assert.equal(unlockDate("nope"), null);
+  assert.equal(unlockDate(null), null);
+  assert.equal(formatUnlockDate("2026-10-20 08:15:00", "en"), "October 20, 2026");
+  assert.match(formatUnlockDate("2026-10-20 08:15:00", "fa"), /[\u06F0-\u06F9]/, "FA date uses Persian digits");
+  assert.deepEqual(objectCardCopy(tiles[0], { pathName: "Career" }), { key: "space.objectGrid.placedFirst", params: { date: "October 20, 2026", path: "Career" } });
+  const otherPlaced = { ...tiles[0], reward: { ...planner, unlock_condition_type: "early_consistency" } };
+  assert.equal(objectCardCopy(otherPlaced, { pathName: "Career" }).key, "space.objectGrid.placedOn", "no invented reason");
+  const noDate = { ...tiles[0], reward: { ...planner, unlocked_at: null } };
+  assert.equal(objectCardCopy(noDate, { pathName: "Career" }).key, "space.objectGrid.placedNoDate", "no invented date");
+  // Next and later: the reward description as a soft hint; the first reward gets its own hint.
+  assert.equal(objectCardCopy(tiles[1], { pathName: "Career" }), "A calm work light for early Career consistency.");
+  assert.deepEqual(objectCardCopy(fresh[0], { pathName: "Career" }), { key: "space.objectGrid.firstHint", params: { path: "Career" } });
+  // Never a number or threshold.
+  assert.equal(softHint("Check in 7 days in a row."), "");
+  assert.equal(softHint("۷ روز پشت سر هم"), "");
+  assert.deepEqual(objectCardCopy({ state: "later", reward: { description: "Reach 30 check-ins." } }), { key: "space.objectGrid.laterHint", params: {} });
+  // With t, the copy is a string.
+  assert.equal(objectCardCopy(tiles[0], { pathName: "Career", t: (key, p) => `${key}|${p.date}|${p.path}` }), "space.objectGrid.placedFirst|October 20, 2026|Career");
+}
+
 run();
+runObjectsGridSmoke();
