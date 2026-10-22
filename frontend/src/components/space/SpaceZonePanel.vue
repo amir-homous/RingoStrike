@@ -191,9 +191,8 @@ const props = defineProps({
   challengePicked: { type: Boolean, default: false },
   // B30 S2: the challenge just joined from the room (post-join card, D39).
   joinedChallengeId: { type: [Number, String, null], default: null },
-  // B30 S3: a paw tapped in the room's mission tray (D51), and the "+N" chip's explanation (D50).
+  // B30 S3: a paw tapped in the room's mission tray (D51).
   pickedMissionId: { type: [Number, String, null], default: null },
-  moreMissions: { type: Object, default: null },
 });
 
 const emit = defineEmits([
@@ -547,22 +546,8 @@ const reminderLine = computed(() => {
   return t("space.ringoGuide.reminderLine", { mission: first?.title || t("common.mission") });
 });
 
-// D50: the tray's "+N" chip: Ringo explains the missions that do not have a paw (no list).
-const moreMissionsCard = computed(() => {
-  const more = props.moreMissions;
-  if (!more?.count) return null;
-  return {
-    tone: "neutral",
-    mood: "explaining",
-    label: t("space.ringoGuide.eyebrow"),
-    title: t("space.ringoGuide.moreMissionsTitle", { count: more.count }),
-    body: t("space.ringoGuide.moreMissionsBody"),
-    collapsedText: t("space.ringoGuide.moreMissionsTitle", { count: more.count }),
-  };
-});
-
 const ringoCard = computed(() => {
-  let card = moreMissionsCard.value || baseRingoCard.value;
+  let card = baseRingoCard.value;
   // D49: the path list is gone, so its error and loading text live in the card.
   if (props.pathError && !card.note) card = { ...card, note: props.pathError };
   if (!reminderLine.value || cardState.value === "reminder") return card;

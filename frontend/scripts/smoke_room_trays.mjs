@@ -6,6 +6,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { inflateSync } from "node:zlib";
 
+import { MISSION_TRAY_MAX_PAWS, pagePaws, trayRows } from "../src/lib/missionTray.js";
 import {
   ROOM_BASE_HEIGHT,
   ROOM_BASE_WIDTH,
@@ -196,6 +197,45 @@ function run() {
         const second = trayConflicts(key, rowRect(zone.tray.wrap.dy, zone.tray.wrap.run), options)
           .filter((name) => !(zone.tray.wrap.over_props && name.startsWith("prop:")));
         assert.deepEqual(second, [], `${key} second mission row at ${options.label} overlaps: ${second.join(", ")}`);
+      }
+    }
+  }
+
+  // Reachability (B30 S3): with the same sizing as RoomScene, every mission of a challenge (1 to 6
+  // paws) is on a page of the zone's mission tray, each page fits the row's slots, the pager walks
+  // through all pages in Tab/DOM order (challenge, paws, pager) and back returns to the first.
+  const views = [
+    { label: "desktop x2", scale: 2, phone: false },
+    { label: "desktop x3", scale: 3, phone: false },
+    { label: "phone 390", scale: 2, phone: true, frame: 328 },
+    { label: "phone 360", scale: 2, phone: true, frame: 298 },
+    { label: "phone 440", scale: 2, phone: true, frame: 378 },
+  ];
+  for (const key of ZONE_ORDER) {
+    const zone = layout.zones[key];
+    for (const view of views) {
+      const k = trayScreenFactor(view.scale, view);
+      const pad = TRAY_SCREEN.pad * k;
+      const fixed = (TRAY_SCREEN.flag * k) / 2 + pad * 2;
+      const rows = view.phone
+        ? [view.frame - 8 - fixed, view.frame - 8 - fixed]
+        : [(zone.tray.run - 7) * view.scale - pad * 2, ...(zone.tray.wrap ? [(zone.tray.wrap.run - 7) * view.scale - pad * 2] : [])];
+      for (let count = 1; count <= 6; count++) {
+        const missions = Array.from({ length: count }, (_, index) => ({ id: index + 1 }));
+        const sizing = trayRows({ pawCount: count, rows, pitches: [48 * k, 44 * k] });
+        assert.ok(sizing.slots >= Math.min(3, 1 + count), `${key} ${view.label} ${count} missions: room for the challenge, a paw and the pager (${sizing.slots})`);
+        const reached = [];
+        let page = pagePaws(missions, { slots: sizing.slots });
+        for (let step = 0; step <= count; step++) {
+          const items = 1 + page.visible.length + (page.control ? 1 : 0);
+          assert.ok(items <= sizing.slots, `${key} ${view.label} ${count} missions: page ${page.page} has ${items} items for ${sizing.slots} slots`);
+          assert.ok(page.visible.length <= MISSION_TRAY_MAX_PAWS);
+          reached.push(...page.visible.map((mission) => mission.id));
+          if (!page.control || page.control.kind === "back") break;
+          page = pagePaws(missions, { slots: sizing.slots, page: page.control.page });
+        }
+        assert.deepEqual(reached, missions.map((mission) => mission.id), `${key} ${view.label} ${count} missions: every mission reachable once`);
+        if (page.control) assert.equal(pagePaws(missions, { slots: sizing.slots, page: page.control.page }).page, 0, "back goes to the first page");
       }
     }
   }

@@ -68,7 +68,7 @@ import {
   PAW_STATE,
   missionPawState,
   missionReminderChip,
-  splitPaws,
+  pagePaws,
   trayMissions,
   trayRows,
 } from "../src/lib/missionTray.js";
@@ -739,26 +739,32 @@ function testMissionTrayState() {
   assert.deepEqual(trayMissions(seed, { activeTinyIds: [4] }).map((x) => x.id), [1, 2, 3, 4, 5]);
   assert.deepEqual(trayMissions([m(1, "main"), m(4, "tiny", "done")]).map((x) => x.id), [1, 4]);
 
-  // Up to 4 paws; more become one "+N" chip (D50).
+  // Paging (D50): up to 4 paws per page; when they do not all fit, the last slot is a pager:
+  // "+N" to the next page, then "back" to the first. Every mission is on exactly one page.
   assert.equal(MISSION_TRAY_MAX_PAWS, 4);
   const five = [1, 2, 3, 4, 5].map((id) => m(id, "main"));
-  assert.deepEqual(splitPaws(five.slice(0, 1)).visible.length, 1);
-  assert.deepEqual(splitPaws(five.slice(0, 4)), { visible: five.slice(0, 4), hidden: [] });
-  assert.deepEqual(splitPaws(five).visible.map((x) => x.id), [1, 2, 3]);
-  assert.deepEqual(splitPaws(five).hidden.map((x) => x.id), [4, 5]);
-  assert.deepEqual(splitPaws(five.slice(0, 3), 2).visible.map((x) => x.id), [1]);
-
-  // Row sizing: 48px pitch, then 44px, then a second row, then fewer paws (chip takes the rest).
-  // 1 mission: challenge + 1 paw.
-  assert.deepEqual(trayRows({ pawCount: 1, rows: [100] }), { pitch: 48, perRow: [2], pawCapacity: 4 });
-  // 4 missions in 240px: 5 items fit at 48.
-  assert.deepEqual(trayRows({ pawCount: 4, rows: [240] }), { pitch: 48, perRow: [5], pawCapacity: 4 });
-  // 4 missions in 220px: 48 fits 4, 44 fits 5.
-  assert.deepEqual(trayRows({ pawCount: 4, rows: [220] }), { pitch: 44, perRow: [5], pawCapacity: 4 });
-  // 5+ missions (chip): 6 items; 180px + a second row of 180px -> 4 + 2 at 44.
-  assert.deepEqual(trayRows({ pawCount: 5, rows: [180, 180] }), { pitch: 44, perRow: [4, 2], pawCapacity: 4 });
-  // No second row and only 3 slots: challenge + 1 paw + chip.
-  assert.deepEqual(trayRows({ pawCount: 4, rows: [140] }), { pitch: 44, perRow: [3], pawCapacity: 2 });
+  assert.deepEqual(pagePaws(five.slice(0, 1), { slots: 5 }), { visible: five.slice(0, 1), control: null, page: 0, pages: 1 });
+  assert.deepEqual(pagePaws(five.slice(0, 4), { slots: 5 }).control, null);
+  // 5 missions, 6 slots: 4 paws + "+1", then 1 paw + back.
+  const p0 = pagePaws(five, { slots: 6 });
+  assert.deepEqual(p0.visible.map((x) => x.id), [1, 2, 3, 4]);
+  assert.deepEqual(p0.control, { kind: "next", count: 1, page: 1 });
+  const p1 = pagePaws(five, { slots: 6, page: p0.control.page });
+  assert.deepEqual(p1.visible.map((x) => x.id), [5]);
+  assert.deepEqual(p1.control, { kind: "back", count: 0, page: 0 });
+  // 4 missions, 3 slots (Sleep at x2): 1 paw per page + pager, 4 pages.
+  const four = five.slice(0, 4);
+  const pagesSeen = [];
+  let pg = pagePaws(four, { slots: 3 });
+  for (let i = 0; i < 6 && !pagesSeen.includes(pg.page); i++) {
+    pagesSeen.push(pg.page);
+    assert.ok(1 + pg.visible.length + (pg.control ? 1 : 0) <= 3, "fits the row");
+    pg = pagePaws(four, { slots: 3, page: pg.control.page });
+  }
+  assert.deepEqual(pagesSeen, [0, 1, 2, 3]);
+  assert.equal(pg.page, 0, "back returns to the first page");
+  // An out-of-range page is clamped.
+  assert.equal(pagePaws(five, { slots: 6, page: 9 }).page, 1);
 
   // D51: a tapped mission beats a due reminder; without the tap the due mission still leads.
   const missions = [{ id: 1, intensity: "main", status: "pending", availableToday: true }, { id: 2, intensity: "main", status: "remind_later", availableToday: true }];

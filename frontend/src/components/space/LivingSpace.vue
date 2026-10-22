@@ -32,11 +32,9 @@
           :selected-challenge-id="selectedPathChallengeId"
           :challenge-picked="challengePicked"
           :picked-mission-id="pickedMissionId"
-          :more-missions-open="Boolean(moreMissions)"
           @select="selectZone"
           @select-challenge="selectPathChallenge"
           @select-mission="selectTrayMission"
-          @more-missions="showMoreMissions"
         >
           <!-- Room corner (inline-end): objects chip, new-reward chip and the room info popover. -->
           <template #corner>
@@ -112,7 +110,6 @@
           :challenge-picked="challengePicked"
           :joined-challenge-id="joinedChallengeId"
           :picked-mission-id="pickedMissionId"
-          :more-missions="moreMissions"
           :completing-mission-id="completingMissionId"
           :starting-challenge-id="startingChallengeId"
           :today-safe="todaySafe"
@@ -209,9 +206,8 @@ const selectedPathChallengeId = ref(null);
 const challengePicked = ref(false);
 // B30 S2: the challenge just joined from the room; the card shows the post-join state (D39).
 const joinedChallengeId = ref(null);
-// B30 S3: the paw tapped in the mission tray (D51), and the "+N" chip's explanation (D50).
+// B30 S3: the paw tapped in the mission tray (D51).
 const pickedMissionId = ref(null);
-const moreMissions = ref(null);
 // B19: room info popover in the room corner (the rule text); click/hover/focus opens, Esc closes.
 const roomInfoOpen = ref(false);
 
@@ -627,7 +623,6 @@ function selectZone(zone) {
   challengePicked.value = false;
   joinedChallengeId.value = null;
   pickedMissionId.value = null;
-  moreMissions.value = null;
   ensurePathChallenges(zone);
 }
 
@@ -640,7 +635,6 @@ function closePanel() {
   challengePicked.value = false;
   joinedChallengeId.value = null;
   pickedMissionId.value = null;
-  moreMissions.value = null;
 }
 
 // B24: open the reminder's zone and challenge and ask the panel to focus that mission.
@@ -657,7 +651,6 @@ function focusReminder(reminder) {
   challengePicked.value = false;
   joinedChallengeId.value = null;
   pickedMissionId.value = null;
-  moreMissions.value = null;
   requestedMissionId.value = reminder?.id || null;
   ensurePathChallenges(zone);
 }
@@ -673,8 +666,7 @@ function changeShellMode(mode) {
     challengePicked.value = false;
     joinedChallengeId.value = null;
     pickedMissionId.value = null;
-    moreMissions.value = null;
-    return;
+      return;
   }
 
   if (!activeZone.value && workSurfaceZone.value) {
@@ -696,19 +688,12 @@ function selectPathChallenge(challenge) {
   joinedChallengeId.value = null;
   requestedMissionId.value = null;
   pickedMissionId.value = null;
-  moreMissions.value = null;
 }
 
 // B30 S3: a paw in the mission tray makes that mission the Ringo focus, ahead of a due reminder
 // (D51). A locked or done paw only gets Ringo's explanation or the done card (D20, D48).
 function selectTrayMission(mission) {
   pickedMissionId.value = mission?.id ?? null;
-  moreMissions.value = null;
-}
-
-function showMoreMissions(payload) {
-  pickedMissionId.value = null;
-  moreMissions.value = payload?.count ? { count: payload.count, challengeId: payload.challengeId ?? null } : null;
 }
 
 function isCheckedToday(challenge) {

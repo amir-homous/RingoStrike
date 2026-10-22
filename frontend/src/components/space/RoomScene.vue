@@ -312,7 +312,7 @@ import {
 } from "@/lib/roomScene";
 import { resolveChallengeIcon } from "@/utils/missionMomentumUtils";
 import { todayMainDone } from "@/lib/livingSpacePanel";
-import { missionPawState, splitPaws, trayMissions, trayRows } from "@/lib/missionTray";
+import { missionPawState, pagePaws, trayMissions, trayRows } from "@/lib/missionTray";
 import pawGlyph from "@/assets/missions-icons/paw_glyph.png";
 import { REMINDER_CHIP, ringSegments } from "@/lib/pathMarker";
 
@@ -321,10 +321,9 @@ const props = defineProps({
   selectedZoneKey: { type: String, default: "" },
   // B30 S2: the challenge the Ringo card answers for (highlighted in the tray).
   selectedChallengeId: { type: [Number, String, null], default: null },
-  // B30 S3: a challenge was tapped (its missions show), the paw tapped, and the "+N" card is open.
+  // B30 S3: a challenge was tapped (its missions show) and the paw tapped.
   challengePicked: { type: Boolean, default: false },
   pickedMissionId: { type: [Number, String, null], default: null },
-  moreMissionsOpen: { type: Boolean, default: false },
   suggestedZoneKey: { type: String, default: "" },
   rest: { type: Boolean, default: false },
   // From tablet width the room asks for at least x2; when the x2 room is wider than its column it
@@ -339,7 +338,7 @@ const props = defineProps({
   materializing: { type: Object, default: null },
 });
 
-const emit = defineEmits(["select", "select-challenge", "select-mission", "more-missions"]);
+const emit = defineEmits(["select", "select-challenge", "select-mission"]);
 
 const { locale, t: baseT } = useI18n();
 // B10: numbers in copy use the locale's digits; a numeric count picks the plural form.
@@ -761,6 +760,15 @@ function pawEntry(mission, mainDone) {
   };
 }
 
+// B30 S3: which page of paws the mission tray shows (reset when the picked challenge changes).
+const missionPage = ref({ challengeId: null, page: 0 });
+watch(
+  () => [openZoneKey.value, props.selectedChallengeId, props.challengePicked],
+  () => {
+    missionPage.value = { challengeId: null, page: 0 };
+  },
+);
+
 const tray = computed(() => {
   const key = openZoneKey.value;
   const zone = key ? orderedLayoutZones.value.find((item) => item.key === key) : null;
@@ -796,20 +804,26 @@ const tray = computed(() => {
       ? [viewportWidth.value - 8 - fixed, viewportWidth.value - 8 - fixed]
       : [(zone.tray.run - 7) * s - pad * 2, ...(zone.tray.wrap ? [(zone.tray.wrap.run - 7) * s - pad * 2] : [])];
     const sizing = trayRows({ pawCount: missions.length, rows: rowRoom, pitches: [48 * k, 44 * k] });
-    const { visible, hidden } = splitPaws(missions, sizing.pawCapacity);
+    const page = missionPage.value.challengeId === picked.id ? missionPage.value.page : 0;
+    const paged = pagePaws(missions, { slots: sizing.slots, page });
+    const control = paged.control;
     entries = [
       challengeEntry(picked, true),
-      ...visible.map((mission) => pawEntry(mission, mainDone)),
-      ...(hidden.length
+      ...paged.visible.map((mission) => pawEntry(mission, mainDone)),
+      // Pager in the same row (no extra space, no list): "+N" shows the next paws, the last page
+      // gets a back control to the first. The label is Ringo's one line, "N more steps".
+      ...(control
         ? [{
           kind: "more",
-          key: "more",
-          state: "more",
-          count: hidden.length,
+          key: `pager-${control.kind}`,
+          state: control.kind,
+          pager: control,
           challengeId: picked.id,
-          text: t("space.scene.missionTray.moreChip", { count: hidden.length }),
-          ariaLabel: t("space.scene.missionTray.moreAria", { count: hidden.length }),
-          selected: props.moreMissionsOpen,
+          text: control.kind === "next" ? t("space.scene.missionTray.moreChip", { count: control.count }) : "‹",
+          ariaLabel: control.kind === "next"
+            ? t("space.scene.missionTray.moreAria", { count: control.count })
+            : t("space.scene.missionTray.backAria"),
+          selected: false,
         }]
         : []),
     ];
@@ -903,8 +917,10 @@ function onTrayItem(item) {
     emit("select-challenge", tray.value?.mode === "missions" ? null : item.challenge);
   } else if (item.kind === "paw") {
     emit("select-mission", item.mission);
-  } else if (item.kind === "more") {
-    emit("more-missions", { count: item.count, challengeId: item.challengeId });
+  } else if (item.kind === "more" && item.pager) {
+    missionPage.value = { challengeId: item.challengeId, page: item.pager.page };
+    // Keep keyboard focus on the pager slot after the paws swap.
+    nextTick(() => frame.value?.querySelector(".challengeTray .trayIcon.kind-more")?.focus());
   }
 }
 

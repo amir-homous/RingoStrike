@@ -110,7 +110,8 @@ export default {
         bonusLocked: "قدم اضافه: {name}، هنوز باز نشده",
         bonusDone: "قدم اضافه: {name}، امروز انجام شد",
         moreChip: "+{count}",
-        moreAria: "{count} مأموریت دیگه | {count} مأموریت دیگه",
+        moreAria: "{count} قدم دیگه | {count} قدم دیگه",
+        backAria: "برگشت به قدم‌های اول",
       },
     },
     room: {
@@ -384,9 +385,6 @@ export default {
       joinedBody: "قدم اولش امروز آماده‌ست. برای شروع، کوچیکش هم کافیه.",
       joinedPrimary: "قدم امروز رو ببین",
       reminderLine: "یادآور رسیده: {mission}",
-      // B30 S3 (D50): the tray's "+N" chip.
-      moreMissionsTitle: "{count} مأموریت دیگه توی این چالش | {count} مأموریت دیگه توی این چالش",
-      moreMissionsBody: "روزهای بعد یا بعد از قدم اصلیت باز می‌شن. هر کدوم آماده شد، میارمش توی اتاق.",
       missionFocusTitle: "اول مأموریت اصلی",
       missionFocusMessage: "{mission} قدم امروزته. قدم‌های اضافه می‌تونن صبر کنن.",
       bonusReadyTitle: "بونوس حالا اختیاری است",

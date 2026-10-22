@@ -52,30 +52,39 @@ export function trayMissions(missions = [], { activeTinyIds = [] } = {}) {
   });
 }
 
-// Split into visible paws and the "+N" overflow. capacity is how many paws fit next to the
-// challenge icon (the room's free space can allow fewer than MISSION_TRAY_MAX_PAWS).
-export function splitPaws(missions = [], capacity = MISSION_TRAY_MAX_PAWS) {
-  const max = Math.max(0, Math.min(MISSION_TRAY_MAX_PAWS, Math.floor(capacity)));
-  if (missions.length <= max) return { visible: missions, hidden: [] };
-  // One slot goes to the "+N" chip.
-  const shown = Math.max(0, max - 1);
-  return { visible: missions.slice(0, shown), hidden: missions.slice(shown) };
+// Paging (D50, reachability): the row has `slots` places, one of them the challenge icon. When the
+// paws do not all fit (at most MISSION_TRAY_MAX_PAWS per page), the last place becomes a pager
+// control in the same row: "next" ("+N", N = paws after this page) or, on the last page, "back"
+// to the first page. Every mission is on exactly one page, so each one stays reachable.
+export function pagePaws(missions = [], { slots = 1 + MISSION_TRAY_MAX_PAWS, page = 0 } = {}) {
+  const pawSlots = Math.max(1, Math.floor(slots) - 1);
+  if (missions.length <= Math.min(pawSlots, MISSION_TRAY_MAX_PAWS)) {
+    return { visible: missions, control: null, page: 0, pages: 1 };
+  }
+  const size = Math.max(1, Math.min(MISSION_TRAY_MAX_PAWS, pawSlots - 1));
+  const pages = Math.ceil(missions.length / size);
+  const current = Math.min(Math.max(0, Math.floor(page) || 0), pages - 1);
+  const visible = missions.slice(current * size, current * size + size);
+  const after = missions.length - (current + 1) * size;
+  const control = after > 0
+    ? { kind: "next", count: after, page: current + 1 }
+    : { kind: "back", count: 0, page: 0 };
+  return { visible, control, page: current, pages };
 }
 
-// Row sizing (D50): items = challenge icon + paws (+ chip). Try the 48px pitch, then the 44px
-// minimum, then a second row when one exists. rows: available lengths (screen px) of each row
-// after the flag tab and padding. Returns the pitch, items per row and how many paws fit.
+// Row sizing (D50): items = challenge icon + paws (+ a pager control). Try the 48px pitch, then the
+// 44px minimum, then a second row when one exists. rows: available lengths (screen px) of each row
+// after the flag tab and padding. slots: how many items fit (never more than wanted).
 export function trayRows({ pawCount, rows = [], pitches = [48, 44] }) {
   const wanted = 1 + Math.min(pawCount, MISSION_TRAY_MAX_PAWS) + (pawCount > MISSION_TRAY_MAX_PAWS ? 1 : 0);
   const fit = (length, pitch) => Math.max(0, Math.floor((Number(length) || 0) / pitch));
   for (const pitch of pitches) {
-    if (fit(rows[0], pitch) >= wanted) return { pitch, perRow: [wanted], pawCapacity: MISSION_TRAY_MAX_PAWS };
+    if (fit(rows[0], pitch) >= wanted) return { pitch, perRow: [wanted], slots: wanted };
   }
   const pitch = pitches[pitches.length - 1];
   const first = fit(rows[0], pitch);
   const second = rows.length > 1 ? fit(rows[1], pitch) : 0;
-  if (first + second >= wanted) return { pitch, perRow: [first, wanted - first], pawCapacity: MISSION_TRAY_MAX_PAWS };
-  // Not enough room: fewer paws, the rest go to the chip (one slot for the challenge icon).
-  const slots = first + second;
-  return { pitch, perRow: second ? [first, slots - first] : [slots], pawCapacity: Math.max(0, slots - 1) };
+  if (first + second >= wanted) return { pitch, perRow: [first, wanted - first], slots: wanted };
+  // Not enough room for everything: the paws page inside the room there is (pagePaws).
+  return { pitch, perRow: second ? [first, second] : [first], slots: first + second };
 }

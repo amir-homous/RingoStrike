@@ -110,7 +110,8 @@ export default {
         bonusLocked: "Extra step: {name}, not open yet",
         bonusDone: "Extra step: {name}, done today",
         moreChip: "+{count}",
-        moreAria: "{count} more mission | {count} more missions",
+        moreAria: "{count} more step | {count} more steps",
+        backAria: "Back to the first steps",
       },
     },
     room: {
@@ -384,9 +385,6 @@ export default {
       joinedBody: "Its first step is ready today. Small is enough to start.",
       joinedPrimary: "Show today's step",
       reminderLine: "Reminder due: {mission}",
-      // B30 S3 (D50): the tray's "+N" chip.
-      moreMissionsTitle: "{count} more mission in this challenge | {count} more missions in this challenge",
-      moreMissionsBody: "They open on later days or after your main step. I'll bring each one into the room when it's ready.",
       missionFocusTitle: "Main mission first",
       missionFocusMessage: "{mission} is today's step. Extra steps can wait.",
       bonusReadyTitle: "Bonus is now optional",
