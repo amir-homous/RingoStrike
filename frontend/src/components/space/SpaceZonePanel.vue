@@ -1327,9 +1327,11 @@ function canUseMissionSupportActions(mission) {
 </script>
 
 <style scoped>
+/* Rows: head, Ringo card, the quiet full-path link (D49), then the work surface, which takes the
+   rest and scrolls. The link has its own row so it never stretches into the free space. */
 .zonePanel {
   display: grid;
-  grid-template-rows: auto auto minmax(0, 1fr);
+  grid-template-rows: auto auto auto minmax(0, 1fr);
   gap: 14px;
   min-width: 0;
   min-height: 0;
@@ -1665,6 +1667,7 @@ function canUseMissionSupportActions(mission) {
   display: inline-flex;
   align-items: center;
   min-height: 44px;
+  margin-top: -8px;
   padding: 0 4px;
   color: rgba(110, 229, 255, 0.72);
 }
