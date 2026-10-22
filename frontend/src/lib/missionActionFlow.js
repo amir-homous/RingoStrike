@@ -1,6 +1,7 @@
 // B27 (#384): split mission action, "Do it now" / "Already did it".
 // Pure helpers (no Vue) for the two flows, so test:living-space can check them.
 // The server rules live in backend services/checkin_context.py (B26).
+import { parseFocusState, serializeFocusState } from "./focusMedia.js";
 
 export const PLACE_KEYS = Object.freeze(["home", "work_school", "gym", "outside", "cafe", "on_the_way", "other"]);
 export const FEELING_KEYS = Object.freeze(["light", "good", "okay", "hard_but_done", "tired"]);
@@ -110,12 +111,20 @@ export const focusStartKey = (userKey, missionId) => `ringostrike_focus_start:${
 export const lastPlaceKey = (userKey, pathKey) => `ringostrike_last_place:${userKey || "anon"}:${pathKey || "path"}`;
 
 export function readFocusStart(userKey, missionId) {
-  const value = Number(read("sessionStorage", focusStartKey(userKey, missionId)));
-  return Number.isFinite(value) && value > 0 ? value : null;
+  return readFocusState(userKey, missionId)?.startedAt ?? null;
 }
 
 export function writeFocusStart(userKey, missionId, startedAt) {
   write("sessionStorage", focusStartKey(userKey, missionId), startedAt == null ? null : String(startedAt));
+}
+
+// B31: the same record also keeps the pause (pausedAt, pausedMs), so a reload resumes it.
+export function readFocusState(userKey, missionId) {
+  return parseFocusState(read("sessionStorage", focusStartKey(userKey, missionId)));
+}
+
+export function writeFocusState(userKey, missionId, state) {
+  write("sessionStorage", focusStartKey(userKey, missionId), serializeFocusState(state));
 }
 
 export function readLastPlace(userKey, pathKey) {

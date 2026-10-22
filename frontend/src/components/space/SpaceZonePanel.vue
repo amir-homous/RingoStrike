@@ -10,6 +10,7 @@
       :zone-title="zone.title"
       :path-key="zone.path_key || ''"
       :user-key="userKey"
+      :challenge-key="actionFlow.challengeKey"
       :submitting="flowSubmitting"
       :error="flowError"
       @save="saveActionFlow"
@@ -162,6 +163,7 @@ import {
   shouldOfferBonus,
   todayMainDone,
 } from "@/lib/livingSpacePanel";
+import { challengeIconCandidates } from "@/lib/challengeIconKeys";
 import { findFirstReward } from "@/lib/livingSpaceState";
 import { resolveActionIcon } from "@/utils/actionIconUtils";
 import { resolvePathIcon } from "@/utils/missionMomentumUtils";
@@ -836,7 +838,11 @@ function openActionFlow(mode, mission) {
   if (!mission?.id) return;
   flowError.value = "";
   flowSubmitting.value = false;
-  actionFlow.value = { mode, mission };
+  // B31: the challenge picks a challenge-specific focus background or music folder, when one exists.
+  const challengeKey = selectedPathChallenge.value?.iconKey
+    || challengeIconCandidates(props.zone?.action?.challenge)[0]
+    || "";
+  actionFlow.value = { mode, mission, challengeKey };
 }
 
 function closeActionFlow() {

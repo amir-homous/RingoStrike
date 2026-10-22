@@ -153,6 +153,8 @@ sudo journalctl -u ringostrike-backend -f
 
 - [ ] Install Node.js compatible with project.
 - [ ] Install dependencies.
+- [ ] Copy the focus music into `frontend/public/Musics/` **before** the build (audio is not in git;
+      the track list is fixed at build time). See `docs/FOCUS_MEDIA.md`.
 - [ ] Build frontend.
 - [ ] Confirm generated `dist/`.
 - [ ] Serve frontend from correct root/subpath.

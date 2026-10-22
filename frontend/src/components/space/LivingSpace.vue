@@ -1768,6 +1768,13 @@ watch(
     overflow: hidden;
   }
 
+  /* B31: the focus timer card (with Pause and music) stays whole above Done; the sheet may cover
+     more of the room while the timer runs. */
+  .roomSafeZone.zoneSheet:has(.flowTimer) {
+    height: max(40dvh, calc(100dvh - var(--sheet-top, 42dvh)), min(520px, 88dvh));
+    max-height: max(40dvh, calc(100dvh - var(--sheet-top, 42dvh)), min(520px, 88dvh));
+  }
+
   .roomSafeZone.zoneSheet:has(.missionFlow) :deep(.zonePanel) {
     height: 100%;
     min-height: 0;
