@@ -148,7 +148,8 @@
           103,
           42
         ],
-        "dir": "right"
+        "dir": "right",
+        "run": 109
       },
       "camera": [
         0,
@@ -228,7 +229,8 @@
           139,
           46
         ],
-        "dir": "left"
+        "dir": "left",
+        "run": 146
       },
       "camera": [
         99,
@@ -308,7 +310,8 @@
           336,
           46
         ],
-        "dir": "right"
+        "dir": "right",
+        "run": 151
       },
       "camera": [
         205,
@@ -384,7 +387,8 @@
           377,
           46
         ],
-        "dir": "left"
+        "dir": "left",
+        "run": 94
       },
       "camera": [
         285,
@@ -460,7 +464,13 @@
           103,
           174
         ],
-        "dir": "right"
+        "dir": "right",
+        "run": 107,
+        "wrap": {
+          "dy": -27,
+          "run": 299,
+          "over_props": true
+        }
       },
       "camera": [
         15,

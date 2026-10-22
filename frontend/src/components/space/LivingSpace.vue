@@ -30,8 +30,11 @@
           :min-scale="roomPanLayout ? 2 : 1"
           :phone="!roomPanLayout"
           :selected-challenge-id="selectedPathChallengeId"
+          :challenge-picked="challengePicked"
+          :picked-mission-id="pickedMissionId"
           @select="selectZone"
           @select-challenge="selectPathChallenge"
+          @select-mission="selectTrayMission"
         >
           <!-- Room corner (inline-end): objects chip, new-reward chip and the room info popover. -->
           <template #corner>
@@ -106,6 +109,7 @@
           :selected-challenge-id="selectedPathChallengeId"
           :challenge-picked="challengePicked"
           :joined-challenge-id="joinedChallengeId"
+          :picked-mission-id="pickedMissionId"
           :completing-mission-id="completingMissionId"
           :starting-challenge-id="startingChallengeId"
           :today-safe="todaySafe"
@@ -155,6 +159,7 @@ import {
 import { localizeChallenge, localizePath } from "@/lib/ringoContentLocalization";
 import { createMaterializeQueue, materializeCandidates, materializeTimeline } from "@/lib/roomMaterialize";
 import { PATH_ICON_FALLBACK, pathMarkerState, telegramReady } from "@/lib/pathMarker";
+import { missionReminderChip } from "@/lib/missionTray";
 import { missionIconUrl, resolvePathIcon } from "@/utils/missionMomentumUtils";
 import { humanizeJoinError, submitJoinFlow } from "@/views/challengeFlow";
 import SpaceZone from "./SpaceZone.vue";
@@ -201,6 +206,8 @@ const selectedPathChallengeId = ref(null);
 const challengePicked = ref(false);
 // B30 S2: the challenge just joined from the room; the card shows the post-join state (D39).
 const joinedChallengeId = ref(null);
+// B30 S3: the paw tapped in the mission tray (D51).
+const pickedMissionId = ref(null);
 // B19: room info popover in the room corner (the rule text); click/hover/focus opens, Esc closes.
 const roomInfoOpen = ref(false);
 
@@ -615,6 +622,7 @@ function selectZone(zone) {
   selectedPathChallengeId.value = null;
   challengePicked.value = false;
   joinedChallengeId.value = null;
+  pickedMissionId.value = null;
   ensurePathChallenges(zone);
 }
 
@@ -626,6 +634,7 @@ function closePanel() {
   selectedPathChallengeId.value = null;
   challengePicked.value = false;
   joinedChallengeId.value = null;
+  pickedMissionId.value = null;
 }
 
 // B24: open the reminder's zone and challenge and ask the panel to focus that mission.
@@ -641,6 +650,7 @@ function focusReminder(reminder) {
   selectedPathChallengeId.value = reminder?.challengeId || null;
   challengePicked.value = false;
   joinedChallengeId.value = null;
+  pickedMissionId.value = null;
   requestedMissionId.value = reminder?.id || null;
   ensurePathChallenges(zone);
 }
@@ -655,7 +665,8 @@ function changeShellMode(mode) {
     selectedPathChallengeId.value = null;
     challengePicked.value = false;
     joinedChallengeId.value = null;
-    return;
+    pickedMissionId.value = null;
+      return;
   }
 
   if (!activeZone.value && workSurfaceZone.value) {
@@ -676,6 +687,13 @@ function selectPathChallenge(challenge) {
   challengePicked.value = Boolean(challenge?.id);
   joinedChallengeId.value = null;
   requestedMissionId.value = null;
+  pickedMissionId.value = null;
+}
+
+// B30 S3: a paw in the mission tray makes that mission the Ringo focus, ahead of a due reminder
+// (D51). A locked or done paw only gets Ringo's explanation or the done card (D20, D48).
+function selectTrayMission(mission) {
+  pickedMissionId.value = mission?.id ?? null;
 }
 
 function isCheckedToday(challenge) {
@@ -949,11 +967,22 @@ function buildPathChallenge(challenge, zone) {
   };
 }
 
+// B30 S3 (D51): today's mission rows by id, for each challenge mission's reminder state. The
+// challenge payload has reminder_at only; /me/today-missions (the missions prop) has
+// reminder_sent_at too, but only for unlocked missions.
+const todayMissionsById = computed(() => {
+  return new Map(props.missions.map((mission) => [String(mission?.mission_id ?? mission?.id ?? ""), mission]));
+});
+
 function buildPreviewMission(mission) {
   const status = mission?.today_status || mission?.status || "pending";
+  const id = mission?.mission_id || mission?.id || mission?.key || mission?.title;
+  const todayRow = todayMissionsById.value.get(String(mission?.mission_id ?? mission?.id ?? ""));
 
   return {
-    id: mission?.mission_id || mission?.id || mission?.key || mission?.title,
+    id,
+    reminderAt: todayRow?.reminder_at || mission?.reminder_at || null,
+    reminder: missionReminderChip(todayRow, { now: now.value, telegram: telegramReady(props.telegramSettings) }),
     title: mission?.title || t("common.mission"),
     description: mission?.description || "",
     status,

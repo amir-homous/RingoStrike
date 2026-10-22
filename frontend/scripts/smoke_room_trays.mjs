@@ -6,6 +6,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { inflateSync } from "node:zlib";
 
+import { MISSION_TRAY_MAX_PAWS, pagePaws, trayRows } from "../src/lib/missionTray.js";
 import {
   ROOM_BASE_HEIGHT,
   ROOM_BASE_WIDTH,
@@ -13,7 +14,9 @@ import {
   markerSpanPanX,
   placeTray,
   safeArea,
+  TRAY_SCREEN,
   trayRect,
+  trayScreenFactor,
 } from "../src/lib/roomScene.js";
 
 const roomDir = new URL("../src/assets/room/", import.meta.url);
@@ -171,6 +174,72 @@ function run() {
     }
   }
 
+  // B30 S3 (D50): the mission tray uses the same anchor; its row may run as far as `run` (base
+  // px from the flag edge, along dir). That whole run must be clear; the optional second row
+  // (wrap) may cover furniture props only when over_props is set (D45 fallback).
+  for (const key of ZONE_ORDER) {
+    const zone = layout.zones[key];
+    assert.ok(Number(zone.tray.run) >= 88, `${key}: mission tray run covers at least the challenge tray`);
+    for (const options of SCALES.filter((option) => !option.phone)) {
+      const k = trayScreenFactor(options.scale, options);
+      const half = (TRAY_SCREEN.flag * k) / 2 / options.scale;
+      const halfH = (TRAY_SCREEN.height * k) / 2 / options.scale;
+      // The row ends where the x2 row ends (flag edge at x2 + run), whatever the scale.
+      const rowRect = (dy, run) => {
+        const [fx, fy] = zone.tray.flag;
+        const w = run - 7 + half;
+        const x = zone.tray.dir === "left" ? fx + 7 - run : fx - half;
+        return { x, y: fy + dy - halfH, w, h: halfH * 2 };
+      };
+      const first = trayConflicts(key, rowRect(0, zone.tray.run), options);
+      assert.deepEqual(first, [], `${key} mission row at ${options.label} overlaps: ${first.join(", ")}`);
+      if (zone.tray.wrap) {
+        const second = trayConflicts(key, rowRect(zone.tray.wrap.dy, zone.tray.wrap.run), options)
+          .filter((name) => !(zone.tray.wrap.over_props && name.startsWith("prop:")));
+        assert.deepEqual(second, [], `${key} second mission row at ${options.label} overlaps: ${second.join(", ")}`);
+      }
+    }
+  }
+
+  // Reachability (B30 S3): with the same sizing as RoomScene, every mission of a challenge (1 to 6
+  // paws) is on a page of the zone's mission tray, each page fits the row's slots, the pager walks
+  // through all pages in Tab/DOM order (challenge, paws, pager) and back returns to the first.
+  const views = [
+    { label: "desktop x2", scale: 2, phone: false },
+    { label: "desktop x3", scale: 3, phone: false },
+    { label: "phone 390", scale: 2, phone: true, frame: 328 },
+    { label: "phone 360", scale: 2, phone: true, frame: 298 },
+    { label: "phone 440", scale: 2, phone: true, frame: 378 },
+  ];
+  for (const key of ZONE_ORDER) {
+    const zone = layout.zones[key];
+    for (const view of views) {
+      const k = trayScreenFactor(view.scale, view);
+      const pad = TRAY_SCREEN.pad * k;
+      const fixed = (TRAY_SCREEN.flag * k) / 2 + pad * 2;
+      const rows = view.phone
+        ? [view.frame - 8 - fixed, view.frame - 8 - fixed]
+        : [(zone.tray.run - 7) * view.scale - pad * 2, ...(zone.tray.wrap ? [(zone.tray.wrap.run - 7) * view.scale - pad * 2] : [])];
+      for (let count = 1; count <= 6; count++) {
+        const missions = Array.from({ length: count }, (_, index) => ({ id: index + 1 }));
+        const sizing = trayRows({ pawCount: count, rows, pitches: [48 * k, 44 * k] });
+        assert.ok(sizing.slots >= Math.min(3, 1 + count), `${key} ${view.label} ${count} missions: room for the challenge, a paw and the pager (${sizing.slots})`);
+        const reached = [];
+        let page = pagePaws(missions, { slots: sizing.slots });
+        for (let step = 0; step <= count; step++) {
+          const items = 1 + page.visible.length + (page.control ? 1 : 0);
+          assert.ok(items <= sizing.slots, `${key} ${view.label} ${count} missions: page ${page.page} has ${items} items for ${sizing.slots} slots`);
+          assert.ok(page.visible.length <= MISSION_TRAY_MAX_PAWS);
+          reached.push(...page.visible.map((mission) => mission.id));
+          if (!page.control || page.control.kind === "back") break;
+          page = pagePaws(missions, { slots: sizing.slots, page: page.control.page });
+        }
+        assert.deepEqual(reached, missions.map((mission) => mission.id), `${key} ${view.label} ${count} missions: every mission reachable once`);
+        if (page.control) assert.equal(pagePaws(missions, { slots: sizing.slots, page: page.control.page }).page, 0, "back goes to the first page");
+      }
+    }
+  }
+
   // Footprint math: the compact tray at x2 is 176x50 screen px (flag included), 88x25 base px.
   const fitness = trayRect(layout.zones.fitness_corner.tray, 2);
   assert.deepEqual([fitness.w, fitness.h], [88, 25]);
@@ -196,7 +265,7 @@ function run() {
   assert.deepEqual(placeTray({ rect: { x: 10, y: 20, w: 176, h: 50 }, dir: "right", marker, frame: null }), { x: 10, y: 20, w: 176, h: 50, dir: "right" });
 
   console.log(`Prop pixels: ${ZONE_ORDER.map((key) => `${key} ${propCounts[key]}`).join(", ")}`);
-  console.log("Room tray placement check passed (all five zones, clear space, no furniture fallback).");
+  console.log("Room tray placement check passed (challenge trays and mission rows in clear space; Fitness second mission row over furniture only).");
 }
 
 run();

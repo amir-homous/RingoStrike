@@ -199,17 +199,24 @@
               </span>
             </div>
 
-            <!-- B30 S2: challenge tray of the selected zone (D44, D45). Icons only select (D13): the
-                 Ringo card answers for the tapped challenge. -->
+            <!-- B30 S2/S3: the open zone's tray (D44, D45, D50). Challenge tray: its challenges. Mission
+                 tray (a joined challenge is picked): the challenge icon, its paws, then "+N". Icons
+                 only select (D13): the Ringo card answers for the tapped item. -->
             <div
               v-if="tray"
               class="challengeTray"
-              :class="`dir-${tray.dir}`"
+              :class="[`dir-${tray.dir}`, `mode-${tray.mode}`]"
               :style="tray.style"
               role="group"
               :aria-label="tray.label"
             >
-              <span class="trayFrame" :style="tray.frameStyle" aria-hidden="true" />
+              <span
+                v-for="(row, index) in tray.rows"
+                :key="`row-${index}`"
+                class="trayFrame"
+                :style="row"
+                aria-hidden="true"
+              />
               <span class="trayFlag" :style="tray.flagStyle" aria-hidden="true">
                 <svg viewBox="0 0 24 24">
                   <path d="M7 3v18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
@@ -218,23 +225,40 @@
               </span>
               <button
                 v-for="item in tray.items"
-                :key="`tray-${item.id}`"
+                :key="item.key"
                 type="button"
                 class="trayIcon"
-                :class="[`is-${item.state}`, { selected: item.selected }]"
+                :class="[`is-${item.state}`, `kind-${item.kind}`, { selected: item.selected, bonus: item.bonus }]"
                 :style="item.style"
                 :aria-label="item.ariaLabel"
-                :aria-pressed="item.selected ? 'true' : 'false'"
-                :data-challenge="item.id"
+                :aria-pressed="item.kind === 'more' ? null : (item.selected ? 'true' : 'false')"
+                :data-challenge="item.kind === 'challenge' ? item.id : null"
+                :data-mission="item.kind === 'paw' ? item.id : null"
                 :data-state="item.state"
-                @click="$emit('select-challenge', item.challenge)"
+                @click="onTrayItem(item)"
               >
-                <span class="trayRing" aria-hidden="true" />
-                <span class="trayGlyph" :style="{ '--tray-icon': `url(${item.iconUrl})` }" aria-hidden="true" />
-                <span v-if="item.state === 'open'" class="trayPlus" aria-hidden="true">
-                  <svg viewBox="0 0 12 12"><path d="M6 2.5v7M2.5 6h7" /></svg>
-                </span>
-                <span v-if="item.state === 'done'" class="trayDay" aria-hidden="true">{{ item.dayText }}</span>
+                <template v-if="item.kind === 'more'">
+                  <span class="trayMore" aria-hidden="true">{{ item.text }}</span>
+                </template>
+                <template v-else>
+                  <span class="trayRing" aria-hidden="true" />
+                  <span class="trayGlyph" :style="{ '--tray-icon': `url(${item.iconUrl})` }" aria-hidden="true" />
+                  <span v-if="item.kind === 'challenge' && item.state === 'open'" class="trayPlus" aria-hidden="true">
+                    <svg viewBox="0 0 12 12"><path d="M6 2.5v7M2.5 6h7" /></svg>
+                  </span>
+                  <span v-if="item.kind === 'challenge' && item.state === 'done'" class="trayDay" aria-hidden="true">{{ item.dayText }}</span>
+                  <span v-if="item.kind === 'paw' && item.state === 'locked'" class="trayLock" aria-hidden="true">
+                    <svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2" /><path d="M8 11V8a4 4 0 0 1 8 0v3" /></svg>
+                  </span>
+                  <span v-if="item.reminder" class="pawChip" :class="`is-${item.reminder}`" aria-hidden="true">
+                    <svg v-if="item.reminder === 'telegram_off'" viewBox="0 0 16 16">
+                      <path class="pmPlane" d="M14.2 2.3 1.9 7.1c-.5.2-.5.9 0 1.1l3 1 1.2 3.7c.1.4.7.5 1 .2l1.7-1.6 3.1 2.3c.4.3.9.1 1-.4l2.1-10.4c.1-.5-.4-.9-.8-.7ZM6.1 9.1l6.1-4.6-4.9 5.4-.3 2.1-.9-2.9Z" />
+                    </svg>
+                    <svg v-else viewBox="0 0 16 16">
+                      <path class="pmBell" d="M8 1.6c-2.4 0-4.2 1.9-4.2 4.3v2.6L2.6 10.6c-.2.4 0 .8.5.8h9.8c.5 0 .7-.4.5-.8l-1.2-2.1V5.9c0-2.4-1.8-4.3-4.2-4.3ZM6.3 12.4a1.8 1.8 0 0 0 3.4 0Z" />
+                    </svg>
+                  </span>
+                </template>
               </button>
             </div>
 
@@ -287,6 +311,9 @@ import {
   zoneObjects,
 } from "@/lib/roomScene";
 import { resolveChallengeIcon } from "@/utils/missionMomentumUtils";
+import { todayMainDone } from "@/lib/livingSpacePanel";
+import { missionPawState, pagePaws, trayMissions, trayRows } from "@/lib/missionTray";
+import pawGlyph from "@/assets/missions-icons/paw_glyph.png";
 import { REMINDER_CHIP, ringSegments } from "@/lib/pathMarker";
 
 const props = defineProps({
@@ -294,6 +321,9 @@ const props = defineProps({
   selectedZoneKey: { type: String, default: "" },
   // B30 S2: the challenge the Ringo card answers for (highlighted in the tray).
   selectedChallengeId: { type: [Number, String, null], default: null },
+  // B30 S3: a challenge was tapped (its missions show) and the paw tapped.
+  challengePicked: { type: Boolean, default: false },
+  pickedMissionId: { type: [Number, String, null], default: null },
   suggestedZoneKey: { type: String, default: "" },
   rest: { type: Boolean, default: false },
   // From tablet width the room asks for at least x2; when the x2 room is wider than its column it
@@ -308,7 +338,7 @@ const props = defineProps({
   materializing: { type: Object, default: null },
 });
 
-defineEmits(["select", "select-challenge"]);
+const emit = defineEmits(["select", "select-challenge", "select-mission"]);
 
 const { locale, t: baseT } = useI18n();
 // B10: numbers in copy use the locale's digits; a numeric count picks the plural form.
@@ -681,62 +711,194 @@ function markerFor(zone, data, s) {
 
 // B30 S2: the open zone's challenge tray (D44, D45), screen px in scene coordinates.
 const TRAY_DAY_STATES = { open: "open", joined: "joined", done: "done" };
+const PM_REMINDER_ARIA = {
+  [REMINDER_CHIP.DUE]: "space.scene.pathMarker.reminderDue",
+  [REMINDER_CHIP.TELEGRAM_OFF]: "space.scene.pathMarker.reminderTelegramOff",
+  [REMINDER_CHIP.SET]: "space.scene.pathMarker.reminderSet",
+};
 
 function trayChallengeState(challenge) {
   if (!challenge?.isJoined) return TRAY_DAY_STATES.open;
   return challenge.todayChecked ? TRAY_DAY_STATES.done : TRAY_DAY_STATES.joined;
 }
 
+function challengeEntry(challenge, selected) {
+  const state = trayChallengeState(challenge);
+  const name = challenge.name || t("common.challenge");
+  const day = Number(challenge.totalCheckins || 0);
+  return {
+    kind: "challenge",
+    key: `challenge-${challenge.id}`,
+    id: challenge.id,
+    challenge,
+    state,
+    selected,
+    iconUrl: resolveChallengeIcon({ icon_key: challenge.iconKey, name: challenge.name }),
+    dayText: t("space.scene.tray.day", { n: day }),
+    ariaLabel: t(`space.scene.tray.${state}`, { name, n: day }),
+  };
+}
+
+// D19, D20, D32: open (white paw, ring), locked (grey, lock, dim ring), done (large lime paw, no
+// ring); Bonus: dashed ring, done = large gold paw. Reminder chip in its own slot (D21, D51).
+function pawEntry(mission, mainDone) {
+  const { state, bonus } = missionPawState(mission, { mainDone });
+  const name = mission.title || t("common.mission");
+  const parts = [t(`space.scene.missionTray.${bonus ? "bonus" : "mission"}${state[0].toUpperCase()}${state.slice(1)}`, { name })];
+  if (PM_REMINDER_ARIA[mission.reminder]) parts.push(t(PM_REMINDER_ARIA[mission.reminder]));
+  return {
+    kind: "paw",
+    key: `paw-${mission.id}`,
+    id: mission.id,
+    mission,
+    state,
+    bonus,
+    reminder: mission.reminder || "",
+    selected: String(props.pickedMissionId ?? "") === String(mission.id ?? ""),
+    iconUrl: pawGlyph,
+    ariaLabel: parts.join(t("common.listSeparator")),
+  };
+}
+
+// B30 S3: which page of paws the mission tray shows (reset when the picked challenge changes).
+const missionPage = ref({ challengeId: null, page: 0 });
+watch(
+  () => [openZoneKey.value, props.selectedChallengeId, props.challengePicked],
+  () => {
+    missionPage.value = { challengeId: null, page: 0 };
+  },
+);
+
 const tray = computed(() => {
   const key = openZoneKey.value;
   const zone = key ? orderedLayoutZones.value.find((item) => item.key === key) : null;
   const data = key ? zonesByKey.value[key] : null;
-  const challenges = (data?.pathDetail?.challenges || []).slice(0, 3);
+  const challenges = data?.pathDetail?.challenges || [];
   if (!zone?.tray || !data || !challenges.length) return null;
 
   const s = scale.value;
   const k = trayScreenFactor(s, { phone: props.phone });
-  const base = trayRect(zone.tray, s, { phone: props.phone });
+  const flag = TRAY_SCREEN.flag * k;
+  const icon = TRAY_SCREEN.icon * k;
+  const pad = TRAY_SCREEN.pad * k;
+  const rowH = TRAY_SCREEN.height * k;
+  const fixed = flag / 2 + pad * 2;
+
+  // Mission tray once a joined challenge is picked (D50); otherwise the challenge tray.
+  const picked = props.challengePicked
+    ? challenges.find((challenge) => String(challenge.id ?? "") === String(props.selectedChallengeId ?? ""))
+    : null;
+  const mode = picked?.isJoined ? "missions" : "challenges";
+
+  let entries;
+  let pitch = TRAY_SCREEN.pitch * k;
+  let rowCounts;
+  if (mode === "missions") {
+    const missions = trayMissions(picked.missions || []);
+    const mainDone = todayMainDone(picked.missions || []);
+    // Room for icons per row (screen px): the zone's clear run on desktop (plus its second row, if
+    // any), the visible frame on phones (the tray is clamped into it, with a row below).
+    // A desktop row ends where the x2 row ends (flag edge at x2 + run), so the room for icons is
+    // (run - 7) base px minus the padding, at any scale.
+    const rowRoom = props.phone
+      ? [viewportWidth.value - 8 - fixed, viewportWidth.value - 8 - fixed]
+      : [(zone.tray.run - 7) * s - pad * 2, ...(zone.tray.wrap ? [(zone.tray.wrap.run - 7) * s - pad * 2] : [])];
+    const sizing = trayRows({ pawCount: missions.length, rows: rowRoom, pitches: [48 * k, 44 * k] });
+    const page = missionPage.value.challengeId === picked.id ? missionPage.value.page : 0;
+    const paged = pagePaws(missions, { slots: sizing.slots, page });
+    const control = paged.control;
+    entries = [
+      challengeEntry(picked, true),
+      ...paged.visible.map((mission) => pawEntry(mission, mainDone)),
+      // Pager in the same row (no extra space, no list): "+N" shows the next paws, the last page
+      // gets a back control to the first. The label is Ringo's one line, "N more steps".
+      ...(control
+        ? [{
+          kind: "more",
+          key: `pager-${control.kind}`,
+          state: control.kind,
+          pager: control,
+          challengeId: picked.id,
+          text: control.kind === "next" ? t("space.scene.missionTray.moreChip", { count: control.count }) : "‹",
+          ariaLabel: control.kind === "next"
+            ? t("space.scene.missionTray.moreAria", { count: control.count })
+            : t("space.scene.missionTray.backAria"),
+          selected: false,
+        }]
+        : []),
+    ];
+    pitch = sizing.pitch;
+    const first = Math.min(entries.length, sizing.perRow[0] || entries.length);
+    rowCounts = first < entries.length ? [first, entries.length - first] : [entries.length];
+  } else {
+    entries = challenges.slice(0, 3).map((challenge) => {
+      return challengeEntry(challenge, String(props.selectedChallengeId ?? "") === String(challenge.id ?? ""));
+    });
+    rowCounts = [entries.length];
+  }
+
+  // Rows inside one block: row 1 on the anchor row, row 2 at the layout's wrap offset (desktop) or
+  // just below (phone). Widths in screen px; the flag sits on row 1's start edge.
+  const rowGap = 4 * k;
+  const secondDy = props.phone || !zone.tray.wrap ? rowH + rowGap : zone.tray.wrap.dy * s;
+  const rowWidth = (count) => fixed + count * pitch;
+  const blockW = Math.max(...rowCounts.map(rowWidth));
+  const rowTops = rowCounts.map((_, index) => (index === 0 ? 0 : secondDy));
+  const minTop = Math.min(...rowTops);
+  const blockH = Math.max(...rowTops) - minTop + rowH;
+  const [fx, fy] = zone.tray.flag;
+  const dir0 = zone.tray.dir;
+  const anchorRect = {
+    x: dir0 === "left" ? fx * s + flag / 2 - blockW : fx * s - flag / 2,
+    y: fy * s - rowH / 2 + minTop,
+    w: blockW,
+    h: blockH,
+  };
   const marker = markerFor(zone, data, s);
   const rect = placeTray({
-    rect: { x: base.x * s, y: base.y * s, w: base.w * s, h: base.h * s },
-    dir: zone.tray.dir,
+    rect: anchorRect,
+    dir: dir0,
     marker: marker?.geometry || null,
     frame: props.phone ? frameRect.value : null,
   });
   if (!rect) return null;
 
-  const flag = TRAY_SCREEN.flag * k;
-  const icon = TRAY_SCREEN.icon * k;
-  const pitch = TRAY_SCREEN.pitch * k;
-  const pad = TRAY_SCREEN.pad * k;
-  const frameX = rect.dir === "left" ? 0 : flag / 2;
-  const frameW = rect.w - flag / 2;
-  const flagX = rect.dir === "left" ? rect.w - flag / 2 : flag / 2;
-  const iconTop = (rect.h - icon) / 2;
-  const items = challenges.map((challenge, index) => {
-    const state = trayChallengeState(challenge);
-    const offset = pad + index * pitch + (pitch - icon) / 2;
-    const left = rect.dir === "left" ? frameX + frameW - offset - icon : frameX + offset;
-    const name = challenge.name || t("common.challenge");
-    const day = Number(challenge.totalCheckins || 0);
+  const left = rect.dir === "left";
+  const rowStyles = rowCounts.map((count, index) => {
+    const width = rowWidth(count) - flag / 2;
     return {
-      id: challenge.id,
-      challenge,
-      state,
-      selected: String(props.selectedChallengeId ?? "") === String(challenge.id ?? ""),
-      iconUrl: resolveChallengeIcon({ icon_key: challenge.iconKey, name: challenge.name }),
-      dayText: t("space.scene.tray.day", { n: day }),
-      ariaLabel: t(`space.scene.tray.${state}`, { name, n: day }),
-      style: { left: `${left}px`, top: `${iconTop}px`, width: `${icon}px`, height: `${icon}px` },
+      top: `${rowTops[index] - minTop}px`,
+      height: `${rowH}px`,
+      left: `${left ? blockW - flag / 2 - width : flag / 2}px`,
+      width: `${width}px`,
+    };
+  });
+  let cursor = 0;
+  const items = entries.map((entry) => {
+    const row = rowCounts[0] > cursor ? 0 : 1;
+    const indexInRow = row === 0 ? cursor : cursor - rowCounts[0];
+    cursor += 1;
+    const offset = flag / 2 + pad + indexInRow * pitch + (pitch - icon) / 2;
+    return {
+      ...entry,
+      style: {
+        left: `${left ? blockW - offset - icon : offset}px`,
+        top: `${rowTops[row] - minTop + (rowH - icon) / 2}px`,
+        width: `${icon}px`,
+        height: `${icon}px`,
+      },
     };
   });
 
   return {
+    mode,
     dir: rect.dir,
     rect,
     items,
-    label: t("space.scene.tray.label", { path: data.pathMarker?.title || data.title }),
+    rows: rowStyles,
+    label: mode === "missions"
+      ? t("space.scene.missionTray.label", { challenge: picked.name || t("common.challenge") })
+      : t("space.scene.tray.label", { path: data.pathMarker?.title || data.title }),
     style: {
       left: `${rect.x}px`,
       top: `${rect.y}px`,
@@ -744,10 +906,23 @@ const tray = computed(() => {
       height: `${rect.h}px`,
       "--tray-k": k,
     },
-    frameStyle: { left: `${frameX}px`, width: `${frameW}px` },
-    flagStyle: { left: `${flagX}px`, top: `${rect.h / 2}px` },
+    flagStyle: { left: `${left ? blockW - flag / 2 : flag / 2}px`, top: `${-minTop + rowH / 2}px` },
   };
 });
+
+// A tray icon: a challenge selects it (in the mission tray the challenge icon goes back to the
+// challenge tray), a paw selects the mission, "+N" asks Ringo to explain the rest.
+function onTrayItem(item) {
+  if (item.kind === "challenge") {
+    emit("select-challenge", tray.value?.mode === "missions" ? null : item.challenge);
+  } else if (item.kind === "paw") {
+    emit("select-mission", item.mission);
+  } else if (item.kind === "more" && item.pager) {
+    missionPage.value = { challengeId: item.challengeId, page: item.pager.page };
+    // Keep keyboard focus on the pager slot after the paws swap.
+    nextTick(() => frame.value?.querySelector(".challengeTray .trayIcon.kind-more")?.focus());
+  }
+}
 
 function boxesOverlap(a, b) {
   return a.x0 < b.x1 && a.x1 > b.x0 && a.y0 < b.y1 && a.y1 > b.y0;
@@ -1227,8 +1402,6 @@ onUnmounted(() => {
 
 .trayFrame {
   position: absolute;
-  top: 0;
-  bottom: 0;
   border-radius: 999px;
   background: rgba(10, 12, 18, 0.76);
   border: 1px solid rgba(255, 255, 255, 0.14);
@@ -1347,6 +1520,139 @@ onUnmounted(() => {
   line-height: 14px;
   white-space: nowrap;
   transform: translateX(-50%);
+}
+
+/* B30 S3: paws (S0 canvas). Open: white paw, plain ring. */
+.trayIcon.kind-paw {
+  color: #e6e9ef;
+}
+
+/* Locked: grey paw, dim ring, a lock badge. Tapping it only opens Ringo's explanation (D20). */
+.trayIcon.kind-paw.is-locked {
+  color: rgba(139, 147, 163, 0.75);
+}
+
+.trayIcon.kind-paw.is-locked .trayRing {
+  border-color: rgba(255, 255, 255, 0.14);
+}
+
+.trayLock {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  box-sizing: border-box;
+  border-radius: 50%;
+  background: #0b0e14;
+  border: 1.5px solid #8b93a3;
+}
+
+.trayLock svg {
+  width: 10px;
+  height: 10px;
+  fill: none;
+  stroke: #8b93a3;
+  stroke-width: 2.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* Bonus: dashed ring (white when open, grey when locked). */
+.trayIcon.kind-paw.bonus .trayRing {
+  border: 2px dashed rgba(238, 240, 245, 0.85);
+}
+
+.trayIcon.kind-paw.bonus.is-locked .trayRing {
+  border-color: rgba(139, 147, 163, 0.7);
+}
+
+/* Done today: no ring, a larger paw (44px at x2, D32); lime, or gold for a Bonus. */
+.trayIcon.kind-paw.is-done {
+  color: #a3e635;
+}
+
+.trayIcon.kind-paw.is-done.bonus {
+  color: #f7d774;
+}
+
+.trayIcon.kind-paw.is-done .trayRing {
+  border: 0;
+  background: transparent;
+}
+
+.trayIcon.kind-paw.is-done .trayGlyph {
+  width: calc(44px * var(--tray-k));
+  height: calc(44px * var(--tray-k));
+}
+
+/* Reminder chip in its own slot, top right, outside the ring (D21): set, due, Telegram off. */
+.pawChip {
+  position: absolute;
+  right: -4px;
+  top: -4px;
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  box-sizing: border-box;
+  border-radius: 50%;
+}
+
+.pawChip svg {
+  width: 10px;
+  height: 10px;
+}
+
+.pawChip.is-due {
+  background: #ffb759;
+  box-shadow: 0 0 0 1.5px rgba(6, 10, 18, 0.9);
+}
+
+.pawChip.is-due .pmBell {
+  fill: #05090f;
+}
+
+.pawChip.is-telegram_off {
+  background: #05090f;
+  border: 1.5px solid #ee312a;
+}
+
+.pawChip.is-telegram_off .pmPlane {
+  fill: #ee312a;
+}
+
+.pawChip.is-set {
+  background: #05090f;
+  border: 1.5px solid #ffffff;
+}
+
+.pawChip.is-set .pmBell {
+  fill: #ffb759;
+}
+
+/* "+N": more missions than paws; Ringo explains them (D50). */
+.trayIcon.kind-more {
+  color: #eef0f5;
+}
+
+.trayMore {
+  display: grid;
+  place-items: center;
+  width: calc(36px * var(--tray-k));
+  height: calc(36px * var(--tray-k));
+  box-sizing: border-box;
+  border-radius: 50%;
+  background: rgba(11, 14, 20, 0.86);
+  border: 1.5px solid rgba(255, 255, 255, 0.3);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.trayIcon.kind-more.selected .trayMore {
+  border-color: #ffffff;
 }
 
 /* The challenge the Ringo card answers for. */

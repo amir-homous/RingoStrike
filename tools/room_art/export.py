@@ -32,8 +32,9 @@ layout={'version':1,'base':{'width':W,'height':H},'safe_area':{'y0':10,'y1':252}
 # B30: path marker centres (base px, outside the props); 'tray' is reserved for a later slice.
 PATH_MARKER={'work_desk':(78,46),'learning_corner':(160,47),'creative_corner':(311,46),'sleep_corner':(398,47),'fitness_corner':(78,174)}
 # B30 S2: compact challenge tray per zone (D45): flag-tab centre (base px) and the side the list
-# runs to. Checked by test:room-trays.
-TRAY={"work_desk":{"flag":[103,42],"dir":"right"},"learning_corner":{"flag":[139,46],"dir":"left"},"creative_corner":{"flag":[336,46],"dir":"right"},"sleep_corner":{"flag":[377,46],"dir":"left"},"fitness_corner":{"flag":[103,174],"dir":"right"}}
+# runs to; run = clear length (base px) along that row from the flag edge, wrap = an optional
+# second row (dy, run; over_props = may cover furniture, D45 fallback). Checked by test:room-trays.
+TRAY={"work_desk":{"flag":[103,42],"dir":"right","run":109},"learning_corner":{"flag":[139,46],"dir":"left","run":146},"creative_corner":{"flag":[336,46],"dir":"right","run":151},"sleep_corner":{"flag":[377,46],"dir":"left","run":94},"fitness_corner":{"flag":[103,174],"dir":"right","run":107,"wrap":{"dy":-27,"run":299,"over_props":True}}}
 def cam(zk):
     cx,cy,_,_=scene.ZONES[zk]['pool']; w,h=195,135
     x0=min(max(0,cx-w//2),W-w); y0=min(max(0,cy-h//2-6),H-h); return [x0,y0,w,h]
