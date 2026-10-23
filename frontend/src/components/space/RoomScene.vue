@@ -2115,19 +2115,19 @@ onUnmounted(() => {
   position: absolute;
   display: grid;
   place-items: center;
-  width: calc(16px * var(--tray-k));
-  height: calc(16px * var(--tray-k));
+  width: calc(14px * var(--tray-k));
+  height: calc(14px * var(--tray-k));
   box-sizing: border-box;
   border-radius: 50%;
   background: #0b0e14;
-  border: 1.5px solid #f7d774;
+  border: 1.25px solid #f7d774;
   transform: translate(-50%, -50%);
   pointer-events: none;
 }
 
 .trayStar svg {
-  width: calc(10px * var(--tray-k));
-  height: calc(10px * var(--tray-k));
+  width: calc(9px * var(--tray-k));
+  height: calc(9px * var(--tray-k));
 }
 
 .pmBadge {
