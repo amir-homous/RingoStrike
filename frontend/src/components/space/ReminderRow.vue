@@ -24,9 +24,8 @@
 <script setup>
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
-import { challengeIconKey } from "@/lib/challengeIconKeys";
 import { REMINDER_CHIP } from "@/lib/pathMarker";
-import { reminderClockTime, reminderRowState } from "@/lib/reminderRows";
+import { reminderClockTime, reminderIconKey, reminderRowState } from "@/lib/reminderRows";
 import { resolveChallengeIcon } from "@/utils/missionMomentumUtils";
 
 const props = defineProps({
@@ -54,10 +53,8 @@ const ariaLabel = computed(() => {
   return t("space.reminders.rowSet", { name, corner, time: time.value });
 });
 
-const iconUrl = computed(() => {
-  const name = props.reminder.challengeName || "";
-  return name ? resolveChallengeIcon({ icon_key: challengeIconKey(name), name }) : "";
-});
+// The stable key resolves the icon in EN and FA; the generic icon is only the last fallback.
+const iconUrl = computed(() => resolveChallengeIcon({ icon_key: reminderIconKey(props.reminder) }));
 </script>
 
 <style scoped>

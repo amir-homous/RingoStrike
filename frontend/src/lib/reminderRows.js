@@ -3,6 +3,8 @@
 
 import { REMINDER_CHIP } from "./pathMarker.js";
 import { normalizePathKey } from "./livingSpaceState.js";
+import { LEGACY_CHALLENGE_ICON_IDS, challengeIconKey } from "./challengeIconKeys.js";
+import { challengeKeyFromName } from "./ringoContentLocalization.js";
 
 // D65: a zone lists only its own reminders: due first, then by time.
 export function zoneReminders(items, zone) {
@@ -43,4 +45,16 @@ const CHIP_ORDER = [REMINDER_CHIP.DUE, REMINDER_CHIP.TELEGRAM_OFF, REMINDER_CHIP
 export function challengeReminderChip(missions) {
   const chips = new Set((Array.isArray(missions) ? missions : []).map((mission) => mission?.reminder).filter(Boolean));
   return CHIP_ORDER.find((chip) => chips.has(chip)) || "";
+}
+
+// B33 fix: the row's challenge icon key in both locales. The mission's stable challenge_icon_key
+// first, then a translated name mapped back to its key, the English name's slug, and the legacy
+// numeric id (databases seeded before keys); "" means the generic icon.
+export function reminderIconKey(item) {
+  const name = String(item?.challengeName || "").trim();
+  return item?.challengeIconKey
+    || challengeKeyFromName(name)
+    || (/^[\x00-\x7F]+$/.test(name) ? challengeIconKey(name) : "")
+    || LEGACY_CHALLENGE_ICON_IDS[String(item?.challengeId ?? "")]
+    || "";
 }

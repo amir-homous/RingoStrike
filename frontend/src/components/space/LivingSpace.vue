@@ -1097,6 +1097,8 @@ function toReminderItem(mission) {
     id: mission?.mission_id || mission?.id || `${mission?.title || "mission"}-${mission?.reminder_at || ""}`,
     title: mission?.title || mission?.mission_title || t("common.mission"),
     challengeName: mission?.challenge_name || mission?.challenge || "",
+    // B33 fix: the stable icon key (the name is translated in FA).
+    challengeIconKey: mission?.challenge_icon_key || "",
     challengeId: mission?.challenge_id || null,
     enrollmentId: mission?.enrollment_id || null,
     pathId: mission?.path_id || null,

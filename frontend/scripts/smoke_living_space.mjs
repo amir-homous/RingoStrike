@@ -41,7 +41,7 @@ import { formatClock } from "../src/lib/i18nNumbers.js";
 import { MAX_PATH_STARS, bonusDoneByChallenge, bonusDoneByPath, challengeStarPoints, isBonusDoneToday, pathStarCount } from "../src/lib/bonusStars.js";
 import { customReminderAt, defaultPickerTime, latinDigits, nextResetAt, parseTimePart, stepTimePart } from "../src/lib/reminderTime.js";
 import { CLOCK_STATE, reminderClockState } from "../src/lib/reminderClock.js";
-import { challengeReminderChip, reminderClockTime, reminderRowState, reminderSummary, zoneReminders } from "../src/lib/reminderRows.js";
+import { challengeReminderChip, reminderIconKey, reminderClockTime, reminderRowState, reminderSummary, zoneReminders } from "../src/lib/reminderRows.js";
 import {
   KIND_SILHOUETTES,
   TILE_STATE,
@@ -997,9 +997,40 @@ function runReminderTimeSmoke() {
   assert.deepEqual(defaultPickerTime(local(22, 47), reset), { hour: "23", minute: "05" });
 }
 
+// B33 fix: every seeded challenge's reminder row resolves its own icon in EN and FA (the FA rows carry
+// a translated challenge name), from the backend seed file, with the generic icon only as a fallback.
+function runReminderIconSmoke() {
+  const seed = readFileSync(new URL("../../backend/services/path_seed_service.py", import.meta.url), "utf8");
+  const names = [...seed.matchAll(/^ {16}"name": "([^"]+)",$/gm)].map((match) => match[1]);
+  assert.equal(names.length, 15, `15 seeded challenges, found ${names.length}`);
+  const icons = new URL("../src/assets/challenge-icons/", import.meta.url);
+  for (const name of names) {
+    const key = challengeIconKey(name);
+    assert.ok(existsSync(new URL(`${key}.png`, icons)), `${name}: icon file ${key}.png`);
+    // EN: the English name.
+    assert.equal(reminderIconKey({ challengeName: name }), key, `EN ${name}`);
+    // FA: a mission localized the way the room gets it (Persian name plus its stable key).
+    // The challenge's first seeded mission key (the room localizes real missions).
+    const block = seed.slice(seed.indexOf(`"name": "${name}"`));
+    const missionKey = /\("([a-z0-9-]+)", "/.exec(block)[1];
+    const fa = localizeMission({ key: missionKey, title: "x", challenge_name: name }, "fa");
+    assert.notEqual(fa.challenge_name, name, `${name} is translated in FA`);
+    assert.equal(reminderIconKey({ challengeName: fa.challenge_name, challengeIconKey: fa.challenge_icon_key }), key, `FA ${name}`);
+    // FA without the stable key: the Persian name maps back (catalogue and fallback names).
+    assert.equal(reminderIconKey({ challengeName: fa.challenge_name }), key, `FA name only ${name}`);
+    const faChallenge = localizeChallenge({ name }, "fa");
+    assert.equal(reminderIconKey({ challengeName: faChallenge.name }), key, `FA challenge name ${name}`);
+  }
+  // Legacy ids 30 to 44 still map; an unknown name gives "" (the generic icon).
+  assert.equal(reminderIconKey({ challengeName: "", challengeId: 30 }), "deep-work-sprint");
+  assert.equal(reminderIconKey({ challengeName: "چالش ناشناخته" }), "");
+  assert.equal(reminderIconKey({}), "");
+}
+
 run();
 runObjectsGridSmoke();
 runReminderRowsSmoke();
 runBonusStarsSmoke();
 runReminderClockSmoke();
 runReminderTimeSmoke();
+runReminderIconSmoke();
