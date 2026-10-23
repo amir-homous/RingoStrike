@@ -32,6 +32,7 @@
           :selected-challenge-id="selectedPathChallengeId"
           :challenge-picked="challengePicked"
           :picked-mission-id="pickedMissionId"
+          :object-highlight="objectHighlight"
           @select="selectZone"
           @select-challenge="selectPathChallenge"
           @select-mission="selectTrayMission"
@@ -132,6 +133,7 @@
           @focus-reminder="focusReminder"
           @checkin="$emit('checkin', $event)"
           @close="closePanel"
+          @highlight-object="objectHighlight = $event"
         />
       </div>
     </div>
@@ -520,6 +522,8 @@ const CAMERA_SETTLE_MS = 320;
 const materializeQueue = createMaterializeQueue();
 const pendingRewardKeys = ref([]);
 const materializing = ref(null);
+// B32 (D62): the object tile just tapped ({ key, ghost, label, nonce }); the room lifts and glows it.
+const objectHighlight = ref(null);
 const materializeZoneKey = ref("");
 let materializeRunning = false;
 let materializeTimers = [];
@@ -617,6 +621,7 @@ function selectZone(zone) {
     nextTick(() => zoneSheet.value?.focus({ preventScroll: true }));
   }
   requestedMissionId.value = null;
+  objectHighlight.value = null;
   activeZone.value = zone;
   shellMode.value = "zone";
   selectedPathChallengeId.value = null;
@@ -628,6 +633,7 @@ function selectZone(zone) {
 
 function closePanel() {
   roomLevel.value = true;
+  objectHighlight.value = null;
   requestedMissionId.value = null;
   activeZone.value = null;
   shellMode.value = "zone";

@@ -50,7 +50,9 @@
               :src="asset(item.path)"
               alt=""
               class="layer"
+              :class="objectGlowClass(item, false)"
               draggable="false"
+              :data-reward="item.key"
               :style="at(item.x, item.y)"
             />
             <template v-for="item in ghostObjects" :key="`ghost-${item.key}`">
@@ -58,7 +60,7 @@
                 :src="asset(item.path)"
                 alt=""
                 class="layer ghostLayer"
-                :class="item.phase ? `mat-${item.phase}` : null"
+                :class="[item.phase ? `mat-${item.phase}` : null, objectGlowClass(item, true)]"
                 draggable="false"
                 :data-reward="item.key"
                 :style="{ ...at(item.x, item.y), ...ghostStyle }"
@@ -120,6 +122,17 @@
 
           <!-- HTML layer: zone hit regions and labels, in screen px. -->
           <div class="sceneHtml">
+            <!-- B32 (D62): sparks and the name label of a tapped object, kept inside the frame. -->
+            <div v-if="objectEffect" :key="`fx-${objectEffect.nonce}`" class="objectFx" :class="{ ghost: objectEffect.ghost }" aria-hidden="true">
+              <svg
+                v-for="spark in objectEffect.sparks"
+                :key="spark.key"
+                class="objectSpark"
+                viewBox="0 0 10 10"
+                :style="spark.style"
+              ><path d="M5 0l1.2 3.8L10 5 6.2 6.2 5 10 3.8 6.2 0 5l3.8-1.2z" /></svg>
+              <span v-if="objectEffect.label" class="objectLabel" :style="objectEffect.labelStyle">{{ objectEffect.label }}</span>
+            </div>
             <div
               v-for="item in hitZones"
               :key="`hit-${item.key}`"
@@ -336,6 +349,8 @@ const props = defineProps({
   pendingRewardKeys: { type: Array, default: () => [] },
   // B21: { rewardKey, zoneKey, phase } while a reward materializes (camera, light, resolve, settle, glint).
   materializing: { type: Object, default: null },
+  // B32 (D62): { key, ghost, label, nonce } when an object tile is tapped: that object lifts and glows.
+  objectHighlight: { type: Object, default: null },
 });
 
 const emit = defineEmits(["select", "select-challenge", "select-mission"]);
@@ -423,7 +438,8 @@ const pan = computed(() => {
   const view = { viewportWidth: viewportWidth.value, viewportHeight: viewportHeight.value, scale: s };
 
   if (zoomed.value) {
-    return cameraPan({ ...view, target: cameraTarget(layout, props.selectedZoneKey) });
+    const camera = cameraPan({ ...view, target: cameraTarget(layout, props.selectedZoneKey) });
+    return props.phone ? nudgeToObject(camera, s) : camera;
   }
 
   const zoneKey = props.phone ? focusZoneKey.value : (props.rest ? "" : props.selectedZoneKey);
@@ -437,6 +453,30 @@ const pan = computed(() => {
     y: safeAreaPanY({ viewportHeight: viewportHeight.value, scale: s, safe }),
   };
 });
+
+// B32: on a phone a tapped object can sit at the edge of its zone's camera (Fitness at 360 px);
+// while it is highlighted the camera moves just enough to show it whole (inset 12px).
+function nudgeToObject(camera, s) {
+  const item = objectFxItem.value;
+  if (!item) return camera;
+  const inset = 12;
+  const lift = props.objectHighlight?.ghost ? 0 : 4;
+  const vw = viewportWidth.value;
+  const vh = viewportHeight.value;
+  let { x, y } = camera;
+  const x0 = item.x * s + x;
+  const x1 = (item.x + item.w) * s + x;
+  if (x1 > vw - inset) x -= x1 - (vw - inset);
+  if (x0 + (x - camera.x) < inset) x += inset - (x0 + (x - camera.x));
+  const y0 = (item.y - lift) * s + y;
+  const y1 = (item.y + item.h) * s + y;
+  if (y1 > vh - inset) y -= y1 - (vh - inset);
+  if (y0 + (y - camera.y) < inset) y += inset - (y0 + (y - camera.y));
+  return {
+    x: Math.min(0, Math.max(vw - baseWidth * s, x)),
+    y: Math.min(0, Math.max(vh - baseHeight * s, y)),
+  };
+}
 
 // Phones: zooming in or out animates the camera (300 ms) with a FLIP: the new layout is first
 // drawn with the old camera (translate + relative scale), then eased to the new one.
@@ -576,6 +616,122 @@ const ghostObjects = computed(() => {
     .map((objects) => objects.ghost)
     .filter(Boolean)
     .map((item) => ({ ...item, phase: active?.rewardKey === item.key ? active.phase : "" }));
+});
+
+// B32 (D62): the tapped object's own layer lifts and glows (no copy, no outline, no redraw).
+// Placed: ~4 base px up and a warm gold glow, settling by ~1.2 s, with a few sparks. Ghost: a pale
+// blue glow. Reduced motion: no lift and no sparks, only a short soft glow.
+const OBJECT_FX_MS = 1300;
+const OBJECT_LABEL_MS = 2400;
+const objectFxActive = ref(null);
+let objectFxTimer = null;
+let objectLabelTimer = null;
+const objectLabelOn = ref(false);
+// The label sits above the object unless that covers the zone's marker, tray or name: then below.
+const objectLabelBelow = ref(false);
+// Covered both above and below (a small phone frame): the label is left out; the card names it.
+const objectLabelHidden = ref(false);
+
+watch(() => props.objectHighlight?.nonce, () => {
+  const fx = props.objectHighlight;
+  clearTimeout(objectFxTimer);
+  clearTimeout(objectLabelTimer);
+  objectFxActive.value = null;
+  objectLabelOn.value = false;
+  objectLabelBelow.value = false;
+  objectLabelHidden.value = false;
+  if (!fx?.key) return;
+  // Restart the animation on a repeated tap of the same object.
+  nextTick(() => {
+    objectFxActive.value = { ...fx };
+    objectLabelOn.value = true;
+    objectFxTimer = setTimeout(() => { objectFxActive.value = null; }, OBJECT_FX_MS);
+    objectLabelTimer = setTimeout(() => { objectLabelOn.value = false; }, OBJECT_LABEL_MS);
+    nextTick(placeObjectLabel);
+  });
+});
+
+function placeObjectLabel() {
+  const label = frame.value?.querySelector(".objectLabel");
+  if (!label) return;
+  const box = label.getBoundingClientRect();
+  const overlaps = [...frame.value.querySelectorAll(".pathMarker, .trayFrame, .zoneLabel")].some((el) => {
+    const style = getComputedStyle(el);
+    if (!el.offsetParent || style.visibility === "hidden" || Number(style.opacity) === 0) return false;
+    const r = el.getBoundingClientRect();
+    return r.width > 0 && box.left < r.right && box.right > r.left && box.top < r.bottom && box.bottom > r.top;
+  });
+  if (!overlaps) return;
+  if (objectLabelBelow.value) {
+    objectLabelHidden.value = true;
+    return;
+  }
+  objectLabelBelow.value = true;
+  nextTick(placeObjectLabel);
+}
+
+function objectGlowClass(item, ghost) {
+  const fx = objectFxActive.value;
+  if (!fx || fx.key !== item.key || Boolean(fx.ghost) !== ghost) return null;
+  if (reducedMotion.value) return ghost ? "objGlowGhostSoft" : "objGlowSoft";
+  return ghost ? "objGlowGhost" : "objLift";
+}
+
+const objectFxItem = computed(() => {
+  const fx = props.objectHighlight;
+  if (!fx?.key) return null;
+  const list = fx.ghost ? ghostObjects.value : placedObjects.value;
+  return list.find((item) => item.key === fx.key) || null;
+});
+
+const objectEffect = computed(() => {
+  const fx = props.objectHighlight;
+  const item = objectFxItem.value;
+  if (!fx || !item || (!objectFxActive.value && !objectLabelOn.value)) return null;
+  const s = scale.value;
+  const frame = frameRect.value;
+  const inset = 4;
+  const clampX = (x, w) => Math.min(Math.max(x, frame.x0 + inset), frame.x1 - inset - w);
+  const clampY = (y, h) => Math.min(Math.max(y, frame.y0 + inset), frame.y1 - inset - h);
+  const size = 10;
+  const sparks = objectFxActive.value && !fx.ghost && !reducedMotion.value
+    ? [
+      [item.x - 5, item.y - 3, 0],
+      [item.x + item.w + 1, item.y - 5, 120],
+      [item.x + item.w / 2, item.y - 10, 240],
+      [item.x + item.w + 3, item.y + item.h - 6, 360],
+    ].map(([bx, by, delay], index) => ({
+      key: index,
+      style: {
+        left: `${clampX(bx * s - size / 2, size)}px`,
+        top: `${clampY(by * s - size / 2, size)}px`,
+        width: `${size}px`,
+        height: `${size}px`,
+        animationDelay: `${delay}ms`,
+      },
+    }))
+    : [];
+  const label = objectLabelOn.value && !objectLabelHidden.value ? fx.label || "" : "";
+  // The label sits above the object, centred; its width is estimated for the clamp (12px text).
+  const labelW = Math.min(240, 22 + String(label).length * 7);
+  const labelH = 26;
+  const lift = reducedMotion.value || fx.ghost ? 0 : 4;
+  return {
+    nonce: fx.nonce,
+    ghost: Boolean(fx.ghost),
+    sparks,
+    label,
+    labelStyle: {
+      left: `${clampX((item.x + item.w / 2) * s - labelW / 2, labelW)}px`,
+      top: `${clampY(objectLabelBelow.value ? (item.y + item.h) * s + 8 : (item.y - lift) * s - labelH - 8, labelH)}px`,
+      maxWidth: `${labelW}px`,
+    },
+  };
+});
+
+onUnmounted(() => {
+  clearTimeout(objectFxTimer);
+  clearTimeout(objectLabelTimer);
 });
 
 // Ghost treatment from room_layout.json (spec §5); the 2x2 checker dither is a CSS mask.
@@ -1222,6 +1378,91 @@ onUnmounted(() => {
   animation: matGlint 500ms ease-out both;
 }
 
+/* B32 (D62): lift ~4 base px in 250 ms, hold, settle over ~700 ms; the warm glow fades by ~1.2 s.
+   Translate is in base px (the layer is inside the scaled base). No outline anywhere. */
+.layer.objLift {
+  animation: objLift 1200ms ease-out both;
+}
+
+.ghostLayer.objGlowGhost {
+  -webkit-mask-image: none;
+  mask-image: none;
+  animation: objGhostGlow 1200ms ease-out both;
+}
+
+.layer.objGlowSoft {
+  animation: objGlowSoft 600ms ease-out both;
+}
+
+.ghostLayer.objGlowGhostSoft {
+  -webkit-mask-image: none;
+  mask-image: none;
+  animation: objGhostGlowSoft 600ms ease-out both;
+}
+
+@keyframes objLift {
+  0% { transform: translateY(0); filter: none; }
+  21% { transform: translateY(-4px); filter: brightness(1.15) sepia(.3) drop-shadow(0 0 3px rgba(247, 215, 116, .95)) drop-shadow(0 0 8px rgba(247, 215, 116, .5)); }
+  42% { transform: translateY(-4px); filter: brightness(1.15) sepia(.3) drop-shadow(0 0 3px rgba(247, 215, 116, .9)) drop-shadow(0 0 8px rgba(247, 215, 116, .45)); }
+  100% { transform: translateY(0); filter: none; }
+}
+
+@keyframes objGhostGlow {
+  0% { opacity: .38; filter: grayscale(1) brightness(1.5); }
+  25%, 55% { opacity: .85; filter: grayscale(1) brightness(1.7) drop-shadow(0 0 4px rgba(170, 205, 255, .9)) drop-shadow(0 0 9px rgba(170, 205, 255, .45)); }
+  100% { opacity: .38; filter: grayscale(1) brightness(1.5); }
+}
+
+@keyframes objGlowSoft {
+  0%, 100% { filter: none; }
+  40% { filter: brightness(1.1) drop-shadow(0 0 3px rgba(247, 215, 116, .7)); }
+}
+
+@keyframes objGhostGlowSoft {
+  0%, 100% { opacity: .38; filter: grayscale(1) brightness(1.5); }
+  40% { opacity: .7; filter: grayscale(1) brightness(1.6) drop-shadow(0 0 3px rgba(170, 205, 255, .7)); }
+}
+
+.objectFx {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  pointer-events: none;
+}
+
+.objectSpark {
+  position: absolute;
+  fill: #f7d774;
+  opacity: 0;
+  animation: objSpark 900ms ease-out both;
+}
+
+@keyframes objSpark {
+  0% { opacity: 0; transform: scale(.4); }
+  30% { opacity: 1; transform: scale(1); }
+  100% { opacity: 0; transform: scale(.6) translateY(-3px); }
+}
+
+.objectLabel {
+  position: absolute;
+  overflow: hidden;
+  padding: 4px 10px;
+  border-radius: 999px;
+  color: #fff;
+  background: rgba(11, 14, 20, .94);
+  border: 1px solid rgba(255, 255, 255, .18);
+  font-size: 12px;
+  line-height: 16px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  animation: objLabelIn 200ms ease-out both;
+}
+
+@keyframes objLabelIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
 @keyframes matLightRise {
   from { opacity: 0; }
   to { opacity: 1; }
@@ -1852,6 +2093,19 @@ onUnmounted(() => {
   .matColor,
   .glintLayer {
     animation: none;
+  }
+
+  /* B32: no lift and no sparks, only a short soft glow (also before the JS media check runs). */
+  .layer.objLift {
+    animation: objGlowSoft 600ms ease-out both;
+  }
+
+  .ghostLayer.objGlowGhost {
+    animation: objGhostGlowSoft 600ms ease-out both;
+  }
+
+  .objectSpark {
+    display: none;
   }
 
   .zoneOutline,

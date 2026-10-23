@@ -304,6 +304,22 @@ export default {
     firstRewardLocked: "اولین پاداش: یک مأموریت غیربونوس از این مسیر انجام بده تا {reward} در اتاق قرار بگیرد.",
     nextRewardFirst: "قدم بعدی: یک مأموریت اصلی از این مسیر انجام بده تا {reward} باز شود.",
     nextRewardFuture: "تغییر قابل دیدن آینده: {reward}. فعلاً فقط پیش‌نمایش است.",
+    // B32 (D60 to D63): objects grid.
+    objectGrid: {
+      inRoomCount: "{count} توی اتاقت",
+      tileLabel: {
+        placed: "{name}، توی اتاقت",
+        next: "{name}، شیء بعدی",
+        later: "{name}، بعداً میاد",
+      },
+      placedFirst: "این رو {date} گرفتی، وقتی اولین مأموریتت در مسیر {path} رو انجام دادی.",
+      placedOn: "این رو {date} گرفتی.",
+      placedNoDate: "این الان توی اتاقته.",
+      firstHint: "با اولین مأموریتت در مسیر {path} میاد.",
+      laterHint: "این بعداً به این گوشه میاد.",
+      ghostLabel: "{name} · بعداً میاد",
+      backToStep: "برگشت به قدم امروز",
+    },
     objectHistory: {
       label: "اشیای اتاق در این بخش",
       summary: "{saved} توی اتاق · {preview} بعداً",

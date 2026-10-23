@@ -222,6 +222,19 @@ defineExpose({ focusPrimary });
     rgba(255, 255, 255, 0.035);
 }
 
+/* B32: a tapped object's story. Placed: warm gold edge (board 17); later: neutral (boards 18, 21). */
+.ringoCard.objectPlaced {
+  border-color: rgba(247, 215, 116, 0.38);
+  background:
+    radial-gradient(circle at 8% 0%, rgba(247, 215, 116, 0.12), transparent 36%),
+    rgba(255, 255, 255, 0.045);
+}
+
+.ringoCard.objectLater {
+  border-color: rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.045);
+}
+
 .ringoCard.collapsed {
   padding: 8px 10px;
   border-radius: 14px;
