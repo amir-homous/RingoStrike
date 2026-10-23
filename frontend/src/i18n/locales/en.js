@@ -309,6 +309,18 @@ export default {
       challenge: "{count} Bonus step done today | {count} Bonus steps done today",
       path: "{count} Bonus step done today in this path | {count} Bonus steps done today in this path",
     },
+    // B34 (D68): the reminder clock and its list.
+    reminderClock: {
+      kicker: "Living space",
+      title: "Your reminders",
+      ringoTitle: "These are waiting for you.",
+      ringoBody: "I will nudge you at these times. Tap one to open it in its corner.",
+      emptyTitle: "No reminders right now.",
+      emptyBody: "When you choose Remind me later, it shows up here.",
+      back: "Back to the room",
+      ariaSet: "Reminder clock, {count} reminder later today. Show reminders | Reminder clock, {count} reminders later today. Show reminders",
+      ariaRinging: "Reminder clock is ringing, {due} due, {later} later. Show reminders",
+    },
     // B33 (D65, D66): reminder rows.
     reminders: {
       zoneTitle: "Reminders in this corner",

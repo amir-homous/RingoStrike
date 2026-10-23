@@ -39,6 +39,7 @@ import {
 } from "../src/lib/missionActionFlow.js";
 import { formatClock } from "../src/lib/i18nNumbers.js";
 import { MAX_PATH_STARS, bonusDoneByChallenge, bonusDoneByPath, challengeStarPoints, isBonusDoneToday, pathStarCount } from "../src/lib/bonusStars.js";
+import { CLOCK_STATE, reminderClockState } from "../src/lib/reminderClock.js";
 import { challengeReminderChip, reminderClockTime, reminderRowState, reminderSummary, zoneReminders } from "../src/lib/reminderRows.js";
 import {
   KIND_SILHOUETTES,
@@ -938,7 +939,19 @@ function runBonusStarsSmoke() {
   assert.equal(pathStarCount("x"), 0);
 }
 
+// B34 (#406, D68): the reminder clock state rule.
+function runReminderClockSmoke() {
+  assert.equal(reminderClockState({ due: 0, later: 0 }), CLOCK_STATE.NONE, "no reminder: no clock");
+  assert.equal(reminderClockState({}), "");
+  assert.equal(reminderClockState(), "");
+  assert.equal(reminderClockState({ due: 0, later: 2 }), "set", "set: a calm clock");
+  assert.equal(reminderClockState({ due: 1, later: 0 }), "ringing", "due: it rings");
+  assert.equal(reminderClockState({ due: 1, later: 3 }), "ringing", "due beats set");
+  assert.equal(reminderClockState({ due: "x", later: "2" }), "set");
+}
+
 run();
 runObjectsGridSmoke();
 runReminderRowsSmoke();
 runBonusStarsSmoke();
+runReminderClockSmoke();

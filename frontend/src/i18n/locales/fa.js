@@ -309,6 +309,18 @@ export default {
       challenge: "{count} قدم اضافه امروز انجام شد",
       path: "{count} قدم اضافه امروز در این مسیر انجام شد",
     },
+    // B34 (D68): the reminder clock and its list.
+    reminderClock: {
+      kicker: "فضای زندگی",
+      title: "یادآورهای تو",
+      ringoTitle: "اینا منتظرتن.",
+      ringoBody: "سر همین ساعت‌ها یادت می‌اندازم. روی هر کدوم بزن تا توی گوشه‌ی خودش باز بشه.",
+      emptyTitle: "الان یادآوری نداری.",
+      emptyBody: "هر وقت «بعداً یادم بنداز» رو بزنی، اینجا نشون داده می‌شه.",
+      back: "برگشت به اتاق",
+      ariaSet: "ساعت یادآور، {count} یادآور برای بعداً. دیدن یادآورها",
+      ariaRinging: "ساعت یادآور زنگ می‌زنه، {due} رسیده، {later} بعداً. دیدن یادآورها",
+    },
     // B33 (D65, D66): reminder rows.
     reminders: {
       zoneTitle: "یادآورهای این گوشه",

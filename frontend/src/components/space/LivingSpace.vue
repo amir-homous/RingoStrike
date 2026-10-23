@@ -33,7 +33,9 @@
           :challenge-picked="challengePicked"
           :picked-mission-id="pickedMissionId"
           :object-highlight="objectHighlight"
+          :reminder-counts="{ due: dueReminders.length, later: scheduledReminders.length }"
           @select="selectZone"
+          @open-reminders="openReminderList"
           @select-challenge="selectPathChallenge"
           @select-mission="selectTrayMission"
         >
@@ -72,7 +74,16 @@
         </RoomScene>
       </div>
 
-      <div v-if="roomLevel" class="roomSafeZone">
+      <!-- B34 (D68): the clock opens Ringo's panel with every reminder (board 24). -->
+      <div v-if="reminderListOpen" ref="reminderListZone" class="roomSafeZone">
+        <ReminderListPanel
+          :reminders="reminderItems"
+          @open="openReminderRow"
+          @close="closeReminderList"
+        />
+      </div>
+
+      <div v-else-if="roomLevel" class="roomSafeZone">
         <RoomOverviewPanel
           :title="roomOverviewGuidance?.title || t('space.title')"
           :text="roomOverviewGuidance?.text || ''"
@@ -166,6 +177,7 @@ import { missionReminderChip } from "@/lib/missionTray";
 import { missionIconUrl, resolvePathIcon } from "@/utils/missionMomentumUtils";
 import { humanizeJoinError, submitJoinFlow } from "@/views/challengeFlow";
 import SpaceZone from "./SpaceZone.vue";
+import ReminderListPanel from "./ReminderListPanel.vue";
 import RoomOverviewPanel from "./RoomOverviewPanel.vue";
 import RoomScene from "./RoomScene.vue";
 import SpaceZonePanel from "./SpaceZonePanel.vue";
@@ -525,6 +537,26 @@ const CAMERA_SETTLE_MS = 320;
 const materializeQueue = createMaterializeQueue();
 const pendingRewardKeys = ref([]);
 const materializing = ref(null);
+// B34 (D68): Ringo's reminder list, opened from the clock next to Ringo.
+const reminderListOpen = ref(false);
+const reminderListZone = ref(null);
+
+function openReminderList() {
+  if (!roomLevel.value) closePanel();
+  reminderListOpen.value = true;
+  // Phones: the list sits under the room; bring it into view.
+  nextTick(() => reminderListZone.value?.scrollIntoView?.({ block: "nearest", behavior: "smooth" }));
+}
+
+function closeReminderList() {
+  reminderListOpen.value = false;
+}
+
+function openReminderRow(reminder) {
+  reminderListOpen.value = false;
+  focusReminder({ ...reminder, explicit: true });
+}
+
 // B32 (D62): the object tile just tapped ({ key, ghost, label, nonce }); the room lifts and glows it.
 const objectHighlight = ref(null);
 const materializeZoneKey = ref("");
@@ -617,6 +649,7 @@ async function loadPaths() {
 }
 
 function selectZone(zone) {
+  reminderListOpen.value = false;
   const openingSheet = !roomPanLayout.value && roomLevel.value;
   roomLevel.value = false;
   if (openingSheet) {
@@ -648,6 +681,7 @@ function closePanel() {
 
 // B24: open the reminder's zone and challenge and ask the panel to focus that mission.
 function focusReminder(reminder) {
+  reminderListOpen.value = false;
   const zoneKey = zoneLabelsByPath.value[normalizePathKey(reminder?.pathKey)]?.zoneKey;
   const zone = displayZones.value.find((item) => item.zone_key === zoneKey) || workSurfaceZone.value;
   if (!zone) return;

@@ -80,6 +80,14 @@
     "glint": "markers/glint.png",
     "anchor": "center"
   },
+  "reminder_clock": {
+    "x": 300,
+    "y": 196,
+    "w": 16,
+    "h": 18,
+    "set": "clock/clock_set_16x18.png",
+    "ring": "clock/clock_ring_16x18.png"
+  },
   "zones": {
     "work_desk": {
       "path": "career",

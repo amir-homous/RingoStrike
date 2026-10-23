@@ -87,6 +87,17 @@
               />
             </template>
 
+            <!-- B34 (D68): the reminder clock next to Ringo; absent with no reminder. -->
+            <img
+              v-if="clockView"
+              :src="asset(clockView.file)"
+              alt=""
+              class="layer reminderClock"
+              :class="`is-${clockView.state}`"
+              draggable="false"
+              :style="at(clockView.x, clockView.y)"
+            />
+
             <img
               v-if="ringo"
               :src="asset(ringo.file)"
@@ -122,6 +133,16 @@
 
           <!-- HTML layer: zone hit regions and labels, in screen px. -->
           <div class="sceneHtml">
+            <!-- B34: the clock's tap target (44px or more), over the pixel layer. -->
+            <button
+              v-if="clockView"
+              type="button"
+              class="reminderClockHit"
+              :style="clockView.hitStyle"
+              :aria-label="clockView.ariaLabel"
+              :data-state="clockView.state"
+              @click="$emit('open-reminders')"
+            />
             <!-- B32 (D62): sparks and the name label of a tapped object, kept inside the frame. -->
             <div v-if="objectEffect" :key="`fx-${objectEffect.nonce}`" class="objectFx" :class="{ ghost: objectEffect.ghost }" aria-hidden="true">
               <svg
@@ -337,6 +358,7 @@ import pawGlyph from "@/assets/missions-icons/paw_glyph.png";
 import { REMINDER_CHIP, ringSegments } from "@/lib/pathMarker";
 import { challengeReminderChip } from "@/lib/reminderRows";
 import { CHALLENGE_STAR_ANGLES, MAX_CHALLENGE_STARS, pathStarCount } from "@/lib/bonusStars";
+import { CLOCK_STATE, reminderClockState } from "@/lib/reminderClock";
 
 const props = defineProps({
   zones: { type: Array, default: () => [] },
@@ -360,9 +382,11 @@ const props = defineProps({
   materializing: { type: Object, default: null },
   // B32 (D62): { key, ghost, label, nonce } when an object tile is tapped: that object lifts and glows.
   objectHighlight: { type: Object, default: null },
+  // B34 (D68): { due, later } reminders today; the clock is absent when both are 0.
+  reminderCounts: { type: Object, default: null },
 });
 
-const emit = defineEmits(["select", "select-challenge", "select-mission"]);
+const emit = defineEmits(["select", "select-challenge", "select-mission", "open-reminders"]);
 
 const { locale, t: baseT } = useI18n();
 // B10: numbers in copy use the locale's digits; a numeric count picks the plural form.
@@ -741,6 +765,33 @@ const objectEffect = computed(() => {
 onUnmounted(() => {
   clearTimeout(objectFxTimer);
   clearTimeout(objectLabelTimer);
+});
+
+// B34 (D68): the clock is a fixed object at room_layout.json `reminder_clock` (top-left anchor, base
+// px); it does not follow Ringo. Calm when a reminder is set, ringing when one is due.
+const clockView = computed(() => {
+  const anchor = layout.reminder_clock;
+  const state = reminderClockState(props.reminderCounts || {});
+  if (!anchor || !state) return null;
+  const s = scale.value;
+  const hit = Math.max(44, Math.round(anchor.h * s));
+  const due = Number(props.reminderCounts?.due || 0);
+  const later = Number(props.reminderCounts?.later || 0);
+  return {
+    state,
+    file: state === CLOCK_STATE.RINGING ? anchor.ring : anchor.set,
+    x: anchor.x,
+    y: anchor.y,
+    ariaLabel: state === CLOCK_STATE.RINGING
+      ? t("space.reminderClock.ariaRinging", { due, later })
+      : t("space.reminderClock.ariaSet", { count: later }),
+    hitStyle: {
+      left: `${Math.round((anchor.x + anchor.w / 2) * s - hit / 2)}px`,
+      top: `${Math.round((anchor.y + anchor.h / 2) * s - hit / 2)}px`,
+      width: `${hit}px`,
+      height: `${hit}px`,
+    },
+  };
 });
 
 // Ghost treatment from room_layout.json (spec §5); the 2x2 checker dither is a CSS mask.
@@ -1410,6 +1461,42 @@ onUnmounted(() => {
 
 .glintLayer {
   animation: matGlint 500ms ease-out both;
+}
+
+/* B34 (D68): the clock. Ringing: short shakes around its foot (base px, inside the scaled base)
+   and a warm amber glow; reduced motion keeps only the glow. */
+.reminderClock.is-ringing {
+  transform-origin: 8px 17px;
+  filter: drop-shadow(0 0 2px rgba(255, 183, 89, 0.9)) drop-shadow(0 0 5px rgba(255, 183, 89, 0.5));
+  animation: clockRing 1.8s ease-in-out infinite;
+}
+
+@keyframes clockRing {
+  0%, 34%, 100% { transform: rotate(0deg); }
+  4% { transform: rotate(-9deg); }
+  8% { transform: rotate(8deg); }
+  12% { transform: rotate(-7deg); }
+  16% { transform: rotate(6deg); }
+  20% { transform: rotate(-4deg); }
+  24% { transform: rotate(3deg); }
+  28% { transform: rotate(-1deg); }
+}
+
+.reminderClockHit {
+  position: absolute;
+  z-index: 3;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.reminderClockHit:focus-visible {
+  outline: 2px solid rgba(150, 236, 255, 0.92);
+  outline-offset: 1px;
 }
 
 /* B32 (D62): lift ~4 base px in 250 ms, hold, settle over ~700 ms; the warm glow fades by ~1.2 s.
@@ -2166,6 +2253,11 @@ onUnmounted(() => {
   .ghostLayer.mat-resolve,
   .matColor,
   .glintLayer {
+    animation: none;
+  }
+
+  /* B34: the ringing clock does not shake; it only glows. */
+  .reminderClock.is-ringing {
     animation: none;
   }
 
