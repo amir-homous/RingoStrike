@@ -654,9 +654,12 @@ function focusReminder(reminder) {
   activeZone.value = zone;
   shellMode.value = "zone";
   selectedPathChallengeId.value = reminder?.challengeId || null;
-  challengePicked.value = false;
+  // B33 (D66): a tapped reminder row is an explicit pick of its mission, so it beats a due
+  // reminder (D51) and its challenge's mission tray shows with that paw selected.
+  const explicit = Boolean(reminder?.explicit && reminder?.challengeId);
+  challengePicked.value = explicit;
   joinedChallengeId.value = null;
-  pickedMissionId.value = null;
+  pickedMissionId.value = explicit ? reminder.id : null;
   requestedMissionId.value = reminder?.id || null;
   ensurePathChallenges(zone);
 }
@@ -1108,9 +1111,11 @@ const zoneLabelsByPath = computed(() => {
 const reminderItems = computed(() => {
   const label = (reminder) => zoneLabelsByPath.value[normalizePathKey(reminder.pathKey)] || {};
 
+  // B33 (D66): rows show "Telegram off" when Telegram cannot deliver a set reminder.
+  const telegram = telegramReady(props.telegramSettings);
   return [
-    ...dueReminders.value.map((reminder) => ({ ...reminder, ...label(reminder), due: true })),
-    ...scheduledReminders.value.map((reminder) => ({ ...reminder, ...label(reminder), due: false })),
+    ...dueReminders.value.map((reminder) => ({ ...reminder, ...label(reminder), due: true, telegram })),
+    ...scheduledReminders.value.map((reminder) => ({ ...reminder, ...label(reminder), due: false, telegram })),
   ];
 });
 

@@ -304,6 +304,17 @@ export default {
     firstRewardLocked: "First reward: complete one non-bonus mission in this path to place {reward}.",
     nextRewardFirst: "Next action: complete a main mission in this path to unlock {reward}.",
     nextRewardFuture: "Future visible change: {reward}. For now, this is only a preview.",
+    // B33 (D65, D66): reminder rows.
+    reminders: {
+      zoneTitle: "Reminders in this corner",
+      summaryDue: "{count} due",
+      summaryLater: "{count} later",
+      now: "Now",
+      timeTelegramOff: "{time} · Telegram off",
+      rowDue: "{name}, {corner}, due now",
+      rowSet: "{name}, {corner}, reminder at {time}",
+      rowTelegramOff: "{name}, {corner}, reminder at {time}, Telegram is not connected",
+    },
     // B32 (D60 to D63): objects grid.
     objectGrid: {
       inRoomCount: "{count} in your room",

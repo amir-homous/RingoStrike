@@ -38,6 +38,7 @@ import {
   writeFocusStart,
 } from "../src/lib/missionActionFlow.js";
 import { formatClock } from "../src/lib/i18nNumbers.js";
+import { challengeReminderChip, reminderClockTime, reminderRowState, reminderSummary, zoneReminders } from "../src/lib/reminderRows.js";
 import {
   KIND_SILHOUETTES,
   TILE_STATE,
@@ -858,5 +859,42 @@ function runObjectsGridSmoke() {
   assert.equal(objectCardCopy(tiles[0], { pathName: "Career", t: (key, p) => `${key}|${p.date}|${p.path}` }), "space.objectGrid.placedFirst|October 20, 2026|Career");
 }
 
+// B33 (#405, D65 to D67): zone-only reminders, row content and the challenge chip.
+function runReminderRowsSmoke() {
+  const t0 = Date.UTC(2026, 9, 23, 16, 0);
+  const items = [
+    { id: 1, pathKey: "career", title: "Send one message", timestamp: t0 + 3600e3, due: false },
+    { id: 2, pathKey: "fitness", title: "Move", timestamp: t0 + 600e3, due: false },
+    { id: 3, pathKey: "career", title: "Focus block", timestamp: t0 - 60e3, due: true },
+    { id: 4, pathKey: "focus", title: "Legacy key", timestamp: t0 + 7200e3, due: false },
+  ];
+  // D65: only the zone's own reminders, due first then by time; legacy path keys alias.
+  assert.deepEqual(zoneReminders(items, { path_key: "career" }).map((r) => r.id), [3, 1, 4]);
+  assert.deepEqual(zoneReminders(items, { path_key: "fitness" }).map((r) => r.id), [2]);
+  assert.deepEqual(zoneReminders(items, { path_key: "sleep" }), [], "no reminders: the row is hidden");
+  assert.deepEqual(zoneReminders(items, null), []);
+  assert.deepEqual(zoneReminders(null, { path_key: "career" }), []);
+  assert.deepEqual(reminderSummary(zoneReminders(items, { path_key: "career" })), { due: 1, later: 2 });
+  assert.deepEqual(reminderSummary([]), { due: 0, later: 0 });
+
+  // D66: the trailing chip. Telegram unknown never claims "off".
+  assert.equal(reminderRowState({ due: true }, { telegram: false }), "due");
+  assert.equal(reminderRowState({ due: false }, { telegram: false }), "telegram_off");
+  assert.equal(reminderRowState({ due: false }, { telegram: true }), "set");
+  assert.equal(reminderRowState({ due: false }, { telegram: null }), "set");
+  // The time in 24 hours, locale digits (the test runs in UTC).
+  assert.match(reminderClockTime(t0 + 30 * 60e3, "en"), /^\d{2}:\d{2}$/);
+  assert.match(reminderClockTime(t0, "fa"), /^[\u06F0-\u06F9]{2}:[\u06F0-\u06F9]{2}$/);
+  assert.equal(reminderClockTime(Number.POSITIVE_INFINITY), "");
+
+  // D67: a challenge's chip from its missions: due > Telegram off > set; none -> "".
+  assert.equal(challengeReminderChip([{ reminder: "set" }, { reminder: "due" }, { reminder: "telegram_off" }]), "due");
+  assert.equal(challengeReminderChip([{ reminder: "set" }, { reminder: "telegram_off" }]), "telegram_off");
+  assert.equal(challengeReminderChip([{ reminder: "" }, { reminder: "set" }]), "set");
+  assert.equal(challengeReminderChip([{ reminder: "" }, {}]), "");
+  assert.equal(challengeReminderChip(undefined), "");
+}
+
 run();
 runObjectsGridSmoke();
+runReminderRowsSmoke();

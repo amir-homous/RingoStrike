@@ -304,6 +304,17 @@ export default {
     firstRewardLocked: "اولین پاداش: یک مأموریت غیربونوس از این مسیر انجام بده تا {reward} در اتاق قرار بگیرد.",
     nextRewardFirst: "قدم بعدی: یک مأموریت اصلی از این مسیر انجام بده تا {reward} باز شود.",
     nextRewardFuture: "تغییر قابل دیدن آینده: {reward}. فعلاً فقط پیش‌نمایش است.",
+    // B33 (D65, D66): reminder rows.
+    reminders: {
+      zoneTitle: "یادآورهای این گوشه",
+      summaryDue: "{count} رسیده",
+      summaryLater: "{count} بعداً",
+      now: "الان",
+      timeTelegramOff: "{time} · تلگرام خاموش",
+      rowDue: "{name}، {corner}، همین الان",
+      rowSet: "{name}، {corner}، یادآور ساعت {time}",
+      rowTelegramOff: "{name}، {corner}، یادآور ساعت {time}، تلگرام وصل نیست",
+    },
     // B32 (D60 to D63): objects grid.
     objectGrid: {
       inRoomCount: "{count} توی اتاقت",

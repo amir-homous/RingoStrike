@@ -328,6 +328,7 @@ import { todayMainDone } from "@/lib/livingSpacePanel";
 import { missionPawState, pagePaws, trayMissions, trayRows } from "@/lib/missionTray";
 import pawGlyph from "@/assets/missions-icons/paw_glyph.png";
 import { REMINDER_CHIP, ringSegments } from "@/lib/pathMarker";
+import { challengeReminderChip } from "@/lib/reminderRows";
 
 const props = defineProps({
   zones: { type: Array, default: () => [] },
@@ -882,6 +883,10 @@ function challengeEntry(challenge, selected) {
   const state = trayChallengeState(challenge);
   const name = challenge.name || t("common.challenge");
   const day = Number(challenge.totalCheckins || 0);
+  // B33 (D67): the challenge carries its missions' reminder chip (due > Telegram off > set).
+  const reminder = challengeReminderChip(challenge.missions);
+  const parts = [t(`space.scene.tray.${state}`, { name, n: day })];
+  if (PM_REMINDER_ARIA[reminder]) parts.push(t(PM_REMINDER_ARIA[reminder]));
   return {
     kind: "challenge",
     key: `challenge-${challenge.id}`,
@@ -891,7 +896,8 @@ function challengeEntry(challenge, selected) {
     selected,
     iconUrl: resolveChallengeIcon({ icon_key: challenge.iconKey, name: challenge.name }),
     dayText: t("space.scene.tray.day", { n: day }),
-    ariaLabel: t(`space.scene.tray.${state}`, { name, n: day }),
+    reminder,
+    ariaLabel: parts.join(t("common.listSeparator")),
   };
 }
 
