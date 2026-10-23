@@ -125,21 +125,35 @@
 
       <div v-if="choicePanel" class="ringoChoicePanel">
         <p>{{ choicePanel.prompt }}</p>
-        <div class="ringoChoiceGrid">
-          <button
-            v-for="option in choicePanel.options"
-            :key="option.key"
-            type="button"
-            class="choicePill"
-            :disabled="choiceDisabled"
-            @click="$emit('choice', option)"
-          >
-            {{ option.label }}
+        <!-- B35 (D69): "Pick a time" swaps the quick chips for an hour and minute field. -->
+        <ReminderTimePicker
+          v-if="choicePanel.picker"
+          :hour="choicePanel.picker.hour"
+          :minute="choicePanel.picker.minute"
+          :error="choicePanel.picker.error || ''"
+          :disabled="choiceDisabled"
+          @set="$emit('choice', { key: 'set-time', ...$event })"
+          @edit="$emit('choice', { key: 'edit-time' })"
+          @back="$emit('choice', { key: 'back-quick' })"
+        />
+        <template v-else>
+          <div class="ringoChoiceGrid">
+            <button
+              v-for="option in choicePanel.options"
+              :key="option.key"
+              type="button"
+              class="choicePill"
+              :class="{ pickTime: option.pickTime }"
+              :disabled="choiceDisabled"
+              @click="$emit('choice', option)"
+            >
+              {{ option.label }}
+            </button>
+          </div>
+          <button type="button" class="choiceBack" @click="$emit('close-choice')">
+            {{ t("missions.backToMissionActions") }}
           </button>
-        </div>
-        <button type="button" class="choiceBack" @click="$emit('close-choice')">
-          {{ t("missions.backToMissionActions") }}
-        </button>
+        </template>
       </div>
     </template>
   </section>
@@ -150,6 +164,7 @@ import { ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { formatNumber, numberAwareT } from "@/lib/i18nNumbers";
 import RingoMoodFigure from "@/components/ringo/RingoMoodFigure.vue";
+import ReminderTimePicker from "./ReminderTimePicker.vue";
 import { resolveActionIcon } from "@/utils/actionIconUtils";
 
 defineProps({
@@ -561,6 +576,13 @@ defineExpose({ focusPrimary });
   display: flex;
   flex-wrap: wrap;
   gap: 7px;
+}
+
+/* B35: the "Pick a time" chip is dashed (board 27). */
+.choicePill.pickTime {
+  background: transparent;
+  border-style: dashed;
+  border-color: rgba(255, 255, 255, 0.4);
 }
 
 .choiceBack {

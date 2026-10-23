@@ -309,6 +309,21 @@ export default {
       challenge: "{count} قدم اضافه امروز انجام شد",
       path: "{count} قدم اضافه امروز در این مسیر انجام شد",
     },
+    // B35 (D69): Pick a time.
+    reminderTime: {
+      groupLabel: "ساعت یادآور، ساعت و دقیقه",
+      hourLabel: "ساعت",
+      minuteLabel: "دقیقه",
+      hourLater: "یک ساعت بعد",
+      hourEarlier: "یک ساعت قبل",
+      minuteLater: "پنج دقیقه بعد",
+      minuteEarlier: "پنج دقیقه قبل",
+      hint: "فقط برای امروز. یادآورها با شروع روز جدید تموم می‌شن.",
+      afterReset: "این ساعت بعد از شروع روز جدیده. یه ساعت زودتر انتخاب کن.",
+      invalid: "ساعت رو از ۰ تا ۲۳ و دقیقه رو از ۰ تا ۵۹ بنویس.",
+      set: "تنظیم یادآور",
+      backQuick: "برگشت به زمان‌های سریع",
+    },
     // B34 (D68): the reminder clock and its list.
     reminderClock: {
       kicker: "فضای زندگی",
@@ -1061,6 +1076,7 @@ export default {
       oneHour: "۱ ساعت دیگه",
       evening: "عصر",
       tonight: "امشب",
+      pickTime: "انتخاب ساعت",
       customTime: "زمان دلخواه",
       customPrompt: "انتخاب ساعت",
       setCustom: "تنظیم یادآوری",

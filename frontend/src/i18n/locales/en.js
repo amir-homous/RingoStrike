@@ -309,6 +309,21 @@ export default {
       challenge: "{count} Bonus step done today | {count} Bonus steps done today",
       path: "{count} Bonus step done today in this path | {count} Bonus steps done today in this path",
     },
+    // B35 (D69): Pick a time.
+    reminderTime: {
+      groupLabel: "Reminder time, hour and minute",
+      hourLabel: "Hour",
+      minuteLabel: "Minute",
+      hourLater: "One hour later",
+      hourEarlier: "One hour earlier",
+      minuteLater: "Five minutes later",
+      minuteEarlier: "Five minutes earlier",
+      hint: "Today only. Reminders end when the day resets.",
+      afterReset: "That is after the day resets. Pick an earlier time.",
+      invalid: "Enter an hour from 0 to 23 and minutes from 0 to 59.",
+      set: "Set reminder",
+      backQuick: "Back to the quick times",
+    },
     // B34 (D68): the reminder clock and its list.
     reminderClock: {
       kicker: "Living space",
@@ -1061,6 +1076,7 @@ export default {
       oneHour: "In 1 hour",
       evening: "Evening",
       tonight: "Tonight",
+      pickTime: "Pick a time",
       customTime: "Custom time",
       customPrompt: "Choose a time",
       setCustom: "Set reminder",

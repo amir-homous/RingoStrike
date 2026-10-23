@@ -39,6 +39,7 @@ import {
 } from "../src/lib/missionActionFlow.js";
 import { formatClock } from "../src/lib/i18nNumbers.js";
 import { MAX_PATH_STARS, bonusDoneByChallenge, bonusDoneByPath, challengeStarPoints, isBonusDoneToday, pathStarCount } from "../src/lib/bonusStars.js";
+import { customReminderAt, defaultPickerTime, latinDigits, nextResetAt, parseTimePart, stepTimePart } from "../src/lib/reminderTime.js";
 import { CLOCK_STATE, reminderClockState } from "../src/lib/reminderClock.js";
 import { challengeReminderChip, reminderClockTime, reminderRowState, reminderSummary, zoneReminders } from "../src/lib/reminderRows.js";
 import {
@@ -950,8 +951,55 @@ function runReminderClockSmoke() {
   assert.equal(reminderClockState({ due: "x", later: "2" }), "set");
 }
 
+// B35 (#407, D69): Pick a time: Latin digits, the reset rule (next UTC midnight), past = tomorrow.
+function runReminderTimeSmoke() {
+  // Built from local clock times so the test holds in any timezone.
+  const local = (h, m) => { const d = new Date(2026, 9, 23, h, m, 0, 0); return d; };
+  const now = local(14, 10);
+  const reset = local(23, 30); // stands in for the next UTC midnight
+  assert.equal(nextResetAt(new Date(Date.UTC(2026, 9, 23, 20, 15))).toISOString(), "2026-10-24T00:00:00.000Z");
+  assert.equal(nextResetAt(new Date(Date.UTC(2026, 9, 23, 0, 0))).toISOString(), "2026-10-24T00:00:00.000Z");
+
+  // Valid: later today, before the reset.
+  const ok = customReminderAt({ hour: "20", minute: "30" }, { now, nextReset: reset });
+  assert.equal(ok.ok, true);
+  assert.equal(ok.at.getHours(), 20);
+  assert.equal(ok.at.getMinutes(), 30);
+  // Persian digits typed in are read as Latin.
+  assert.equal(customReminderAt({ hour: "۲۰", minute: "۰۵" }, { now, nextReset: reset }).at.getMinutes(), 5);
+  // Refused: at or after the reset; a time already past means tomorrow (after the reset too).
+  assert.deepEqual(customReminderAt({ hour: "23", minute: "30" }, { now, nextReset: reset }), { ok: false, reason: "after_reset" });
+  assert.deepEqual(customReminderAt({ hour: "23", minute: "45" }, { now, nextReset: reset }), { ok: false, reason: "after_reset" });
+  assert.deepEqual(customReminderAt({ hour: "09", minute: "00" }, { now, nextReset: reset }), { ok: false, reason: "after_reset" });
+  assert.deepEqual(customReminderAt({ hour: "14", minute: "10" }, { now, nextReset: reset }), { ok: false, reason: "after_reset" }, "now is not later");
+  // A reset after local midnight (UTC+3:30: 03:30 local): 00:45 tomorrow is still before it.
+  const lateNow = local(23, 50);
+  const lateReset = new Date(local(23, 50).getTime() + (3 * 60 + 40) * 60e3); // 03:30 next day
+  const night = customReminderAt({ hour: "00", minute: "45" }, { now: lateNow, nextReset: lateReset });
+  assert.equal(night.ok, true, "after local midnight but before the reset");
+  assert.deepEqual(customReminderAt({ hour: "03", minute: "45" }, { now: lateNow, nextReset: lateReset }), { ok: false, reason: "after_reset" });
+  // Invalid input.
+  for (const [hour, minute] of [["24", "00"], ["12", "60"], ["", "10"], ["ab", "10"], ["1", "5x"]]) {
+    assert.deepEqual(customReminderAt({ hour, minute }, { now, nextReset: reset }), { ok: false, reason: "invalid" }, `${hour}:${minute}`);
+  }
+  assert.equal(latinDigits("۰۹:۴۵"), "09:45");
+  assert.equal(latinDigits("٠٩"), "09");
+  assert.equal(parseTimePart("7", 23), 7);
+  assert.equal(parseTimePart("123", 23), null);
+  // Arrows: hours wrap 0 to 23, minutes by 5 and wrap.
+  assert.equal(stepTimePart("23", "hour", 1), "00");
+  assert.equal(stepTimePart("00", "hour", -1), "23");
+  assert.equal(stepTimePart("55", "minute", 1), "00");
+  assert.equal(stepTimePart("07", "minute", 1), "10");
+  assert.equal(stepTimePart("00", "minute", -1), "55");
+  // The field opens one hour ahead (rounded to 5), or 15 minutes ahead near the reset.
+  assert.deepEqual(defaultPickerTime(now, reset), { hour: "15", minute: "10" });
+  assert.deepEqual(defaultPickerTime(local(22, 47), reset), { hour: "23", minute: "05" });
+}
+
 run();
 runObjectsGridSmoke();
 runReminderRowsSmoke();
 runBonusStarsSmoke();
 runReminderClockSmoke();
+runReminderTimeSmoke();

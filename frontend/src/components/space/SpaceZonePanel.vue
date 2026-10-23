@@ -124,6 +124,7 @@ import {
 } from "@/lib/livingSpacePanel";
 import { challengeIconCandidates } from "@/lib/challengeIconKeys";
 import { reminderSummary, zoneReminders } from "@/lib/reminderRows";
+import { customReminderAt, defaultPickerTime } from "@/lib/reminderTime";
 import { TILE_STATE, objectCardCopy, objectTiles, tileTapResult } from "@/lib/objectsGrid";
 import { zoneObjects } from "@/lib/roomScene";
 import roomLayout from "@/assets/room/room_layout.json";
@@ -802,8 +803,10 @@ watch(
   },
 );
 
+// Compared as a string: an array getter would fire on every re-evaluation (the minute tick), closing
+// an open choice panel, such as the B35 time field, while the user is still filling it in.
 watch(
-  () => [props.mode, selectedMission.value?.id],
+  () => `${props.mode}|${selectedMission.value?.id ?? ""}`,
   () => {
     closeRingoChoicePanel();
   },
@@ -1079,11 +1082,15 @@ function openRingoChoicePanel(type, mission) {
       type,
       mission,
       prompt: t("missions.remindOptions.prompt"),
-      options: REMINDER_OPTION_KEYS.map((key) => ({
-        key,
-        label: t(`missions.remindOptions.${key}`),
-        reminderAt: reminderAtForOption(key).toISOString(),
-      })),
+      options: [
+        ...REMINDER_OPTION_KEYS.map((key) => ({
+          key,
+          label: t(`missions.remindOptions.${key}`),
+          reminderAt: reminderAtForOption(key).toISOString(),
+        })),
+        // B35 (D69): a custom time today.
+        { key: "pickTime", label: t("missions.remindOptions.pickTime"), pickTime: true },
+      ],
     };
     return;
   }
@@ -1109,6 +1116,34 @@ function handleRingoChoice(option) {
   const panel = ringoChoicePanel.value;
   const mission = panel?.mission;
   if (!panel || !mission || selectedMissionLoading.value) return;
+
+  // B35 (D69): Pick a time. The field opens one hour ahead; a time at or after the day reset
+  // (or already past, which means tomorrow) is refused with a gentle line and sets nothing.
+  if (panel.type === "reminder" && option?.pickTime) {
+    ringoChoicePanel.value = { ...panel, picker: { ...defaultPickerTime(), error: "" } };
+    return;
+  }
+
+  if (panel.type === "reminder" && option?.key === "back-quick") {
+    ringoChoicePanel.value = { ...panel, picker: null };
+    return;
+  }
+
+  if (panel.type === "reminder" && option?.key === "edit-time") {
+    if (panel.picker?.error) ringoChoicePanel.value = { ...panel, picker: { ...panel.picker, error: "" } };
+    return;
+  }
+
+  if (panel.type === "reminder" && option?.key === "set-time") {
+    const result = customReminderAt({ hour: option.hour, minute: option.minute });
+    if (!result.ok) {
+      ringoChoicePanel.value = { ...panel, picker: { hour: option.hour, minute: option.minute, error: result.reason } };
+      return;
+    }
+    closeRingoChoicePanel();
+    emit("remind-mission", { mission, reminderAt: result.at.toISOString(), optionKey: "custom" });
+    return;
+  }
 
   if (panel.type === "reminder") {
     closeRingoChoicePanel();
