@@ -574,6 +574,8 @@ export default {
       muteMusic: "Mute music",
       unmuteMusic: "Unmute music",
       mainMission: "Main mission",
+      extraStep: "Extra step",
+      smallerStep: "Smaller step",
       noteLabel: "Note (optional)",
       done: "Done",
       cancel: "Cancel",

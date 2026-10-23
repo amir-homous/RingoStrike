@@ -859,8 +859,9 @@ function completeAction(mission) {
     disabled: selectedMissionLoading.value,
     type: "complete-mission",
     mission,
-    // B27: main missions get the split action; tiny and bonus keep the single button.
-    split: missionIntensity(mission) === "main",
+    // B27: the split action ("Do it now" opens Focus, "Already did it" the quick-done flow); since
+    // the B33 fixes Bonus and Tiny missions get it too, so every kind can use Focus.
+    split: true,
     submitting: selectedMissionLoading.value,
   };
 }

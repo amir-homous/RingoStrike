@@ -574,6 +574,8 @@ export default {
       muteMusic: "قطع موسیقی",
       unmuteMusic: "پخش موسیقی",
       mainMission: "مأموریت اصلی",
+      extraStep: "قدم اضافه",
+      smallerStep: "قدم کوچیک‌تر",
       noteLabel: "یادداشت (اختیاری)",
       done: "تموم شد",
       cancel: "لغو",
