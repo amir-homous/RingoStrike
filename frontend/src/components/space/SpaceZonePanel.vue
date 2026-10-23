@@ -117,7 +117,8 @@ import ReminderRow from "./ReminderRow.vue";
 import ZoneTodayStrip from "./ZoneTodayStrip.vue";
 import {
   bonusOfferCandidates,
-  pickFocusMission,
+  focusMission,
+  smallerStepFor,
   ringoCardState,
   shouldOfferBonus,
   todayMainDone,
@@ -334,12 +335,23 @@ const mainMissionDone = computed(() => {
 });
 
 const selectedMission = computed(() => {
-  return pickFocusMission(visibleSelectedMissions.value, {
+  return focusMission(visibleSelectedMissions.value, {
     dueMission: props.challengePicked ? null : missionForReminder(props.dueReminderFocus),
-    pickedId: props.pickedMissionId ?? selectedMissionId.value ?? props.requestedMissionId,
-    explicitPick: Boolean(props.pickedMissionId),
+    pawPickId: props.pickedMissionId,
+    selectedId: selectedMissionId.value,
+    requestedId: props.requestedMissionId,
+    // B33 fix: "Make it smaller" picked this step; it wins over a tapped paw and a due reminder.
+    smallerId: requestedTinyMission.value?.id ?? null,
   });
 });
+
+// A new paw tap after "Make it smaller" moves the focus to that paw again.
+watch(
+  () => props.pickedMissionId,
+  () => {
+    if (requestedTinyMission.value) selectedMissionId.value = null;
+  },
+);
 
 const challengeMission = computed(() => {
   return props.zone?.action?.challenge?.mission || null;
@@ -1310,14 +1322,7 @@ function missionCanCompleteInShell(mission) {
 }
 
 function findTinyMissionFor(mission) {
-  if (!mission || missionIntensity(mission) === "tiny") return null;
-
-  return (selectedPathChallenge.value?.missions || []).find((candidate) => {
-    return missionIntensity(candidate) === "tiny"
-      && String(candidate.parentMissionId || "") === String(mission.id || "")
-      && !missionDone(candidate)
-      && !missionSkipped(candidate);
-  }) || null;
+  return smallerStepFor(mission, selectedPathChallenge.value?.missions || []);
 }
 
 function canUseMissionSupportActions(mission) {

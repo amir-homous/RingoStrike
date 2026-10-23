@@ -72,7 +72,9 @@ import {
 import {
   bonusOfferCandidates,
   buildTodayMissionRows,
+  focusMission,
   pickFocusMission,
+  smallerStepFor,
   reminderTimeLeft,
   ringoCardState,
   shouldOfferBonus,
@@ -1027,6 +1029,67 @@ function runReminderIconSmoke() {
   assert.equal(reminderIconKey({}), "");
 }
 
+// B33 fix: "Make it smaller" over every seeded mission. The button is visible if and only if pressing it
+// makes the smaller step the focus, also when the mission was opened by tapping its paw or a reminder
+// is due in the corner (before the fix the press did nothing in those two cases).
+function runSmallerStepSmoke() {
+  const seed = readFileSync(new URL("../../backend/services/path_seed_service.py", import.meta.url), "utf8");
+  const challenges = [];
+  for (const block of seed.split(/^ {16}"name": "/m).slice(1)) {
+    const name = block.slice(0, block.indexOf('"'));
+    const list = block.slice(block.indexOf('"missions": ['), block.indexOf("\n                ],"));
+    const missions = [];
+    let index = 0;
+    for (const line of list.split("\n")) {
+      const plain = /^\s+\("([a-z0-9-]+)", "([^"]+)"/.exec(line);
+      const special = /_(tiny|bonus)_mission\("([a-z0-9-]+)", "([a-z0-9-]+)", "([^"]+)"/.exec(line);
+      if (special) missions.push({ id: special[3], title: special[4], intensity: special[1], parentMissionId: special[2], unlockAfterDays: 0 });
+      else if (plain) missions.push({ id: plain[1], title: plain[2], intensity: "main", parentMissionId: null, unlockAfterDays: index++ });
+    }
+    challenges.push({ name, missions });
+  }
+  assert.equal(challenges.length, 15, "15 seeded challenges");
+  const rows = [];
+  for (const day of [1, 3]) {
+    for (const challenge of challenges) {
+      const missions = challenge.missions.map((m) => ({ ...m, status: "pending", availableToday: m.unlockAfterDays < day }));
+      // The room shows main and bonus missions, and a tiny only once it is asked for.
+      const shown = missions.filter((m) => m.intensity !== "tiny");
+      for (const mission of shown.filter((m) => m.availableToday)) {
+        const step = smallerStepFor(mission, missions);
+        const others = shown.filter((m) => m.id !== mission.id && m.availableToday);
+        const scenarios = [
+          { label: "focus by default", options: { requestedId: mission.id } },
+          { label: "paw tapped", options: { pawPickId: mission.id } },
+          { label: "reminder due elsewhere", options: { pawPickId: mission.id, dueMission: others[0] || null } },
+          { label: "reminder due elsewhere, no paw", options: { selectedId: mission.id, dueMission: others[0] || null } },
+        ];
+        for (const { label, options } of scenarios) {
+          const before = focusMission(shown, options);
+          if (!step) {
+            // Hidden: there is nothing to make smaller (no smaller step, or this is one).
+            assert.ok(!missions.some((m) => m.intensity === "tiny" && m.parentMissionId === mission.id && m.availableToday), `${challenge.name} ${mission.id}: hidden only without a smaller step`);
+            continue;
+          }
+          // Visible: pressing it shows the smaller step as the focus, whatever the pick state.
+          const after = focusMission([...shown, step], { ...options, smallerId: step.id });
+          assert.equal(after?.id, step.id, `${challenge.name} ${mission.id} (${label}, day ${day}): the smaller step is the focus`);
+          assert.notEqual(before?.id, step.id);
+        }
+        if (day === 1) rows.push(`${challenge.name}: ${mission.id} [${mission.intensity}] -> ${step ? step.id : "no button"}`);
+      }
+    }
+  }
+  // A tiny step itself, a done or skipped smaller step: no button.
+  const base = [{ id: "a", intensity: "main" }, { id: "a-tiny", intensity: "tiny", parentMissionId: "a", availableToday: true }];
+  assert.equal(smallerStepFor(base[1], base), null, "already the smaller step");
+  assert.equal(smallerStepFor(base[0], [base[0], { ...base[1], status: "done" }]), null, "smaller step done");
+  assert.equal(smallerStepFor(base[0], [base[0], { ...base[1], status: "skipped" }]), null, "smaller step skipped");
+  assert.equal(smallerStepFor(base[0], [base[0], { ...base[1], availableToday: false }]), null, "smaller step not open today");
+  assert.equal(smallerStepFor(base[0], base).id, "a-tiny");
+  assert.equal(rows.filter((row) => !row.endsWith("no button")).length, 15, "one smaller step per challenge on day 1");
+}
+
 run();
 runObjectsGridSmoke();
 runReminderRowsSmoke();
@@ -1034,3 +1097,4 @@ runBonusStarsSmoke();
 runReminderClockSmoke();
 runReminderTimeSmoke();
 runReminderIconSmoke();
+runSmallerStepSmoke();

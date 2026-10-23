@@ -152,6 +152,33 @@ export function pickFocusMission(missions = [], { dueMission = null, pickedId = 
 
 // Bonus missions that can be offered: available today, not done or skipped, in a joined
 // challenge whose main step (or tiny substitute) is done today.
+// B33 fix ("Make it smaller"): a mission's smaller step, or null. Only a main or bonus mission can
+// have one (a tiny step is already the smaller step), it must point at this mission, be open today
+// and not be done or skipped. The button shows only when this returns a step.
+export function smallerStepFor(mission, missions = []) {
+  if (!mission?.id || missionIntensity(mission) === "tiny") return null;
+  return missions.find((candidate) => {
+    return missionIntensity(candidate) === "tiny"
+      && sameId(candidate?.parentMissionId, mission.id)
+      && candidate?.availableToday !== false
+      && !missionDone(candidate)
+      && missionStatus(candidate) !== "skipped";
+  }) || null;
+}
+
+// The zone's focus mission. "Make it smaller" is an explicit choice: the chosen smaller step wins over
+// a tapped paw and a due reminder (before this fix it lost to both, so the button did nothing there).
+export function focusMission(missions = [], { dueMission = null, pawPickId = null, selectedId = null, requestedId = null, smallerId = null } = {}) {
+  if (smallerId && missions.some((mission) => sameId(mission?.id, smallerId))) {
+    return pickFocusMission(missions, { dueMission, pickedId: smallerId, explicitPick: true });
+  }
+  return pickFocusMission(missions, {
+    dueMission,
+    pickedId: pawPickId ?? selectedId ?? requestedId,
+    explicitPick: Boolean(pawPickId),
+  });
+}
+
 export function bonusOfferCandidates(challenges = []) {
   return challenges.flatMap((challenge) => {
     const missions = challenge?.missions || [];
