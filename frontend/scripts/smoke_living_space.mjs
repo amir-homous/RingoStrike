@@ -38,6 +38,7 @@ import {
   writeFocusStart,
 } from "../src/lib/missionActionFlow.js";
 import { formatClock } from "../src/lib/i18nNumbers.js";
+import { MAX_PATH_STARS, bonusDoneByChallenge, bonusDoneByPath, challengeStarPoints, isBonusDoneToday, pathStarCount } from "../src/lib/bonusStars.js";
 import { challengeReminderChip, reminderClockTime, reminderRowState, reminderSummary, zoneReminders } from "../src/lib/reminderRows.js";
 import {
   KIND_SILHOUETTES,
@@ -895,6 +896,49 @@ function runReminderRowsSmoke() {
   assert.equal(challengeReminderChip(undefined), "");
 }
 
+// B36 (#408, D70): Bonus star counts from today's missions, and where the stars sit.
+function runBonusStarsSmoke() {
+  const m = (id, challenge, path, intensity, status) => ({ mission_id: id, challenge_id: challenge, path_key: path, mission_intensity: intensity, status });
+  const today = [
+    m(1, 10, "career", "main", "done"),
+    m(2, 10, "career", "bonus", "done"),
+    m(3, 11, "career", "bonus", "done"),
+    m(4, 11, "career", "bonus", "pending"),
+    m(5, 20, "fitness", "bonus", "done"),
+    m(6, 20, "fitness", "bonus", "completed"),
+    m(7, 20, "fitness", "bonus", "done"),
+    m(8, 30, "learning", "tiny", "done"),
+    m(9, 30, "learning", "bonus", "skipped"),
+  ];
+  assert.equal(isBonusDoneToday(today[1]), true);
+  assert.equal(isBonusDoneToday(today[0]), false, "main is not a Bonus");
+  assert.equal(isBonusDoneToday(today[3]), false, "pending Bonus has no star");
+  assert.equal(isBonusDoneToday(today[8]), false, "skipped Bonus has no star");
+  // 0 to 3 per challenge; the counts match the data.
+  const byChallenge = bonusDoneByChallenge(today);
+  assert.equal(byChallenge.get("10"), 1);
+  assert.equal(byChallenge.get("11"), 1);
+  assert.equal(byChallenge.get("20"), 3);
+  assert.equal(byChallenge.get("30"), undefined, "no Bonus done: no stars");
+  assert.deepEqual(bonusDoneByPath(today), { career: 2, fitness: 3 });
+  assert.deepEqual(bonusDoneByPath(today, (x) => (x.challenge_id === 20 ? "fitness" : "")), { fitness: 3 });
+  // A new day: today's missions are fresh, so every star is gone.
+  assert.equal(bonusDoneByChallenge([]).size, 0);
+  assert.deepEqual(bonusDoneByPath(null), {});
+  // Star positions on a 44px ring: top left only (x and y in the top-left quadrant), never near the
+  // reminder chip (top right) or the badge (bottom right).
+  for (const count of [0, 1, 2, 3, 5]) {
+    const points = challengeStarPoints(count, 44);
+    assert.equal(points.length, Math.min(count, 3));
+    for (const p of points) assert.ok(p.x < 22 && p.y < 22, `star at ${JSON.stringify(p)}`);
+  }
+  assert.equal(pathStarCount(0), 0);
+  assert.equal(pathStarCount(2), 2);
+  assert.equal(pathStarCount(99), MAX_PATH_STARS);
+  assert.equal(pathStarCount("x"), 0);
+}
+
 run();
 runObjectsGridSmoke();
 runReminderRowsSmoke();
+runBonusStarsSmoke();

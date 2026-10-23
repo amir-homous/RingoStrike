@@ -304,6 +304,11 @@ export default {
     firstRewardLocked: "First reward: complete one non-bonus mission in this path to place {reward}.",
     nextRewardFirst: "Next action: complete a main mission in this path to unlock {reward}.",
     nextRewardFuture: "Future visible change: {reward}. For now, this is only a preview.",
+    // B36 (D70): Bonus stars (aria-labels).
+    bonusStars: {
+      challenge: "{count} Bonus step done today | {count} Bonus steps done today",
+      path: "{count} Bonus step done today in this path | {count} Bonus steps done today in this path",
+    },
     // B33 (D65, D66): reminder rows.
     reminders: {
       zoneTitle: "Reminders in this corner",

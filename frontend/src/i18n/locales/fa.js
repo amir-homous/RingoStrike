@@ -304,6 +304,11 @@ export default {
     firstRewardLocked: "اولین پاداش: یک مأموریت غیربونوس از این مسیر انجام بده تا {reward} در اتاق قرار بگیرد.",
     nextRewardFirst: "قدم بعدی: یک مأموریت اصلی از این مسیر انجام بده تا {reward} باز شود.",
     nextRewardFuture: "تغییر قابل دیدن آینده: {reward}. فعلاً فقط پیش‌نمایش است.",
+    // B36 (D70): Bonus stars (aria-labels).
+    bonusStars: {
+      challenge: "{count} قدم اضافه امروز انجام شد",
+      path: "{count} قدم اضافه امروز در این مسیر انجام شد",
+    },
     // B33 (D65, D66): reminder rows.
     reminders: {
       zoneTitle: "یادآورهای این گوشه",

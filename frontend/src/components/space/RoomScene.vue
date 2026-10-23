@@ -184,6 +184,10 @@
                   />
                 </svg>
                 <span class="pmGlyph" :style="{ '--pm-icon': `url(${item.marker.iconUrl})` }" aria-hidden="true" />
+                <!-- B36 (D70): one gold star per Bonus finished today in this path, under the ring. -->
+                <span v-if="item.marker.stars" class="pmStars" aria-hidden="true">
+                  <svg v-for="n in item.marker.stars" :key="n" viewBox="0 0 10 10"><path :d="STAR_PATH" /></svg>
+                </span>
                 <span v-if="item.marker.allDoneToday" class="pmBadge" aria-hidden="true">
                   <svg viewBox="0 0 12 12"><path d="M2.6 6.3 5 8.6l4.4-5" /></svg>
                 </span>
@@ -263,6 +267,9 @@
                   <span v-if="item.kind === 'paw' && item.state === 'locked'" class="trayLock" aria-hidden="true">
                     <svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2" /><path d="M8 11V8a4 4 0 0 1 8 0v3" /></svg>
                   </span>
+                  <span v-for="(star, index) in item.stars || []" :key="`star-${index}`" class="trayStar" :style="star" aria-hidden="true">
+                    <svg viewBox="0 0 10 10"><path :d="STAR_PATH" /></svg>
+                  </span>
                   <span v-if="item.reminder" class="pawChip" :class="`is-${item.reminder}`" aria-hidden="true">
                     <svg v-if="item.reminder === 'telegram_off'" viewBox="0 0 16 16">
                       <path class="pmPlane" d="M14.2 2.3 1.9 7.1c-.5.2-.5.9 0 1.1l3 1 1.2 3.7c.1.4.7.5 1 .2l1.7-1.6 3.1 2.3c.4.3.9.1 1-.4l2.1-10.4c.1-.5-.4-.9-.8-.7ZM6.1 9.1l6.1-4.6-4.9 5.4-.3 2.1-.9-2.9Z" />
@@ -329,6 +336,7 @@ import { missionPawState, pagePaws, trayMissions, trayRows } from "@/lib/mission
 import pawGlyph from "@/assets/missions-icons/paw_glyph.png";
 import { REMINDER_CHIP, ringSegments } from "@/lib/pathMarker";
 import { challengeReminderChip } from "@/lib/reminderRows";
+import { CHALLENGE_STAR_ANGLES, MAX_CHALLENGE_STARS, pathStarCount } from "@/lib/bonusStars";
 
 const props = defineProps({
   zones: { type: Array, default: () => [] },
@@ -764,13 +772,20 @@ function pathMarkerExtents(state, ring) {
   const radius = ring / 2;
   const chip = state.reminder ? ring * 0.3 + 18 : 0;
   const badge = state.allDoneToday ? ring * 0.22 + 16 : 0;
+  // B36: the star row under the ring (.pmStars: 3px gap, 12px stars).
+  const stars = pathStarCount(state.bonusDone) ? radius + PM_STAR_GAP + PM_STAR : 0;
+  const starsHalf = pathStarCount(state.bonusDone) * (PM_STAR + 3) / 2;
   return {
-    left: radius,
-    right: Math.max(radius, chip, badge),
+    left: Math.max(radius, starsHalf),
+    right: Math.max(radius, chip, badge, starsHalf),
     up: Math.max(radius, chip),
-    down: Math.max(radius, badge),
+    down: Math.max(radius, badge, stars),
   };
 }
+
+const PM_STAR = 12;
+const PM_STAR_GAP = 3;
+const STAR_PATH = "M5 0l1.2 3.8L10 5 6.2 6.2 5 10 3.8 6.2 0 5l3.8-1.2z";
 
 const PM_CLAMP_INSET = 4;
 
@@ -787,6 +802,7 @@ function pathMarkerView(zone, data, s, clampTo = null) {
     ? t("space.scene.pathMarker.noneJoined")
     : t("space.scene.pathMarker.doneToday", { done: state.doneToday, joined: state.joined }));
   if (PM_REMINDER_KEYS[state.reminder]) parts.push(t(PM_REMINDER_KEYS[state.reminder]));
+  if (state.bonusDone > 0) parts.push(t("space.bonusStars.path", { count: state.bonusDone }));
   parts.push(t("space.scene.objectsPlaced", { count: placed }));
 
   const extent = pathMarkerExtents(state, ring);
@@ -802,6 +818,7 @@ function pathMarkerView(zone, data, s, clampTo = null) {
   return {
     ...state,
     ring: state.segments.map((segment, index) => ({ ...segment, ...geometry[index] })),
+    stars: pathStarCount(state.bonusDone),
     ariaLabel: parts.filter(Boolean).join(t("common.listSeparator")),
     top: cy - extent.up,
     bottom: cy + extent.down,
@@ -887,6 +904,9 @@ function challengeEntry(challenge, selected) {
   const reminder = challengeReminderChip(challenge.missions);
   const parts = [t(`space.scene.tray.${state}`, { name, n: day })];
   if (PM_REMINDER_ARIA[reminder]) parts.push(t(PM_REMINDER_ARIA[reminder]));
+  // B36 (D70): one gold star per Bonus finished today, on the top left of the ring.
+  const bonusDone = Number(challenge.bonusDone || 0);
+  if (bonusDone > 0) parts.push(t("space.bonusStars.challenge", { count: bonusDone }));
   return {
     kind: "challenge",
     key: `challenge-${challenge.id}`,
@@ -897,6 +917,14 @@ function challengeEntry(challenge, selected) {
     iconUrl: resolveChallengeIcon({ icon_key: challenge.iconKey, name: challenge.name }),
     dayText: t("space.scene.tray.day", { n: day }),
     reminder,
+    stars: CHALLENGE_STAR_ANGLES.slice(0, Math.min(MAX_CHALLENGE_STARS, bonusDone)).map((deg) => {
+      const a = (deg * Math.PI) / 180;
+      // On the ring (inset 4px * --tray-k), centred on the arc.
+      return {
+        left: `calc(50% + (50% - 4px * var(--tray-k)) * ${Math.cos(a).toFixed(4)})`,
+        top: `calc(50% + (50% - 4px * var(--tray-k)) * ${Math.sin(a).toFixed(4)})`,
+      };
+    }),
     ariaLabel: parts.join(t("common.listSeparator")),
   };
 }
@@ -1975,6 +2003,46 @@ onUnmounted(() => {
 }
 
 /* Every joined challenge done today: check badge on the ring, bottom right. */
+/* B36: Bonus stars, a row under the path ring (gold, like "Bonus done" elsewhere). */
+.pmStars {
+  position: absolute;
+  left: 50%;
+  top: calc(50% + var(--pm-ring) / 2 + 3px);
+  display: flex;
+  gap: 3px;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.pmStars svg,
+.trayStar svg {
+  width: 12px;
+  height: 12px;
+  fill: #f7d774;
+  stroke: #7a5d10;
+  stroke-width: 0.5;
+}
+
+/* B36: a star on the challenge ring, top left (the chip is top right, the badge bottom right). */
+.trayStar {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  width: calc(16px * var(--tray-k));
+  height: calc(16px * var(--tray-k));
+  box-sizing: border-box;
+  border-radius: 50%;
+  background: #0b0e14;
+  border: 1.5px solid #f7d774;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.trayStar svg {
+  width: calc(10px * var(--tray-k));
+  height: calc(10px * var(--tray-k));
+}
+
 .pmBadge {
   position: absolute;
   left: calc(50% + var(--pm-ring) * 0.22);

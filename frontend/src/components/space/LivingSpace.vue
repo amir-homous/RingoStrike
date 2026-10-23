@@ -161,6 +161,7 @@ import {
 import { localizeChallenge, localizePath } from "@/lib/ringoContentLocalization";
 import { createMaterializeQueue, materializeCandidates, materializeTimeline } from "@/lib/roomMaterialize";
 import { PATH_ICON_FALLBACK, pathMarkerState, telegramReady } from "@/lib/pathMarker";
+import { bonusDoneByChallenge, bonusDoneByPath } from "@/lib/bonusStars";
 import { missionReminderChip } from "@/lib/missionTray";
 import { missionIconUrl, resolvePathIcon } from "@/utils/missionMomentumUtils";
 import { humanizeJoinError, submitJoinFlow } from "@/views/challengeFlow";
@@ -287,6 +288,8 @@ const displayZones = computed(() => {
           telegram: telegramReady(props.telegramSettings),
         }),
         title: pathDetail?.title || zone.pathName || zone.title,
+        // B36 (D70): Bonus steps finished today in this path (a row of stars under the icon).
+        bonusDone: bonusDoneToday.value.byPath[zonePathKey] || 0,
         iconUrl: resolvePathIcon(pathDetail?.icon || PATH_ICON_FALLBACK[zonePathKey] || zonePathKey),
       },
     };
@@ -972,6 +975,8 @@ function buildPathChallenge(challenge, zone) {
     missionCount: missionProgress.total,
     doneCount: missionProgress.done,
     estimatedDays: Number(challenge?.estimated_days || challenge?.duration_days || 0),
+    // B36 (D70): Bonus finished today in this challenge (stars on its ring).
+    bonusDone: bonusDoneToday.value.byChallenge.get(String(challenge?.challenge_id ?? "")) || 0,
     missions,
   };
 }
@@ -1130,6 +1135,13 @@ const dueReminderCountByPath = computed(() => {
 });
 
 const futureReminderCount = computed(() => scheduledReminders.value.length);
+
+// B36 (D70): today's finished Bonus steps per challenge and per path, from /me/today-missions
+// (daily like the rest, D44).
+const bonusDoneToday = computed(() => ({
+  byChallenge: bonusDoneByChallenge(props.missions),
+  byPath: bonusDoneByPath(props.missions, missionPathKey),
+}));
 
 const dailyMomentum = computed(() => {
   const missions = props.missions || [];
