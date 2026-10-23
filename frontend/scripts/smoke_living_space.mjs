@@ -38,6 +38,10 @@ import {
   writeFocusStart,
 } from "../src/lib/missionActionFlow.js";
 import { formatClock } from "../src/lib/i18nNumbers.js";
+import { MAX_PATH_STARS, bonusDoneByChallenge, bonusDoneByPath, challengeStarPoints, isBonusDoneToday, pathStarCount } from "../src/lib/bonusStars.js";
+import { customReminderAt, defaultPickerTime, latinDigits, nextResetAt, parseTimePart, stepTimePart } from "../src/lib/reminderTime.js";
+import { CLOCK_STATE, reminderClockState } from "../src/lib/reminderClock.js";
+import { challengeReminderChip, reminderIconKey, reminderClockTime, reminderRowState, reminderSummary, zoneReminders } from "../src/lib/reminderRows.js";
 import {
   KIND_SILHOUETTES,
   TILE_STATE,
@@ -68,7 +72,9 @@ import {
 import {
   bonusOfferCandidates,
   buildTodayMissionRows,
+  focusMission,
   pickFocusMission,
+  smallerStepFor,
   reminderTimeLeft,
   ringoCardState,
   shouldOfferBonus,
@@ -858,5 +864,237 @@ function runObjectsGridSmoke() {
   assert.equal(objectCardCopy(tiles[0], { pathName: "Career", t: (key, p) => `${key}|${p.date}|${p.path}` }), "space.objectGrid.placedFirst|October 20, 2026|Career");
 }
 
+// B33 (#405, D65 to D67): zone-only reminders, row content and the challenge chip.
+function runReminderRowsSmoke() {
+  const t0 = Date.UTC(2026, 9, 23, 16, 0);
+  const items = [
+    { id: 1, pathKey: "career", title: "Send one message", timestamp: t0 + 3600e3, due: false },
+    { id: 2, pathKey: "fitness", title: "Move", timestamp: t0 + 600e3, due: false },
+    { id: 3, pathKey: "career", title: "Focus block", timestamp: t0 - 60e3, due: true },
+    { id: 4, pathKey: "focus", title: "Legacy key", timestamp: t0 + 7200e3, due: false },
+  ];
+  // D65: only the zone's own reminders, due first then by time; legacy path keys alias.
+  assert.deepEqual(zoneReminders(items, { path_key: "career" }).map((r) => r.id), [3, 1, 4]);
+  assert.deepEqual(zoneReminders(items, { path_key: "fitness" }).map((r) => r.id), [2]);
+  assert.deepEqual(zoneReminders(items, { path_key: "sleep" }), [], "no reminders: the row is hidden");
+  assert.deepEqual(zoneReminders(items, null), []);
+  assert.deepEqual(zoneReminders(null, { path_key: "career" }), []);
+  assert.deepEqual(reminderSummary(zoneReminders(items, { path_key: "career" })), { due: 1, later: 2 });
+  assert.deepEqual(reminderSummary([]), { due: 0, later: 0 });
+
+  // D66: the trailing chip. Telegram unknown never claims "off".
+  assert.equal(reminderRowState({ due: true }, { telegram: false }), "due");
+  assert.equal(reminderRowState({ due: false }, { telegram: false }), "telegram_off");
+  assert.equal(reminderRowState({ due: false }, { telegram: true }), "set");
+  assert.equal(reminderRowState({ due: false }, { telegram: null }), "set");
+  // The time in 24 hours, locale digits (the test runs in UTC).
+  assert.match(reminderClockTime(t0 + 30 * 60e3, "en"), /^\d{2}:\d{2}$/);
+  assert.match(reminderClockTime(t0, "fa"), /^[\u06F0-\u06F9]{2}:[\u06F0-\u06F9]{2}$/);
+  assert.equal(reminderClockTime(Number.POSITIVE_INFINITY), "");
+
+  // D67: a challenge's chip from its missions: due > Telegram off > set; none -> "".
+  assert.equal(challengeReminderChip([{ reminder: "set" }, { reminder: "due" }, { reminder: "telegram_off" }]), "due");
+  assert.equal(challengeReminderChip([{ reminder: "set" }, { reminder: "telegram_off" }]), "telegram_off");
+  assert.equal(challengeReminderChip([{ reminder: "" }, { reminder: "set" }]), "set");
+  assert.equal(challengeReminderChip([{ reminder: "" }, {}]), "");
+  assert.equal(challengeReminderChip(undefined), "");
+}
+
+// B36 (#408, D70): Bonus star counts from today's missions, and where the stars sit.
+function runBonusStarsSmoke() {
+  const m = (id, challenge, path, intensity, status) => ({ mission_id: id, challenge_id: challenge, path_key: path, mission_intensity: intensity, status });
+  const today = [
+    m(1, 10, "career", "main", "done"),
+    m(2, 10, "career", "bonus", "done"),
+    m(3, 11, "career", "bonus", "done"),
+    m(4, 11, "career", "bonus", "pending"),
+    m(5, 20, "fitness", "bonus", "done"),
+    m(6, 20, "fitness", "bonus", "completed"),
+    m(7, 20, "fitness", "bonus", "done"),
+    m(8, 30, "learning", "tiny", "done"),
+    m(9, 30, "learning", "bonus", "skipped"),
+  ];
+  assert.equal(isBonusDoneToday(today[1]), true);
+  assert.equal(isBonusDoneToday(today[0]), false, "main is not a Bonus");
+  assert.equal(isBonusDoneToday(today[3]), false, "pending Bonus has no star");
+  assert.equal(isBonusDoneToday(today[8]), false, "skipped Bonus has no star");
+  // 0 to 3 per challenge; the counts match the data.
+  const byChallenge = bonusDoneByChallenge(today);
+  assert.equal(byChallenge.get("10"), 1);
+  assert.equal(byChallenge.get("11"), 1);
+  assert.equal(byChallenge.get("20"), 3);
+  assert.equal(byChallenge.get("30"), undefined, "no Bonus done: no stars");
+  assert.deepEqual(bonusDoneByPath(today), { career: 2, fitness: 3 });
+  assert.deepEqual(bonusDoneByPath(today, (x) => (x.challenge_id === 20 ? "fitness" : "")), { fitness: 3 });
+  // A new day: today's missions are fresh, so every star is gone.
+  assert.equal(bonusDoneByChallenge([]).size, 0);
+  assert.deepEqual(bonusDoneByPath(null), {});
+  // Star positions on a 44px ring: top left only (x and y in the top-left quadrant), never near the
+  // reminder chip (top right) or the badge (bottom right).
+  for (const count of [0, 1, 2, 3, 5]) {
+    const points = challengeStarPoints(count, 44);
+    assert.equal(points.length, Math.min(count, 3));
+    for (const p of points) assert.ok(p.x < 22 && p.y < 22, `star at ${JSON.stringify(p)}`);
+  }
+  assert.equal(pathStarCount(0), 0);
+  assert.equal(pathStarCount(2), 2);
+  assert.equal(pathStarCount(99), MAX_PATH_STARS);
+  assert.equal(pathStarCount("x"), 0);
+}
+
+// B34 (#406, D68): the reminder clock state rule.
+function runReminderClockSmoke() {
+  assert.equal(reminderClockState({ due: 0, later: 0 }), CLOCK_STATE.NONE, "no reminder: no clock");
+  assert.equal(reminderClockState({}), "");
+  assert.equal(reminderClockState(), "");
+  assert.equal(reminderClockState({ due: 0, later: 2 }), "set", "set: a calm clock");
+  assert.equal(reminderClockState({ due: 1, later: 0 }), "ringing", "due: it rings");
+  assert.equal(reminderClockState({ due: 1, later: 3 }), "ringing", "due beats set");
+  assert.equal(reminderClockState({ due: "x", later: "2" }), "set");
+}
+
+// B35 (#407, D69): Pick a time: Latin digits, the reset rule (next UTC midnight), past = tomorrow.
+function runReminderTimeSmoke() {
+  // Built from local clock times so the test holds in any timezone.
+  const local = (h, m) => { const d = new Date(2026, 9, 23, h, m, 0, 0); return d; };
+  const now = local(14, 10);
+  const reset = local(23, 30); // stands in for the next UTC midnight
+  assert.equal(nextResetAt(new Date(Date.UTC(2026, 9, 23, 20, 15))).toISOString(), "2026-10-24T00:00:00.000Z");
+  assert.equal(nextResetAt(new Date(Date.UTC(2026, 9, 23, 0, 0))).toISOString(), "2026-10-24T00:00:00.000Z");
+
+  // Valid: later today, before the reset.
+  const ok = customReminderAt({ hour: "20", minute: "30" }, { now, nextReset: reset });
+  assert.equal(ok.ok, true);
+  assert.equal(ok.at.getHours(), 20);
+  assert.equal(ok.at.getMinutes(), 30);
+  // Persian digits typed in are read as Latin.
+  assert.equal(customReminderAt({ hour: "۲۰", minute: "۰۵" }, { now, nextReset: reset }).at.getMinutes(), 5);
+  // Refused: at or after the reset; a time already past means tomorrow (after the reset too).
+  assert.deepEqual(customReminderAt({ hour: "23", minute: "30" }, { now, nextReset: reset }), { ok: false, reason: "after_reset" });
+  assert.deepEqual(customReminderAt({ hour: "23", minute: "45" }, { now, nextReset: reset }), { ok: false, reason: "after_reset" });
+  assert.deepEqual(customReminderAt({ hour: "09", minute: "00" }, { now, nextReset: reset }), { ok: false, reason: "after_reset" });
+  assert.deepEqual(customReminderAt({ hour: "14", minute: "10" }, { now, nextReset: reset }), { ok: false, reason: "after_reset" }, "now is not later");
+  // A reset after local midnight (UTC+3:30: 03:30 local): 00:45 tomorrow is still before it.
+  const lateNow = local(23, 50);
+  const lateReset = new Date(local(23, 50).getTime() + (3 * 60 + 40) * 60e3); // 03:30 next day
+  const night = customReminderAt({ hour: "00", minute: "45" }, { now: lateNow, nextReset: lateReset });
+  assert.equal(night.ok, true, "after local midnight but before the reset");
+  assert.deepEqual(customReminderAt({ hour: "03", minute: "45" }, { now: lateNow, nextReset: lateReset }), { ok: false, reason: "after_reset" });
+  // Invalid input.
+  for (const [hour, minute] of [["24", "00"], ["12", "60"], ["", "10"], ["ab", "10"], ["1", "5x"]]) {
+    assert.deepEqual(customReminderAt({ hour, minute }, { now, nextReset: reset }), { ok: false, reason: "invalid" }, `${hour}:${minute}`);
+  }
+  assert.equal(latinDigits("۰۹:۴۵"), "09:45");
+  assert.equal(latinDigits("٠٩"), "09");
+  assert.equal(parseTimePart("7", 23), 7);
+  assert.equal(parseTimePart("123", 23), null);
+  // Arrows: hours wrap 0 to 23, minutes by 5 and wrap.
+  assert.equal(stepTimePart("23", "hour", 1), "00");
+  assert.equal(stepTimePart("00", "hour", -1), "23");
+  assert.equal(stepTimePart("55", "minute", 1), "00");
+  assert.equal(stepTimePart("07", "minute", 1), "10");
+  assert.equal(stepTimePart("00", "minute", -1), "55");
+  // The field opens one hour ahead (rounded to 5), or 15 minutes ahead near the reset.
+  assert.deepEqual(defaultPickerTime(now, reset), { hour: "15", minute: "10" });
+  assert.deepEqual(defaultPickerTime(local(22, 47), reset), { hour: "23", minute: "05" });
+}
+
+// B33 fix: every seeded challenge's reminder row resolves its own icon in EN and FA (the FA rows carry
+// a translated challenge name), from the backend seed file, with the generic icon only as a fallback.
+function runReminderIconSmoke() {
+  const seed = readFileSync(new URL("../../backend/services/path_seed_service.py", import.meta.url), "utf8");
+  const names = [...seed.matchAll(/^ {16}"name": "([^"]+)",$/gm)].map((match) => match[1]);
+  assert.equal(names.length, 15, `15 seeded challenges, found ${names.length}`);
+  const icons = new URL("../src/assets/challenge-icons/", import.meta.url);
+  for (const name of names) {
+    const key = challengeIconKey(name);
+    assert.ok(existsSync(new URL(`${key}.png`, icons)), `${name}: icon file ${key}.png`);
+    // EN: the English name.
+    assert.equal(reminderIconKey({ challengeName: name }), key, `EN ${name}`);
+    // FA: a mission localized the way the room gets it (Persian name plus its stable key).
+    // The challenge's first seeded mission key (the room localizes real missions).
+    const block = seed.slice(seed.indexOf(`"name": "${name}"`));
+    const missionKey = /\("([a-z0-9-]+)", "/.exec(block)[1];
+    const fa = localizeMission({ key: missionKey, title: "x", challenge_name: name }, "fa");
+    assert.notEqual(fa.challenge_name, name, `${name} is translated in FA`);
+    assert.equal(reminderIconKey({ challengeName: fa.challenge_name, challengeIconKey: fa.challenge_icon_key }), key, `FA ${name}`);
+    // FA without the stable key: the Persian name maps back (catalogue and fallback names).
+    assert.equal(reminderIconKey({ challengeName: fa.challenge_name }), key, `FA name only ${name}`);
+    const faChallenge = localizeChallenge({ name }, "fa");
+    assert.equal(reminderIconKey({ challengeName: faChallenge.name }), key, `FA challenge name ${name}`);
+  }
+  // Legacy ids 30 to 44 still map; an unknown name gives "" (the generic icon).
+  assert.equal(reminderIconKey({ challengeName: "", challengeId: 30 }), "deep-work-sprint");
+  assert.equal(reminderIconKey({ challengeName: "چالش ناشناخته" }), "");
+  assert.equal(reminderIconKey({}), "");
+}
+
+// B33 fix: "Make it smaller" over every seeded mission. The button is visible if and only if pressing it
+// makes the smaller step the focus, also when the mission was opened by tapping its paw or a reminder
+// is due in the corner (before the fix the press did nothing in those two cases).
+function runSmallerStepSmoke() {
+  const seed = readFileSync(new URL("../../backend/services/path_seed_service.py", import.meta.url), "utf8");
+  const challenges = [];
+  for (const block of seed.split(/^ {16}"name": "/m).slice(1)) {
+    const name = block.slice(0, block.indexOf('"'));
+    const list = block.slice(block.indexOf('"missions": ['), block.indexOf("\n                ],"));
+    const missions = [];
+    let index = 0;
+    for (const line of list.split("\n")) {
+      const plain = /^\s+\("([a-z0-9-]+)", "([^"]+)"/.exec(line);
+      const special = /_(tiny|bonus)_mission\("([a-z0-9-]+)", "([a-z0-9-]+)", "([^"]+)"/.exec(line);
+      if (special) missions.push({ id: special[3], title: special[4], intensity: special[1], parentMissionId: special[2], unlockAfterDays: 0 });
+      else if (plain) missions.push({ id: plain[1], title: plain[2], intensity: "main", parentMissionId: null, unlockAfterDays: index++ });
+    }
+    challenges.push({ name, missions });
+  }
+  assert.equal(challenges.length, 15, "15 seeded challenges");
+  const rows = [];
+  for (const day of [1, 3]) {
+    for (const challenge of challenges) {
+      const missions = challenge.missions.map((m) => ({ ...m, status: "pending", availableToday: m.unlockAfterDays < day }));
+      // The room shows main and bonus missions, and a tiny only once it is asked for.
+      const shown = missions.filter((m) => m.intensity !== "tiny");
+      for (const mission of shown.filter((m) => m.availableToday)) {
+        const step = smallerStepFor(mission, missions);
+        const others = shown.filter((m) => m.id !== mission.id && m.availableToday);
+        const scenarios = [
+          { label: "focus by default", options: { requestedId: mission.id } },
+          { label: "paw tapped", options: { pawPickId: mission.id } },
+          { label: "reminder due elsewhere", options: { pawPickId: mission.id, dueMission: others[0] || null } },
+          { label: "reminder due elsewhere, no paw", options: { selectedId: mission.id, dueMission: others[0] || null } },
+        ];
+        for (const { label, options } of scenarios) {
+          const before = focusMission(shown, options);
+          if (!step) {
+            // Hidden: there is nothing to make smaller (no smaller step, or this is one).
+            assert.ok(!missions.some((m) => m.intensity === "tiny" && m.parentMissionId === mission.id && m.availableToday), `${challenge.name} ${mission.id}: hidden only without a smaller step`);
+            continue;
+          }
+          // Visible: pressing it shows the smaller step as the focus, whatever the pick state.
+          const after = focusMission([...shown, step], { ...options, smallerId: step.id });
+          assert.equal(after?.id, step.id, `${challenge.name} ${mission.id} (${label}, day ${day}): the smaller step is the focus`);
+          assert.notEqual(before?.id, step.id);
+        }
+        if (day === 1) rows.push(`${challenge.name}: ${mission.id} [${mission.intensity}] -> ${step ? step.id : "no button"}`);
+      }
+    }
+  }
+  // A tiny step itself, a done or skipped smaller step: no button.
+  const base = [{ id: "a", intensity: "main" }, { id: "a-tiny", intensity: "tiny", parentMissionId: "a", availableToday: true }];
+  assert.equal(smallerStepFor(base[1], base), null, "already the smaller step");
+  assert.equal(smallerStepFor(base[0], [base[0], { ...base[1], status: "done" }]), null, "smaller step done");
+  assert.equal(smallerStepFor(base[0], [base[0], { ...base[1], status: "skipped" }]), null, "smaller step skipped");
+  assert.equal(smallerStepFor(base[0], [base[0], { ...base[1], availableToday: false }]), null, "smaller step not open today");
+  assert.equal(smallerStepFor(base[0], base).id, "a-tiny");
+  assert.equal(rows.filter((row) => !row.endsWith("no button")).length, 15, "one smaller step per challenge on day 1");
+}
+
 run();
 runObjectsGridSmoke();
+runReminderRowsSmoke();
+runBonusStarsSmoke();
+runReminderClockSmoke();
+runReminderTimeSmoke();
+runReminderIconSmoke();
+runSmallerStepSmoke();

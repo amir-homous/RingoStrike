@@ -304,6 +304,49 @@ export default {
     firstRewardLocked: "First reward: complete one non-bonus mission in this path to place {reward}.",
     nextRewardFirst: "Next action: complete a main mission in this path to unlock {reward}.",
     nextRewardFuture: "Future visible change: {reward}. For now, this is only a preview.",
+    // B36 (D70): Bonus stars (aria-labels).
+    bonusStars: {
+      challenge: "{count} Bonus step done today | {count} Bonus steps done today",
+      path: "{count} Bonus step done today in this path | {count} Bonus steps done today in this path",
+    },
+    // B35 (D69): Pick a time.
+    reminderTime: {
+      groupLabel: "Reminder time, hour and minute",
+      hourLabel: "Hour",
+      minuteLabel: "Minute",
+      hourLater: "One hour later",
+      hourEarlier: "One hour earlier",
+      minuteLater: "Five minutes later",
+      minuteEarlier: "Five minutes earlier",
+      hint: "Today only. Reminders end when the day resets.",
+      afterReset: "That is after the day resets. Pick an earlier time.",
+      invalid: "Enter an hour from 0 to 23 and minutes from 0 to 59.",
+      set: "Set reminder",
+      backQuick: "Back to the quick times",
+    },
+    // B34 (D68): the reminder clock and its list.
+    reminderClock: {
+      kicker: "Living space",
+      title: "Your reminders",
+      ringoTitle: "These are waiting for you.",
+      ringoBody: "I will nudge you at these times. Tap one to open it in its corner.",
+      emptyTitle: "No reminders right now.",
+      emptyBody: "When you choose Remind me later, it shows up here.",
+      back: "Back to the room",
+      ariaSet: "Reminder clock, {count} reminder later today. Show reminders | Reminder clock, {count} reminders later today. Show reminders",
+      ariaRinging: "Reminder clock is ringing, {due} due, {later} later. Show reminders",
+    },
+    // B33 (D65, D66): reminder rows.
+    reminders: {
+      zoneTitle: "Reminders in this corner",
+      summaryDue: "{count} due",
+      summaryLater: "{count} later",
+      now: "Now",
+      timeTelegramOff: "{time} · Telegram off",
+      rowDue: "{name}, {corner}, due now",
+      rowSet: "{name}, {corner}, reminder at {time}",
+      rowTelegramOff: "{name}, {corner}, reminder at {time}, Telegram is not connected",
+    },
     // B32 (D60 to D63): objects grid.
     objectGrid: {
       inRoomCount: "{count} in your room",
@@ -531,6 +574,8 @@ export default {
       muteMusic: "Mute music",
       unmuteMusic: "Unmute music",
       mainMission: "Main mission",
+      extraStep: "Extra step",
+      smallerStep: "Smaller step",
       noteLabel: "Note (optional)",
       done: "Done",
       cancel: "Cancel",
@@ -1033,6 +1078,7 @@ export default {
       oneHour: "In 1 hour",
       evening: "Evening",
       tonight: "Tonight",
+      pickTime: "Pick a time",
       customTime: "Custom time",
       customPrompt: "Choose a time",
       setCustom: "Set reminder",

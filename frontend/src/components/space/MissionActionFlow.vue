@@ -49,7 +49,7 @@
       </p>
 
       <div class="flowMission">
-        <span class="flowLabel">{{ t("space.missionAction.mainMission") }}</span>
+        <span class="flowLabel">{{ kindLabel }}</span>
         <strong>{{ mission?.title }}</strong>
         <ul v-if="microActions.length" class="flowMicro">
           <li v-for="(item, index) in microActions" :key="index">
@@ -92,7 +92,7 @@
         <strong><bdi dir="ltr">{{ durationClock }}</bdi></strong>
       </p>
       <p v-else class="flowMissionLine">
-        <span class="flowLabel">{{ t("space.missionAction.mainMission") }}</span>
+        <span class="flowLabel">{{ kindLabel }}</span>
         <strong>{{ mission?.title }}</strong>
       </p>
 
@@ -280,6 +280,14 @@ const microActions = computed(() => {
 });
 
 const paused = computed(() => Boolean(focus.value?.pausedAt));
+// The label above the mission title follows its kind: Main, Extra step (Bonus), Smaller step (Tiny).
+const kindLabel = computed(() => {
+  const kind = String(props.mission?.intensity || props.mission?.mission_intensity || "main").toLowerCase();
+  if (kind === "bonus") return t("space.missionAction.extraStep");
+  if (kind === "tiny") return t("space.missionAction.smallerStep");
+  return t("space.missionAction.mainMission");
+});
+
 const elapsedSeconds = computed(() => Math.floor(focusElapsedMs(focus.value, now.value) / 1000));
 const musicAvailable = computed(() => tracks.length > 0 && !musicFailed.value);
 const musicOn = computed(() => !muted.value && !musicBlocked.value);

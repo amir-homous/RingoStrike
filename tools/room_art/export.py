@@ -65,4 +65,7 @@ for y in range(bp.height):
         if a and (r,g,bb)!=P['ink']: q[x,y]=P['cyan']+(255,)
 bp.save(f'{OUT}/markers/bell_due.png'); sprites.glint().im.save(f'{OUT}/markers/glint.png')
 layout['markers']={'bell':'markers/bell.png','bell_due':'markers/bell_due.png','glint':'markers/glint.png','anchor':'center'}
+# B34 (D68): reminder clock next to Ringo's resting spot A, top-left anchor in base px. The art is
+# placeholder pixel art provided by Amir (assets/room/clock/), not drawn by this script.
+layout['reminder_clock']={'x':300,'y':196,'w':16,'h':18,'set':'clock/clock_set_16x18.png','ring':'clock/clock_ring_16x18.png'}
 json.dump(layout,open(f'{OUT}/room_layout.json','w'),indent=2)

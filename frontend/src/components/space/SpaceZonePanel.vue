@@ -84,44 +84,21 @@
 
       <p v-if="objectAnnouncement" class="srOnly" aria-live="polite">{{ objectAnnouncement }}</p>
 
-      <div class="zoneDetails">
-
-
-        <ZoneDetailsRow
-          v-if="hasReminders"
-          :row-id="`${zone.zone_key}-reminders`"
-          :title="t('space.panel.rowReminders')"
-          :meta="restReminderSummary"
-          :open="openRow === 'reminders'"
-          @toggle="toggleRow('reminders')"
-        >
-          <ul class="reminderList">
-            <li v-for="reminder in reminders" :key="reminder.id">
-              <button
-                type="button"
-                class="reminderItem"
-                :class="{ due: reminder.due }"
-                @click="reviewReminder(reminder)"
-              >
-                <img
-                  v-if="bellIcon"
-                  :src="bellIcon"
-                  alt=""
-                  class="reminderBell iconOnDark"
-                  aria-hidden="true"
-                />
-                <span class="reminderCopy">
-                  <strong>{{ reminder.title }}</strong>
-                  <small v-if="reminder.zoneTitle">
-                    {{ t("space.panel.reminderWhere", { zone: reminder.zoneTitle, path: reminder.pathName }) }}
-                  </small>
-                </span>
-                <span class="reminderTime">{{ reminderTimeLabel(reminder) }}</span>
-              </button>
-            </li>
-          </ul>
-        </ZoneDetailsRow>
-      </div>
+      <!-- B33 (D65, D66): only this zone's reminders, hidden when it has none. -->
+      <section v-if="zoneReminderList.length" class="zoneReminders" :aria-labelledby="`${zone.zone_key}-reminders-title`">
+        <div class="zoneRemindersHead">
+          <h4 :id="`${zone.zone_key}-reminders-title`">{{ t("space.reminders.zoneTitle") }}</h4>
+          <span>{{ zoneReminderSummary }}</span>
+        </div>
+        <div class="zoneReminderRows">
+          <ReminderRow
+            v-for="reminder in zoneReminderList"
+            :key="reminder.id"
+            :reminder="reminder"
+            @open="reviewReminder({ ...$event, explicit: true })"
+          />
+        </div>
+      </section>
     </div>
     </template>
   </aside>
@@ -136,22 +113,23 @@ import BonusOfferCard from "./BonusOfferCard.vue";
 import RingoActionCard from "./RingoActionCard.vue";
 import MissionActionFlow from "./MissionActionFlow.vue";
 import ObjectTiles from "./ObjectTiles.vue";
-import ZoneDetailsRow from "./ZoneDetailsRow.vue";
+import ReminderRow from "./ReminderRow.vue";
 import ZoneTodayStrip from "./ZoneTodayStrip.vue";
 import {
   bonusOfferCandidates,
-  pickFocusMission,
-  reminderTimeLeft,
+  focusMission,
+  smallerStepFor,
   ringoCardState,
   shouldOfferBonus,
   todayMainDone,
 } from "@/lib/livingSpacePanel";
 import { challengeIconCandidates } from "@/lib/challengeIconKeys";
+import { reminderSummary, zoneReminders } from "@/lib/reminderRows";
+import { customReminderAt, defaultPickerTime } from "@/lib/reminderTime";
 import { TILE_STATE, objectCardCopy, objectTiles, tileTapResult } from "@/lib/objectsGrid";
 import { zoneObjects } from "@/lib/roomScene";
 import roomLayout from "@/assets/room/room_layout.json";
 import { findFirstReward } from "@/lib/livingSpaceState";
-import { resolveActionIcon } from "@/utils/actionIconUtils";
 import { resolvePathIcon } from "@/utils/missionMomentumUtils";
 
 const props = defineProps({
@@ -201,7 +179,6 @@ const router = useRouter();
 // B10: numbers in copy use the locale's digits; a numeric count picks the plural form.
 const t = numberAwareT(baseT, () => locale.value);
 const fmt = (value) => formatNumber(value, locale.value);
-const bellIcon = resolveActionIcon("remindLater");
 const ringoChoicePanel = ref(null);
 const ringoCardRef = ref(null);
 // Accordion: at most one details row open; an open row collapses the Ringo card.
@@ -358,12 +335,23 @@ const mainMissionDone = computed(() => {
 });
 
 const selectedMission = computed(() => {
-  return pickFocusMission(visibleSelectedMissions.value, {
+  return focusMission(visibleSelectedMissions.value, {
     dueMission: props.challengePicked ? null : missionForReminder(props.dueReminderFocus),
-    pickedId: props.pickedMissionId ?? selectedMissionId.value ?? props.requestedMissionId,
-    explicitPick: Boolean(props.pickedMissionId),
+    pawPickId: props.pickedMissionId,
+    selectedId: selectedMissionId.value,
+    requestedId: props.requestedMissionId,
+    // B33 fix: "Make it smaller" picked this step; it wins over a tapped paw and a due reminder.
+    smallerId: requestedTinyMission.value?.id ?? null,
   });
 });
+
+// A new paw tap after "Make it smaller" moves the focus to that paw again.
+watch(
+  () => props.pickedMissionId,
+  () => {
+    if (requestedTinyMission.value) selectedMissionId.value = null;
+  },
+);
 
 const challengeMission = computed(() => {
   return props.zone?.action?.challenge?.mission || null;
@@ -424,7 +412,15 @@ const selectedMissionLoading = computed(() => {
 
 const dueReminderCount = computed(() => props.dueReminders.length);
 
-const hasReminders = computed(() => props.reminders.length > 0);
+// B33 (D65): this zone's reminders only; the room overview keeps just the counts.
+const zoneReminderList = computed(() => zoneReminders(props.reminders, props.zone));
+const zoneReminderSummary = computed(() => {
+  const { due, later } = reminderSummary(zoneReminderList.value);
+  return [
+    due ? t("space.reminders.summaryDue", { count: due }) : "",
+    later ? t("space.reminders.summaryLater", { count: later }) : "",
+  ].filter(Boolean).join(" · ");
+});
 
 const visibleDueReminders = computed(() => props.dueReminders.slice(0, 3));
 
@@ -819,8 +815,10 @@ watch(
   },
 );
 
+// Compared as a string: an array getter would fire on every re-evaluation (the minute tick), closing
+// an open choice panel, such as the B35 time field, while the user is still filling it in.
 watch(
-  () => [props.mode, selectedMission.value?.id],
+  () => `${props.mode}|${selectedMission.value?.id ?? ""}`,
   () => {
     closeRingoChoicePanel();
   },
@@ -873,8 +871,9 @@ function completeAction(mission) {
     disabled: selectedMissionLoading.value,
     type: "complete-mission",
     mission,
-    // B27: main missions get the split action; tiny and bonus keep the single button.
-    split: missionIntensity(mission) === "main",
+    // B27: the split action ("Do it now" opens Focus, "Already did it" the quick-done flow); since
+    // the B33 fixes Bonus and Tiny missions get it too, so every kind can use Focus.
+    split: true,
     submitting: selectedMissionLoading.value,
   };
 }
@@ -1088,22 +1087,6 @@ function reviewReminder(reminder) {
   focusRingoCard();
 }
 
-function formatCount(value) {
-  return new Intl.NumberFormat(locale.value).format(value);
-}
-
-function reminderTimeLabel(reminder) {
-  const left = reminderTimeLeft(reminder?.timestamp, props.now);
-  if (left.state === "due" || reminder?.due) return t("space.panel.reminderReady");
-  if (left.state === "unknown") return t("space.panel.reminderNoTime");
-
-  const hours = formatCount(left.hours);
-  const minutes = formatCount(left.minutes);
-  if (left.hours && left.minutes) return t("space.panel.timeLeftHoursMinutes", { hours, minutes });
-  if (left.hours) return t("space.panel.timeLeftHours", { hours });
-  return t("space.panel.timeLeftMinutes", { minutes });
-}
-
 function openRingoChoicePanel(type, mission) {
   if (!mission?.id) return;
 
@@ -1112,11 +1095,15 @@ function openRingoChoicePanel(type, mission) {
       type,
       mission,
       prompt: t("missions.remindOptions.prompt"),
-      options: REMINDER_OPTION_KEYS.map((key) => ({
-        key,
-        label: t(`missions.remindOptions.${key}`),
-        reminderAt: reminderAtForOption(key).toISOString(),
-      })),
+      options: [
+        ...REMINDER_OPTION_KEYS.map((key) => ({
+          key,
+          label: t(`missions.remindOptions.${key}`),
+          reminderAt: reminderAtForOption(key).toISOString(),
+        })),
+        // B35 (D69): a custom time today.
+        { key: "pickTime", label: t("missions.remindOptions.pickTime"), pickTime: true },
+      ],
     };
     return;
   }
@@ -1142,6 +1129,34 @@ function handleRingoChoice(option) {
   const panel = ringoChoicePanel.value;
   const mission = panel?.mission;
   if (!panel || !mission || selectedMissionLoading.value) return;
+
+  // B35 (D69): Pick a time. The field opens one hour ahead; a time at or after the day reset
+  // (or already past, which means tomorrow) is refused with a gentle line and sets nothing.
+  if (panel.type === "reminder" && option?.pickTime) {
+    ringoChoicePanel.value = { ...panel, picker: { ...defaultPickerTime(), error: "" } };
+    return;
+  }
+
+  if (panel.type === "reminder" && option?.key === "back-quick") {
+    ringoChoicePanel.value = { ...panel, picker: null };
+    return;
+  }
+
+  if (panel.type === "reminder" && option?.key === "edit-time") {
+    if (panel.picker?.error) ringoChoicePanel.value = { ...panel, picker: { ...panel.picker, error: "" } };
+    return;
+  }
+
+  if (panel.type === "reminder" && option?.key === "set-time") {
+    const result = customReminderAt({ hour: option.hour, minute: option.minute });
+    if (!result.ok) {
+      ringoChoicePanel.value = { ...panel, picker: { hour: option.hour, minute: option.minute, error: result.reason } };
+      return;
+    }
+    closeRingoChoicePanel();
+    emit("remind-mission", { mission, reminderAt: result.at.toISOString(), optionKey: "custom" });
+    return;
+  }
 
   if (panel.type === "reminder") {
     closeRingoChoicePanel();
@@ -1307,14 +1322,7 @@ function missionCanCompleteInShell(mission) {
 }
 
 function findTinyMissionFor(mission) {
-  if (!mission || missionIntensity(mission) === "tiny") return null;
-
-  return (selectedPathChallenge.value?.missions || []).find((candidate) => {
-    return missionIntensity(candidate) === "tiny"
-      && String(candidate.parentMissionId || "") === String(mission.id || "")
-      && !missionDone(candidate)
-      && !missionSkipped(candidate);
-  }) || null;
+  return smallerStepFor(mission, selectedPathChallenge.value?.missions || []);
 }
 
 function canUseMissionSupportActions(mission) {
@@ -1579,79 +1587,35 @@ function canUseMissionSupportActions(mission) {
 
 
 
-.reminderList {
-  display: grid;
-  gap: 7px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.reminderItem {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 9px;
-  width: 100%;
-  min-height: 52px;
-  padding: 9px 10px;
-  border-radius: 12px;
-  color: inherit;
-  background: rgba(5, 10, 18, 0.22);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  cursor: pointer;
-  text-align: start;
-}
-
-.reminderItem.due {
-  border-color: rgba(247, 215, 116, 0.22);
-  background: rgba(247, 215, 116, 0.05);
-}
-
-.reminderItem:hover,
-.reminderItem:focus-visible {
-  border-color: rgba(110, 229, 255, 0.24);
-  outline: none;
-}
-
-.reminderBell {
-  width: 18px;
-  height: 18px;
-  object-fit: contain;
-  opacity: 0.8;
-}
-
-.reminderCopy {
-  display: grid;
-  gap: 2px;
-  min-width: 0;
-}
-
-.reminderCopy strong {
-  color: rgba(255, 255, 255, 0.9);
-  font-size: 0.82rem;
-}
-
-.reminderCopy small {
-  color: rgba(255, 255, 255, 0.54);
-  font-size: 0.7rem;
-}
-
-.reminderTime {
-  color: rgba(110, 229, 255, 0.86);
-  font-size: 0.72rem;
-  font-weight: 850;
-  white-space: nowrap;
-}
-
-.reminderItem.due .reminderTime {
-  color: rgba(247, 215, 116, 0.95);
-}
-
-.zoneDetails {
+/* B33: the zone's reminders (board 25). */
+.zoneReminders {
   display: grid;
   gap: 8px;
   min-width: 0;
+}
+
+.zoneRemindersHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.zoneRemindersHead h4 {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.zoneRemindersHead span {
+  color: rgba(255, 255, 255, 0.62);
+  font-size: 12px;
+}
+
+.zoneReminderRows {
+  display: grid;
+  gap: 8px;
 }
 
 .fullPathLink {

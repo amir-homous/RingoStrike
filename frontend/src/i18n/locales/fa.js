@@ -304,6 +304,49 @@ export default {
     firstRewardLocked: "اولین پاداش: یک مأموریت غیربونوس از این مسیر انجام بده تا {reward} در اتاق قرار بگیرد.",
     nextRewardFirst: "قدم بعدی: یک مأموریت اصلی از این مسیر انجام بده تا {reward} باز شود.",
     nextRewardFuture: "تغییر قابل دیدن آینده: {reward}. فعلاً فقط پیش‌نمایش است.",
+    // B36 (D70): Bonus stars (aria-labels).
+    bonusStars: {
+      challenge: "{count} قدم اضافه امروز انجام شد",
+      path: "{count} قدم اضافه امروز در این مسیر انجام شد",
+    },
+    // B35 (D69): Pick a time.
+    reminderTime: {
+      groupLabel: "ساعت یادآور، ساعت و دقیقه",
+      hourLabel: "ساعت",
+      minuteLabel: "دقیقه",
+      hourLater: "یک ساعت بعد",
+      hourEarlier: "یک ساعت قبل",
+      minuteLater: "پنج دقیقه بعد",
+      minuteEarlier: "پنج دقیقه قبل",
+      hint: "فقط برای امروز. یادآورها با شروع روز جدید تموم می‌شن.",
+      afterReset: "این ساعت بعد از شروع روز جدیده. یه ساعت زودتر انتخاب کن.",
+      invalid: "ساعت رو از ۰ تا ۲۳ و دقیقه رو از ۰ تا ۵۹ بنویس.",
+      set: "تنظیم یادآور",
+      backQuick: "برگشت به زمان‌های سریع",
+    },
+    // B34 (D68): the reminder clock and its list.
+    reminderClock: {
+      kicker: "فضای زندگی",
+      title: "یادآورهای تو",
+      ringoTitle: "اینا منتظرتن.",
+      ringoBody: "سر همین ساعت‌ها یادت می‌اندازم. روی هر کدوم بزن تا توی گوشه‌ی خودش باز بشه.",
+      emptyTitle: "الان یادآوری نداری.",
+      emptyBody: "هر وقت «بعداً یادم بنداز» رو بزنی، اینجا نشون داده می‌شه.",
+      back: "برگشت به اتاق",
+      ariaSet: "ساعت یادآور، {count} یادآور برای بعداً. دیدن یادآورها",
+      ariaRinging: "ساعت یادآور زنگ می‌زنه، {due} رسیده، {later} بعداً. دیدن یادآورها",
+    },
+    // B33 (D65, D66): reminder rows.
+    reminders: {
+      zoneTitle: "یادآورهای این گوشه",
+      summaryDue: "{count} رسیده",
+      summaryLater: "{count} بعداً",
+      now: "الان",
+      timeTelegramOff: "{time} · تلگرام خاموش",
+      rowDue: "{name}، {corner}، همین الان",
+      rowSet: "{name}، {corner}، یادآور ساعت {time}",
+      rowTelegramOff: "{name}، {corner}، یادآور ساعت {time}، تلگرام وصل نیست",
+    },
     // B32 (D60 to D63): objects grid.
     objectGrid: {
       inRoomCount: "{count} توی اتاقت",
@@ -531,6 +574,8 @@ export default {
       muteMusic: "قطع موسیقی",
       unmuteMusic: "پخش موسیقی",
       mainMission: "مأموریت اصلی",
+      extraStep: "قدم اضافه",
+      smallerStep: "قدم کوچیک‌تر",
       noteLabel: "یادداشت (اختیاری)",
       done: "تموم شد",
       cancel: "لغو",
@@ -1033,6 +1078,7 @@ export default {
       oneHour: "۱ ساعت دیگه",
       evening: "عصر",
       tonight: "امشب",
+      pickTime: "انتخاب ساعت",
       customTime: "زمان دلخواه",
       customPrompt: "انتخاب ساعت",
       setCustom: "تنظیم یادآوری",

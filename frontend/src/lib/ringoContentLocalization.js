@@ -4,6 +4,7 @@ import {
   getPathDisplayCopy,
 } from "./missionDisplayCopy.js";
 import { challengeIconKey } from "./challengeIconKeys.js";
+import faLocale from "../i18n/locales/fa.js";
 
 const FA_PATHS = {
   fitness: {
@@ -203,6 +204,26 @@ export function localizePath(item, locale) {
     : fallbackCopy;
 
   return copy ? { ...item, ...copy } : item;
+}
+
+// B33 fix: a challenge's stable icon key from any name the UI may hold: the English seed name,
+// or a Persian display name (the challengeContent catalogue or the FA_CHALLENGES fallback).
+// "" when the name is unknown.
+let localizedChallengeKeys = null;
+
+export function challengeKeyFromName(name) {
+  const text = String(name || "").trim();
+  if (!text) return "";
+  if (!localizedChallengeKeys) {
+    localizedChallengeKeys = new Map();
+    for (const [key, copy] of Object.entries(faLocale.challengeContent || {})) {
+      if (copy?.name) localizedChallengeKeys.set(copy.name.trim(), key);
+    }
+    for (const [englishName, copy] of Object.entries(FA_CHALLENGES)) {
+      if (copy?.name) localizedChallengeKeys.set(copy.name.trim(), challengeIconKey(englishName));
+    }
+  }
+  return localizedChallengeKeys.get(text) || "";
 }
 
 export function localizeChallenge(item, locale) {

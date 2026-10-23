@@ -33,7 +33,9 @@
           :challenge-picked="challengePicked"
           :picked-mission-id="pickedMissionId"
           :object-highlight="objectHighlight"
+          :reminder-counts="{ due: dueReminders.length, later: scheduledReminders.length }"
           @select="selectZone"
+          @open-reminders="openReminderList"
           @select-challenge="selectPathChallenge"
           @select-mission="selectTrayMission"
         >
@@ -72,7 +74,16 @@
         </RoomScene>
       </div>
 
-      <div v-if="roomLevel" class="roomSafeZone">
+      <!-- B34 (D68): the clock opens Ringo's panel with every reminder (board 24). -->
+      <div v-if="reminderListOpen" ref="reminderListZone" class="roomSafeZone">
+        <ReminderListPanel
+          :reminders="reminderItems"
+          @open="openReminderRow"
+          @close="closeReminderList"
+        />
+      </div>
+
+      <div v-else-if="roomLevel" class="roomSafeZone">
         <RoomOverviewPanel
           :title="roomOverviewGuidance?.title || t('space.title')"
           :text="roomOverviewGuidance?.text || ''"
@@ -161,10 +172,12 @@ import {
 import { localizeChallenge, localizePath } from "@/lib/ringoContentLocalization";
 import { createMaterializeQueue, materializeCandidates, materializeTimeline } from "@/lib/roomMaterialize";
 import { PATH_ICON_FALLBACK, pathMarkerState, telegramReady } from "@/lib/pathMarker";
+import { bonusDoneByChallenge, bonusDoneByPath } from "@/lib/bonusStars";
 import { missionReminderChip } from "@/lib/missionTray";
 import { missionIconUrl, resolvePathIcon } from "@/utils/missionMomentumUtils";
 import { humanizeJoinError, submitJoinFlow } from "@/views/challengeFlow";
 import SpaceZone from "./SpaceZone.vue";
+import ReminderListPanel from "./ReminderListPanel.vue";
 import RoomOverviewPanel from "./RoomOverviewPanel.vue";
 import RoomScene from "./RoomScene.vue";
 import SpaceZonePanel from "./SpaceZonePanel.vue";
@@ -287,6 +300,8 @@ const displayZones = computed(() => {
           telegram: telegramReady(props.telegramSettings),
         }),
         title: pathDetail?.title || zone.pathName || zone.title,
+        // B36 (D70): Bonus steps finished today in this path (a row of stars under the icon).
+        bonusDone: bonusDoneToday.value.byPath[zonePathKey] || 0,
         iconUrl: resolvePathIcon(pathDetail?.icon || PATH_ICON_FALLBACK[zonePathKey] || zonePathKey),
       },
     };
@@ -522,6 +537,26 @@ const CAMERA_SETTLE_MS = 320;
 const materializeQueue = createMaterializeQueue();
 const pendingRewardKeys = ref([]);
 const materializing = ref(null);
+// B34 (D68): Ringo's reminder list, opened from the clock next to Ringo.
+const reminderListOpen = ref(false);
+const reminderListZone = ref(null);
+
+function openReminderList() {
+  if (!roomLevel.value) closePanel();
+  reminderListOpen.value = true;
+  // Phones: the list sits under the room; bring it into view.
+  nextTick(() => reminderListZone.value?.scrollIntoView?.({ block: "nearest", behavior: "smooth" }));
+}
+
+function closeReminderList() {
+  reminderListOpen.value = false;
+}
+
+function openReminderRow(reminder) {
+  reminderListOpen.value = false;
+  focusReminder({ ...reminder, explicit: true });
+}
+
 // B32 (D62): the object tile just tapped ({ key, ghost, label, nonce }); the room lifts and glows it.
 const objectHighlight = ref(null);
 const materializeZoneKey = ref("");
@@ -614,6 +649,7 @@ async function loadPaths() {
 }
 
 function selectZone(zone) {
+  reminderListOpen.value = false;
   const openingSheet = !roomPanLayout.value && roomLevel.value;
   roomLevel.value = false;
   if (openingSheet) {
@@ -645,6 +681,7 @@ function closePanel() {
 
 // B24: open the reminder's zone and challenge and ask the panel to focus that mission.
 function focusReminder(reminder) {
+  reminderListOpen.value = false;
   const zoneKey = zoneLabelsByPath.value[normalizePathKey(reminder?.pathKey)]?.zoneKey;
   const zone = displayZones.value.find((item) => item.zone_key === zoneKey) || workSurfaceZone.value;
   if (!zone) return;
@@ -654,9 +691,12 @@ function focusReminder(reminder) {
   activeZone.value = zone;
   shellMode.value = "zone";
   selectedPathChallengeId.value = reminder?.challengeId || null;
-  challengePicked.value = false;
+  // B33 (D66): a tapped reminder row is an explicit pick of its mission, so it beats a due
+  // reminder (D51) and its challenge's mission tray shows with that paw selected.
+  const explicit = Boolean(reminder?.explicit && reminder?.challengeId);
+  challengePicked.value = explicit;
   joinedChallengeId.value = null;
-  pickedMissionId.value = null;
+  pickedMissionId.value = explicit ? reminder.id : null;
   requestedMissionId.value = reminder?.id || null;
   ensurePathChallenges(zone);
 }
@@ -969,6 +1009,8 @@ function buildPathChallenge(challenge, zone) {
     missionCount: missionProgress.total,
     doneCount: missionProgress.done,
     estimatedDays: Number(challenge?.estimated_days || challenge?.duration_days || 0),
+    // B36 (D70): Bonus finished today in this challenge (stars on its ring).
+    bonusDone: bonusDoneToday.value.byChallenge.get(String(challenge?.challenge_id ?? "")) || 0,
     missions,
   };
 }
@@ -1055,6 +1097,8 @@ function toReminderItem(mission) {
     id: mission?.mission_id || mission?.id || `${mission?.title || "mission"}-${mission?.reminder_at || ""}`,
     title: mission?.title || mission?.mission_title || t("common.mission"),
     challengeName: mission?.challenge_name || mission?.challenge || "",
+    // B33 fix: the stable icon key (the name is translated in FA).
+    challengeIconKey: mission?.challenge_icon_key || "",
     challengeId: mission?.challenge_id || null,
     enrollmentId: mission?.enrollment_id || null,
     pathId: mission?.path_id || null,
@@ -1108,9 +1152,11 @@ const zoneLabelsByPath = computed(() => {
 const reminderItems = computed(() => {
   const label = (reminder) => zoneLabelsByPath.value[normalizePathKey(reminder.pathKey)] || {};
 
+  // B33 (D66): rows show "Telegram off" when Telegram cannot deliver a set reminder.
+  const telegram = telegramReady(props.telegramSettings);
   return [
-    ...dueReminders.value.map((reminder) => ({ ...reminder, ...label(reminder), due: true })),
-    ...scheduledReminders.value.map((reminder) => ({ ...reminder, ...label(reminder), due: false })),
+    ...dueReminders.value.map((reminder) => ({ ...reminder, ...label(reminder), due: true, telegram })),
+    ...scheduledReminders.value.map((reminder) => ({ ...reminder, ...label(reminder), due: false, telegram })),
   ];
 });
 
@@ -1125,6 +1171,13 @@ const dueReminderCountByPath = computed(() => {
 });
 
 const futureReminderCount = computed(() => scheduledReminders.value.length);
+
+// B36 (D70): today's finished Bonus steps per challenge and per path, from /me/today-missions
+// (daily like the rest, D44).
+const bonusDoneToday = computed(() => ({
+  byChallenge: bonusDoneByChallenge(props.missions),
+  byPath: bonusDoneByPath(props.missions, missionPathKey),
+}));
 
 const dailyMomentum = computed(() => {
   const missions = props.missions || [];

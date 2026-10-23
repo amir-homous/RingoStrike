@@ -264,8 +264,56 @@ function run() {
   // Desktop (no frame): the tray stays at its anchor.
   assert.deepEqual(placeTray({ rect: { x: 10, y: 20, w: 176, h: 50 }, dir: "right", marker, frame: null }), { x: 10, y: 20, w: 176, h: 50, dir: "right" });
 
+  // B34 (D68): the reminder clock next to Ringo's spot A never covers a reward slot, a Ringo-safe
+  // spot, a prop, the window, a path marker, or any zone's challenge tray or mission rows, at every
+  // scale. It stands on the rug next to Ringo (boards 22 to 24), so the rug is allowed.
+  const clock = layout.reminder_clock;
+  assert.ok(clock && clock.w === 16 && clock.h === 18 && clock.set && clock.ring, "reminder_clock anchor (16x18, both sprites)");
+  for (const file of [clock.set, clock.ring]) {
+    const png = pngAlpha(new URL(file, roomDir));
+    assert.deepEqual([png.width, png.height], [clock.w, clock.h], `${file}: 16x18`);
+  }
+  const boxesHit = (a, b) => a.x0 < b.x1 && a.x1 > b.x0 && a.y0 < b.y1 && a.y1 > b.y0;
+  const clockConflicts = (box) => {
+    const hits = new Set();
+    const safe = safeArea(layout);
+    if (box.x0 < 0 || box.x1 > ROOM_BASE_WIDTH || box.y0 < safe.y0 || box.y1 > safe.y1) hits.add("outside the room's safe area");
+    for (const r of rects) if (r.name !== "rug" && boxesHit(box, r)) hits.add(r.name);
+    for (let y = Math.floor(box.y0); y < Math.ceil(box.y1); y++) {
+      for (let x = Math.floor(box.x0); x < Math.ceil(box.x1); x++) {
+        const prop = propPixels.get(`${x},${y}`);
+        if (prop) hits.add(prop);
+      }
+    }
+    for (const key of ZONE_ORDER) {
+      const zone = layout.zones[key];
+      for (const options of SCALES) {
+        const t = trayRect(zone.tray, options.scale, options);
+        if (boxesHit(box, { x0: t.x, y0: t.y, x1: t.x + t.w, y1: t.y + t.h })) hits.add(`${key} tray at ${options.label}`);
+        if (boxesHit(box, markerRect(zone.path_marker, options))) hits.add(`${key} path marker at ${options.label}`);
+        const k = trayScreenFactor(options.scale, options);
+        const half = (TRAY_SCREEN.flag * k) / 2 / options.scale;
+        const halfH = (TRAY_SCREEN.height * k) / 2 / options.scale;
+        for (const [dy, run] of [[0, zone.tray.run], ...(zone.tray.wrap ? [[zone.tray.wrap.dy, zone.tray.wrap.run]] : [])]) {
+          const [fx, fy] = zone.tray.flag;
+          const x = zone.tray.dir === "left" ? fx + 7 - run : fx - half;
+          const row = { x0: x, y0: fy + dy - halfH, x1: x + run - 7 + half, y1: fy + dy + halfH };
+          if (boxesHit(box, row)) hits.add(`${key} mission row at ${options.label}`);
+        }
+      }
+    }
+    return [...hits];
+  };
+  const clockBox = { x0: clock.x - MARGIN, y0: clock.y - MARGIN, x1: clock.x + clock.w + MARGIN, y1: clock.y + clock.h + MARGIN };
+  assert.deepEqual(clockConflicts(clockBox), [], `reminder clock overlaps: ${clockConflicts(clockBox).join(", ")}`);
+  // The check itself catches a clock on Ringo (spot A), on a reward slot and on the window.
+  assert.ok(clockConflicts({ x0: 262, y0: 190, x1: 278, y1: 208 }).includes("ringo-safe:A"));
+  const lamp = layout.zones.work_desk.slots.work_desk_consistency;
+  assert.ok(clockConflicts({ x0: lamp.x, y0: lamp.y, x1: lamp.x + 16, y1: lamp.y + 18 }).includes("slot:work_desk_consistency"));
+  assert.ok(clockConflicts({ x0: 230, y0: 30, x1: 246, y1: 48 }).includes("window"));
+
   console.log(`Prop pixels: ${ZONE_ORDER.map((key) => `${key} ${propCounts[key]}`).join(", ")}`);
-  console.log("Room tray placement check passed (challenge trays and mission rows in clear space; Fitness second mission row over furniture only).");
+  console.log("Room tray placement check passed (challenge trays and mission rows in clear space; Fitness second mission row over furniture only; reminder clock clear of slots, trays, markers, props and Ringo).");
 }
 
 run();
