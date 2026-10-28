@@ -5,8 +5,9 @@ import { join } from "node:path";
 import { spawn } from "node:child_process";
 
 // B11: a new user reaches the first room object unaided, through the real UI:
-// register -> onboarding (welcome, path, challenge, handoff) -> first mission -> Ringo Moment
-// -> reward card -> object placed. Desktop EN at 1366x768 and phone FA at 390x844.
+// register -> onboarding (welcome, corner, challenge) -> the room with the first mission -> Ringo
+// Moment -> reward card -> object placed. Desktop EN at 1366x768 and phone FA at 390x844.
+// B37 (D78 to D82): three short choices, a corner picked on the real room, no handoff screen.
 
 const FRONTEND_BASE = process.env.FRONTEND_BASE_URL || "http://localhost:5173";
 const API_BASE = process.env.VITE_API_BASE || "http://localhost:5005";
@@ -180,29 +181,44 @@ async function runFirstRun(page, [width, height, locale]) {
   ctx.clicks += 1;
   await waitFor(page, `location.pathname === "/onboarding"`);
 
-  // Welcome, then pick Creativity on the path step: Continue must be in view (F2).
+  // Welcome, then the corner step: the real room with five markers and five chips; Continue waits
+  // for a corner.
   await step(page, fa ? "^شروع با رینگو$" : "^Start with Ringo$", "start", ctx);
-  if (!fa) {
-    const labels = await evaluate(page, `document.body.innerText`);
-    assert.match(labels, /Rest & Energy/, `${ctx.label} EN path name (F3)`);
-    assert.doesNotMatch(labels.replace(/Sleep Corner/g, ""), /\bSleep\b/, `${ctx.label} backend "Sleep" shown`);
-  }
-  await step(page, fa ? "^خلاقیت" : "^Creativity", "Creativity path", ctx);
-  const cont = await evaluate(page, `(() => { const b = [...document.querySelectorAll("button")].find((x) => /^(Continue|ادامه)/.test(x.innerText.trim())); const r = b.getBoundingClientRect(); return { top: r.top, bottom: r.bottom, h: innerHeight, disabled: b.disabled }; })()`);
+  await waitFor(page, `document.querySelectorAll(".roomPicture .cornerMarker").length === 5`);
+  const corner = await evaluate(page, `(() => {
+    const cont = [...document.querySelectorAll(".cornerStep .actions button")][0];
+    return { chips: document.querySelectorAll(".cornerChip").length, disabled: cont?.disabled, backendSleep: /\bSleep\b(?! Corner)/.test(document.querySelector(".cornerStep").innerText) };
+  })()`);
+  assert.equal(corner.chips, 5, `${ctx.label} five corner chips`);
+  assert.equal(corner.disabled, true, `${ctx.label} Continue before a corner is picked`);
+  if (!fa) assert.equal(corner.backendSleep, false, `${ctx.label} backend "Sleep" shown`);
+  // Pick Creativity on the room itself, then see it "After a few steps".
+  await evaluate(page, `document.querySelector('.cornerMarker[data-zone="creative_corner"]').click(); true`);
+  ctx.clicks += 1;
+  await waitFor(page, `document.querySelector('.cornerChip[data-path="creativity"]')?.getAttribute("aria-pressed") === "true"`);
+  await evaluate(page, `document.querySelector('.switchButton[data-switch="after"]').click(); true`);
+  ctx.clicks += 1;
+  await waitFor(page, `[...document.querySelectorAll(".roomPicture img")].some((img) => img.src.includes("creativity_"))`, 5000);
+  const cont = await evaluate(page, `(() => { const b = document.querySelector(".cornerStep .actions button"); const r = b.getBoundingClientRect(); return { top: r.top, bottom: r.bottom, h: innerHeight, disabled: b.disabled }; })()`);
   assert.ok(!cont.disabled && cont.top >= 0 && cont.bottom <= cont.h + 1, `${ctx.label} Continue not in view: ${JSON.stringify(cont)}`);
   await step(page, fa ? "^ادامه" : "^Continue", "continue", ctx);
 
-  // Challenge suggestion, then the handoff (no "MissionCenter", F4).
+  // First challenge: up to three cards; "Start this challenge" in view without scrolling.
+  await waitFor(page, `document.querySelectorAll(".challengeOption").length > 0`);
+  const start = await evaluate(page, `(() => { const b = document.querySelector(".suggestionStep .actions button"); const r = b.getBoundingClientRect(); return { cards: document.querySelectorAll(".challengeOption").length, bottom: r.bottom, h: innerHeight }; })()`);
+  assert.ok(start.cards >= 1 && start.cards <= 3, `${ctx.label} challenge cards: ${start.cards}`);
+  assert.ok(start.bottom <= start.h + 1, `${ctx.label} Start this challenge not in view: ${JSON.stringify(start)}`);
   await step(page, fa ? "^شروع این چالش$" : "^Start this challenge$", "start challenge", ctx);
-  await waitFor(page, `/firstRun|اولین مأموریت|first mission/i.test(document.body.innerText)`);
-  assert.doesNotMatch(await evaluate(page, `document.body.innerText`), /MissionCenter/, `${ctx.label} handoff names MissionCenter`);
-  await step(page, fa ? "^رفتن به اولین مأموریت من$" : "^Go to my first mission$", "go to first mission", ctx);
+  // Straight into the room (no handoff screen, D78).
   await waitFor(page, `location.pathname === "/dashboard" && Boolean(document.querySelector(".roomScene .zoneHitWrap"))`);
+  assert.doesNotMatch(await evaluate(page, `document.body.innerText`), /Go to my first mission|رفتن به اولین مأموریت من/, `${ctx.label} handoff still shown`);
 
   // The first mission is on screen right away: desktop panel, phone sheet (F1).
   await waitFor(page, `Boolean([...document.querySelectorAll(".roomSafeZone .splitAction button")].find((b) => b.offsetParent))`);
   if (width < 600) assert.ok(await evaluate(page, `Boolean(document.querySelector(".zoneSheet"))`), `${ctx.label} phone did not open the mission sheet`);
   // Today counts agree between the zone strip and the room overview (F5): 0 of 2.
+  // The room lands right after the join now (no handoff screen), so wait for today's missions.
+  await waitFor(page, `/[0-9۰-۹]+\\s*(\\/|از)\\s*[0-9۰-۹]+/.test(document.querySelector(".todayStrip strong")?.innerText || "")`, 10000).catch(() => {});
   const strip = await evaluate(page, `document.querySelector(".zoneTodayStrip, .todayStrip")?.innerText || document.querySelector(".roomSafeZone").innerText`);
   assert.match(strip, fa ? /۰ از ۲/ : /0\/2/, `${ctx.label} zone strip count`);
 

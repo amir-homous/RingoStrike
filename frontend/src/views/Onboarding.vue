@@ -6,7 +6,7 @@
 
       <div class="onboardingTopBar">
         <div class="progressRail" aria-hidden="true">
-          <span v-for="n in 4" :key="n" :class="{ active: step >= n }"></span>
+          <span v-for="n in 3" :key="n" :class="{ active: step >= n }"></span>
         </div>
 
         <div class="onboardingLanguageSwitch" :aria-label="t('language.label')">
@@ -38,48 +38,8 @@
 
         <ChallengeSuggestion v-else-if="step === 3" :path="selectedPath" :paths="selectedPaths"
           :challenge="localizedSuggestedChallenge" :challenges="localizedSuggestedChallenges" :joining="joining" :error="joinError"
-          @start="startSuggestedPath" @browse="browseChallenges" @skip="skipOnboarding" />
+          @start="startSuggestedPath" @skip="skipOnboarding" />
 
-        <section v-else class="handoffStep">
-          <div class="handoffHero">
-            <div class="stepHeader">
-              <p class="eyebrow">{{ t("onboarding.handoff.eyebrow") }}</p>
-              <h1>{{ t("onboarding.handoff.title") }}</h1>
-              <p><OnboardingTypewriterText :text="t('onboarding.handoff.body')" /></p>
-            </div>
-          </div>
-
-          <BaseCard class="handoffCard">
-            <span class="statusPill">{{ t("onboarding.handoff.readyPill") }}</span>
-
-            <h2>{{ firstMissionTitle || t("onboarding.handoff.fallbackMission") }}</h2>
-
-            <p><OnboardingTypewriterText :text="t('onboarding.handoff.text')" :start-delay="260" /></p>
-
-            <div class="handoffHints">
-              <div class="handoffHint">
-                <strong>{{ t("onboarding.handoff.hints.safe.title") }}</strong>
-                <span>{{ t("onboarding.handoff.hints.safe.text") }}</span>
-              </div>
-
-              <div class="handoffHint">
-                <strong>{{ t("onboarding.handoff.hints.choice.title") }}</strong>
-                <span>{{ t("onboarding.handoff.hints.choice.text") }}</span>
-              </div>
-
-              <div class="handoffHint">
-                <strong>{{ t("onboarding.handoff.hints.reward.title") }}</strong>
-                <span>{{ t("onboarding.handoff.hints.reward.text") }}</span>
-              </div>
-            </div>
-
-            <div class="actions">
-              <BaseButton variant="primary" @click="finishOnboarding">
-                {{ t("onboarding.handoff.cta") }}
-              </BaseButton>
-            </div>
-          </BaseCard>
-        </section>
       </template>
     </section>
   </main>
@@ -92,13 +52,10 @@ import { useRoute, useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 
 import api from "@/lib/api";
-import BaseButton from "@/components/ui/BaseButton.vue";
-import BaseCard from "@/components/ui/BaseCard.vue";
 import UiState from "@/components/ui/UiState.vue";
 import StepWelcome from "@/components/onboarding/StepWelcome.vue";
 import StepPath from "@/components/onboarding/StepPath.vue";
 import ChallengeSuggestion from "@/components/onboarding/ChallengeSuggestion.vue";
-import OnboardingTypewriterText from "@/components/onboarding/OnboardingTypewriterText.vue";
 import {
   getIdentityPath,
   getOnboardingUserKey,
@@ -114,10 +71,7 @@ import {
   isInviteOnlyChallenge,
   submitJoinFlow,
 } from "./challengeFlow";
-import {
-  localizeChallenge,
-  localizeMission,
-} from "@/lib/ringoContentLocalization";
+import { localizeChallenge } from "@/lib/ringoContentLocalization";
 
 const router = useRouter();
 const route = useRoute();
@@ -134,7 +88,6 @@ const loading = ref(false);
 const joining = ref(false);
 const loadError = ref("");
 const joinError = ref("");
-const todayMissionState = ref(null);
 const onboardingUserKey = ref("");
 
 const IDENTITY_TO_BACKEND_PATH = {
@@ -156,15 +109,6 @@ function getOnboardingReturnPath() {
 }
 
 const selectedPath = computed(() => selectedPaths.value[0] || "");
-
-const firstMissionTitle = computed(() => {
-  const missions = todayMissionState.value?.missions;
-  const mission = Array.isArray(missions)
-    ? missions.find((item) => item?.status === "pending") || missions[0]
-    : null;
-
-  return localizeMission(mission, locale.value)?.title || mission?.title || "";
-});
 
 const selectedBackendPaths = computed(() => {
   const keys = selectedPaths.value.map((path) => IDENTITY_TO_BACKEND_PATH[path] || path);
@@ -264,7 +208,6 @@ async function resumeOnboarding() {
   await loadChallenges();
 
   const missionState = await loadTodayMissionState();
-  todayMissionState.value = missionState;
 
   if (shouldBypassOnboardingForLegacyProgress({
     savedPath,
@@ -276,8 +219,9 @@ async function resumeOnboarding() {
     return;
   }
 
+  // B37 (D78): a challenge is already joined: straight to the room (no handoff screen).
   if (hasTodayMissionPayload(missionState)) {
-    step.value = 4;
+    finishOnboarding();
     return;
   }
 
@@ -285,7 +229,7 @@ async function resumeOnboarding() {
     await loadSelectedPathChallenges();
 
     if (suggestedChallenges.value.some((challenge) => challenge.is_joined)) {
-      step.value = 4;
+      finishOnboarding();
     }
   }
 }
@@ -340,14 +284,14 @@ async function startSuggestedPath(selectedIds = []) {
   );
 
   if (!selected.length) {
-    browseChallenges();
+    skipOnboarding();
     return;
   }
 
   const notJoined = selected.filter((challenge) => !challenge.is_joined);
 
   if (!notJoined.length) {
-    await prepareFinalHandoff();
+    finishOnboarding();
     return;
   }
 
@@ -368,11 +312,9 @@ async function startSuggestedPath(selectedIds = []) {
       reload: loadChallenges,
     });
 
-    await loadChallenges();
-    await loadSelectedPathChallenges();
-
-    todayMissionState.value = await loadTodayMissionState();
-    step.value = 4;
+    // B37 (D78, D82): joined: land in the room on that corner, where Ringo's first card offers
+    // "Do it now" (the handoff screen is gone).
+    finishOnboarding();
   } catch (error) {
     const message = error?.response?.data?.error || error?.message || String(error);
     joinError.value = humanizeJoinError(message, t);
@@ -396,19 +338,9 @@ function setOnboardingLocale(value) {
   }
 }
 
-function browseChallenges() {
-  markOnboardingSkipped(selectedPath.value, onboardingUserKey.value);
-  router.push("/challenges");
-}
-
 function skipOnboarding() {
   markOnboardingSkipped(selectedPath.value, onboardingUserKey.value);
   router.push("/dashboard");
-}
-
-async function prepareFinalHandoff() {
-  todayMissionState.value = await loadTodayMissionState();
-  step.value = 4;
 }
 
 function finishOnboarding() {
@@ -476,106 +408,6 @@ onMounted(resumeOnboarding);
   box-shadow: 0 0 18px rgba(110, 229, 255, 0.32);
 }
 
-.handoffStep {
-  display: grid;
-  gap: var(--s-20);
-}
-
-.handoffHero,
-.stepHeader {
-  max-width: 760px;
-  min-width: 0;
-}
-
-.eyebrow {
-  margin: 0 0 8px;
-  color: rgba(110, 229, 255, 0.88);
-  font-size: 0.74rem;
-  font-weight: 850;
-  letter-spacing: 0;
-  text-transform: uppercase;
-}
-
-h1 {
-  margin: 0;
-  color: rgba(255, 255, 255, 0.96);
-  font-size: 2.55rem;
-  line-height: 1.04;
-  letter-spacing: 0;
-}
-
-.stepHeader p:not(.eyebrow),
-.handoffCard p {
-  margin: 12px 0 0;
-  color: rgba(255, 255, 255, 0.66);
-  line-height: 1.7;
-}
-
-.handoffCard {
-  display: grid;
-  gap: var(--s-16);
-  padding: 22px;
-  border-radius: 24px;
-  background:
-    radial-gradient(circle at 8% 0%, rgba(110, 229, 255, 0.11), transparent 34%),
-    rgba(255, 255, 255, 0.035);
-}
-
-.statusPill {
-  justify-self: start;
-  display: inline-flex;
-  align-items: center;
-  min-height: 28px;
-  padding: 0 10px;
-  border-radius: 999px;
-  color: rgba(167, 243, 208, 0.96);
-  font-size: 0.76rem;
-  font-weight: 780;
-  background: rgba(74, 222, 128, 0.12);
-  border: 1px solid rgba(74, 222, 128, 0.24);
-}
-
-.handoffCard h2 {
-  margin: 0;
-  color: rgba(255, 255, 255, 0.96);
-  font-size: 1.8rem;
-  line-height: 1.12;
-  letter-spacing: 0;
-}
-
-.actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--s-12);
-  margin-top: 4px;
-}
-
-.handoffHints {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--s-12);
-}
-
-.handoffHint {
-  display: grid;
-  gap: 6px;
-  padding: 14px;
-  border-radius: 18px;
-  background: rgba(255, 255, 255, 0.045);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-.handoffHint strong {
-  color: rgba(255, 255, 255, 0.92);
-  font-size: 0.88rem;
-}
-
-.handoffHint span {
-  color: rgba(255, 255, 255, 0.58);
-  font-size: 0.84rem;
-  line-height: 1.55;
-}
-
 .onboardingTopBar {
   display: flex;
   align-items: center;
@@ -616,8 +448,6 @@ h1 {
   color: rgba(255, 255, 255, 0.86);
 }
 
-
-
 @media (max-width: 620px) {
   .onboardingPage {
     display: grid;
@@ -631,40 +461,6 @@ h1 {
     width: 100%;
     padding: 20px;
     border-radius: 24px;
-  }
-
-  h1 {
-    font-size: 1.9rem;
-  }
-
-  .actions {
-    display: grid;
-  }
-
-  .handoffHints {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: var(--s-12);
-  }
-
-  .handoffHint {
-    display: grid;
-    gap: 6px;
-    padding: 14px;
-    border-radius: 18px;
-    background: rgba(255, 255, 255, 0.045);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-  }
-
-  .handoffHint strong {
-    color: rgba(255, 255, 255, 0.92);
-    font-size: 0.88rem;
-  }
-
-  .handoffHint span {
-    color: rgba(255, 255, 255, 0.58);
-    font-size: 0.84rem;
-    line-height: 1.55;
   }
 
   .onboardingTopBar {

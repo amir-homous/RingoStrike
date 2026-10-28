@@ -134,6 +134,8 @@ import { resolvePathIcon } from "@/utils/missionMomentumUtils";
 
 const props = defineProps({
   zone: { type: Object, required: true },
+  // B37 (D82): arrived straight from onboarding; the first main step gets Ringo's first card.
+  firstRun: { type: Boolean, default: false },
   mode: { type: String, default: "zone" },
   checkingId: { type: [Number, String, null], default: null },
   pathLoading: { type: Boolean, default: false },
@@ -722,9 +724,12 @@ const baseRingoCard = computed(() => {
 
   if (state === "mission") {
     const bonus = missionIntensity(mission) === "bonus";
+    const first = props.firstRun && missionIntensity(mission) === "main";
     const title = bonus
       ? t("space.panel.bonusFocusTitle", { mission: missionTitle })
-      : t("space.panel.missionTitle", { mission: missionTitle });
+      : first
+        ? t("space.panel.firstStepTitle", { mission: missionTitle })
+        : t("space.panel.missionTitle", { mission: missionTitle });
     return {
       tone: bonus ? "bonus" : "ready",
       mood: bonus ? "happy" : "focus",
@@ -732,7 +737,11 @@ const baseRingoCard = computed(() => {
       title,
       body: bonus
         ? t("space.ringoGuide.bonusReadyMessage", { mission: missionTitle })
-        : mission?.estimatedMinutes
+        : first
+          ? mission?.estimatedMinutes
+            ? t("space.panel.firstStepBody", { minutes: mission.estimatedMinutes })
+            : t("space.panel.firstStepBodyNoTime")
+          : mission?.estimatedMinutes
           ? t("space.panel.missionBody", { minutes: mission.estimatedMinutes })
           : t("space.ringoGuide.missionFocusMessage", { mission: missionTitle }),
       chips: missionChips(mission),

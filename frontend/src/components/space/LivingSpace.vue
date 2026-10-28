@@ -114,6 +114,7 @@
       >
         <SpaceZonePanel
           :mode="workSurfaceMode"
+          :first-run="firstRunArrival"
           :zone="workSurfaceZone"
           :checking-id="checkingId"
           :path-loading="activePathLoading"
@@ -1480,6 +1481,9 @@ onMounted(async () => {
     if (zone) selectZone(zone);
   }
 });
+
+// B37 (D82): read once on arrival, so Ringo's first card stays until that first step is done.
+const firstRunArrival = ref(isFirstRunArrival());
 
 function isFirstRunArrival() {
   return typeof window !== "undefined" && new URLSearchParams(window.location.search).get("firstRun") === "1";
