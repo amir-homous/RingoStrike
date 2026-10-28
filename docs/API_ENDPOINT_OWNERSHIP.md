@@ -45,7 +45,7 @@ Current convention:
 | `GET /me/achievements` | `routes/dashboard_routes.py` | `services/achievement_service.py` | Authenticated achievement list. |
 | `GET /me/profile` | `routes/dashboard_routes.py` | `services/profile_service.py` | Private profile aggregate. |
 | `GET /me/consistency` | `routes/dashboard_routes.py` | `services/consistency_service.py` | Authenticated consistency heatmap data. |
-| `GET /me/stats` | `routes/stats_routes.py` | `services/stats_service.py` | Canonical stats endpoint. Do not reintroduce duplicate stats ownership in dashboard routes. |
+| `GET /me/stats` | `routes/stats_routes.py` | `services/stats_service.py` | Canonical stats endpoint. Do not reintroduce duplicate stats ownership in dashboard routes. `stats.total_days` (B37, read-only, additive): distinct UTC dates with a counted check-in (`status = 'Done'`, `is_counted = 1`) over the whole history; `total_checkins` still counts rows. |
 | `POST /paths/<path_id>/start` | `routes/path_routes.py` | `services/path_service.py` | Starts/reactivates a user path only. The frontend may separately join the first path challenge. |
 | `GET /me/today-missions` | `routes/mission_routes.py` | `services/mission_service.py`, `services/ringo_decision_service.py` | Dashboard MissionCenter source. Returns RingoCoach decision and available daily missions. |
 | `GET /me/ringo/today` | `routes/mission_routes.py` | `services/ringo_brain_service.py` | Additive Ringo Brain v1 guidance endpoint. Returns Ringo state, suggested mission, actions, progress, reward placeholder, and fallback metadata. |
