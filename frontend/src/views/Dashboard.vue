@@ -276,6 +276,8 @@ import {
   buildRewardDelta,
   buildRewardSnapshot,
 } from "@/utils/rewardSequenceBuilder";
+import { composeMomentSteps, lastSevenDays, utcTodayIso } from "@/lib/dayMoment";
+import { numberAwareT } from "@/lib/i18nNumbers";
 import {
   DASHBOARD_CHALLENGE_LIMIT,
   getVisibleDashboardChallenges,
@@ -773,8 +775,15 @@ async function handleLivingSpaceMissionCompleted(payload = {}) {
   });
   const rewardDelta = buildRewardDelta(beforeSnapshot, afterSnapshot, payload);
   const rewardResult = buildMissionCompletionRewardSteps(rewardDelta, payload, { t, locale: locale.value });
+  // B37 (D72 to D74): the first counted Main or Tiny of the day gets the day moment.
+  const firstOfDay = Boolean(rewardDelta?.strike?.changed);
+  const day = firstOfDay ? await loadDayMomentData() : null;
 
-  livingSpaceRewardSequenceSteps.value = rewardResult.steps;
+  livingSpaceRewardSequenceSteps.value = composeMomentSteps(rewardResult.steps, {
+    intensity: rewardDelta?.mission?.intensity || "main",
+    firstOfDay,
+    day,
+  }, numberAwareT(t, () => locale.value));
   livingSpaceRewardSequenceSprite.value = rewardDelta?.mission?.intensity === "bonus"
     ? "happy"
     : "celebration";
@@ -782,6 +791,23 @@ async function handleLivingSpaceMissionCompleted(payload = {}) {
   if (!rewardResult.steps.length) {
     continueLivingSpaceCompletionFeedback();
   }
+}
+
+// B37 (D73, D74): the day moment's numbers, read fresh after the check-in. A failed request only
+// drops its part (the count and chip from /me/stats, the bar from /me/consistency); nothing is
+// invented.
+async function loadDayMomentData() {
+  const [statsResult, consistencyResult] = await Promise.allSettled([
+    api.get("/me/stats"),
+    api.get("/me/consistency"),
+  ]);
+  const fresh = statsResult.status === "fulfilled" ? statsResult.value?.data?.stats || null : null;
+  const days = consistencyResult.status === "fulfilled" ? consistencyResult.value?.data?.days : null;
+  return {
+    streak: fresh?.current_streak ?? null,
+    totalDays: fresh?.total_days ?? null,
+    week: lastSevenDays(utcTodayIso(), days),
+  };
 }
 
 function buildLivingSpaceRewardSnapshot({
