@@ -20,7 +20,7 @@
         </div>
       </div>
 
-      <UiState :loading="loading && step === 3" :error="!!loadError" :empty="false"
+      <UiState :loading="(loading || pathLoading) && step === 3" :error="!!loadError" :empty="false"
         :loading-title="t('onboarding.loadingTitle')" :loading-text="t('onboarding.loadingText')"
         :error-title="t('onboarding.errorTitle')" :error-text="loadError || t('common.pleaseTryAgain')"
         @retry="loadChallenges" />
@@ -36,7 +36,7 @@
           @continue="continueToSuggestion"
         />
 
-        <ChallengeSuggestion v-else-if="step === 3" :path="selectedPath" :paths="selectedPaths"
+        <ChallengeSuggestion v-else-if="step === 3 && !loading && !pathLoading" :path="selectedPath" :paths="selectedPaths"
           :challenge="localizedSuggestedChallenge" :challenges="localizedSuggestedChallenges" :joining="joining" :error="joinError"
           @start="startSuggestedPath" @skip="skipOnboarding" />
 
@@ -85,6 +85,9 @@ const pathChallenges = ref([]);
 const pathChallengeGroups = ref([]);
 const spaceState = ref(null);
 const loading = ref(false);
+// B37: the challenge cards wait for the chosen corner's challenges, so a quick "Start this
+// challenge" never joins one from the generic list.
+const pathLoading = ref(false);
 const joining = ref(false);
 const loadError = ref("");
 const joinError = ref("");
@@ -240,9 +243,17 @@ async function loadSelectedPathChallenges() {
 
   if (!selectedBackendPaths.value.length) return;
 
-  const responses = await Promise.all(
-    selectedBackendPaths.value.map((path) => api.get(`/paths/${path.path_id}/challenges`)),
-  );
+  pathLoading.value = true;
+  let responses = [];
+  try {
+    responses = await Promise.all(
+      selectedBackendPaths.value.map((path) => api.get(`/paths/${path.path_id}/challenges`)),
+    );
+  } catch {
+    // The generic list stays as the fallback.
+  } finally {
+    pathLoading.value = false;
+  }
 
   const byId = new Map();
   const groups = [];
