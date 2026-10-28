@@ -1,7 +1,9 @@
 <template>
+  <!-- B37 (D86): the whole line holds its space from the start (never looks cut off); a tap, a
+       click or Enter finishes it; reduced motion shows it whole. -->
   <span class="typewriterText" :class="{ typing }" :aria-label="text">
-    <span aria-hidden="true">{{ visibleText }}</span>
-    <span v-if="typing" class="cursor" aria-hidden="true"></span>
+    <span class="fullLine" aria-hidden="true">{{ text }}</span>
+    <span class="typedLine" aria-hidden="true">{{ visibleText }}<span v-if="typing" class="cursor"></span></span>
   </span>
 </template>
 
@@ -25,6 +27,20 @@ function prefersReducedMotion() {
   return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 }
 
+// D86: any tap, click or Enter while a line types finishes it.
+function finishOnInput(event) {
+  if (!typing.value) return;
+  if (event.type === "keydown" && event.key !== "Enter") return;
+  showFullText(props.text);
+}
+
+function listen(on) {
+  if (typeof window === "undefined") return;
+  const method = on ? "addEventListener" : "removeEventListener";
+  window[method]("pointerdown", finishOnInput, true);
+  window[method]("keydown", finishOnInput, true);
+}
+
 function clearTimers() {
   if (startTimer) {
     globalThis.clearTimeout(startTimer);
@@ -41,6 +57,7 @@ function showFullText(value) {
   clearTimers();
   visibleText.value = value;
   typing.value = false;
+  listen(false);
 }
 
 function play(value) {
@@ -54,6 +71,7 @@ function play(value) {
   clearTimers();
   visibleText.value = "";
   typing.value = true;
+  listen(true);
 
   const characters = Array.from(nextText);
   let index = 0;
@@ -76,12 +94,25 @@ watch(
   { immediate: true },
 );
 
-onBeforeUnmount(clearTimers);
+onBeforeUnmount(() => {
+  clearTimers();
+  listen(false);
+});
 </script>
 
 <style scoped>
+/* Both lines sit in one grid cell: the hidden full line sets the size, the typed line draws on it. */
 .typewriterText {
-  display: inline;
+  display: inline-grid;
+}
+
+.fullLine,
+.typedLine {
+  grid-area: 1 / 1;
+}
+
+.fullLine {
+  visibility: hidden;
 }
 
 .cursor {

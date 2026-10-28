@@ -1,6 +1,8 @@
 export const ONBOARDING_DONE_KEY = "ringostrike_onboarding_done";
 export const IDENTITY_PATH_KEY = "ringostrike_identity_path";
 export const ONBOARDING_SKIPPED_KEY = "ringostrike_onboarding_skipped";
+// B37 (D83): the room's "What am I looking at?" box was dismissed ("Got it").
+export const ROOM_EXPLAINER_SEEN_KEY = "ringostrike_room_explainer_seen";
 
 export const PATH_TO_CHALLENGE_NAME = {
   career: "Deep Work Sprint",
@@ -78,6 +80,14 @@ export function isOnboardingDone(userKey = "") {
   return readStorage(ONBOARDING_DONE_KEY, userKey) === "1";
 }
 
+
+export function isRoomExplainerSeen(userKey = "") {
+  return readStorage(ROOM_EXPLAINER_SEEN_KEY, userKey) === "1";
+}
+
+export function markRoomExplainerSeen(userKey = "") {
+  writeStorage(ROOM_EXPLAINER_SEEN_KEY, "1", userKey);
+}
 
 export function isOnboardingSkipped(userKey = "") {
   return readStorage(ONBOARDING_SKIPPED_KEY, userKey) === "1";

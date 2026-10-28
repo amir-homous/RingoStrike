@@ -47,6 +47,12 @@
       @expand="openRow = null"
     />
 
+    <RoomExplainer
+      v-if="explainer"
+      :challenge-id="explainerChallengeId"
+      @dismiss="$emit('dismiss-explainer')"
+    />
+
     <!-- B30 S3 (D49): the path and challenge list moved into the room (trays); the full path stays
          one quiet link away. -->
     <RouterLink to="/paths" class="fullPathLink quiet">
@@ -110,6 +116,7 @@ import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
 import { formatNumber, numberAwareT } from "@/lib/i18nNumbers";
 import BonusOfferCard from "./BonusOfferCard.vue";
+import RoomExplainer from "@/components/space/RoomExplainer.vue";
 import RingoActionCard from "./RingoActionCard.vue";
 import MissionActionFlow from "./MissionActionFlow.vue";
 import ObjectTiles from "./ObjectTiles.vue";
@@ -136,6 +143,8 @@ const props = defineProps({
   zone: { type: Object, required: true },
   // B37 (D82): arrived straight from onboarding; the first main step gets Ringo's first card.
   firstRun: { type: Boolean, default: false },
+  // B37 (D83): show "What am I looking at?" under the card.
+  explainer: { type: Boolean, default: false },
   mode: { type: String, default: "zone" },
   checkingId: { type: [Number, String, null], default: null },
   pathLoading: { type: Boolean, default: false },
@@ -174,6 +183,7 @@ const emit = defineEmits([
   "checkin",
   "close",
   "highlight-object",
+  "dismiss-explainer",
 ]);
 
 const { locale, t: baseT } = useI18n();
@@ -276,6 +286,9 @@ const todayProgress = computed(() => {
     total: Number(detail.todayTotal || 0),
   };
 });
+
+// B37 (D84): the corner's joined challenge, for the explainer's "with others" line.
+const explainerChallengeId = computed(() => pathChallenges.value.find((challenge) => challenge.isJoined)?.id || null);
 
 const selectedPathChallenge = computed(() => {
   if (!pathChallenges.value.length) return null;

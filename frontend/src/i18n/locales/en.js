@@ -124,6 +124,20 @@ export default {
       openZone: "Go to {zone}",
       invite: "Or pick any corner of the room to continue.",
     },
+    explainer: {
+      title: "What am I looking at?",
+      cornerLabel: "Corner",
+      cornerLine: "Your path lives here.",
+      cornerMore: "Each corner of the room is one part of your life. Your small steps here fill it with objects.",
+      challengesLabel: "Challenges",
+      challengesLine: "A small daily habit.",
+      challengesWithOthersLine: "A small daily habit you try with others.",
+      challengesMore: "A challenge gives you one small step a day for a set number of days. You can add more later.",
+      stepsLabel: "Steps",
+      stepsLine: "One tiny mission at a time.",
+      stepsMore: "Tap the challenge icon to see its steps, one paw each. Finish today's main step and today is safe.",
+      gotIt: "Got it",
+    },
     panel: {
       backToRoom: "Back to room",
       reminderReady: "Ready now",
@@ -1199,7 +1213,7 @@ export default {
     },
     firstRunFocus: {
       eyebrow: "First mission focus",
-      title: "Mashti, just stay with this mission.",
+      title: "Friend, just stay with this mission.",
       text: "Do it, make it smaller, remind it, or skip it. The rest of the dashboard can wait.",
     },
   },
@@ -1641,7 +1655,7 @@ export default {
   welcome: {
     eyebrow: "Meet Ringo",
     title: "Meet Ringo. Start with one small win.",
-    body: "Mashti, you don’t need a full life plan today. Pick one direction, finish one small mission, and I’ll turn it into visible progress.",
+    body: "Friend, you don’t need a full life plan today. Pick one direction, finish one small mission, and I’ll turn it into visible progress.",
     cta: "Start with Ringo",
   },
   path: {
@@ -1823,7 +1837,7 @@ export default {
     onboardingFallback: {
       eyebrow: "First run",
       title: "Finish your Ringo start first.",
-      text: "Mashti, the dashboard will make more sense after one guided setup step.",
+      text: "Friend, the dashboard will make more sense after one guided setup step.",
       cta: "Continue onboarding",
     },
     focusKicker: "Today’s focus",
@@ -1879,7 +1893,7 @@ export default {
     },
     firstRunFocus: {
       eyebrow: "First mission focus",
-      title: "Mashti, stay with this card.",
+      title: "Friend, stay with this card.",
       text: "Do the mission, make it smaller, remind it, or skip it. The rest of the dashboard can wait.",
       done: "Done = save today",
       smaller: "Smaller = easier version",

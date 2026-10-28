@@ -190,6 +190,7 @@
                 :data-done-today="`${item.marker.doneToday}/${item.marker.joined}`"
                 @click="$emit('select', item.zone)"
               >
+                <span v-if="explainPins && item.selected" class="explainPin" aria-hidden="true">{{ fmt(1) }}</span>
                 <svg class="pmRing" viewBox="0 0 40 40" aria-hidden="true">
                   <circle v-if="item.marker.empty" class="pmEmpty" cx="20" cy="20" :r="PM_RING_R" />
                   <circle
@@ -275,6 +276,7 @@
                 :data-state="item.state"
                 @click="onTrayItem(item)"
               >
+                <span v-if="explainPins && explainPinFor(item)" class="explainPin" aria-hidden="true">{{ fmt(explainPinFor(item)) }}</span>
                 <template v-if="item.kind === 'more'">
                   <span class="trayMore" aria-hidden="true">{{ item.text }}</span>
                 </template>
@@ -384,6 +386,8 @@ const props = defineProps({
   objectHighlight: { type: Object, default: null },
   // B34 (D68): { due, later } reminders today; the clock is absent when both are 0.
   reminderCounts: { type: Object, default: null },
+  // B37 (D83): numbered pins for "What am I looking at?": 1 the corner, 2 the challenge, 3 a step.
+  explainPins: { type: Boolean, default: false },
 });
 
 const emit = defineEmits(["select", "select-challenge", "select-mission", "open-reminders"]);
@@ -1009,6 +1013,20 @@ watch(
     missionPage.value = { challengeId: null, page: 0 };
   },
 );
+
+// B37 (D83): pin 2 on the corner's joined (or selected) challenge, pin 3 on its first step.
+const explainPinKeys = computed(() => {
+  const items = tray.value?.items || [];
+  const challenge = items.find((item) => item.kind === "challenge" && item.selected)
+    || items.find((item) => item.kind === "challenge" && item.state !== "open")
+    || items.find((item) => item.kind === "challenge");
+  const paw = items.find((item) => item.kind === "paw");
+  return { [challenge?.key]: 2, [paw?.key]: 3 };
+});
+
+function explainPinFor(item) {
+  return explainPinKeys.value[item.key] || 0;
+}
 
 const tray = computed(() => {
   const key = openZoneKey.value;
@@ -2279,5 +2297,32 @@ onUnmounted(() => {
   .roomViewport.panning .roomScene {
     transition: none;
   }
+}
+
+/* B37 (D83): numbered pins matching the "What am I looking at?" rows. */
+.explainPin {
+  position: absolute;
+  top: -8px;
+  inset-inline-end: -8px;
+  z-index: 3;
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #f5c84c;
+  color: #1a1404;
+  font-size: 0.7rem;
+  font-weight: 850;
+  line-height: 1;
+  box-shadow: 0 0 0 2px rgba(11, 14, 20, 0.9);
+  pointer-events: none;
+}
+
+/* Path markers sit near the top of the zoomed phone room: their pin goes to the lower corner. */
+.pathMarker .explainPin {
+  top: auto;
+  bottom: -6px;
+  inset-inline-end: -10px;
 }
 </style>

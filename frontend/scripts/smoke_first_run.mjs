@@ -3,6 +3,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawn } from "node:child_process";
+import { challengeLineKey, shouldShowExplainer } from "../src/lib/roomExplainer.js";
 
 // B11: a new user reaches the first room object unaided, through the real UI:
 // register -> onboarding (welcome, corner, challenge) -> the room with the first mission -> Ringo
@@ -181,6 +182,14 @@ async function runFirstRun(page, [width, height, locale]) {
   ctx.clicks += 1;
   await waitFor(page, `location.pathname === "/onboarding"`);
 
+  // D86: the welcome line types out; Enter finishes it at once, and the full line held its space.
+  await waitFor(page, `Boolean(document.querySelector(".typewriterText"))`);
+  await evaluate(page, `window.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" })); true`);
+  const typed = await evaluate(page, `(() => { const el = document.querySelector(".typewriterText"); return { full: el.querySelector(".fullLine").textContent, typed: el.querySelector(".typedLine").textContent, typing: el.classList.contains("typing") }; })()`);
+  assert.equal(typed.typing, false, `${ctx.label} typewriter still typing after Enter`);
+  assert.equal(typed.typed.trim(), typed.full.trim(), `${ctx.label} typewriter line not whole after Enter`);
+  if (!fa) assert.doesNotMatch(typed.full, /Mashti/, `${ctx.label} EN still says Mashti (D85)`);
+
   // Welcome, then the corner step: the real room with five markers and five chips; Continue waits
   // for a corner.
   await step(page, fa ? "^شروع با رینگو$" : "^Start with Ringo$", "start", ctx);
@@ -213,6 +222,13 @@ async function runFirstRun(page, [width, height, locale]) {
   await waitFor(page, `location.pathname === "/dashboard" && Boolean(document.querySelector(".roomScene .zoneHitWrap"))`);
   assert.doesNotMatch(await evaluate(page, `document.body.innerText`), /Go to my first mission|رفتن به اولین مأموریت من/, `${ctx.label} handoff still shown`);
 
+  // D83: "What am I looking at?" under Ringo's first card, three rows, pins 1 and 2 in the room;
+  // a row opens Ringo's explanation.
+  await waitFor(page, `document.querySelectorAll(".roomExplainer .explainerRow").length === 3`);
+  await waitFor(page, `document.querySelectorAll(".explainPin").length >= 2`, 8000);
+  await evaluate(page, `document.querySelector('.explainerRow[data-row="steps"]').click(); true`);
+  await waitFor(page, `Boolean(document.querySelector(".roomExplainer .rowMore"))`, 3000);
+
   // The first mission is on screen right away: desktop panel, phone sheet (F1).
   await waitFor(page, `Boolean([...document.querySelectorAll(".roomSafeZone .splitAction button")].find((b) => b.offsetParent))`);
   if (width < 600) assert.ok(await evaluate(page, `Boolean(document.querySelector(".zoneSheet"))`), `${ctx.label} phone did not open the mission sheet`);
@@ -221,6 +237,14 @@ async function runFirstRun(page, [width, height, locale]) {
   await waitFor(page, `/[0-9۰-۹]+\\s*(\\/|از)\\s*[0-9۰-۹]+/.test(document.querySelector(".todayStrip strong")?.innerText || "")`, 10000).catch(() => {});
   const strip = await evaluate(page, `document.querySelector(".zoneTodayStrip, .todayStrip")?.innerText || document.querySelector(".roomSafeZone").innerText`);
   assert.match(strip, fa ? /۰ از ۲/ : /0\/2/, `${ctx.label} zone strip count`);
+
+  // "Got it" hides the box and the pins, and it stays hidden after a reload (remembered per user).
+  await step(page, fa ? "^فهمیدم$" : "^Got it$", "got it", ctx);
+  assert.equal(await evaluate(page, `document.querySelectorAll(".roomExplainer, .explainPin").length`), 0, `${ctx.label} box still shown after Got it`);
+  await page.send("Page.reload");
+  await waitFor(page, `Boolean([...document.querySelectorAll(".roomSafeZone .splitAction button")].find((b) => b.offsetParent))`);
+  await delay(1500);
+  assert.equal(await evaluate(page, `document.querySelectorAll(".roomExplainer").length`), 0, `${ctx.label} box came back after a reload`);
 
   // B27: the main mission's action is the split bar; "Already did it" then Save (no answers).
   await step(page, fa ? "^قبلاً انجام دادم$" : "^Already did it$", "already did it", ctx);
@@ -241,7 +265,19 @@ async function runFirstRun(page, [width, height, locale]) {
   console.log(`${ctx.label}: first object placed, ${ctx.clicks} clicks (+2 typed fields), ${seconds}s automated`);
 }
 
+// D83, D84: the box's rules, without a browser.
+function checkExplainerRules() {
+  assert.equal(challengeLineKey(0), "challenges");
+  assert.equal(challengeLineKey(1), "challenges", "only you: no \"with others\"");
+  assert.equal(challengeLineKey(2), "challengesWithOthers");
+  assert.equal(challengeLineKey(undefined), "challenges");
+  assert.equal(shouldShowExplainer({ firstRun: true, seen: false }), true);
+  assert.equal(shouldShowExplainer({ firstRun: true, seen: true }), false);
+  assert.equal(shouldShowExplainer({ firstRun: false, seen: false }), false);
+}
+
 async function run() {
+  checkExplainerRules();
   await waitForJson(`${API_BASE}/health`);
   await waitForOk(`${FRONTEND_BASE}/`);
   const userDataDir = await mkdtemp(join(tmpdir(), "ringo-first-run-"));
