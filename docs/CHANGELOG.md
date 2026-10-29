@@ -16,6 +16,54 @@ The project has moved beyond raw MVP. Core progression identity is implemented. 
 
 ## Latest Launch-Hardening Updates
 
+### Smaller steps for the day-2 and day-3 Main missions (#410)
+
+Seed content only; no schema change and no app logic change.
+
+- Added 30 smaller steps (Tiny missions) in `backend/services/path_seed_service.py`, one per day-2 and day-3 Main mission. They are **appended after** each challenge's existing missions, because a Main's day comes from its position in the list.
+- Each one links to its parent with `parent_mission_key`, uses the key `<parent>-tiny`, gives 3 XP, and opens on its **parent's day** (`unlock_after_days` 1 or 2). This uses a new `unlock_after_days` parameter on `_tiny_mission`, whose default stays 0 for the 15 day-1 smaller steps.
+- EN and FA titles and descriptions are in `missionContent`. The Persian is a draft for the copy pass (#382).
+- **How it reaches existing users:** missions are shared rows. On the next backend start, `init_db()` upserts the seed (`ON CONFLICT(challenge_id, key)`). The 30 rows are inserted once and linked to their parents. Existing missions keep their ids, order, days, texts and XP, and mission logs and check-ins are untouched (`backend/tests/test_seed_smaller_steps.py`).
+
+**Rollback (written down, not run).** Reverting the code does not remove the rows, because the seed never deletes missions. To hide them, back up `users.db`, then run this once:
+
+```sql
+UPDATE missions SET status = 'Archived' WHERE key IN (
+  'drink-water-tiny',
+  'energy-note-tiny',
+  'warm-up-tiny',
+  'cool-down-tiny',
+  'posture-check-tiny',
+  'mobility-note-tiny',
+  'capture-note-tiny',
+  'apply-small-tiny',
+  'highlight-one-tiny',
+  'share-insight-tiny',
+  'choose-drill-tiny',
+  'review-progress-tiny',
+  'define-output-tiny',
+  'close-loop-tiny',
+  'collect-proof-tiny',
+  'next-edit-tiny',
+  'update-context-tiny',
+  'next-contact-tiny',
+  'make-small-tiny',
+  'archive-spark-tiny',
+  'polish-one-pass-tiny',
+  'share-or-save-tiny',
+  'remix-it-tiny',
+  'save-version-tiny',
+  'clear-one-thing-tiny',
+  'soft-close-tiny',
+  'prepare-room-tiny',
+  'sleep-note-tiny',
+  'no-rush-start-tiny',
+  'energy-check-tiny'
+);
+```
+
+Archived missions no longer show, and "Make it smaller" disappears for those Mains. Any mission logs or check-ins already written for them stay as they are.
+
 ### Living Room Friends Beta Plan
 
 Recorded the Living Room Friends Beta milestone plan and its foundation decisions (docs only, no code changes):
