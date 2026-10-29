@@ -458,7 +458,11 @@ function runRoomSceneSmoke() {
   for (const key of ZONE_ORDER) {
     assert.deepEqual(layout.zones[key].path_marker, pathMarkerAnchors[key], `${key} path_marker`);
     assert.ok("tray" in layout.zones[key], `${key} tray reserved`);
+    // #394: the old bell marker key is gone.
+    assert.ok(!("marker" in layout.zones[key]), `${key} has no old bell marker key`);
   }
+  // #394: the bell art is gone; only the glint (B21) stays.
+  assert.deepEqual(Object.keys(layout.markers).sort(), ["anchor", "glint"], "markers: glint only");
 
   testPathMarkerState();
   testMissionTrayState();

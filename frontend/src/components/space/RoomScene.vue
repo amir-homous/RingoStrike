@@ -855,7 +855,7 @@ function pathMarkerView(zone, data, s, clampTo = null) {
   const parts = [data.title, t("space.scene.pathMarker.path", { path: state.title })];
   parts.push(state.empty
     ? t("space.scene.pathMarker.noneJoined")
-    : t("space.scene.pathMarker.doneToday", { done: state.doneToday, joined: state.joined }));
+    : t("space.scene.pathMarker.doneToday", { done: state.doneToday, joined: state.joined }, state.joined));
   if (PM_REMINDER_KEYS[state.reminder]) parts.push(t(PM_REMINDER_KEYS[state.reminder]));
   if (state.bonusDone > 0) parts.push(t("space.bonusStars.path", { count: state.bonusDone }));
   parts.push(t("space.scene.objectsPlaced", { count: placed }));

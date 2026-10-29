@@ -239,7 +239,7 @@
                   {{ t("pathsPage.challengeMissionProgress", {
                     done: challenge.today_missions_done || 0,
                     total: challenge.today_missions_total || 0,
-                  }) }}
+                  }, Number(challenge.today_missions_total || 0)) }}
                 </span>
                 <span v-else>
                   {{ t("pathsPage.noMissionReady") }}
@@ -696,7 +696,7 @@ const pathCoach = computed(() => {
     message: t("pathsPage.coach.continueToday", {
       done: todayDone.value,
       total: todayTotal.value,
-    }),
+    }, Number(todayTotal.value)),
     primary_action: {
       label: t("paths.openTodayMission"),
       type: "route",
@@ -815,7 +815,7 @@ function pathCardSummary(path) {
     hint = t("pathsPage.pathCard.continueHint", {
       done: todayMissionDone,
       total: todayMissionTotal,
-    });
+    }, Number(todayMissionTotal));
   } else if (joined > 0) {
     hint = t("pathsPage.pathCard.waitingHint");
   } else if (counts.next) {
