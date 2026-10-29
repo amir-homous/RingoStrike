@@ -1716,6 +1716,15 @@ export default {
       bonusNextText: "That was extra momentum. No new chain starts here.",
     },
     moment: {
+      ladder: {
+        oneLine: "{mission} is done. That counts.",
+        twoTitle: "Very good.",
+        twoLine: "Second step today. Your rhythm is steady.",
+        threeTitle: "Wow, three.",
+        threeLine: "Three steps today. That is a lot, and it counts.",
+        manyTitle: "You are remarkable.",
+        manyLine: "{count} today. You have done plenty. Rest is part of the rhythm too.",
+      },
       niceWork: "Nice work.",
       bonusTitle: "Extra step done.",
       tapToContinue: "Tap anywhere to continue",
