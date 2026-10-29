@@ -1,6 +1,6 @@
 import database
 from helpers import auth_headers
-from services.username_service import display_name, member_display_name
+from services.username_service import display_name, member_display_name, stored_display_name
 
 
 def _register(client, username, name):
@@ -49,6 +49,16 @@ def test_helper_rules():
     assert member_display_name("Sara", "sara1", None) == "Sara", "no setting means public"
     assert member_display_name("Sara", "sara1", "private") == "S."
     assert member_display_name("sara@example.com", "nima", "private") == "N.", "the initial never comes from an email"
+    assert stored_display_name("Sara", "sara1") == "Sara"
+    assert stored_display_name("sara@example.com", "sara1") == "sara1"
+    assert stored_display_name("", "sara1") == "sara1"
+
+
+def test_register_never_stores_a_name_with_at(client):
+    _register(client, "regemail", "me@example.com")
+    assert _db_user("regemail")["name"] == "regemail"
+    _register(client, "regplain", "Sara Plain")
+    assert _db_user("regplain")["name"] == "Sara Plain"
 
 
 def test_own_surfaces_never_return_a_name_with_at(client):

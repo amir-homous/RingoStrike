@@ -58,3 +58,8 @@ def member_display_name(name, username=None, profile_visibility=None) -> str:
         return f"{shown[:1].upper()}."
     return shown
 
+
+def stored_display_name(name, username) -> str:
+    """The name to store at sign-up: the typed name, or the username when it is empty or has "@"."""
+    value = (name or "").strip()
+    return value if value and "@" not in value else username
