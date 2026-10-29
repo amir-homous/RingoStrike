@@ -103,13 +103,14 @@ export function missionsDoneToday(missionsBefore = [], finished = null) {
   return done.size;
 }
 
-// The first card's title and line for the count: 1, 2, 3, then 4 and above.
+// The first card's title and line for the count: 1, 2, 3, then 4 and above. The mission title is
+// not part of the sentence (titles are imperatives); the card shows it as its own label.
 export function ladderCopy(count, missionTitle, translate) {
   const n = Math.max(1, Math.floor(Number(count) || 1));
   if (n === 1) {
     return {
       title: translate("ringoRewardSequence.moment.niceWork"),
-      text: translate("ringoRewardSequence.moment.ladder.oneLine", { mission: missionTitle }),
+      text: translate("ringoRewardSequence.moment.ladder.oneLine"),
     };
   }
   if (n === 2) {
@@ -163,6 +164,7 @@ export function composeMomentSteps(steps, { intensity = "main", firstOfDay = fal
     label: translate("ringoRewardSequence.types.mission_complete"),
     title: ladder.title,
     text: ladder.text,
+    missionLabel: missionTitle,
     doneToday: Math.max(1, Math.floor(Number(doneToday) || 1)),
     missionKey: mission?.missionKey || "",
     ...xpDetails,

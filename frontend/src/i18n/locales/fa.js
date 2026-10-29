@@ -1717,7 +1717,7 @@ export default {
     },
     moment: {
       ladder: {
-        oneLine: "{mission} انجام شد. همین حساب می‌شه.",
+        oneLine: "یه قدم انجام شد. همین حساب می‌شه.",
         twoTitle: "خیلی خوبه.",
         twoLine: "دومین قدم امروز. ریتمت ثابته.",
         threeTitle: "باورنکردنیه.",

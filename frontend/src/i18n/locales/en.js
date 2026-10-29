@@ -1717,7 +1717,7 @@ export default {
     },
     moment: {
       ladder: {
-        oneLine: "{mission} is done. That counts.",
+        oneLine: "One step done. That counts.",
         twoTitle: "Very good.",
         twoLine: "Second step today. Your rhythm is steady.",
         threeTitle: "Wow, three.",

@@ -22,8 +22,9 @@ const day = { streak: 11, totalDays: 25, week: lastSevenDays("2026-10-29", [{ da
 // Main, first counted of the day: Nice work, the day moment, Choose your pace (3 taps).
 const mainFirst = composeMomentSteps(builtSteps(), { intensity: "main", firstOfDay: true, day }, t);
 assert.deepEqual(types(mainFirst), ["nice_work", "day_moment", "final_choice"]);
-// The ladder's first line names the mission (count 1 by default).
-assert.equal(mainFirst[0].text, 'ringoRewardSequence.moment.ladder.oneLine{"mission":"Complete one focus block"}');
+// The ladder line never embeds the mission title; the card shows it as its own label.
+assert.equal(mainFirst[0].text, "ringoRewardSequence.moment.ladder.oneLine");
+assert.equal(mainFirst[0].missionLabel, "Complete one focus block");
 assert.equal(mainFirst[0].value, "+15 XP");
 assert.deepEqual(mainFirst[0].progressBar, { old: 10, new: 25 });
 assert.equal(mainFirst[0].meta, "40 total XP");
@@ -106,7 +107,7 @@ assert.equal(missionsDoneToday([mission(1, "main"), mission(2, "main", "pending"
 assert.equal(missionsDoneToday([mission(1, "main")], { mission_id: 1, mission_intensity: "main" }), 1, "the same mission counts once");
 
 const ladderTitle = (n) => ladderCopy(n, "Complete one focus block", t);
-assert.deepEqual(ladderTitle(1), { title: "ringoRewardSequence.moment.niceWork", text: 'ringoRewardSequence.moment.ladder.oneLine{"mission":"Complete one focus block"}' });
+assert.deepEqual(ladderTitle(1), { title: "ringoRewardSequence.moment.niceWork", text: "ringoRewardSequence.moment.ladder.oneLine" });
 assert.equal(ladderTitle(2).title, "ringoRewardSequence.moment.ladder.twoTitle");
 assert.equal(ladderTitle(2).text, "ringoRewardSequence.moment.ladder.twoLine");
 assert.equal(ladderTitle(3).title, "ringoRewardSequence.moment.ladder.threeTitle");
@@ -122,6 +123,8 @@ for (const [n, title] of [[1, "moment.niceWork"], [2, "moment.ladder.twoTitle"],
   assert.equal(card.title, `ringoRewardSequence.${title}`, `count ${n}`);
   assert.equal(card.doneToday, n);
   assert.equal(card.value, "+15 XP", "XP unchanged");
+  assert.equal(card.missionLabel, "Complete one focus block", `count ${n}: the mission title as its own label`);
+  assert.ok(!card.text.includes("Complete one focus block"), `count ${n}: the line does not embed the title`);
 }
 const tinyCard = composeMomentSteps(builtSteps(), { intensity: "tiny", firstOfDay: false, doneToday: 2 }, t)[0];
 assert.equal(tinyCard.title, "ringoRewardSequence.moment.ladder.twoTitle", "a Tiny gets the ladder");
