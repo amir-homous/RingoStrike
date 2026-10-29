@@ -1,6 +1,7 @@
 from database import get_db_connection
 from utils.date_utils import utc_today_iso
 from services.stats_service import calculate_current_streak
+from services.username_service import member_display_name
 
 
 def _with_ranks(items):
@@ -36,7 +37,8 @@ def enrollment_leaderboard(
             SELECT
                 e.id AS enrollment_id,
                 u.name,
-                u.username
+                u.username,
+                u.profile_visibility
             FROM enrollments e
             JOIN users u ON e.user_id = u.id
             WHERE e.challenge_id = ?
@@ -97,7 +99,7 @@ def enrollment_leaderboard(
             )
 
             item = {
-                "name": row["name"],
+                "name": member_display_name(row["name"], row["username"], row["profile_visibility"]),
                 "username": row["username"],
                 "enrollment_id": eid,
                 "total_checkins": int(total),

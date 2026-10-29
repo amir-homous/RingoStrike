@@ -5,6 +5,7 @@ from datetime import datetime
 from database import get_db_connection
 from services.stats_service import build_level_progress, sync_user_stats
 from services.title_service import evaluate_user_title
+from services.username_service import display_name
 
 
 def _ensure_avatar_column(conn):
@@ -76,7 +77,7 @@ def get_profile(user_id: int):
             "ok": True,
             "profile": {
                 "id": int(user["id"]),
-                "name": user["name"] or user["username"] or "Player",
+                "name": display_name(user["name"], user["username"]),
                 "username": user["username"],
                 "avatar_url": user["avatar_url"],
                 "bio": user["bio"],

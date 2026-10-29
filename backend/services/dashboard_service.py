@@ -1,6 +1,7 @@
 from database import get_db_connection, get_user_by_id
 from utils.date_utils import utc_today_iso
 from services.stats_service import build_level_progress, sync_user_stats
+from services.username_service import display_name
 
 
 def get_me(claims):
@@ -9,7 +10,7 @@ def get_me(claims):
         user = get_user_by_id(claims['user_id'])
         if not user:
             return {"ok":False,"error":"user_not_found"},404
-        return {"ok":True,"user_id":claims.get('user_id'),"username":user.get('username'),"name":user.get('name'),"email":user.get('email'),"auth_method":"local","registered":True},200
+        return {"ok":True,"user_id":claims.get('user_id'),"username":user.get('username'),"name":display_name(user.get('name'),user.get('username')),"email":user.get('email'),"auth_method":"local","registered":True},200
     return {"ok":True,"telegram_id":claims.get('telegram_id'),"user_id":claims.get('user_id'),"telegram_username":claims.get('telegram_username'),"first_name":claims.get('first_name'),"registered":claims.get('registered',False),"auth_method":"telegram"},200
 
 
@@ -24,14 +25,14 @@ def get_dashboard(user_id:int):
         for r in rows:
             checkin=conn.execute("SELECT 1 FROM checkins WHERE enrollment_id=? AND date=? AND status='Done' AND is_counted = 1 LIMIT 1",(r['enrollment_id'],today)).fetchone()
             items.append({"enrollment_id":r['enrollment_id'],"enrollment_name":r['enrollment_name'],"status":r['status'],"challenge_id":r['challenge_id'],"today_checked":bool(checkin)})
-        return {"ok":True,"date":today,"user":{"name":user_info['name'],"stats":{"total_points":user_info['total_points'],"current_streak":user_info['current_streak'],"longest_streak":user_info['longest_streak']}},"challenges":items},200
+        return {"ok":True,"date":today,"user":{"name":display_name(user_info['name'],user_info['username']),"stats":{"total_points":user_info['total_points'],"current_streak":user_info['current_streak'],"longest_streak":user_info['longest_streak']}},"challenges":items},200
     finally: conn.close()
 
 def get_stats(user_id:int):
     sync = sync_user_stats(user_id)
     conn = get_db_connection()
     try:
-        user = conn.execute("SELECT id, name FROM users WHERE id=?", (user_id,)).fetchone()
+        user = conn.execute("SELECT id, name, username FROM users WHERE id=?", (user_id,)).fetchone()
         if not user:
             return {"ok": False, "error": "user_not_found"}, 404
 
@@ -48,6 +49,6 @@ def get_stats(user_id:int):
             "total_points": total_points,
             "xp": levels["xp"],
         }
-        return {"ok": True, "stats": stats, "user": {"id": int(user["id"]), "name": user["name"]}}, 200
+        return {"ok": True, "stats": stats, "user": {"id": int(user["id"]), "name": display_name(user["name"], user["username"])}}, 200
     finally:
         conn.close()

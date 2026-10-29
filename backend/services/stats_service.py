@@ -6,6 +6,7 @@ from sqlite3 import DatabaseError
 
 from database import get_db_connection
 from utils.date_utils import utc_today_iso
+from services.username_service import display_name
 
 XP_PER_CHECKIN = 10
 MISSION_XP_FALLBACKS = {
@@ -111,7 +112,7 @@ def build_level_progress(xp: int) -> dict:
 def build_user_stats_payload(user_id: int) -> tuple[dict, int]:
     conn = get_db_connection()
     try:
-        user = conn.execute("SELECT id, name FROM users WHERE id = ?", (user_id,)).fetchone()
+        user = conn.execute("SELECT id, name, username FROM users WHERE id = ?", (user_id,)).fetchone()
         if not user:
             return {"ok": False, "error": "user_not_found"}, 404
 
@@ -207,7 +208,7 @@ def build_user_stats_payload(user_id: int) -> tuple[dict, int]:
 
         return {
             "ok": True,
-            "user": {"id": int(user["id"]), "name": user["name"]},
+            "user": {"id": int(user["id"]), "name": display_name(user["name"], user["username"])},
             "stats": {
                 "current_streak": current_streak,
                 "longest_streak": longest_streak,

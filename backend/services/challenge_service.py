@@ -5,6 +5,7 @@ from database import get_db_connection
 from services.stats_service import calculate_current_streak
 from utils.date_utils import utc_today_iso
 from utils.validation_utils import safe_int
+from services.username_service import member_display_name
 
 
 def list_public_challenges():
@@ -67,7 +68,7 @@ def list_challenges(user_id: int):
 
             previews = conn.execute(
                 """
-                SELECT u.name FROM users u
+                SELECT u.name, u.username, u.profile_visibility FROM users u
                 JOIN enrollments e ON u.id = e.user_id
                 WHERE e.challenge_id = ? AND e.status = 'Active'
                 LIMIT 3
@@ -84,7 +85,9 @@ def list_challenges(user_id: int):
                     "status": ch["status"].lower(),
                     "duration_days": ch["duration_days"],
                     "members_count": members_count,
-                    "members_preview": [p["name"] for p in previews],
+                    "members_preview": [
+                        member_display_name(p["name"], p["username"], p["profile_visibility"]) for p in previews
+                    ],
                     "is_joined": enroll_id is not None,
                     "enrollment_id": enroll_id,
                     "needs_code": vis_lower in ["private", "invite-only"],
@@ -173,7 +176,8 @@ def get_challenge_members(challenge_id: int, limit_arg, offset_arg):
                 enrollments.role,
                 users.id AS u_id,
                 users.name,
-                users.username
+                users.username,
+                users.profile_visibility
             FROM enrollments
             JOIN users ON enrollments.user_id = users.id
             WHERE enrollments.challenge_id = ? AND enrollments.status = 'Active'
@@ -188,7 +192,7 @@ def get_challenge_members(challenge_id: int, limit_arg, offset_arg):
                 "enrollment_status": row[1],
                 "role": row[2] if len(row) > 2 else "Member",
                 "user_id": row["u_id"],
-                "user_name": row["name"],
+                "user_name": member_display_name(row["name"], row["username"], row["profile_visibility"]),
                 "username": row["username"],
                 "telegram_username": row["username"],
             }
