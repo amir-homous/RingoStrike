@@ -17,6 +17,7 @@
     "test:localization": "node scripts/smoke_seeded_content_localization.mjs",
     "test:living-space": "node scripts/smoke_living_space.mjs",
     "test:room-alignment": "node scripts/smoke_room_alignment.mjs",
+    "test:room-explainer": "node scripts/test_room_explainer.mjs",
     "test:room-materialize": "node scripts/smoke_room_materialize.mjs",
     "test:room-trays": "node scripts/smoke_room_trays.mjs",
     "test:profile": "node scripts/smoke_profile_flow.mjs",
