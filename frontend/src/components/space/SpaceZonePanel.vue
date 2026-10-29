@@ -752,10 +752,10 @@ const baseRingoCard = computed(() => {
         ? t("space.ringoGuide.bonusReadyMessage", { mission: missionTitle })
         : first
           ? mission?.estimatedMinutes
-            ? t("space.panel.firstStepBody", { minutes: mission.estimatedMinutes })
+            ? t("space.panel.firstStepBody", { minutes: mission.estimatedMinutes }, Number(mission.estimatedMinutes))
             : t("space.panel.firstStepBodyNoTime")
           : mission?.estimatedMinutes
-          ? t("space.panel.missionBody", { minutes: mission.estimatedMinutes })
+          ? t("space.panel.missionBody", { minutes: mission.estimatedMinutes }, Number(mission.estimatedMinutes))
           : t("space.ringoGuide.missionFocusMessage", { mission: missionTitle }),
       chips: missionChips(mission),
       primary: completeAction(mission),

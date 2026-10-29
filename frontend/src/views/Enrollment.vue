@@ -307,7 +307,7 @@
 
               <div>
                 <div class="caption">{{ t("enrollment.checked") }}</div>
-                <strong>{{ t("enrollment.checkedDays", { checked: checkedDays, total: totalDays }) }}</strong>
+                <strong>{{ t("enrollment.checkedDays", { checked: checkedDays, total: totalDays }, Number(totalDays)) }}</strong>
               </div>
             </div>
           </BaseCard>

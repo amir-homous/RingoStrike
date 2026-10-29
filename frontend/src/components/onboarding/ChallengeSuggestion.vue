@@ -27,7 +27,7 @@
             <strong>{{ challengeTitle(challenge) }}</strong>
             <small>
               <template v-if="challenge.is_joined">{{ t("onboarding.suggestion.alreadyJoined") }}</template>
-              <template v-else>{{ t("onboarding.suggestion.cardLine", { days: fmt(challengeDuration(challenge)), line: challengeDescription(challenge) }) }}</template>
+              <template v-else>{{ t("onboarding.suggestion.cardLine", { days: fmt(challengeDuration(challenge)), line: challengeDescription(challenge) }, Number(challengeDuration(challenge))) }}</template>
             </small>
           </span>
         </button>

@@ -20,6 +20,7 @@
     "test:room-explainer": "node scripts/test_room_explainer.mjs",
     "test:room-materialize": "node scripts/smoke_room_materialize.mjs",
     "test:room-trays": "node scripts/smoke_room_trays.mjs",
+    "test:plurals": "node scripts/test_plurals.mjs",
     "test:profile": "node scripts/smoke_profile_flow.mjs",
     "test:public-profile": "node scripts/smoke_public_profile_flow.mjs",
     "test:router": "node scripts/smoke_router_guard.mjs",
