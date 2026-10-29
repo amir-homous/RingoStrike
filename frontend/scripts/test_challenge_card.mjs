@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import en from "../src/i18n/locales/en.js";
 import fa from "../src/i18n/locales/fa.js";
 import { getChallengePathKey } from "../src/lib/guidedExperience.js";
+import { publicPreviewNames } from "../src/lib/memberPreview.js";
 
 // Every seeded challenge (read from the backend seed) resolves to a path key with a label in EN and
 // FA, so no raw key like CHALLENGECARD.PATHS.CREATIVITY can show.
@@ -24,5 +25,12 @@ for (const name of names) {
 }
 assert.equal(getChallengePathKey({ name: "Daily Strike" }), "consistency", "archived legacy challenge");
 assert.equal(getChallengePathKey({ name: "Unknown" }), "", "unknown challenge: no label");
+
+// "Joined by" stopgap: names containing "@" are never shown.
+assert.deepEqual(publicPreviewNames(["Sara", "amir@example.com", "Bo"]), ["Sara", "Bo"]);
+assert.deepEqual(publicPreviewNames(["a@b", "c@d"]), []);
+assert.deepEqual(publicPreviewNames(["A", "B", "C", "D"]), ["A", "B", "C"], "at most three");
+assert.deepEqual(publicPreviewNames([" Nima ", "", null, 5]), ["Nima"]);
+assert.deepEqual(publicPreviewNames(undefined), []);
 
 console.log("Challenge card tests passed.");
