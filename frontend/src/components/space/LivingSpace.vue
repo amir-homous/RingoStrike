@@ -25,6 +25,7 @@
           :selected-zone-key="materializeZoneKey || visualActiveZone?.zone_key || ''"
           :suggested-zone-key="roomLevel && !materializeZoneKey ? suggestedZone?.zone_key || '' : ''"
           :rest="roomLevel && !materializeZoneKey"
+          :today-safe="todaySafe"
           :pending-reward-keys="pendingRewardKeys"
           :materializing="materializing"
           :min-scale="roomPanLayout ? 2 : 1"

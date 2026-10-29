@@ -280,6 +280,12 @@ export function markerSpanPanX(layout, viewportWidth, scale = 1) {
 }
 
 // Ringo sprite placement: anchor bottom-center at a Ringo-safe position (addendum §4).
+// Ringo sleeps on the room overview only once today is safe; before that he stays awake (idle, same
+// spot), also on phones, which open on the overview.
+export function ringoSleeps({ rest = false, todaySafe = false } = {}) {
+  return Boolean(rest && todaySafe);
+}
+
 export function ringoPlacement(layout, { rest = false } = {}) {
   const key = rest ? "sleeping" : "idle";
   const sprite = layout?.ringo_sprites?.[key];

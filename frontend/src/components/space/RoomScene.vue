@@ -352,6 +352,7 @@ import {
   trayRect,
   trayScreenFactor,
   zoneObjects,
+  ringoSleeps,
 } from "@/lib/roomScene";
 import { resolveChallengeIcon } from "@/utils/missionMomentumUtils";
 import { todayMainDone } from "@/lib/livingSpacePanel";
@@ -386,6 +387,8 @@ const props = defineProps({
   objectHighlight: { type: Object, default: null },
   // B34 (D68): { due, later } reminders today; the clock is absent when both are 0.
   reminderCounts: { type: Object, default: null },
+  // Ringo sleeps on the overview only once today is safe (ringoSleeps).
+  todaySafe: { type: Boolean, default: false },
   // B37 (D83): numbered pins for "What am I looking at?": 1 the corner, 2 the challenge, 3 a step.
   explainPins: { type: Boolean, default: false },
 });
@@ -607,7 +610,7 @@ const selectedLayout = computed(() => {
   return props.selectedZoneKey ? layout.zones?.[props.selectedZoneKey] || null : null;
 });
 
-const ringo = computed(() => ringoPlacement(layout, { rest: props.rest }));
+const ringo = computed(() => ringoPlacement(layout, { rest: ringoSleeps({ rest: props.rest, todaySafe: props.todaySafe }) }));
 
 // B30 S2 placement review: `?trayDebug=1` outlines the selected zone's challenge tray rect
 // (room_layout.json `tray`, checked by test:room-trays). Not the real tray.
