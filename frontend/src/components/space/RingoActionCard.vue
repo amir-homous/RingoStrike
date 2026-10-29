@@ -643,4 +643,22 @@ defineExpose({ focusPrimary });
     animation: none;
   }
 }
+
+/* B37 Fix A: short phones (under 800 px tall): a smaller portrait so Ringo's text wraps less, and
+   tighter gaps. Nothing is hidden. */
+@media (max-width: 599px) and (max-height: 799px) {
+  .ringoCard {
+    gap: 8px;
+  }
+
+  .ringoCardHead {
+    gap: 10px;
+  }
+
+  .ringoCardHead :deep(.ringoMood.size-sm) {
+    width: 44px;
+    height: 44px;
+    border-radius: 14px;
+  }
+}
 </style>

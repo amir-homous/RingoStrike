@@ -1678,4 +1678,12 @@ function canUseMissionSupportActions(mission) {
 }
 
 
+
+/* B37 Fix A: short phones (under 800 px tall): tighter panel padding and gaps. */
+@media (max-width: 599px) and (max-height: 799px) {
+  .zonePanel {
+    gap: 8px;
+    padding-block: 8px;
+  }
+}
 </style>

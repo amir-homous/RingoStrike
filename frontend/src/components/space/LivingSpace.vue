@@ -1888,4 +1888,16 @@ watch(
     animation: none;
   }
 }
+
+/* B37 Fix A: short phones (under 800 px tall) get a tighter sheet top, so Ringo's "Do it now" is
+   fully in view at 360x740. Taller phones are unchanged. */
+@media (max-width: 599px) and (max-height: 799px) {
+  .roomSafeZone.zoneSheet {
+    padding-top: 2px;
+  }
+
+  .roomSafeZone.zoneSheet::before {
+    margin: 2px auto 2px;
+  }
+}
 </style>
