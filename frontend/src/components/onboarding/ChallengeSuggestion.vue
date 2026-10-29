@@ -1,102 +1,44 @@
 <template>
+  <!-- B37 (D81): pick a first challenge. Three cards (icon, name, one short line); "Start this
+       challenge" and "Choose later" stay above the fold. -->
   <section class="suggestionStep">
-    <div class="suggestionHero">
-      <div class="stepHeader">
-        <p class="eyebrow">{{ t("onboarding.suggestion.eyebrow") }}</p>
-        <h1>{{ t("onboarding.suggestion.title") }}</h1>
-        <p>
-          <OnboardingTypewriterText :text="t('onboarding.suggestion.body', { path: pathLabel })" />
-        </p>
-        <p class="laterNotice">
-          <OnboardingTypewriterText :text="t('onboarding.suggestion.laterNotice')" :start-delay="420" />
-        </p>
-      </div>
-
-      <RingoMoodFigure class="suggestionRingo" :mood="suggestionMood" :alt="t('onboarding.suggestion.title')" size="md"
-        floating />
+    <div class="stepHeader">
+      <p class="eyebrow">{{ t("onboarding.suggestion.firstEyebrow") }}</p>
+      <h1>{{ t("onboarding.suggestion.pickTitle") }}</h1>
     </div>
 
     <BaseCard class="suggestionCard">
-      <div v-if="challenges.length" class="challengeCopy">
-        <span class="statusPill">
-          {{ t("onboarding.suggestion.recommended") }}
-        </span>
-
-        <h2>{{ t("onboarding.suggestion.chooseTitle") }}</h2>
-
-        <p>
-          {{ t("onboarding.suggestion.chooseText") }}
-        </p>
-
-        <div v-if="primaryChallenge" class="recommendedChallenge">
-          <button type="button" class="challengeOption primaryChallenge" :class="{
-            selected: selectedIds.includes(primaryChallenge.challenge_id),
-            joined: primaryChallenge.is_joined
-          }" @click="toggleChallenge(primaryChallenge)">
-            <span class="checkMark" aria-hidden="true">
-              {{ selectedIds.includes(primaryChallenge.challenge_id) ? "✓" : "" }}
-            </span>
-
-            <span class="optionCopy">
-              <small class="recommendedLabel">
-                {{ t("onboarding.suggestion.bestStart") }}
-              </small>
-
-              <strong>{{ challengeTitle(primaryChallenge) }}</strong>
-
-              <small>{{ challengeDescription(primaryChallenge) }}</small>
-            </span>
-
-            <span class="optionMeta">
-              <small v-if="primaryChallenge.is_joined">
-                {{ t("onboarding.suggestion.alreadyJoined") }}
-              </small>
-              <small v-else>
-                {{ t("common.dayChallenge", { count: challengeDuration(primaryChallenge) }) }}
-              </small>
-            </span>
-          </button>
-        </div>
-
-        <div v-if="alternativeChallenges.length" class="alternativeChoices">
-          <p class="alternativeTitle">
-            {{ t("onboarding.suggestion.alternativesTitle") }}
-          </p>
-
-          <div class="challengeOptions">
-            <button v-for="challenge in alternativeChallenges" :key="challenge.challenge_id" type="button"
-              class="challengeOption secondaryChallenge"
-              :class="{ selected: selectedIds.includes(challenge.challenge_id), joined: challenge.is_joined }"
-              @click="toggleChallenge(challenge)">
-              <span class="checkMark" aria-hidden="true">
-                {{ selectedIds.includes(challenge.challenge_id) ? "✓" : "" }}
-              </span>
-
-              <span class="optionCopy">
-                <strong>{{ challengeTitle(challenge) }}</strong>
-                <small>{{ challengeDescription(challenge) }}</small>
-              </span>
-
-              <span class="optionMeta">
-                <small v-if="challenge.is_joined">{{ t("onboarding.suggestion.alreadyJoined") }}</small>
-                <small v-else>{{ t("common.dayChallenge", { count: challengeDuration(challenge) }) }}</small>
-              </span>
-            </button>
-          </div>
-        </div>
-
+      <div v-if="challenges.length" class="challengeOptions" role="radiogroup" :aria-label="t('onboarding.suggestion.pickTitle')">
+        <button
+          v-for="challenge in orderedChallenges"
+          :key="challenge.challenge_id"
+          type="button"
+          role="radio"
+          class="challengeOption"
+          :class="{ selected: selectedIds.includes(challenge.challenge_id), joined: challenge.is_joined }"
+          :aria-checked="selectedIds.includes(challenge.challenge_id) ? 'true' : 'false'"
+          :data-challenge="challenge.challenge_id"
+          @click="toggleChallenge(challenge)"
+        >
+          <span class="challengeIcon" aria-hidden="true">
+            <img :src="challengeIcon(challenge)" alt="" class="iconOnDark" />
+          </span>
+          <span class="optionCopy">
+            <strong>{{ challengeTitle(challenge) }}</strong>
+            <small>
+              <template v-if="challenge.is_joined">{{ t("onboarding.suggestion.alreadyJoined") }}</template>
+              <template v-else>{{ t("onboarding.suggestion.cardLine", { days: fmt(challengeDuration(challenge)), line: challengeDescription(challenge) }) }}</template>
+            </small>
+          </span>
+        </button>
       </div>
 
       <div v-else class="challengeCopy">
         <span class="statusPill fallback">
           {{ t("onboarding.suggestion.fallbackPill") }}
         </span>
-
         <h2>{{ t("onboarding.suggestion.fallbackTitle") }}</h2>
-
-        <p>
-          {{ t("onboarding.suggestion.fallbackText") }}
-        </p>
+        <p>{{ t("onboarding.suggestion.fallbackLater") }}</p>
       </div>
 
       <div v-if="error" class="errorBox">
@@ -106,15 +48,10 @@
       <div class="actions">
         <BaseButton v-if="challenges.length" variant="primary" :loading="joining" :disabled="selectedIds.length === 0"
           @click="$emit('start', selectedIds)">
-          {{ t("onboarding.suggestion.startSelected", { count: selectedIds.length }) }}
+          {{ t("onboarding.suggestion.startThis") }}
         </BaseButton>
-
-        <BaseButton variant="secondary" @click="$emit('browse')">
-          {{ t("onboarding.suggestion.browse") }}
-        </BaseButton>
-
         <button type="button" class="skipButton" @click="$emit('skip')">
-          {{ t("onboarding.suggestion.skip") }}
+          {{ t("onboarding.suggestion.chooseLater") }}
         </button>
       </div>
     </BaseCard>
@@ -128,10 +65,9 @@ import { formatNumber, numberAwareT } from "@/lib/i18nNumbers";
 
 import BaseButton from "@/components/ui/BaseButton.vue";
 import BaseCard from "@/components/ui/BaseCard.vue";
-import OnboardingTypewriterText from "@/components/onboarding/OnboardingTypewriterText.vue";
-import RingoMoodFigure from "@/components/ringo/RingoMoodFigure.vue";
-import { resolveRingoMood } from "@/constants/ringoSprites";
+import { challengeIconKey } from "@/lib/challengeIconKeys";
 import { localizeChallenge } from "@/lib/ringoContentLocalization";
+import { resolveChallengeIcon } from "@/utils/missionMomentumUtils";
 
 const props = defineProps({
   path: { type: String, default: "" },
@@ -142,7 +78,7 @@ const props = defineProps({
   error: { type: String, default: "" },
 });
 
-defineEmits(["start", "browse", "skip"]);
+defineEmits(["start", "skip"]);
 
 const { locale, t: baseT } = useI18n();
 // B10: numbers in copy use the locale's digits; a numeric count picks the plural form.
@@ -165,16 +101,6 @@ watch(
   { immediate: true },
 );
 
-const pathLabel = computed(() => {
-  if (props.paths.length) {
-    return props.paths
-      .map((path) => t(`onboarding.paths.${path}.label`))
-      .join(", ");
-  }
-
-  return props.path ? t(`onboarding.paths.${props.path}.label`) : t("onboarding.path.defaultPath");
-});
-
 const primaryChallenge = computed(() => {
   return props.challenge
     || props.challenges.find((challenge) => !challenge.is_joined)
@@ -182,13 +108,17 @@ const primaryChallenge = computed(() => {
     || null;
 });
 
-const alternativeChallenges = computed(() => {
+// The recommended challenge first, then the others (three cards at most).
+const orderedChallenges = computed(() => {
   const primaryId = primaryChallenge.value?.challenge_id;
-
-  return props.challenges.filter((challenge) => {
-    return challenge.challenge_id !== primaryId;
-  });
+  const rest = props.challenges.filter((challenge) => challenge.challenge_id !== primaryId);
+  return [primaryChallenge.value, ...rest].filter(Boolean).slice(0, 3);
 });
+
+// The icon from the stable English key, never the translated name (B33 fix).
+function challengeIcon(challenge) {
+  return resolveChallengeIcon({ icon_key: challengeIconKey(challenge?.name || challenge?.challenge_name), challenge_id: challenge?.challenge_id });
+}
 
 function challengeTitle(challenge) {
   const displayChallenge = localizeChallenge(challenge, locale.value);
@@ -206,12 +136,6 @@ function challengeDescription(challenge) {
 function challengeDuration(challenge) {
   return challenge?.estimated_days || challenge?.duration_days || 0;
 }
-
-const suggestionMood = computed(() => {
-  return props.challenges.length
-    ? resolveRingoMood("onboardingSuggestion")
-    : resolveRingoMood("onboardingFallback");
-});
 
 function toggleChallenge(challenge) {
   if (challenge.is_joined) return;
@@ -493,6 +417,82 @@ h2 {
 
   .skipButton {
     width: 100%;
+  }
+}
+
+/* B37 (D81): three compact cards with the challenge icon; the actions stay above the fold. */
+.suggestionStep h1 {
+  font-size: 2rem;
+  line-height: 1.1;
+}
+
+.suggestionCard {
+  gap: var(--s-16);
+  padding: 18px;
+}
+
+.challengeOptions {
+  margin-top: 0;
+  gap: 10px;
+}
+
+.challengeOption {
+  grid-template-columns: auto minmax(0, 1fr);
+  min-height: 64px;
+  padding: 10px 12px;
+}
+
+.challengeOption.selected {
+  border-color: rgba(110, 229, 255, 0.85);
+  box-shadow: inset 0 0 0 1px rgba(110, 229, 255, 0.5);
+}
+
+.challengeOption:focus-visible,
+.skipButton:focus-visible {
+  outline: 2px solid #6ee5ff;
+  outline-offset: 2px;
+}
+
+.challengeIcon {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  background: rgba(11, 14, 20, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+}
+
+.challengeIcon img {
+  width: 30px;
+  height: 30px;
+  object-fit: contain;
+}
+
+.optionCopy strong {
+  font-size: 0.98rem;
+}
+
+.suggestionCard .actions {
+  display: grid;
+  gap: 4px;
+}
+
+.suggestionCard .skipButton {
+  min-height: 44px;
+}
+
+@media (max-width: 620px) {
+  .suggestionStep h1 {
+    font-size: 1.6rem;
+  }
+
+  .suggestionCard .actions {
+    position: sticky;
+    bottom: 0;
+    z-index: 2;
+    padding: 10px 0 calc(10px + env(safe-area-inset-bottom));
+    background: linear-gradient(to top, rgba(8, 12, 22, 0.96) 60%, rgba(8, 12, 22, 0));
   }
 }
 </style>

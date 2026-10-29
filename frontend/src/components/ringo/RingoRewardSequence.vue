@@ -13,8 +13,15 @@
           <img v-if="resolvedSprite.src" :src="resolvedSprite.src" :alt="resolvedSprite.key" />
         </div>
 
-        <div class="rewardStep" :class="currentStep.type || 'default'">
+        <!-- B37 (D76): a celebration card continues with a tap anywhere on it (no button). -->
+        <div
+          class="rewardStep"
+          :class="[currentStep.type || 'default', { celebrate: isCelebration }]"
+          @click="onCardTap"
+        >
           <span class="stepType">{{ stepLabel }}</span>
+          <DayMomentCard v-if="currentStep.type === 'day_moment'" :key="currentIndex" :moment="currentStep.moment" />
+          <template v-else>
           <div v-if="isStrikeStep" class="strikeRewardVisual" :class="{ active: animatedStrikeActive }"
             aria-hidden="true">
             <span class="strikeFlame inactive">
@@ -39,6 +46,9 @@
               :style="{ width: `${animatedProgress}%`, '--step-progress-color': progressColor }"></span>
           </div>
           <small v-if="currentStep.meta" class="stepMeta">{{ currentStep.meta }}</small>
+          <small v-if="currentStep.levelLine" class="stepMeta">{{ currentStep.levelLine }}</small>
+          </template>
+          <p v-if="isCelebration" class="tapHint" aria-hidden="true">{{ t("ringoRewardSequence.moment.tapToContinue") }}</p>
         </div>
 
         <div class="rewardProgress" :aria-label="t('ringoRewardSequence.progress')">
@@ -53,6 +63,10 @@
               {{ action.label }}
             </BaseButton>
           </template>
+          <!-- One "Continue" action for screen readers and keyboards on a celebration card. -->
+          <button v-else-if="isCelebration" ref="srContinue" type="button" class="srContinue" @click="tryAdvance">
+            {{ isLastStep ? t("ringoRewardSequence.finish") : t("ringoRewardSequence.continue") }}
+          </button>
           <BaseButton v-else variant="primary" @click="advance">
             {{ isLastStep ? t("ringoRewardSequence.finish") : t("ringoRewardSequence.continue") }}
           </BaseButton>
@@ -67,6 +81,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue"
 import { useI18n } from "vue-i18n";
 import { formatNumber, numberAwareT } from "@/lib/i18nNumbers";
 import BaseButton from "@/components/ui/BaseButton.vue";
+import DayMomentCard from "@/components/ringo/DayMomentCard.vue";
 import { resolveRingoSprite } from "@/constants/ringoSprites";
 import { missionIconUrl, resolveChallengeIcon, resolvePathIcon } from "@/utils/missionMomentumUtils";
 import strikeActiveIcon from "@/assets/strike-active.png";
@@ -94,6 +109,12 @@ let progressTimer = 0;
 let reducedMotionQuery = null;
 
 const currentStep = computed(() => props.steps[currentIndex.value] || {});
+// B37 (D76): celebration cards (Nice work, the day moment) continue with a tap; the first 500 ms
+// of a card ignore taps; Enter, Space and the right arrow also continue.
+const TAP_GUARD_MS = 500;
+const isCelebration = computed(() => Boolean(currentStep.value.celebrate));
+const srContinue = ref(null);
+let stepShownAt = 0;
 const isLastStep = computed(() => currentIndex.value >= props.steps.length - 1);
 const resolvedSprite = computed(() => resolveRingoSprite(currentStep.value.sprite || props.sprite));
 
@@ -128,7 +149,7 @@ const strikeStreakLabel = computed(() => {
   return "";
 });
 const stepVisualIcon = computed(() => {
-  if (currentStep.value?.type === "mission_complete") {
+  if (["mission_complete", "nice_work", "bonus_done"].includes(currentStep.value?.type)) {
     return missionIconUrl({
       key: currentStep.value.missionKey || currentStep.value.mission_key || currentStep.value.key || "",
     });
@@ -156,12 +177,34 @@ watch(
 watch(
   currentStep,
   () => {
+    stepShownAt = Date.now();
     runStepAnimation();
+    if (isCelebration.value) nextTick(() => srContinue.value?.focus({ preventScroll: true }));
   },
   { immediate: true },
 );
 
+function tryAdvance() {
+  if (Date.now() - stepShownAt < TAP_GUARD_MS) return;
+  advance();
+}
+
+function onCardTap() {
+  if (isCelebration.value) tryAdvance();
+}
+
+function onKeydown(event) {
+  if (!props.steps.length || !isCelebration.value) return;
+  // The focused Continue button handles Enter and Space itself.
+  const onButton = event.target?.closest?.("button");
+  if (event.key === "ArrowRight" || (!onButton && (event.key === "Enter" || event.key === " "))) {
+    event.preventDefault();
+    tryAdvance();
+  }
+}
+
 onMounted(() => {
+  if (typeof window !== "undefined") window.addEventListener("keydown", onKeydown);
   if (typeof window === "undefined" || !window.matchMedia) return;
 
   reducedMotionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -177,6 +220,7 @@ onMounted(() => {
 });
 
 onBeforeUnmount(() => {
+  if (typeof window !== "undefined") window.removeEventListener("keydown", onKeydown);
   cancelAnimationFrame(progressFrame);
   cancelAnimationFrame(strikeFrame);
   window.clearTimeout(progressTimer);
@@ -419,6 +463,8 @@ function boundedPercent(value) {
 }
 
 .stepVisualIcon.mission_complete img,
+.stepVisualIcon.nice_work img,
+.stepVisualIcon.bonus_done img,
 .stepVisualIcon.challenge_strengthened img,
 .stepVisualIcon.final_choice img {
   filter: brightness(0) invert(1) drop-shadow(0 0 10px rgba(110, 229, 255, 0.18));
@@ -563,6 +609,27 @@ function boundedPercent(value) {
   flex-wrap: wrap;
   gap: 10px;
   justify-content: center;
+}
+
+.rewardStep.celebrate {
+  cursor: pointer;
+}
+
+.tapHint {
+  margin: 4px 0 0;
+  color: rgba(255, 255, 255, 0.46);
+  font-size: 0.78rem;
+}
+
+.srContinue {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+  padding: 0;
 }
 
 @media (prefers-reduced-motion: reduce) {

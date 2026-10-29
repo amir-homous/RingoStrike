@@ -1,69 +1,76 @@
 <template>
-  <section class="pathStep">
-    <div class="pathHero">
-      <div class="stepHeader">
-        <p class="eyebrow">{{ t("onboarding.path.eyebrow") }}</p>
-        <h1>{{ t("onboarding.path.title") }}</h1>
-        <p><OnboardingTypewriterText :text="t('onboarding.path.body')" /></p>
-      </div>
-
-      <RingoMoodFigure class="pathRingo" :mood="pathMood" :alt="t('onboarding.path.title')" size="md" floating />
+  <!-- B37 (D79, D80): pick a corner on the real room. One line for the chosen corner, and a Now /
+       After a few steps switch that only changes the picture and one line. -->
+  <section class="pathStep cornerStep">
+    <div class="stepHeader">
+      <p class="eyebrow">{{ t("onboarding.corner.eyebrow") }}</p>
+      <h1>{{ t("onboarding.corner.title") }}</h1>
     </div>
 
-    <div class="pathExperience">
-      <div class="pathGrid">
-        <button
-          v-for="path in pathOptions"
-          :key="path.key"
-          type="button"
-          class="pathCard"
-          :class="{ selected: selectedPaths.includes(path.key), previewed: previewPath === path.key }"
-          @mouseenter="previewPath = path.key"
-          @focus="previewPath = path.key"
-          @click="togglePath(path.key)"
-        >
-          <span class="pathIcon" :style="{ '--path-color': path.color || '#67e8f9' }" aria-hidden="true">
-            <img v-if="path.iconUrl" :src="path.iconUrl" alt="" class="pathIconImage iconOnDark" />
-            <template v-else>{{ path.iconLabel }}</template>
-          </span>
-          <span class="pathLabel">{{ path.title }}</span>
-          <span class="pathZone">{{ t("onboarding.path.roomZone", { zone: path.zoneTitle }) }}</span>
-          <span class="pathSuggestion">
-            {{ path.outcome }}
-          </span>
-        </button>
-      </div>
+    <div class="cornerLayout">
+      <RoomPicture
+        class="cornerPicture"
+        :model-value="chosenZone"
+        :after="after"
+        :markers="markers"
+        @update:model-value="chooseZone"
+      />
 
-      <div class="roomPreview" :aria-label="t('onboarding.path.roomPreviewLabel')">
-        <p class="previewTitle">{{ t("onboarding.path.roomPreviewTitle") }}</p>
-
-        <div class="previewRoom">
-          <SpaceZone
-            v-for="zone in previewZones"
-            :key="zone.zone_key"
-            :zone="zone"
-            :active="activeZoneKey === zone.zone_key"
-            @select="selectZone(zone)"
-          />
+      <div class="cornerSide">
+        <div class="cornerChips" role="group" :aria-label="t('onboarding.corner.chipsLabel')">
+          <button
+            v-for="option in pathOptions"
+            :key="option.key"
+            type="button"
+            class="cornerChip"
+            :class="{ chosen: chosenPath === option.key }"
+            :style="{ '--chip-color': option.color }"
+            :aria-pressed="chosenPath === option.key ? 'true' : 'false'"
+            :data-path="option.key"
+            @click="choosePath(option.key)"
+          >
+            {{ option.zoneTitle }}
+          </button>
         </div>
 
-        <p v-if="activePreviewOption" class="previewHint">
-          <OnboardingTypewriterText
-            :text="t('onboarding.path.previewHint', {
-              path: activePreviewOption.title,
-              reward: activePreviewOption.firstRewardTitle,
-            })"
-            :speed="12"
-            :start-delay="40"
-          />
-        </p>
-      </div>
-    </div>
+        <div class="cornerSwitch" role="group" :aria-label="t('onboarding.corner.switchLabel')">
+          <button
+            type="button"
+            class="switchButton"
+            :class="{ active: !after }"
+            :aria-pressed="after ? 'false' : 'true'"
+            data-switch="now"
+            @click="after = false"
+          >
+            {{ t("onboarding.corner.now") }}
+          </button>
+          <button
+            type="button"
+            class="switchButton"
+            :class="{ active: after }"
+            :aria-pressed="after ? 'true' : 'false'"
+            data-switch="after"
+            @click="after = true"
+          >
+            {{ t("onboarding.corner.after") }}
+          </button>
+        </div>
 
-    <div class="actions">
-      <BaseButton variant="primary" :disabled="selectedPaths.length === 0" @click="$emit('continue')">
-        {{ t("onboarding.path.continueWithCount", { count: selectedPaths.length }) }}
-      </BaseButton>
+        <p class="cornerLine" aria-live="polite">
+          <template v-if="chosenOption">
+            <strong>{{ chosenOption.zoneTitle }}.</strong>
+            {{ chosenOption.outcome }}
+            <span class="stateLine">{{ after ? t("onboarding.corner.afterLine") : t("onboarding.corner.nowLine") }}</span>
+          </template>
+          <template v-else>{{ t("onboarding.corner.hint") }}</template>
+        </p>
+
+        <div class="actions">
+          <BaseButton variant="primary" :disabled="!chosenPath" @click="$emit('continue')">
+            {{ t("onboarding.corner.continue") }}
+          </BaseButton>
+        </div>
+      </div>
     </div>
   </section>
 </template>
@@ -73,11 +80,8 @@ import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
 
 import BaseButton from "@/components/ui/BaseButton.vue";
-import OnboardingTypewriterText from "@/components/onboarding/OnboardingTypewriterText.vue";
-import RingoMoodFigure from "@/components/ringo/RingoMoodFigure.vue";
-import SpaceZone from "@/components/space/SpaceZone.vue";
-import { resolveRingoMood } from "@/constants/ringoSprites";
-import { localizeSpaceZone } from "@/lib/livingSpaceCopy";
+import RoomPicture from "@/components/onboarding/RoomPicture.vue";
+import { spaceZoneTitle } from "@/lib/livingSpaceCopy";
 import { localizePath } from "@/lib/ringoContentLocalization";
 import { resolvePathIcon } from "@/utils/missionMomentumUtils";
 
@@ -90,10 +94,10 @@ const props = defineProps({
 const emit = defineEmits(["update:modelValue", "continue"]);
 
 const { locale, t, te } = useI18n();
-const selectedPaths = computed(() => Array.isArray(props.modelValue) ? props.modelValue : []);
-const previewPath = ref("");
+const after = ref(false);
 
-const CANONICAL_PATHS = ["career", "creativity", "fitness", "learning", "sleep"];
+// The room's order on screen: the back wall from left to right, then the floor.
+const CANONICAL_PATHS = ["career", "learning", "creativity", "sleep", "fitness"];
 
 const PATH_ICONS = {
   career: "briefcase",
@@ -111,115 +115,55 @@ const PATH_TO_ZONE = {
   sleep: "sleep_corner",
 };
 
-const pathMood = computed(() => {
-  return selectedPaths.value.length
-    ? resolveRingoMood("onboardingPathSelected")
-    : resolveRingoMood("onboardingPath");
-});
+const ZONE_TO_PATH = Object.fromEntries(Object.entries(PATH_TO_ZONE).map(([path, zone]) => [zone, path]));
+
+const chosenPath = computed(() => (Array.isArray(props.modelValue) ? props.modelValue[0] : "") || "");
+const chosenZone = computed(() => PATH_TO_ZONE[chosenPath.value] || "");
 
 const pathOptions = computed(() => {
   return CANONICAL_PATHS.map((key) => {
     const backendPath = props.backendPaths.find((path) => path.key === key) || { key };
     const localized = localizePath(backendPath, locale.value) || backendPath;
-    const zone = previewZones.value.find((item) => item.path_key === key);
-    const firstReward = [
-      ...(zone?.unlocked_objects || []),
-      ...(zone?.locked_preview_objects || []),
-    ][0];
-
+    const zoneKey = PATH_TO_ZONE[key];
     return {
-      ...localized,
       key,
-      title: localized.title || t(`onboarding.paths.${key}.label`),
-      outcome: t(`onboarding.paths.${key}.outcome`),
-      color: localized.color || "#67e8f9",
-      iconLabel: String(localized.icon || localized.title || key).slice(0, 1).toUpperCase(),
+      zoneKey,
+      color: localized.color || backendPath.color || "#67e8f9",
       iconUrl: resolvePathIcon(backendPath.icon || PATH_ICONS[key]),
-      zoneTitle: zone?.title || t(`onboarding.paths.${key}.zone`),
-      zoneKey: PATH_TO_ZONE[key],
-      firstRewardTitle: firstReward?.title || t("onboarding.path.firstRewardFallback"),
+      zoneTitle: spaceZoneTitle(zoneKey, t, te, t(`onboarding.paths.${key}.zone`)),
+      // The corner's one line is the existing path outcome copy (B10).
+      outcome: t(`onboarding.paths.${key}.outcome`),
     };
   });
 });
 
-const activePreviewKey = computed(() => {
-  return previewPath.value || selectedPaths.value[0] || "career";
-});
+const chosenOption = computed(() => pathOptions.value.find((option) => option.key === chosenPath.value) || null);
 
-const activePreviewOption = computed(() => {
-  return pathOptions.value.find((path) => path.key === activePreviewKey.value) || pathOptions.value[0];
-});
+const markers = computed(() => Object.fromEntries(pathOptions.value.map((option) => [option.zoneKey, {
+  label: option.zoneTitle,
+  iconUrl: option.iconUrl,
+  color: option.color,
+}])));
 
-const activeZoneKey = computed(() => {
-  return PATH_TO_ZONE[activePreviewKey.value] || "";
-});
-
-const previewZones = computed(() => {
-  const apiZones = Array.isArray(props.spaceState?.zones) ? props.spaceState.zones : [];
-
-  return CANONICAL_PATHS.map((key) => {
-    const zoneKey = PATH_TO_ZONE[key];
-    const apiZone = apiZones.find((zone) => zone.zone_key === zoneKey);
-
-    if (apiZone) return localizeSpaceZone(apiZone, t, te);
-
-    return localizeSpaceZone({
-      path_key: key,
-      zone_key: zoneKey,
-      title: t(`onboarding.paths.${key}.zone`),
-      has_unseen_rewards: false,
-      unlocked_objects: [],
-      locked_preview_objects: [
-        {
-          id: `${key}-preview`,
-          key: `${key}-preview`,
-          title: t(`onboarding.paths.${key}.firstReward`),
-          unlocked: false,
-        },
-      ],
-    }, t, te);
-  });
-});
-
-function togglePath(path) {
-  if (selectedPaths.value.includes(path)) {
-    emit("update:modelValue", selectedPaths.value.filter((item) => item !== path));
-    return;
-  }
-
+function choosePath(path) {
   emit("update:modelValue", [path]);
-  previewPath.value = path;
 }
 
-function selectZone(zone) {
-  const option = pathOptions.value.find((path) => path.zoneKey === zone.zone_key);
-  if (!option) return;
-
-  previewPath.value = option.key;
-  emit("update:modelValue", [option.key]);
+function chooseZone(zoneKey) {
+  const path = ZONE_TO_PATH[zoneKey];
+  if (path) choosePath(path);
 }
 </script>
 
 <style scoped>
 .pathStep {
   display: grid;
-  gap: var(--s-20);
-}
-
-.pathHero {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: var(--s-20);
-  align-items: center;
+  gap: var(--s-16);
 }
 
 .stepHeader {
   max-width: 760px;
   min-width: 0;
-}
-
-.pathRingo {
-  justify-self: end;
 }
 
 .eyebrow {
@@ -234,165 +178,127 @@ function selectZone(zone) {
 h1 {
   margin: 0;
   color: rgba(255, 255, 255, 0.96);
-  font-size: 2.55rem;
-  line-height: 1.04;
+  font-size: 2rem;
+  line-height: 1.1;
   letter-spacing: 0;
 }
 
-.stepHeader p:not(.eyebrow) {
-  margin: 12px 0 0;
-  color: rgba(255, 255, 255, 0.66);
-  line-height: 1.7;
+/* Wide screens: the room on the start side, the choice on the end side, so Continue stays above the
+   fold at 1366x768. Narrow screens stack them. */
+.cornerLayout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.55fr) minmax(240px, 1fr);
+  gap: var(--s-20);
+  align-items: start;
 }
 
-.pathGrid {
+.cornerPicture {
+  max-width: 600px;
+}
+
+.cornerSide {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: var(--s-12);
-}
-
-.pathExperience {
-  display: grid;
-  gap: var(--s-16);
-}
-
-.pathCard {
-  min-height: 146px;
-  display: grid;
   align-content: start;
-  gap: 10px;
-  padding: 16px;
-  border-radius: 20px;
-  border: 1px solid rgba(255, 255, 255, 0.10);
-  color: rgba(255, 255, 255, 0.88);
-  text-align: start;
-  background: rgba(255, 255, 255, 0.04);
-  cursor: pointer;
-  transition: transform 140ms ease, background 140ms ease, border-color 140ms ease;
 }
 
-.pathCard:hover,
-.pathCard.previewed,
-.pathCard.selected {
-  transform: translateY(-2px);
-  border-color: rgba(110, 229, 255, 0.28);
-  background: rgba(110, 229, 255, 0.08);
-}
-
-.pathIcon {
-  display: grid;
-  place-items: center;
-  width: 34px;
-  height: 34px;
-  border-radius: 12px;
-  color: rgba(6, 11, 20, 0.88);
-  background: var(--path-color, #67e8f9);
-  box-shadow: 0 0 20px color-mix(in srgb, var(--path-color, #67e8f9) 40%, transparent);
-  font-weight: 950;
-}
-
-.pathIconImage {
-  display: block;
-  width: 20px;
-  height: 20px;
-  object-fit: contain;
-}
-
-.pathLabel {
-  font-weight: 850;
-}
-
-.pathZone {
-  color: rgba(110, 229, 255, 0.74);
-  font-size: 0.76rem;
-  font-weight: 800;
-}
-
-.pathSuggestion {
-  color: rgba(255, 255, 255, 0.56);
-  font-size: 0.88rem;
-  line-height: 1.55;
-}
-
-.roomPreview {
-  display: grid;
-  gap: var(--s-12);
-  padding: 14px;
-  border-radius: 20px;
-  background:
-    radial-gradient(circle at 12% 0%, rgba(110, 229, 255, 0.08), transparent 34%),
-    rgba(255, 255, 255, 0.035);
-  border: 1px solid rgba(255, 255, 255, 0.09);
-}
-
-.previewTitle,
-.previewHint {
-  margin: 0;
-  color: rgba(255, 255, 255, 0.66);
-  line-height: 1.55;
-}
-
-.previewTitle {
-  color: rgba(255, 255, 255, 0.86);
-  font-size: 0.84rem;
-  font-weight: 850;
-}
-
-.previewRoom {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+.cornerChips {
+  display: flex;
+  flex-wrap: wrap;
   gap: 8px;
 }
 
-.previewRoom :deep(.spaceZone) {
-  min-height: 112px;
+.cornerChip {
+  min-height: 44px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: transparent;
+  color: rgba(255, 255, 255, 0.78);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 700;
 }
 
-/* B11: Continue stays in view on short screens (it sat below the fold at 1366x768). */
-.actions {
-  position: sticky;
-  bottom: 0;
-  z-index: 2;
+.cornerChip.chosen {
+  border-color: var(--chip-color);
+  background: color-mix(in srgb, var(--chip-color) 18%, transparent);
+  color: #fff;
+}
+
+.cornerSwitch {
   display: flex;
-  justify-content: flex-end;
-  padding: 12px 0 calc(12px + env(safe-area-inset-bottom));
-  background: linear-gradient(to top, rgba(8, 12, 22, 0.96) 60%, rgba(8, 12, 22, 0));
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
-@media (max-width: 980px) {
-  .pathGrid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .previewRoom {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
+.switchButton {
+  min-height: 44px;
+  padding: 0 16px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: transparent;
+  color: rgba(255, 255, 255, 0.8);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 700;
 }
 
-@media (max-width: 620px) {
-  .pathHero {
+.switchButton.active {
+  border-color: #6ee5ff;
+  background: rgba(110, 229, 255, 0.14);
+  color: #6ee5ff;
+}
+
+.cornerChip:focus-visible,
+.switchButton:focus-visible {
+  outline: 2px solid #6ee5ff;
+  outline-offset: 2px;
+}
+
+.cornerLine {
+  min-height: 3em;
+  margin: 0;
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 0.92rem;
+  line-height: 1.55;
+}
+
+.cornerLine strong {
+  color: #fff;
+}
+
+.stateLine {
+  display: block;
+  color: rgba(255, 255, 255, 0.64);
+}
+
+.actions {
+  display: grid;
+}
+
+@media (max-width: 860px) {
+  .cornerLayout {
     grid-template-columns: 1fr;
   }
 
-  .pathRingo {
-    order: -1;
-    justify-self: center;
+  .cornerPicture {
+    max-width: none;
   }
 
   h1 {
-    font-size: 1.9rem;
+    font-size: 1.6rem;
   }
 
-  .pathGrid {
-    grid-template-columns: 1fr;
-  }
-
-  .previewRoom {
-    grid-template-columns: 1fr;
-  }
-
+  /* Phones: Continue stays in view at the bottom of the screen. */
   .actions {
-    display: grid;
+    position: sticky;
+    bottom: 0;
+    z-index: 2;
+    padding: 10px 0 calc(10px + env(safe-area-inset-bottom));
+    background: linear-gradient(to top, rgba(8, 12, 22, 0.96) 60%, rgba(8, 12, 22, 0));
   }
 }
 </style>

@@ -34,6 +34,7 @@
           :picked-mission-id="pickedMissionId"
           :object-highlight="objectHighlight"
           :reminder-counts="{ due: dueReminders.length, later: scheduledReminders.length }"
+          :explain-pins="explainerOpen"
           @select="selectZone"
           @open-reminders="openReminderList"
           @select-challenge="selectPathChallenge"
@@ -114,6 +115,9 @@
       >
         <SpaceZonePanel
           :mode="workSurfaceMode"
+          :first-run="firstRunArrival"
+          :explainer="explainerOpen"
+          @dismiss-explainer="dismissExplainer"
           :zone="workSurfaceZone"
           :checking-id="checkingId"
           :path-loading="activePathLoading"
@@ -158,7 +162,8 @@ import { formatNumber, numberAwareT } from "@/lib/i18nNumbers";
 import api from "@/lib/api";
 import UiState from "@/components/ui/UiState.vue";
 import { challengeIconKey } from "@/lib/challengeIconKeys";
-import { getChallengePathKey, getOnboardingUserKey } from "@/lib/guidedExperience";
+import { getChallengePathKey, getOnboardingUserKey, isRoomExplainerSeen, markRoomExplainerSeen } from "@/lib/guidedExperience";
+import { shouldShowExplainer } from "@/lib/roomExplainer";
 import { localizeSpaceReward, localizeSpaceZone } from "@/lib/livingSpaceCopy";
 import {
   dueReminderFocusForZone,
@@ -1472,14 +1477,27 @@ onMounted(async () => {
     now.value = Date.now();
   }, 30000);
   await Promise.all([loadSpace(), loadPaths(), loadUserKey()]);
+  explainerOpen.value = shouldShowExplainer({ firstRun: firstRunArrival.value, seen: isRoomExplainerSeen(userKey.value) });
   await preloadZonePathChallenges();
-  // B11: the onboarding handoff ("Go to my first mission", /dashboard?firstRun=1) opens the
-  // first mission's zone on phones too, instead of the room overview.
-  if (!roomPanLayout.value && roomLevel.value && isFirstRunArrival()) {
+  // B11: the first arrival from onboarding (/dashboard?firstRun=1) opens the first mission's zone
+  // instead of the room overview. B37 (D78, D83): on desktop too, so the room lands on that corner
+  // (its marker and challenge tray carry the explainer's pins).
+  if (isFirstRunArrival() && !activeZone.value && (roomPanLayout.value || roomLevel.value)) {
     const zone = suggestedZone.value || workSurfaceZone.value;
     if (zone) selectZone(zone);
   }
 });
+
+// B37 (D82): read once on arrival, so Ringo's first card stays until that first step is done.
+const firstRunArrival = ref(isFirstRunArrival());
+
+// B37 (D83): "What am I looking at?" under Ringo's first card, with numbered pins in the room.
+const explainerOpen = ref(false);
+
+function dismissExplainer() {
+  markRoomExplainerSeen(userKey.value);
+  explainerOpen.value = false;
+}
 
 function isFirstRunArrival() {
   return typeof window !== "undefined" && new URLSearchParams(window.location.search).get("firstRun") === "1";
@@ -1868,6 +1886,18 @@ watch(
 @media (max-width: 599px) and (prefers-reduced-motion: reduce) {
   .roomSafeZone.zoneSheet {
     animation: none;
+  }
+}
+
+/* B37 Fix A: short phones (under 800 px tall) get a tighter sheet top, so Ringo's "Do it now" is
+   fully in view at 360x740. Taller phones are unchanged. */
+@media (max-width: 599px) and (max-height: 799px) {
+  .roomSafeZone.zoneSheet {
+    padding-top: 2px;
+  }
+
+  .roomSafeZone.zoneSheet::before {
+    margin: 2px auto 2px;
   }
 }
 </style>

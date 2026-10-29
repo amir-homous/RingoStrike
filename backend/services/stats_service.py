@@ -183,6 +183,8 @@ def build_user_stats_payload(user_id: int) -> tuple[dict, int]:
         base_points = mission_points + legacy_points
         reward_points = int((achievement_reward_row or {})["reward_points"] or 0)
         total_points = base_points + reward_points
+        # B37 (D74): distinct UTC dates with a counted check-in, over the whole history.
+        total_days = len(dates)
         current_streak = calculate_current_streak(dates, utc_today_iso())
         longest_streak = calculate_longest_streak(dates)
 
@@ -210,6 +212,7 @@ def build_user_stats_payload(user_id: int) -> tuple[dict, int]:
                 "current_streak": current_streak,
                 "longest_streak": longest_streak,
                 "total_checkins": total_checkins,
+                "total_days": total_days,
                 "total_points": total_points,
                 "xp": level_progress["xp"],
                 "level": level_progress["level"],
