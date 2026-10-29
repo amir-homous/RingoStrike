@@ -53,18 +53,13 @@ for zk in scene.ORDER:
     dm.save(f'{OUT}/lights/dim_{zk}.png')
     layout['zones'][zk]={'path':z['path'],'footprint':z['footprint'],'prop':{'file':f'props/prop_{zk}.png','x':b[0],'y':b[1]},
       'slots':slots,'light':{'file':f'lights/light_{zk}.png','x':lb[0],'y':lb[1],'color':'#%02x%02x%02x'%z['light'],'pool':list(z['pool'])},
-      'dim':f'lights/dim_{zk}.png','marker':list(z['marker']),'path_marker':list(PATH_MARKER[zk]),'tray':TRAY.get(zk),'camera':cam(zk)}
+      'dim':f'lights/dim_{zk}.png','path_marker':list(PATH_MARKER[zk]),'tray':TRAY.get(zk),'camera':cam(zk)}
 for st_,rows in (('idle',sprites.IDLE),('sleeping',sprites.SLEEP)):
     sp=sprites.sprite(rows).im; sp.save(f'{OUT}/ringo/ringo_{st_}.png')
     layout['ringo_sprites'][st_]={'file':f'ringo/ringo_{st_}.png','anchor':'bottom-center','w':sp.width,'h':sp.height}
-b=sprites.bell().im; b.save(f'{OUT}/markers/bell.png')
-bp=b.copy(); q=bp.load()
-for y in range(bp.height):
-    for x in range(bp.width):
-        r,g,bb,a=q[x,y]
-        if a and (r,g,bb)!=P['ink']: q[x,y]=P['cyan']+(255,)
-bp.save(f'{OUT}/markers/bell_due.png'); sprites.glint().im.save(f'{OUT}/markers/glint.png')
-layout['markers']={'bell':'markers/bell.png','bell_due':'markers/bell_due.png','glint':'markers/glint.png','anchor':'center'}
+# #394: the bell markers are gone (B30 path markers replaced them); only the glint is exported.
+sprites.glint().im.save(f'{OUT}/markers/glint.png')
+layout['markers']={'glint':'markers/glint.png','anchor':'center'}
 # B34 (D68): reminder clock next to Ringo's resting spot A, top-left anchor in base px. The art is
 # placeholder pixel art provided by Amir (assets/room/clock/), not drawn by this script.
 layout['reminder_clock']={'x':300,'y':196,'w':16,'h':18,'set':'clock/clock_set_16x18.png','ring':'clock/clock_ring_16x18.png'}

@@ -75,8 +75,6 @@
     }
   },
   "markers": {
-    "bell": "markers/bell.png",
-    "bell_due": "markers/bell_due.png",
     "glint": "markers/glint.png",
     "anchor": "center"
   },
@@ -143,10 +141,6 @@
         ]
       },
       "dim": "lights/dim_work_desk.png",
-      "marker": [
-        140,
-        64
-      ],
       "path_marker": [
         78,
         46
@@ -224,10 +218,6 @@
         ]
       },
       "dim": "lights/dim_learning_corner.png",
-      "marker": [
-        206,
-        52
-      ],
       "path_marker": [
         160,
         47
@@ -305,10 +295,6 @@
         ]
       },
       "dim": "lights/dim_creative_corner.png",
-      "marker": [
-        312,
-        52
-      ],
       "path_marker": [
         311,
         46
@@ -382,10 +368,6 @@
         ]
       },
       "dim": "lights/dim_sleep_corner.png",
-      "marker": [
-        462,
-        86
-      ],
       "path_marker": [
         398,
         47
@@ -459,10 +441,6 @@
         ]
       },
       "dim": "lights/dim_fitness_corner.png",
-      "marker": [
-        196,
-        190
-      ],
       "path_marker": [
         78,
         174
