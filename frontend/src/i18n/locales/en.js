@@ -1466,6 +1466,127 @@ export default {
       title: "Add one calm breath",
       description: "If the morning feels okay, take one slow breath after finding light.",
     },
+    // #410: smaller steps for the day-2 and day-3 Main missions.
+    "drink-water-tiny": {
+      title: "Pour one glass",
+      description: "Fill a glass of water and keep it nearby. That is enough.",
+    },
+    "energy-note-tiny": {
+      title: "Notice your body",
+      description: "Notice how your body feels right now. No note needed.",
+    },
+    "warm-up-tiny": {
+      title: "Roll your shoulders",
+      description: "Roll your shoulders slowly three times.",
+    },
+    "cool-down-tiny": {
+      title: "Take one slow breath",
+      description: "One long breath out is a complete cool down.",
+    },
+    "posture-check-tiny": {
+      title: "Sit up once",
+      description: "Sit a little taller for one breath.",
+    },
+    "mobility-note-tiny": {
+      title: "Name one thing",
+      description: "Name one place that feels looser. Thinking it counts.",
+    },
+    "capture-note-tiny": {
+      title: "Write three words",
+      description: "Jot three words that remind you of the idea.",
+    },
+    "apply-small-tiny": {
+      title: "Picture using it",
+      description: "Picture one moment where today's idea could help you.",
+    },
+    "highlight-one-tiny": {
+      title: "Pick one line",
+      description: "Choose one line you liked. You can skip the highlighting.",
+    },
+    "share-insight-tiny": {
+      title: "Say it in one sentence",
+      description: "Tell yourself the idea in a single sentence.",
+    },
+    "choose-drill-tiny": {
+      title: "Name today's drill",
+      description: "Decide which small drill you would do. Doing it can wait.",
+    },
+    "review-progress-tiny": {
+      title: "Notice one thing",
+      description: "Think of one thing that felt a little easier.",
+    },
+    "define-output-tiny": {
+      title: "Write one finish line",
+      description: "Write one short line about what done looks like.",
+    },
+    "close-loop-tiny": {
+      title: "Note the next step",
+      description: "Write the very next step, then stop.",
+    },
+    "collect-proof-tiny": {
+      title: "Save one thing",
+      description: "Save one screenshot or note you might use later.",
+    },
+    "next-edit-tiny": {
+      title: "Pick one small fix",
+      description: "Choose one thing to improve next time.",
+    },
+    "update-context-tiny": {
+      title: "Jot one detail",
+      description: "Write one detail you want to remember about them.",
+    },
+    "next-contact-tiny": {
+      title: "Think of one name",
+      description: "Bring one person to mind. That is the whole step.",
+    },
+    "make-small-tiny": {
+      title: "Make a rough mark",
+      description: "Sketch, hum or type one rough bit. It can be messy.",
+    },
+    "archive-spark-tiny": {
+      title: "Save it anywhere",
+      description: "Put today's idea in any place you will see again.",
+    },
+    "polish-one-pass-tiny": {
+      title: "Fix one detail",
+      description: "Change one small thing, then leave it.",
+    },
+    "share-or-save-tiny": {
+      title: "Save a copy",
+      description: "Save it somewhere safe. Sharing can wait.",
+    },
+    "remix-it-tiny": {
+      title: "Change one thing",
+      description: "Change the mood, the format or the audience, just once.",
+    },
+    "save-version-tiny": {
+      title: "Keep it as it is",
+      description: "Save the remix without editing it again.",
+    },
+    "clear-one-thing-tiny": {
+      title: "Name one worry",
+      description: "Say one worry quietly. You do not need to fix it.",
+    },
+    "soft-close-tiny": {
+      title: "Turn one thing off",
+      description: "Switch off one light or screen to tell your day it can end.",
+    },
+    "prepare-room-tiny": {
+      title: "Dim one light",
+      description: "Lower one light a little, or close one curtain.",
+    },
+    "sleep-note-tiny": {
+      title: "Notice what helped",
+      description: "Notice one thing that helped tonight. Thinking it counts.",
+    },
+    "no-rush-start-tiny": {
+      title: "Pause before the first task",
+      description: "Take one breath before anything else.",
+    },
+    "energy-check-tiny": {
+      title: "Check in with one word",
+      description: "Name your energy in a single word, without judging it.",
+    },
   },
   challengeInvite: {
     eyebrow: "Progression paths",

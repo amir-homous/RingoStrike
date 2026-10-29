@@ -1039,18 +1039,35 @@ function runSmallerStepSmoke() {
     const name = block.slice(0, block.indexOf('"'));
     const list = block.slice(block.indexOf('"missions": ['), block.indexOf("\n                ],"));
     const missions = [];
-    let index = 0;
-    for (const line of list.split("\n")) {
-      const plain = /^\s+\("([a-z0-9-]+)", "([^"]+)"/.exec(line);
-      const special = /_(tiny|bonus)_mission\("([a-z0-9-]+)", "([a-z0-9-]+)", "([^"]+)"/.exec(line);
-      if (special) missions.push({ id: special[3], title: special[4], intensity: special[1], parentMissionId: special[2], unlockAfterDays: 0 });
-      else if (plain) missions.push({ id: plain[1], title: plain[2], intensity: "main", parentMissionId: null, unlockAfterDays: index++ });
+    // #410: every entry in list order, one-line or multi-line, with its own unlock day if given
+    // (a Main's day is its position in the list; smaller and Bonus steps default to day 0).
+    const entry = /^ {20}(?:\("([a-z0-9-]+)", "([^"]+)"|_(tiny|bonus)_mission\(\s*"([a-z0-9-]+)",\s*"([a-z0-9-]+)",\s*"([^"]+)"([\s\S]*?)\),?$)/gm;
+    let position = 0;
+    for (const match of list.matchAll(entry)) {
+      position += 1;
+      if (match[1]) missions.push({ id: match[1], title: match[2], intensity: "main", parentMissionId: null, unlockAfterDays: position - 1 });
+      else {
+        const unlock = /unlock_after_days=(\d+)/.exec(match[7] || "");
+        missions.push({ id: match[5], title: match[6], intensity: match[3], parentMissionId: match[4], unlockAfterDays: unlock ? Number(unlock[1]) : 0 });
+      }
     }
     challenges.push({ name, missions });
   }
   assert.equal(challenges.length, 15, "15 seeded challenges");
+  const mains = challenges.flatMap((c) => c.missions.filter((m) => m.intensity === "main"));
+  assert.equal(mains.length, 45, "45 seeded Main missions");
+  // #410: every Main has one smaller step, which opens on the Main's own day (never before it).
+  for (const challenge of challenges) {
+    for (const main of challenge.missions.filter((m) => m.intensity === "main")) {
+      const steps = challenge.missions.filter((m) => m.intensity === "tiny" && m.parentMissionId === main.id);
+      assert.equal(steps.length, 1, `${challenge.name} ${main.id}: one smaller step`);
+      assert.equal(steps[0].unlockAfterDays, main.unlockAfterDays, `${challenge.name} ${steps[0].id}: opens on its parent's day`);
+    }
+  }
   const rows = [];
-  for (const day of [1, 3]) {
+  const buttonsByDay = {};
+  for (const day of [1, 2, 3]) {
+    buttonsByDay[day] = 0;
     for (const challenge of challenges) {
       const missions = challenge.missions.map((m) => ({ ...m, status: "pending", availableToday: m.unlockAfterDays < day }));
       // The room shows main and bonus missions, and a tiny only once it is asked for.
@@ -1076,6 +1093,10 @@ function runSmallerStepSmoke() {
           assert.equal(after?.id, step.id, `${challenge.name} ${mission.id} (${label}, day ${day}): the smaller step is the focus`);
           assert.notEqual(before?.id, step.id);
         }
+        // Shown if and only if the mission has a smaller step open today.
+        const open = missions.some((m) => m.intensity === "tiny" && m.parentMissionId === mission.id && m.availableToday);
+        assert.equal(Boolean(step), open, `${challenge.name} ${mission.id} day ${day}: button iff a smaller step is open`);
+        if (step) buttonsByDay[day] += 1;
         if (day === 1) rows.push(`${challenge.name}: ${mission.id} [${mission.intensity}] -> ${step ? step.id : "no button"}`);
       }
     }
@@ -1088,6 +1109,8 @@ function runSmallerStepSmoke() {
   assert.equal(smallerStepFor(base[0], [base[0], { ...base[1], availableToday: false }]), null, "smaller step not open today");
   assert.equal(smallerStepFor(base[0], base).id, "a-tiny");
   assert.equal(rows.filter((row) => !row.endsWith("no button")).length, 15, "one smaller step per challenge on day 1");
+  // Day 1: the 15 day-1 Mains; day 2: plus the 15 day-2 Mains; day 3: all 45.
+  assert.deepEqual(buttonsByDay, { 1: 15, 2: 30, 3: 45 }, "Make it smaller on every open Main");
 }
 
 run();

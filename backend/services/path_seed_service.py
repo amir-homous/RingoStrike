@@ -1,4 +1,5 @@
-def _tiny_mission(parent_key, key, title, description, *, minutes=2, xp_reward=3):
+def _tiny_mission(parent_key, key, title, description, *, minutes=2, xp_reward=3, unlock_after_days=0):
+    # #410: a smaller step opens on its parent's day (day 2 = 1, day 3 = 2); day-1 ones keep 0.
     return (
         key,
         title,
@@ -8,7 +9,7 @@ def _tiny_mission(parent_key, key, title, description, *, minutes=2, xp_reward=3
             "mission_intensity": "tiny",
             "estimated_minutes": minutes,
             "parent_mission_key": parent_key,
-            "unlock_after_days": 0,
+            "unlock_after_days": unlock_after_days,
         },
     )
 
@@ -102,6 +103,23 @@ MVP_PATHS = [
                     ("energy-note", "Notice your energy", "Write one short note about how your body feels today.", 5),
                     _tiny_mission("move-10", "move-10-tiny", "Move for 2 minutes", "Walk, stretch, or shake out tension for just two minutes.", minutes=2),
                     _bonus_mission("move-10", "move-10-bonus", "Add one extra movement minute", "If you feel good, add one extra minute after the main movement mission.", minutes=1),
+                    # #410: smaller steps for the day-2 and day-3 Main missions (appended, so no Main's day moves).
+                    _tiny_mission(
+                        "drink-water",
+                        "drink-water-tiny",
+                        "Pour one glass",
+                        "Fill a glass of water and keep it nearby. That is enough.",
+                        minutes=1,
+                        unlock_after_days=1,
+                    ),
+                    _tiny_mission(
+                        "energy-note",
+                        "energy-note-tiny",
+                        "Notice your body",
+                        "Notice how your body feels right now. No note needed.",
+                        minutes=1,
+                        unlock_after_days=2,
+                    ),
                 ],
             },
             {
@@ -124,6 +142,23 @@ MVP_PATHS = [
                         "If the first set felt okay, add one extra calm set or hold.",
                         minutes=3,
                     ),
+                    # #410: smaller steps for the day-2 and day-3 Main missions (appended, so no Main's day moves).
+                    _tiny_mission(
+                        "warm-up",
+                        "warm-up-tiny",
+                        "Roll your shoulders",
+                        "Roll your shoulders slowly three times.",
+                        minutes=1,
+                        unlock_after_days=1,
+                    ),
+                    _tiny_mission(
+                        "cool-down",
+                        "cool-down-tiny",
+                        "Take one slow breath",
+                        "One long breath out is a complete cool down.",
+                        minutes=1,
+                        unlock_after_days=2,
+                    ),
                 ],
             },
             {
@@ -145,6 +180,23 @@ MVP_PATHS = [
                         "Stretch one more area",
                         "If your body wants more room, choose one more tight area and stretch it gently.",
                         minutes=3,
+                    ),
+                    # #410: smaller steps for the day-2 and day-3 Main missions (appended, so no Main's day moves).
+                    _tiny_mission(
+                        "posture-check",
+                        "posture-check-tiny",
+                        "Sit up once",
+                        "Sit a little taller for one breath.",
+                        minutes=1,
+                        unlock_after_days=1,
+                    ),
+                    _tiny_mission(
+                        "mobility-note",
+                        "mobility-note-tiny",
+                        "Name one thing",
+                        "Name one place that feels looser. Thinking it counts.",
+                        minutes=1,
+                        unlock_after_days=2,
                     ),
                 ],
             },
@@ -171,6 +223,23 @@ MVP_PATHS = [
                     ("apply-small", "Apply it once", "Use the idea in a tiny real action if possible.", 10),
                     _tiny_mission("learn-one-thing", "learn-one-thing-tiny", "Learn one tiny idea", "Read or watch one small piece and name the useful idea.", minutes=2),
                     _bonus_mission("learn-one-thing", "learn-one-thing-bonus", "Save a second useful idea", "If curiosity is alive, capture one more useful idea.", minutes=5),
+                    # #410: smaller steps for the day-2 and day-3 Main missions (appended, so no Main's day moves).
+                    _tiny_mission(
+                        "capture-note",
+                        "capture-note-tiny",
+                        "Write three words",
+                        "Jot three words that remind you of the idea.",
+                        minutes=2,
+                        unlock_after_days=1,
+                    ),
+                    _tiny_mission(
+                        "apply-small",
+                        "apply-small-tiny",
+                        "Picture using it",
+                        "Picture one moment where today's idea could help you.",
+                        minutes=2,
+                        unlock_after_days=2,
+                    ),
                 ],
             },
             {
@@ -193,6 +262,23 @@ MVP_PATHS = [
                         "If the reading has momentum, save one more useful idea before you stop.",
                         minutes=4,
                     ),
+                    # #410: smaller steps for the day-2 and day-3 Main missions (appended, so no Main's day moves).
+                    _tiny_mission(
+                        "highlight-one",
+                        "highlight-one-tiny",
+                        "Pick one line",
+                        "Choose one line you liked. You can skip the highlighting.",
+                        minutes=2,
+                        unlock_after_days=1,
+                    ),
+                    _tiny_mission(
+                        "share-insight",
+                        "share-insight-tiny",
+                        "Say it in one sentence",
+                        "Tell yourself the idea in a single sentence.",
+                        minutes=2,
+                        unlock_after_days=2,
+                    ),
                 ],
             },
             {
@@ -214,6 +300,23 @@ MVP_PATHS = [
                         "Repeat one small drill",
                         "If practice feels alive, repeat one tiny drill once more with attention.",
                         minutes=5,
+                    ),
+                    # #410: smaller steps for the day-2 and day-3 Main missions (appended, so no Main's day moves).
+                    _tiny_mission(
+                        "choose-drill",
+                        "choose-drill-tiny",
+                        "Name today's drill",
+                        "Decide which small drill you would do. Doing it can wait.",
+                        minutes=1,
+                        unlock_after_days=1,
+                    ),
+                    _tiny_mission(
+                        "review-progress",
+                        "review-progress-tiny",
+                        "Notice one thing",
+                        "Think of one thing that felt a little easier.",
+                        minutes=1,
+                        unlock_after_days=2,
                     ),
                 ],
             },
@@ -240,6 +343,23 @@ MVP_PATHS = [
                     ("close-loop", "Close the loop", "Record the outcome or next step after the session.", 5),
                     _tiny_mission("deep-work-block", "deep-work-block-tiny", "Focus for three minutes", "Protect three minutes for one task without switching tabs.", minutes=3),
                     _bonus_mission("deep-work-block", "deep-work-block-bonus", "Add one closing note", "If the focus block went well, write one extra note about the next step.", minutes=3),
+                    # #410: smaller steps for the day-2 and day-3 Main missions (appended, so no Main's day moves).
+                    _tiny_mission(
+                        "define-output",
+                        "define-output-tiny",
+                        "Write one finish line",
+                        "Write one short line about what done looks like.",
+                        minutes=1,
+                        unlock_after_days=1,
+                    ),
+                    _tiny_mission(
+                        "close-loop",
+                        "close-loop-tiny",
+                        "Note the next step",
+                        "Write the very next step, then stop.",
+                        minutes=2,
+                        unlock_after_days=2,
+                    ),
                 ],
             },
             {
@@ -262,6 +382,23 @@ MVP_PATHS = [
                         "If the asset moved forward, save one screenshot, note, or before-after proof.",
                         minutes=4,
                     ),
+                    # #410: smaller steps for the day-2 and day-3 Main missions (appended, so no Main's day moves).
+                    _tiny_mission(
+                        "collect-proof",
+                        "collect-proof-tiny",
+                        "Save one thing",
+                        "Save one screenshot or note you might use later.",
+                        minutes=2,
+                        unlock_after_days=1,
+                    ),
+                    _tiny_mission(
+                        "next-edit",
+                        "next-edit-tiny",
+                        "Pick one small fix",
+                        "Choose one thing to improve next time.",
+                        minutes=1,
+                        unlock_after_days=2,
+                    ),
                 ],
             },
             {
@@ -283,6 +420,23 @@ MVP_PATHS = [
                         "Save one proof",
                         "If the asset moved forward, save one screenshot, note, or before-after proof.",
                         minutes=4,
+                    ),
+                    # #410: smaller steps for the day-2 and day-3 Main missions (appended, so no Main's day moves).
+                    _tiny_mission(
+                        "update-context",
+                        "update-context-tiny",
+                        "Jot one detail",
+                        "Write one detail you want to remember about them.",
+                        minutes=1,
+                        unlock_after_days=1,
+                    ),
+                    _tiny_mission(
+                        "next-contact",
+                        "next-contact-tiny",
+                        "Think of one name",
+                        "Bring one person to mind. That is the whole step.",
+                        minutes=1,
+                        unlock_after_days=2,
                     ),
                 ],
             },
@@ -309,6 +463,23 @@ MVP_PATHS = [
                     ("archive-spark", "Archive the spark", "Put today's idea somewhere you can find it again.", 5),
                     _tiny_mission("capture-idea", "capture-idea-tiny", "Capture one tiny spark", "Save one phrase, shape, color, sound, or rough thought.", minutes=1),
                     _bonus_mission("capture-idea", "capture-idea-bonus", "Add one detail", "If the idea has energy, add one extra detail before you archive it.", minutes=3),
+                    # #410: smaller steps for the day-2 and day-3 Main missions (appended, so no Main's day moves).
+                    _tiny_mission(
+                        "make-small",
+                        "make-small-tiny",
+                        "Make a rough mark",
+                        "Sketch, hum or type one rough bit. It can be messy.",
+                        minutes=3,
+                        unlock_after_days=1,
+                    ),
+                    _tiny_mission(
+                        "archive-spark",
+                        "archive-spark-tiny",
+                        "Save it anywhere",
+                        "Put today's idea in any place you will see again.",
+                        minutes=1,
+                        unlock_after_days=2,
+                    ),
                 ],
             },
             {
@@ -331,6 +502,23 @@ MVP_PATHS = [
                         "If the draft has energy, make one small alternate version before you stop.",
                         minutes=5,
                     ),
+                    # #410: smaller steps for the day-2 and day-3 Main missions (appended, so no Main's day moves).
+                    _tiny_mission(
+                        "polish-one-pass",
+                        "polish-one-pass-tiny",
+                        "Fix one detail",
+                        "Change one small thing, then leave it.",
+                        minutes=3,
+                        unlock_after_days=1,
+                    ),
+                    _tiny_mission(
+                        "share-or-save",
+                        "share-or-save-tiny",
+                        "Save a copy",
+                        "Save it somewhere safe. Sharing can wait.",
+                        minutes=1,
+                        unlock_after_days=2,
+                    ),
                 ],
             },
             {
@@ -352,6 +540,23 @@ MVP_PATHS = [
                         "Try one alternate angle",
                         "If the source feels interesting, write one different angle, mood, or constraint for the remix.",
                         minutes=4,
+                    ),
+                    # #410: smaller steps for the day-2 and day-3 Main missions (appended, so no Main's day moves).
+                    _tiny_mission(
+                        "remix-it",
+                        "remix-it-tiny",
+                        "Change one thing",
+                        "Change the mood, the format or the audience, just once.",
+                        minutes=3,
+                        unlock_after_days=1,
+                    ),
+                    _tiny_mission(
+                        "save-version",
+                        "save-version-tiny",
+                        "Keep it as it is",
+                        "Save the remix without editing it again.",
+                        minutes=1,
+                        unlock_after_days=2,
                     ),
                 ],
             },
@@ -378,6 +583,23 @@ MVP_PATHS = [
                     ("soft-close", "Create a soft close", "Do one small action that tells your day it can end.", 5),
                     _tiny_mission("mind-reset", "mind-reset-tiny", "Take three calm breaths", "Pause and take three slow breaths without fixing anything.", minutes=1),
                     _bonus_mission("mind-reset", "mind-reset-bonus", "Write one calm sentence", "If your mind is still noisy, write one sentence to park it for tomorrow.", minutes=3),
+                    # #410: smaller steps for the day-2 and day-3 Main missions (appended, so no Main's day moves).
+                    _tiny_mission(
+                        "clear-one-thing",
+                        "clear-one-thing-tiny",
+                        "Name one worry",
+                        "Say one worry quietly. You do not need to fix it.",
+                        minutes=1,
+                        unlock_after_days=1,
+                    ),
+                    _tiny_mission(
+                        "soft-close",
+                        "soft-close-tiny",
+                        "Turn one thing off",
+                        "Switch off one light or screen to tell your day it can end.",
+                        minutes=1,
+                        unlock_after_days=2,
+                    ),
                 ],
             },
             {
@@ -400,6 +622,23 @@ MVP_PATHS = [
                         "If the night still feels noisy, add one small cue that tells your body it can slow down.",
                         minutes=3,
                     ),
+                    # #410: smaller steps for the day-2 and day-3 Main missions (appended, so no Main's day moves).
+                    _tiny_mission(
+                        "prepare-room",
+                        "prepare-room-tiny",
+                        "Dim one light",
+                        "Lower one light a little, or close one curtain.",
+                        minutes=1,
+                        unlock_after_days=1,
+                    ),
+                    _tiny_mission(
+                        "sleep-note",
+                        "sleep-note-tiny",
+                        "Notice what helped",
+                        "Notice one thing that helped tonight. Thinking it counts.",
+                        minutes=1,
+                        unlock_after_days=2,
+                    ),
                 ],
             },
             {
@@ -421,6 +660,23 @@ MVP_PATHS = [
                         "Add one calm breath",
                         "If the morning feels okay, take one slow breath after finding light.",
                         minutes=2,
+                    ),
+                    # #410: smaller steps for the day-2 and day-3 Main missions (appended, so no Main's day moves).
+                    _tiny_mission(
+                        "no-rush-start",
+                        "no-rush-start-tiny",
+                        "Pause before the first task",
+                        "Take one breath before anything else.",
+                        minutes=1,
+                        unlock_after_days=1,
+                    ),
+                    _tiny_mission(
+                        "energy-check",
+                        "energy-check-tiny",
+                        "Check in with one word",
+                        "Name your energy in a single word, without judging it.",
+                        minutes=1,
+                        unlock_after_days=2,
                     ),
                 ],
             },

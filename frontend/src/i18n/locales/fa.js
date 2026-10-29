@@ -1466,6 +1466,127 @@ export default {
       title: "یک نفس آرام اضافه کن",
       description: "اگر صبح خوب پیش می‌رود، بعد از نور گرفتن یک نفس آهسته بکش.",
     },
+    // #410: smaller steps for the day-2 and day-3 Main missions (Persian is a draft for the copy pass, #382).
+    "drink-water-tiny": {
+      title: "یه لیوان آب بریز",
+      description: "یه لیوان آب پر کن و کنارت بذار. همین کافیه.",
+    },
+    "energy-note-tiny": {
+      title: "بدنت رو حس کن",
+      description: "یه لحظه حس کن بدنت الان چطوره. لازم نیست چیزی بنویسی.",
+    },
+    "warm-up-tiny": {
+      title: "شونه‌هات رو بچرخون",
+      description: "شونه‌هات رو آروم سه بار بچرخون.",
+    },
+    "cool-down-tiny": {
+      title: "یه نفس آروم",
+      description: "یه بازدم بلند، یه سرد کردن کامله.",
+    },
+    "posture-check-tiny": {
+      title: "یه بار صاف بشین",
+      description: "به اندازهٔ یه نفس، کمی صاف‌تر بشین.",
+    },
+    "mobility-note-tiny": {
+      title: "یه چیز رو اسم ببر",
+      description: "یه جایی که سبک‌تر شده رو اسم ببر. تو ذهنت هم حساب میشه.",
+    },
+    "capture-note-tiny": {
+      title: "سه کلمه بنویس",
+      description: "سه کلمه بنویس که ایده رو یادت بندازه.",
+    },
+    "apply-small-tiny": {
+      title: "تصور کن ازش استفاده می‌کنی",
+      description: "یه لحظه رو تصور کن که این ایده بهت کمک می‌کنه.",
+    },
+    "highlight-one-tiny": {
+      title: "یه خط رو انتخاب کن",
+      description: "یه خطی که دوست داشتی رو انتخاب کن. خط‌کشیدن لازم نیست.",
+    },
+    "share-insight-tiny": {
+      title: "تو یه جمله بگو",
+      description: "ایده رو تو یه جمله برای خودت بگو.",
+    },
+    "choose-drill-tiny": {
+      title: "تمرین امروز رو اسم ببر",
+      description: "تصمیم بگیر کدوم تمرین کوچیک رو انجام می‌دی. انجامش می‌تونه برای بعد بمونه.",
+    },
+    "review-progress-tiny": {
+      title: "یه چیز رو ببین",
+      description: "یه چیزی که کمی راحت‌تر شده رو به یاد بیار.",
+    },
+    "define-output-tiny": {
+      title: "یه خط پایان بنویس",
+      description: "یه خط کوتاه بنویس که تموم‌شده یعنی چی.",
+    },
+    "close-loop-tiny": {
+      title: "قدم بعدی رو بنویس",
+      description: "قدم بعدی رو بنویس و همین‌جا تمومش کن.",
+    },
+    "collect-proof-tiny": {
+      title: "یه چیز رو ذخیره کن",
+      description: "یه اسکرین‌شات یا یادداشت که شاید بعداً به کارت بیاد ذخیره کن.",
+    },
+    "next-edit-tiny": {
+      title: "یه اصلاح کوچیک انتخاب کن",
+      description: "یه چیزی که دفعهٔ بعد بهتر می‌شه رو انتخاب کن.",
+    },
+    "update-context-tiny": {
+      title: "یه جزئیات بنویس",
+      description: "یه جزئیات که می‌خوای دربارهٔ اون آدم یادت بمونه بنویس.",
+    },
+    "next-contact-tiny": {
+      title: "به یه اسم فکر کن",
+      description: "یه نفر رو به ذهنت بیار. همین کل قدمه.",
+    },
+    "make-small-tiny": {
+      title: "یه خط خام بکش",
+      description: "یه طرح، یه آهنگ زمزمه‌شده یا یه جملهٔ خام بساز. شلخته هم باشه اشکالی نداره.",
+    },
+    "archive-spark-tiny": {
+      title: "یه جا ذخیره‌اش کن",
+      description: "ایدهٔ امروز رو هر جایی که دوباره می‌بینی بذار.",
+    },
+    "polish-one-pass-tiny": {
+      title: "یه جزئیات رو درست کن",
+      description: "یه چیز کوچیک رو عوض کن و دیگه ولش کن.",
+    },
+    "share-or-save-tiny": {
+      title: "یه نسخه ذخیره کن",
+      description: "یه جای امن ذخیره‌اش کن. منتشر کردن می‌تونه برای بعد بمونه.",
+    },
+    "remix-it-tiny": {
+      title: "فقط یه چیز رو عوض کن",
+      description: "حال‌وهوا، قالب یا مخاطب رو فقط یک بار عوض کن.",
+    },
+    "save-version-tiny": {
+      title: "همین‌طور نگهش دار",
+      description: "ریمیکس رو بدون ویرایش دوباره ذخیره کن.",
+    },
+    "clear-one-thing-tiny": {
+      title: "یه نگرانی رو اسم ببر",
+      description: "یه نگرانی رو آروم بگو. لازم نیست درستش کنی.",
+    },
+    "soft-close-tiny": {
+      title: "یه چیز رو خاموش کن",
+      description: "یه چراغ یا صفحه رو خاموش کن تا روزت بفهمه می‌تونه تموم شه.",
+    },
+    "prepare-room-tiny": {
+      title: "یه چراغ رو کم کن",
+      description: "یه چراغ رو کمی کم کن یا یه پرده رو ببند.",
+    },
+    "sleep-note-tiny": {
+      title: "ببین چی کمک کرد",
+      description: "یه چیزی که امشب کمک کرد رو به یاد بیار. فکر کردن هم حساب میشه.",
+    },
+    "no-rush-start-tiny": {
+      title: "قبل از اولین کار یه مکث",
+      description: "قبل از هر چیز یه نفس بکش.",
+    },
+    "energy-check-tiny": {
+      title: "با یه کلمه حالتو بسنج",
+      description: "انرژیت رو با یه کلمه اسم ببر، بدون قضاوت.",
+    },
   },
   challengeInvite: {
     eyebrow: "مسیرهای پیشرفت",
