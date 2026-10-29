@@ -86,3 +86,6 @@ frontend/public/Musics/**/*.[mM][pP]3
 frontend/public/Musics/**/*.[oO][gG][gG]
 frontend/public/Musics/**/*.[mM]4[aA]
 frontend/public/Musics/**/*.[wW][aA][vV]
+
+# Claude Code: personal, machine-local instructions (never committed)
+CLAUDE.local.md
