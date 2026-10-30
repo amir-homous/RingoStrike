@@ -5,7 +5,7 @@ from database import get_db_connection
 from services.stats_service import calculate_current_streak
 from utils.date_utils import utc_today_iso
 from utils.validation_utils import safe_int
-from services.username_service import member_display_name
+from services.username_service import member_display_name, member_identity_fields
 
 
 def list_public_challenges():
@@ -191,10 +191,9 @@ def get_challenge_members(challenge_id: int, limit_arg, offset_arg):
                 "enrollment_id": row[0],
                 "enrollment_status": row[1],
                 "role": row[2] if len(row) > 2 else "Member",
-                "user_id": row["u_id"],
                 "user_name": member_display_name(row["name"], row["username"], row["profile_visibility"]),
-                "username": row["username"],
-                "telegram_username": row["username"],
+                # Private profiles: initial only; user_id, username and telegram_username are null.
+                **member_identity_fields(row["u_id"], row["username"], row["profile_visibility"]),
             }
             for row in rows[:limit]
         ]

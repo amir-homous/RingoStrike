@@ -1,7 +1,7 @@
 from database import get_db_connection
 from utils.date_utils import utc_today_iso
 from services.stats_service import calculate_current_streak
-from services.username_service import member_display_name
+from services.username_service import member_display_name, member_identity_fields
 
 
 def _with_ranks(items):
@@ -100,7 +100,8 @@ def enrollment_leaderboard(
 
             item = {
                 "name": member_display_name(row["name"], row["username"], row["profile_visibility"]),
-                "username": row["username"],
+                # Private profiles: initial only, no username.
+                "username": member_identity_fields(None, row["username"], row["profile_visibility"])["username"],
                 "enrollment_id": eid,
                 "total_checkins": int(total),
                 "current_streak": int(streak),

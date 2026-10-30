@@ -95,24 +95,34 @@ def test_member_surfaces_respect_visibility_and_hide_at(client):
         challenge_id, _ = _join_first(client, auth_headers(user["access_token"]))
     _, viewer_enrollment = _join_first(client, viewer_headers)
 
-    # /challenges (members_preview), /challenges/:id/members (no login) and the leaderboard.
+    # /challenges (members_preview), /challenges/:id/members (login required) and the leaderboard.
     items = client.get("/challenges", headers=viewer_headers).get_json()["items"]
     preview = next(item for item in items if item["challenge_id"] == challenge_id)["members_preview"]
-    members = client.get(f"/challenges/{challenge_id}/members").get_json()["items"]
+    members = client.get(f"/challenges/{challenge_id}/members", headers=viewer_headers).get_json()["items"]
     board = client.get(f"/me/enrollments/{viewer_enrollment}/leaderboard", headers=viewer_headers).get_json()
 
     names_seen = list(preview) + [m["user_name"] for m in members] + [r["name"] for r in board["overall"]]
     assert all("@" not in name for name in names_seen), names_seen
     assert "Nima Private" not in str(preview) + str(members) + str(board)
 
-    by_username = {m["username"]: m["user_name"] for m in members}
-    assert by_username["publicsara"] == "Sara Public"
-    assert by_username["privatenima"] == "N."
-    assert by_username["emailbo"] == "emailbo"
-    board_names = {r["username"]: r["name"] for r in board["overall"]}
-    assert board_names["privatenima"] == "N."
-    assert board_names["publicsara"] == "Sara Public"
+    # Public members are unchanged; a private member is an initial only (no user_id or username).
+    public_row = next(m for m in members if m["username"] == "publicsara")
+    assert public_row["user_name"] == "Sara Public"
+    assert isinstance(public_row["user_id"], int) and public_row["telegram_username"] == "publicsara"
+    assert next(m for m in members if m["username"] == "emailbo")["user_name"] == "emailbo"
+    private_rows = [m for m in members if m["user_name"] == "N."]
+    assert len(private_rows) == 1
+    assert {k: private_rows[0][k] for k in ("user_id", "username", "telegram_username")} == {
+        "user_id": None, "username": None, "telegram_username": None,
+    }
+    assert set(private_rows[0]) == set(public_row), "same keys for private and public rows"
+    assert "privatenima" not in str(members)
+
+    board_names = {r["name"]: r["username"] for r in board["overall"]}
+    assert board_names["N."] is None, "leaderboard: private member has no username"
+    assert board_names["Sara Public"] == "publicsara"
     assert board_names["emailbo"] == "emailbo"
+    assert "privatenima" not in str(board)
     # members_preview keeps its shape: a list of strings (at most three).
     assert isinstance(preview, list) and all(isinstance(name, str) for name in preview)
     assert len(preview) <= 3
@@ -144,3 +154,4 @@ def test_profile_update_follows_the_register_rule(client):
 
     res = client.patch("/api/profile", json={"name": "x" * 61}, headers=headers)
     assert res.status_code == 400 and res.get_json()["error"] == "name_too_long", "existing validation unchanged"
+

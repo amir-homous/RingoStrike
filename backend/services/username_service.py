@@ -59,6 +59,13 @@ def member_display_name(name, username=None, profile_visibility=None) -> str:
     return shown
 
 
+def member_identity_fields(user_id=None, username=None, profile_visibility=None) -> dict:
+    """What identifies another member: for a private profile, nothing (initial only); key names stay."""
+    if (profile_visibility or "public") != "public":
+        return {"user_id": None, "username": None, "telegram_username": None}
+    return {"user_id": user_id, "username": username, "telegram_username": username}
+
+
 def stored_display_name(name, username) -> str:
     """The name to store at sign-up: the typed name, or the username when it is empty or has "@"."""
     value = (name or "").strip()
