@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { buildDayMoment, composeMomentSteps, dayMomentCase, ladderCopy, lastSevenDays, missionsDoneToday, utcTodayIso } from "../src/lib/dayMoment.js";
+import { buildDayMoment, composeMomentSteps, dayMomentCase, ladderCopy, lastSevenDays, missionsDoneToday, momentRewards, utcTodayIso } from "../src/lib/dayMoment.js";
 
 // B37 (#387, D72 to D74): the Ringo moment's cards and the day moment, without a browser.
 const t = (key, params = {}) => `${key}${Object.keys(params).length ? JSON.stringify(params) : ""}`;
@@ -131,5 +131,41 @@ assert.equal(tinyCard.title, "ringoRewardSequence.moment.ladder.twoTitle", "a Ti
 const bonusCard = composeMomentSteps(builtSteps(), { intensity: "bonus", doneToday: 5 }, t);
 assert.deepEqual(bonusCard.map((c) => c.type), ["bonus_done"], "a Bonus keeps its one card");
 assert.equal(bonusCard[0].title, "ringoRewardSequence.moment.bonusTitle");
+
+// Achievements in the Ringo moment: one calm line on the achFirst card, and the XP chip counts the
+// achievement XP so it matches the new total. Read from the done response (checkin.rewards).
+const doneResponse = (achievements, achievementXp) => ({
+  mission: { mission_id: 1, xp_awarded: 15 },
+  checkin: { rewards: { xp_total: 0, achievements, achievement_xp_reward: achievementXp } },
+});
+const achFirst = { key: "first_checkin", title: "First Check-in", xp_reward: 25 };
+const achStreak = { key: "streak_3", title: "3-Day Streak", xp_reward: 50 };
+
+assert.deepEqual(momentRewards(doneResponse([], 0)), { achievements: [], achievementXp: 0 }, "no achievement");
+assert.deepEqual(momentRewards(doneResponse([achFirst], 25)).achievements.map((a) => a.title), ["First Check-in"]);
+assert.deepEqual(momentRewards(doneResponse([achFirst, achStreak], 75)), {
+  achievements: [{ key: "first_checkin", title: "First Check-in", xp: 25 }, { key: "streak_3", title: "3-Day Streak", xp: 50 }],
+  achievementXp: 75,
+});
+assert.deepEqual(momentRewards({}), { achievements: [], achievementXp: 0 }, "a response without rewards");
+assert.deepEqual(momentRewards(doneResponse([{ key: "x" }], 0)).achievements, [], "an achievement without a title is skipped");
+
+const xpOf = (card) => Number(/\{"count":(\d+)\}/.exec(card.value)?.[1] ?? /\+(\d+)/.exec(card.value)?.[1]);
+for (const [label, list, achievementXp] of [["none", [], 0], ["one", [achFirst], 25], ["two", [achFirst, achStreak], 75]]) {
+  const rewards = momentRewards(doneResponse(list, achievementXp));
+  const oldTotal = 100;
+  const newTotal = oldTotal + 15 + achievementXp; // what the server adds: the mission's XP plus achievement XP
+  const card = composeMomentSteps(builtSteps(), { intensity: "main", xpAwarded: 15, ...rewards }, t)[0];
+  assert.equal(xpOf(card), newTotal - oldTotal, `${label}: the chip equals the total delta`);
+  assert.deepEqual(card.achievements, list.map((a) => a.title), `${label}: the achievement line`);
+  assert.equal(card.achievementLabel, list.length ? "achievements.unlocked" : "", `${label}: label only when there is one`);
+  assert.equal(composeMomentSteps(builtSteps(), { intensity: "main", xpAwarded: 15, ...rewards }, t).length, 2, `${label}: no new step`);
+}
+const bonusWithAchievement = composeMomentSteps(builtSteps(), { intensity: "bonus", xpAwarded: 5, ...momentRewards(doneResponse([achFirst], 25)) }, t)[0];
+assert.equal(bonusWithAchievement.type, "bonus_done");
+assert.deepEqual(bonusWithAchievement.achievements, ["First Check-in"], "a Bonus card shows it too");
+assert.equal(xpOf(bonusWithAchievement), 30);
+const noBase = composeMomentSteps(builtSteps(), { intensity: "main", xpAwarded: null, achievementXp: 25 }, t)[0];
+assert.equal(noBase.value, "+15 XP", "without the mission XP the chip is left as it was");
 
 console.log("Day moment tests passed.");
