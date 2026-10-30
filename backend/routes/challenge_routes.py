@@ -34,7 +34,8 @@ def challenge_detail_route(challenge_id):
 
 
 @challenge_bp.get('/challenges/<int:challenge_id>/members')
-def challenge_members_route(challenge_id):
+@require_auth()
+def challenge_members_route(claims, challenge_id):
     payload, code = get_challenge_members(
         challenge_id,
         request.args.get("limit"),

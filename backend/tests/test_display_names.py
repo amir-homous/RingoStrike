@@ -155,3 +155,13 @@ def test_profile_update_follows_the_register_rule(client):
     res = client.patch("/api/profile", json={"name": "x" * 61}, headers=headers)
     assert res.status_code == 400 and res.get_json()["error"] == "name_too_long", "existing validation unchanged"
 
+
+
+def test_members_endpoint_requires_login(client):
+    data = _register(client, "membersauth", "Members Auth")
+    challenge_id, _ = _join_first(client, auth_headers(data["access_token"]))
+    client.delete_cookie("ringo_token")
+    res = client.get(f"/challenges/{challenge_id}/members")
+    assert res.status_code == 401
+    ok = client.get(f"/challenges/{challenge_id}/members", headers=auth_headers(data["access_token"]))
+    assert ok.status_code == 200 and ok.get_json()["ok"] is True
