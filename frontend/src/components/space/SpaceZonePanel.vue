@@ -662,6 +662,8 @@ const baseRingoCard = computed(() => {
       label: t("space.ringoGuide.eyebrow"),
       title: t("space.ringoGuide.joinedTitle", { challenge: name }),
       body: t("space.ringoGuide.joinedBody"),
+      // #413: one line from the challenge's description.
+      note: challenge?.about || "",
       primary: {
         key: "show-today-step",
         label: t("space.ringoGuide.joinedPrimary"),

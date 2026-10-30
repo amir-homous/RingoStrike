@@ -2185,6 +2185,8 @@ export default {
     },
   },
   enrollment: {
+    doInRoom: "قدم امروز رو توی اتاقت انجام بده",
+    seeInRoom: "امروزت رو توی اتاقت ببین",
     loadingTitle: "در حال بارگذاری ثبت نام...",
     loadingText: "در حال دریافت چالش و پیشرفت شما.",
     emptyTitle: "ثبت نام پیدا نشد",
@@ -2192,7 +2194,7 @@ export default {
     errorTitle: "ثبت نام بارگذاری نشد",
     eyebrow: "مرکز فرمان چالش",
     guidedEyebrow: "مأموریت مسیر",
-    missionReadyInstruction: "امروز کار مربوط به این مسیر رو انجام بده. وقتی انجامش دادی، دکمه رو بزن تا ثبت بشه و لحظه پاداشت باز بشه.",
+    missionReadyInstruction: "قدم امروز این مسیر توی اتاقت آماده‌ست. اونجا بازش کن؛ رینگو موقع انجامش کنارته و وقتی تمومش کنی حساب می‌شه.",
     missionCompleteInstruction: "مأموریت امروز کامل شده است. مسیرت تا بازنشانی روزانه بعدی امن است.",
     missionPlanEyebrow: "برنامه مأموریت",
     missionPlanTitle: "مأموریت‌های چالش",
