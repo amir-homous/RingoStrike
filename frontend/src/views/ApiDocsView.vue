@@ -207,7 +207,7 @@ const publicApis = [
     name: 'Challenge Members',
     method: 'GET',
     path: '/challenges/:id/members',
-    auth: false,
+    auth: true,
     description: 'Returns active challenge members. This route is public in the current backend.',
     structure: {
       ok: true,
