@@ -2189,7 +2189,7 @@ export default {
     errorTitle: "Couldn’t load enrollment",
     eyebrow: "Challenge Command Center",
     guidedEyebrow: "Path Mission",
-    missionReadyInstruction: "Do the action for this path today. When you’re done, press the button to record it and unlock your reward moment.",
+    missionReadyInstruction: "Today’s step for this path is ready in your room. Open it there; Ringo stays with you while you do it, and it counts when you finish.",
     missionCompleteInstruction: "Today’s mission is complete. Your path is safe until the next daily reset.",
     missionPlanEyebrow: "Mission plan",
     missionPlanTitle: "Challenge missions",
