@@ -38,6 +38,8 @@
             <img :src="stepVisualIcon" alt="" />
           </div>
           <h2>{{ stepTitle }}</h2>
+          <!-- The mission's own name, as a label (the ladder line does not repeat it). -->
+          <small v-if="currentStep.missionLabel" class="stepMission">{{ currentStep.missionLabel }}</small>
           <p v-if="stepText">{{ stepText }}</p>
           <strong v-if="stepValue">{{ stepValue }}</strong>
           <div v-if="currentStep.progressBar" class="stepProgressBar" aria-hidden="true">
@@ -613,6 +615,19 @@ function boundedPercent(value) {
 
 .rewardStep.celebrate {
   cursor: pointer;
+}
+
+.stepMission {
+  justify-self: center;
+  max-width: 100%;
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.78);
+  font-size: 0.8rem;
+  font-weight: 700;
+  overflow-wrap: anywhere;
 }
 
 .tapHint {

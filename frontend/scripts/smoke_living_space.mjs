@@ -16,6 +16,7 @@ import {
   footprintBox,
   footprintClipPath,
   ringoPlacement,
+  ringoSleeps,
   roomScale,
   roomFit,
   FRACTIONAL_SNAP,
@@ -471,6 +472,18 @@ function runRoomSceneSmoke() {
   const idle = ringoPlacement(layout);
   assert.deepEqual(idle, { file: "ringo/ringo_idle.png", x: 270 - 17, y: 214 - 33, w: 34, h: 33 });
   assert.equal(ringoPlacement(layout, { rest: true }).file, "ringo/ringo_sleeping.png");
+  // Ringo sleeps on the overview only once today is safe; before that he is awake on the same spot
+  // (phones open on the overview, so they start awake). In a corner he is always awake.
+  assert.equal(ringoSleeps({ rest: true, todaySafe: false }), false, "overview, today not safe: awake");
+  assert.equal(ringoSleeps({ rest: true, todaySafe: true }), true, "overview, today safe: asleep");
+  assert.equal(ringoSleeps({ rest: false, todaySafe: true }), false, "corner open, today safe: awake");
+  assert.equal(ringoSleeps({ rest: false, todaySafe: false }), false, "corner open: awake");
+  const awake = ringoPlacement(layout, { rest: ringoSleeps({ rest: true, todaySafe: false }) });
+  const asleep = ringoPlacement(layout, { rest: ringoSleeps({ rest: true, todaySafe: true }) });
+  assert.equal(awake.file, "ringo/ringo_idle.png");
+  assert.equal(asleep.file, "ringo/ringo_sleeping.png");
+  assert.equal(awake.x + awake.w / 2, asleep.x + asleep.w / 2, "same spot (centre)");
+  assert.equal(awake.y + awake.h, asleep.y + asleep.h, "same spot (feet)");
 }
 
 function runRoomObjectsSmoke() {
