@@ -124,3 +124,23 @@ def test_existing_rows_are_not_modified(client):
     client.get("/me", headers=auth_headers(data["access_token"]))
     client.get("/me/profile", headers=auth_headers(data["access_token"]))
     assert _db_user("rowkeeper")["name"] == "row@example.com", "reading never rewrites the stored name"
+
+
+def test_profile_update_follows_the_register_rule(client):
+    data = _register(client, "patchrule", "Patch Rule")
+    headers = auth_headers(data["access_token"])
+
+    res = client.patch("/api/profile", json={"name": "me@example.com"}, headers=headers)
+    assert res.status_code == 200
+    assert res.get_json() == {"ok": True}, "response shape unchanged"
+    assert _db_user("patchrule")["name"] == "patchrule", "a name with @ is stored as the username"
+
+    res = client.patch("/api/profile", json={"name": "  New Name  "}, headers=headers)
+    assert res.get_json() == {"ok": True}
+    assert _db_user("patchrule")["name"] == "New Name"
+
+    client.patch("/api/profile", json={"bio": "hello"}, headers=headers)
+    assert _db_user("patchrule")["name"] == "New Name", "updating only the bio leaves the name"
+
+    res = client.patch("/api/profile", json={"name": "x" * 61}, headers=headers)
+    assert res.status_code == 400 and res.get_json()["error"] == "name_too_long", "existing validation unchanged"
