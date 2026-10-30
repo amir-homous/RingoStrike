@@ -125,20 +125,52 @@ export function ladderCopy(count, missionTitle, translate) {
   };
 }
 
+// Achievements unlocked by this completion, from the done response (checkin.rewards). Titles are
+// the backend's own (the same ones the rest of the app shows); nothing is invented.
+export function momentRewards(response) {
+  const rewards = response?.checkin?.rewards || response?.rewards || {};
+  const achievements = (Array.isArray(rewards.achievements) ? rewards.achievements : [])
+    .map((item) => ({ key: item?.key || "", title: String(item?.title || "").trim(), xp: Math.max(0, Number(item?.xp_reward) || 0) }))
+    .filter((item) => item.title);
+  const achievementXp = Math.max(0, Math.floor(Number(rewards.achievement_xp_reward) || 0));
+  return { achievements, achievementXp };
+}
+
+// The XP chip counts the mission's XP plus any achievement XP, so it matches the new total.
+function xpChip(xpStep, { xpAwarded = null, achievementXp = 0 } = {}, translate) {
+  const extra = Math.max(0, Math.floor(Number(achievementXp) || 0));
+  if (!extra || xpAwarded === null || xpAwarded === undefined || xpAwarded === "") return xpStep?.value || "";
+  const base = Number(xpAwarded);
+  if (!Number.isFinite(base)) return xpStep?.value || "";
+  return translate("ringoRewardSequence.local.xpValue", { count: Math.max(0, base) + extra });
+}
+
 // D72: compose the new cards from the steps the sequence builder already made (so XP, the bar
 // and the total stay exactly as computed today, D77).
 // - Bonus: one card ("Extra step done." with its XP and the two pace buttons).
 // - First counted Main or Tiny of the day: Nice work, the day moment, Choose your pace.
 // - Later missions the same day: Nice work, Choose your pace.
-export function composeMomentSteps(steps, { intensity = "main", firstOfDay = false, day = null, doneToday = 1 } = {}, translate) {
+export function composeMomentSteps(steps, {
+  intensity = "main",
+  firstOfDay = false,
+  day = null,
+  doneToday = 1,
+  xpAwarded = null,
+  achievements = [],
+  achievementXp = 0,
+} = {}, translate) {
   if (!Array.isArray(steps) || !steps.length) return [];
   const mission = stepOf(steps, "mission_complete");
   const xp = stepOf(steps, "xp_earned");
   const level = stepOf(steps, "level_up");
   const final = stepOf(steps, "final_choice");
   const missionTitle = mission?.title || translate("ringoRewardSequence.local.missionFallback");
+  // One calm line under the XP for achievements unlocked by this completion (no extra step).
+  const unlocked = (Array.isArray(achievements) ? achievements : []).map((item) => item?.title).filter(Boolean);
   const xpDetails = {
-    value: xp?.value || "",
+    value: xpChip(xp, { xpAwarded, achievementXp }, translate),
+    achievementLabel: unlocked.length ? translate("achievements.unlocked") : "",
+    achievements: unlocked,
     progressBar: xp?.progressBar || null,
     meta: xp?.meta || "",
     levelLine: level?.title || "",
