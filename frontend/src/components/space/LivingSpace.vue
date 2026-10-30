@@ -1004,6 +1004,8 @@ function buildPathChallenge(challenge, zone) {
     iconKey: challengeIconKey(challenge?.name || challenge?.challenge_name),
     name: localized?.name || localized?.challenge_name || t("common.challenge"),
     description: localized?.ringo_intro || localized?.description || "",
+    // #413: the challenge's own one-line description (the joined card shows it).
+    about: localized?.description || "",
     stage: challenge?.stage || 1,
     isJoined,
     isCurrent,

@@ -229,12 +229,6 @@
         </BaseCard>
       </section>
     </div>
-
-    <JoinSuccessMoment
-      :open="!!joinSuccess"
-      :join="joinSuccess"
-      @close="joinSuccess = null"
-    />
   </AppContainer>
 </template>
 
@@ -250,7 +244,7 @@ import BaseCard from "@/components/ui/BaseCard.vue";
 import BaseButton from "@/components/ui/BaseButton.vue";
 import UiState from "@/components/ui/UiState.vue";
 import ChallengeCard from "@/components/challenges/ChallengeCard.vue";
-import JoinSuccessMoment from "@/components/feedback/JoinSuccessMoment.vue";
+import { roomLinkPath } from "@/lib/roomLink";
 import ChallengeDiscoveryInvite from "@/components/guided/ChallengeDiscoveryInvite.vue";
 import RingoCoach from "@/components/ringo/RingoCoach.vue";
 import { getSuggestedChallengeName } from "@/lib/guidedExperience";
@@ -273,7 +267,6 @@ const loadError = ref("");
 
 const items = ref([]);
 const joiningId = ref(null);
-const joinSuccess = ref(null);
 
 const codes = ref({});
 const errors = ref({});
@@ -626,14 +619,9 @@ async function join(challenge) {
       challenge,
       codes: codes.value,
     });
-    await load();
-    const displayChallenge = localizeChallenge(challenge, locale.value);
-    joinSuccess.value = {
-      ...result,
-      challengeName: displayChallenge?.name || result.challengeName,
-      challengeDescription: displayChallenge?.description || result.challengeDescription,
-      source: "challenges",
-    };
+    // #413: the join also starts the challenge's path (the join endpoint does it, as in the
+    // room); then the room opens on that corner with Ringo's "You joined" card. No modal.
+    router.push(roomLinkPath({ challengeId: result.challengeId || challenge.challenge_id, joined: true }));
   } catch (e) {
     const msg = e?.response?.data?.error || e?.message || String(e);
     errors.value[challenge.challenge_id] = msg;
