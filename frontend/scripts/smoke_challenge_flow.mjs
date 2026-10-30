@@ -8,6 +8,7 @@ import {
   submitCheckinFlow,
   submitJoinFlow,
 } from "../src/views/challengeFlow.js";
+import { roomLinkFromSearch, roomLinkPath, zoneForChallenge } from "../src/lib/roomLink.js";
 
 function createRouterRecorder() {
   const pushes = [];
@@ -281,4 +282,30 @@ async function run() {
   assert.deepEqual(failureState.activityEvents, [{ id: "old-event" }]);
 }
 
+// #413: the challenge page sends the user into the room: "Do today's step in your room" opens
+// /dashboard?challenge=<id>; a join from the challenge page adds &joined=1 (Ringo's "You joined").
+function runRoomLinkSmoke() {
+  assert.equal(roomLinkPath({ challengeId: 45 }), "/dashboard?challenge=45");
+  assert.equal(roomLinkPath({ challengeId: "45", joined: true }), "/dashboard?challenge=45&joined=1");
+  assert.equal(roomLinkPath({ challengeId: null }), "/dashboard", "no id: the plain room");
+  assert.equal(roomLinkPath({ challengeId: "45x" }), "/dashboard", "only numeric ids");
+  assert.deepEqual(roomLinkFromSearch("?challenge=45&joined=1"), { challengeId: "45", joined: true });
+  assert.deepEqual(roomLinkFromSearch("?challenge=45"), { challengeId: "45", joined: false });
+  assert.deepEqual(roomLinkFromSearch("?firstRun=1"), { challengeId: null, joined: false });
+  assert.deepEqual(roomLinkFromSearch("?challenge=<script>"), { challengeId: null, joined: false });
+  // Round trip.
+  assert.deepEqual(roomLinkFromSearch(roomLinkPath({ challengeId: 7, joined: true }).split("?")[1]), { challengeId: "7", joined: true });
+
+  const zones = [
+    { zone_key: "work_desk", pathDetail: { challenges: [{ id: 30 }, { id: 31 }] } },
+    { zone_key: "fitness_corner", pathDetail: { challenges: [{ id: 45 }] } },
+    { zone_key: "sleep_corner" },
+  ];
+  assert.equal(zoneForChallenge(zones, "45")?.zone_key, "fitness_corner");
+  assert.equal(zoneForChallenge(zones, 31)?.zone_key, "work_desk");
+  assert.equal(zoneForChallenge(zones, "99"), null, "unknown challenge: no corner (the room stays on the overview)");
+  assert.equal(zoneForChallenge(zones, null), null);
+}
+
 run();
+runRoomLinkSmoke();

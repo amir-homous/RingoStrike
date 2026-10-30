@@ -2181,6 +2181,8 @@ export default {
     },
   },
   enrollment: {
+    doInRoom: "قدم امروز رو توی اتاقت انجام بده",
+    seeInRoom: "امروزت رو توی اتاقت ببین",
     loadingTitle: "در حال بارگذاری ثبت نام...",
     loadingText: "در حال دریافت چالش و پیشرفت شما.",
     emptyTitle: "ثبت نام پیدا نشد",

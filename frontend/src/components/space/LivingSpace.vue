@@ -165,6 +165,7 @@ import UiState from "@/components/ui/UiState.vue";
 import { challengeIconKey } from "@/lib/challengeIconKeys";
 import { getChallengePathKey, getOnboardingUserKey, isRoomExplainerSeen, markRoomExplainerSeen } from "@/lib/guidedExperience";
 import { shouldShowExplainer } from "@/lib/roomExplainer";
+import { roomLinkFromSearch, zoneForChallenge } from "@/lib/roomLink";
 import { localizeSpaceReward, localizeSpaceZone } from "@/lib/livingSpaceCopy";
 import {
   dueReminderFocusForZone,
@@ -1480,6 +1481,9 @@ onMounted(async () => {
   await Promise.all([loadSpace(), loadPaths(), loadUserKey()]);
   explainerOpen.value = shouldShowExplainer({ firstRun: firstRunArrival.value, seen: isRoomExplainerSeen(userKey.value) });
   await preloadZonePathChallenges();
+  // #413: /dashboard?challenge=<id> (from a challenge page) opens that challenge's corner and
+  // today's step; &joined=1 shows Ringo's "You joined" card. It wins over the first-run rule.
+  if (openChallengeFromLink()) return;
   // B11: the first arrival from onboarding (/dashboard?firstRun=1) opens the first mission's zone
   // instead of the room overview. B37 (D78, D83): on desktop too, so the room lands on that corner
   // (its marker and challenge tray carry the explainer's pins).
@@ -1498,6 +1502,19 @@ const explainerOpen = ref(false);
 function dismissExplainer() {
   markRoomExplainerSeen(userKey.value);
   explainerOpen.value = false;
+}
+
+function openChallengeFromLink() {
+  if (typeof window === "undefined") return false;
+  const link = roomLinkFromSearch(window.location.search);
+  const zone = zoneForChallenge(displayZones.value, link.challengeId);
+  if (!zone) return false;
+  // The room's own selection: open the corner, then pick that challenge (its mission tray shows).
+  selectZone(zone);
+  selectedPathChallengeId.value = link.challengeId;
+  challengePicked.value = true;
+  joinedChallengeId.value = link.joined ? link.challengeId : null;
+  return true;
 }
 
 function isFirstRunArrival() {

@@ -2180,6 +2180,8 @@ export default {
     },
   },
   enrollment: {
+    doInRoom: "Do today's step in your room",
+    seeInRoom: "See today in your room",
     loadingTitle: "Loading enrollment...",
     loadingText: "Fetching challenge and your progress.",
     emptyTitle: "Enrollment not found",
