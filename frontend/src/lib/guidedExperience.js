@@ -16,13 +16,28 @@ export const PATH_TO_CHALLENGE_NAME = {
   consistency: "Daily Strike",
 };
 
-const CHALLENGE_NAME_TO_PATH = Object.entries(PATH_TO_CHALLENGE_NAME).reduce(
-  (result, [path, name]) => {
-    result[name.toLowerCase()] = path;
-    return result;
-  },
-  {},
-);
+// Every seeded challenge (backend/services/path_seed_service.py) and the path it belongs to. An
+// explicit map: the old reverse lookup of PATH_TO_CHALLENGE_NAME covered only four names and kept
+// whichever alias came last ("Deep Work Sprint" became focus, "Creative Spark" had no label).
+export const CHALLENGE_NAME_TO_PATH = Object.freeze({
+  "move your body": "fitness",
+  "strength starter": "fitness",
+  "mobility reset": "fitness",
+  "learn one thing": "learning",
+  "read five pages": "learning",
+  "practice skill": "learning",
+  "deep work sprint": "career",
+  "portfolio pulse": "career",
+  "network signal": "career",
+  "creative spark": "creativity",
+  "publish tiny": "creativity",
+  "idea remix": "creativity",
+  "mind reset": "sleep",
+  "sleep wind down": "sleep",
+  "morning recovery": "sleep",
+  // Archived legacy challenge; its old enrollments still show the consistency label.
+  "daily strike": "consistency",
+});
 
 export const IDENTITY_PATHS = [
   "career",

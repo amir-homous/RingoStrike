@@ -8,6 +8,7 @@
     "build": "vite build",
     "test:auth": "node scripts/smoke_auth_flow.mjs",
     "test:challenge": "node scripts/smoke_challenge_flow.mjs",
+    "test:challenge-card": "node scripts/test_challenge_card.mjs",
     "test:console": "node scripts/smoke_browser_console.mjs",
     "test:dashboard": "node scripts/smoke_dashboard_flow.mjs",
     "test:day-moment": "node scripts/test_day_moment.mjs",
