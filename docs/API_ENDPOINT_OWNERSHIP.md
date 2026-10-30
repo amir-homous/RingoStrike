@@ -28,7 +28,7 @@ Current convention:
 | `POST /auth/logout` | `auth.py` | `auth.py` | Clears auth cookie. No token blacklist exists currently. |
 | `GET /challenges/public` | `routes/challenge_routes.py` | `services/challenge_service.py` | Public challenge discovery subset. |
 | `GET /challenges/<challenge_id>` | `routes/challenge_routes.py` | `services/challenge_service.py` | Public for public/invite-only active challenges. Private challenges are blocked. |
-| `GET /challenges/<challenge_id>/members` | `routes/challenge_routes.py` | `services/challenge_service.py` | Public member list for public/invite-only active challenges. Private challenges are blocked. |
+| `GET /challenges/<challenge_id>/members` | `routes/challenge_routes.py` | `services/challenge_service.py` | Member list for public/invite-only active challenges; requires login (#418). Private challenges are blocked. Private profiles are an initial only (`user_id`, `username`, `telegram_username` null). |
 | `GET /paths` | `routes/path_routes.py` | `services/path_service.py` | Optional auth; returns active paths and user path status when authenticated. |
 | `GET /paths/<path_id>/challenges` | `routes/path_routes.py` | `services/path_service.py` | Optional auth; returns path challenge stages, mission previews, and authenticated progress state. |
 | `GET /api/public/profile/<username>` | `routes/public_profile_routes.py` | `services/public_profile_service.py` | Respects profile visibility. |

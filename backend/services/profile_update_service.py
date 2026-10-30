@@ -1,4 +1,5 @@
 from database import get_db_connection
+from services.username_service import stored_display_name
 
 
 MAX_NAME_LENGTH = 60
@@ -62,7 +63,7 @@ def update_profile(
     try:
         user = conn.execute(
             """
-            SELECT id
+            SELECT id, username
             FROM users
             WHERE id = ?
             """,
@@ -114,6 +115,10 @@ def update_profile(
         values = []
 
         if clean_name is not FIELD_UNSET:
+            # Same rule as register: a name containing "@" (an email) is never stored as the
+            # display name; the username is stored instead. The response stays {"ok": true}.
+            if isinstance(clean_name, str) and "@" in clean_name:
+                clean_name = stored_display_name(clean_name, user["username"])
             updates.append("name = ?")
             values.append(clean_name)
 

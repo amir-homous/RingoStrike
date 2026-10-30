@@ -112,6 +112,7 @@ Only omit `VITE_API_BASE` when backend API routes can safely live at the same ro
 - [ ] Confirm seed data strategy.
 - [ ] Create backup before deployment update.
 - [ ] Confirm restore process.
+- [ ] Display-name cleanup (#418), once, after the backup above: save every name containing "@" to a `name_cleanup_backup` table (only rows not already saved), then set those names to the username. It is idempotent, so a second run changes nothing. Rollback restores each saved name from `name_cleanup_backup`. The exact SQL is in the #418 PR body.
 
 ---
 

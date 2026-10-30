@@ -207,8 +207,8 @@ const publicApis = [
     name: 'Challenge Members',
     method: 'GET',
     path: '/challenges/:id/members',
-    auth: false,
-    description: 'Returns active challenge members. This route is public in the current backend.',
+    auth: true,
+    description: 'Returns active challenge members. Requires login; private profiles are an initial only (user_id, username and telegram_username null).',
     structure: {
       ok: true,
       challenge_id: 1,
