@@ -23,3 +23,17 @@ export function zoneForChallenge(zones = [], challengeId) {
     return (zone?.pathDetail?.challenges || []).some((challenge) => String(challenge?.id) === String(challengeId));
   }) || null;
 }
+
+// The query without the room link, so a refresh or Back does not re-select the corner or show
+// "You joined" again (the room replaces the URL once it has read the link).
+export function withoutRoomLink(query = {}) {
+  const rest = { ...(query || {}) };
+  delete rest.challenge;
+  delete rest.joined;
+  return rest;
+}
+
+export function hasRoomLink(query = {}) {
+  return Object.prototype.hasOwnProperty.call(query || {}, "challenge")
+    || Object.prototype.hasOwnProperty.call(query || {}, "joined");
+}

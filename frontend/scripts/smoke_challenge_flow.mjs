@@ -8,7 +8,7 @@ import {
   submitCheckinFlow,
   submitJoinFlow,
 } from "../src/views/challengeFlow.js";
-import { roomLinkFromSearch, roomLinkPath, zoneForChallenge } from "../src/lib/roomLink.js";
+import { hasRoomLink, roomLinkFromSearch, roomLinkPath, withoutRoomLink, zoneForChallenge } from "../src/lib/roomLink.js";
 
 function createRouterRecorder() {
   const pushes = [];
@@ -305,6 +305,17 @@ function runRoomLinkSmoke() {
   assert.equal(zoneForChallenge(zones, 31)?.zone_key, "work_desk");
   assert.equal(zoneForChallenge(zones, "99"), null, "unknown challenge: no corner (the room stays on the overview)");
   assert.equal(zoneForChallenge(zones, null), null);
+
+  // Read once: the room replaces the URL without the link, keeping any other query.
+  assert.equal(hasRoomLink({ challenge: "45", joined: "1" }), true);
+  assert.equal(hasRoomLink({ joined: "1" }), true, "a stray joined=1 is cleared too");
+  assert.equal(hasRoomLink({ firstRun: "1" }), false);
+  assert.equal(hasRoomLink(undefined), false);
+  assert.deepEqual(withoutRoomLink({ challenge: "45", joined: "1" }), {});
+  assert.deepEqual(withoutRoomLink({ challenge: "45", firstRun: "1", tab: "x" }), { firstRun: "1", tab: "x" });
+  const original = { challenge: "45" };
+  withoutRoomLink(original);
+  assert.deepEqual(original, { challenge: "45" }, "the route query object is not mutated");
 }
 
 run();

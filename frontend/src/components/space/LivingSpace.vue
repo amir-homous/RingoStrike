@@ -165,7 +165,8 @@ import UiState from "@/components/ui/UiState.vue";
 import { challengeIconKey } from "@/lib/challengeIconKeys";
 import { getChallengePathKey, getOnboardingUserKey, isRoomExplainerSeen, markRoomExplainerSeen } from "@/lib/guidedExperience";
 import { shouldShowExplainer } from "@/lib/roomExplainer";
-import { roomLinkFromSearch, zoneForChallenge } from "@/lib/roomLink";
+import { hasRoomLink, roomLinkFromSearch, withoutRoomLink, zoneForChallenge } from "@/lib/roomLink";
+import { useRoute, useRouter } from "vue-router";
 import { localizeSpaceReward, localizeSpaceZone } from "@/lib/livingSpaceCopy";
 import {
   dueReminderFocusForZone,
@@ -188,6 +189,9 @@ import ReminderListPanel from "./ReminderListPanel.vue";
 import RoomOverviewPanel from "./RoomOverviewPanel.vue";
 import RoomScene from "./RoomScene.vue";
 import SpaceZonePanel from "./SpaceZonePanel.vue";
+
+const route = useRoute();
+const router = useRouter();
 
 const props = defineProps({
   refreshKey: { type: Number, default: 0 },
@@ -1509,6 +1513,9 @@ function dismissExplainer() {
 function openChallengeFromLink() {
   if (typeof window === "undefined") return false;
   const link = roomLinkFromSearch(window.location.search);
+  // Read once: the link leaves the address bar (replace, not push), so a refresh or Back does not
+  // re-select the corner or show "You joined" again.
+  if (hasRoomLink(route.query)) router.replace({ path: route.path, query: withoutRoomLink(route.query), hash: route.hash });
   const zone = zoneForChallenge(displayZones.value, link.challengeId);
   if (!zone) return false;
   // The room's own selection: open the corner, then pick that challenge (its mission tray shows).
