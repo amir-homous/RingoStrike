@@ -276,7 +276,7 @@ import {
   buildRewardDelta,
   buildRewardSnapshot,
 } from "@/utils/rewardSequenceBuilder";
-import { composeMomentSteps, lastSevenDays, utcTodayIso } from "@/lib/dayMoment";
+import { composeMomentSteps, lastSevenDays, missionsDoneToday, momentRewards, utcTodayIso } from "@/lib/dayMoment";
 import { numberAwareT } from "@/lib/i18nNumbers";
 import {
   DASHBOARD_CHALLENGE_LIMIT,
@@ -779,10 +779,21 @@ async function handleLivingSpaceMissionCompleted(payload = {}) {
   const firstOfDay = Boolean(rewardDelta?.strike?.changed);
   const day = firstOfDay ? await loadDayMomentData() : null;
 
+  // The reward message ladder: Main and Tiny missions done today, from the list before this
+  // completion plus the one just finished.
+  const doneToday = missionsDoneToday(livingSpaceFrozenState.value?.missions || [], {
+    mission_id: payload?.mission?.mission_id,
+    mission_intensity: rewardDelta?.mission?.intensity || "main",
+  });
+
   livingSpaceRewardSequenceSteps.value = composeMomentSteps(rewardResult.steps, {
     intensity: rewardDelta?.mission?.intensity || "main",
     firstOfDay,
     day,
+    doneToday,
+    // Achievements from the done response; the XP chip adds their XP so it matches the total.
+    xpAwarded: rewardDelta?.xp?.awarded ?? null,
+    ...momentRewards(payload),
   }, numberAwareT(t, () => locale.value));
   livingSpaceRewardSequenceSprite.value = rewardDelta?.mission?.intensity === "bonus"
     ? "happy"

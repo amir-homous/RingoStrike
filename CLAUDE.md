@@ -27,6 +27,8 @@ Repo: https://github.com/amir-homous/RingoStrike. Owner: Amir (writes Persian or
 ## Tests
 - Backend: `cd backend && ~/RingoStrike-main/backend/.venv/bin/python -m pytest tests -q` (the worktree has no venv).
 - Frontend: `npm run build`, then every `npm run test:<name>` in frontend/package.json against the throwaway servers (`FRONTEND_BASE_URL=http://localhost:5175 VITE_API_BASE=http://localhost:5007`). CI runs only pytest and the build.
+- Run the suite list from a bash script file (`#!/bin/bash`), not inline in the zsh shell: zsh does not word-split an unquoted `$SUITES`, so the loop silently runs one bogus suite name.
+- Test and screenshot scripts that launch headless Chrome close it in a `finally` block. Every wait loop has a timeout; never wait forever on a log line.
 - Never claim a pass without running it. Say plainly if test:mission-action flakes (known, issue #400).
 - Every behaviour change gets a dependency-free test where possible.
 

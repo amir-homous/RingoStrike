@@ -79,20 +79,98 @@ function stepOf(steps, type) {
   return (steps || []).find((step) => step?.type === type) || null;
 }
 
+// The reward message ladder: the Main and Tiny missions finished today (distinct missions, not
+// check-ins; a Bonus never counts), from the list before this completion plus the one just done.
+const LADDER_INTENSITIES = new Set(["main", "tiny"]);
+
+function missionIntensityOf(mission) {
+  const value = String(mission?.mission_intensity || mission?.intensity || "main").toLowerCase();
+  return ["main", "tiny", "bonus"].includes(value) ? value : "main";
+}
+
+export function missionsDoneToday(missionsBefore = [], finished = null) {
+  const done = new Set();
+  for (const mission of Array.isArray(missionsBefore) ? missionsBefore : []) {
+    const id = mission?.mission_id ?? mission?.id;
+    if (id === null || id === undefined) continue;
+    if (String(mission?.status || "").toLowerCase() !== "done") continue;
+    if (LADDER_INTENSITIES.has(missionIntensityOf(mission))) done.add(String(id));
+  }
+  const finishedId = finished?.mission_id ?? finished?.id;
+  if (finishedId !== null && finishedId !== undefined && LADDER_INTENSITIES.has(missionIntensityOf(finished))) {
+    done.add(String(finishedId));
+  }
+  return done.size;
+}
+
+// The first card's title and line for the count: 1, 2, 3, then 4 and above. The mission title is
+// not part of the sentence (titles are imperatives); the card shows it as its own label.
+export function ladderCopy(count, missionTitle, translate) {
+  const n = Math.max(1, Math.floor(Number(count) || 1));
+  if (n === 1) {
+    return {
+      title: translate("ringoRewardSequence.moment.niceWork"),
+      text: translate("ringoRewardSequence.moment.ladder.oneLine"),
+    };
+  }
+  if (n === 2) {
+    return { title: translate("ringoRewardSequence.moment.ladder.twoTitle"), text: translate("ringoRewardSequence.moment.ladder.twoLine") };
+  }
+  if (n === 3) {
+    return { title: translate("ringoRewardSequence.moment.ladder.threeTitle"), text: translate("ringoRewardSequence.moment.ladder.threeLine") };
+  }
+  return {
+    title: translate("ringoRewardSequence.moment.ladder.manyTitle"),
+    text: translate("ringoRewardSequence.moment.ladder.manyLine", { count: n }),
+  };
+}
+
+// Achievements unlocked by this completion, from the done response (checkin.rewards). Titles are
+// the backend's own (the same ones the rest of the app shows); nothing is invented.
+export function momentRewards(response) {
+  const rewards = response?.checkin?.rewards || response?.rewards || {};
+  const achievements = (Array.isArray(rewards.achievements) ? rewards.achievements : [])
+    .map((item) => ({ key: item?.key || "", title: String(item?.title || "").trim(), xp: Math.max(0, Number(item?.xp_reward) || 0) }))
+    .filter((item) => item.title);
+  const achievementXp = Math.max(0, Math.floor(Number(rewards.achievement_xp_reward) || 0));
+  return { achievements, achievementXp };
+}
+
+// The XP chip counts the mission's XP plus any achievement XP, so it matches the new total.
+function xpChip(xpStep, { xpAwarded = null, achievementXp = 0 } = {}, translate) {
+  const extra = Math.max(0, Math.floor(Number(achievementXp) || 0));
+  if (!extra || xpAwarded === null || xpAwarded === undefined || xpAwarded === "") return xpStep?.value || "";
+  const base = Number(xpAwarded);
+  if (!Number.isFinite(base)) return xpStep?.value || "";
+  return translate("ringoRewardSequence.local.xpValue", { count: Math.max(0, base) + extra });
+}
+
 // D72: compose the new cards from the steps the sequence builder already made (so XP, the bar
 // and the total stay exactly as computed today, D77).
 // - Bonus: one card ("Extra step done." with its XP and the two pace buttons).
 // - First counted Main or Tiny of the day: Nice work, the day moment, Choose your pace.
 // - Later missions the same day: Nice work, Choose your pace.
-export function composeMomentSteps(steps, { intensity = "main", firstOfDay = false, day = null } = {}, translate) {
+export function composeMomentSteps(steps, {
+  intensity = "main",
+  firstOfDay = false,
+  day = null,
+  doneToday = 1,
+  xpAwarded = null,
+  achievements = [],
+  achievementXp = 0,
+} = {}, translate) {
   if (!Array.isArray(steps) || !steps.length) return [];
   const mission = stepOf(steps, "mission_complete");
   const xp = stepOf(steps, "xp_earned");
   const level = stepOf(steps, "level_up");
   const final = stepOf(steps, "final_choice");
   const missionTitle = mission?.title || translate("ringoRewardSequence.local.missionFallback");
+  // One calm line under the XP for achievements unlocked by this completion (no extra step).
+  const unlocked = (Array.isArray(achievements) ? achievements : []).map((item) => item?.title).filter(Boolean);
   const xpDetails = {
-    value: xp?.value || "",
+    value: xpChip(xp, { xpAwarded, achievementXp }, translate),
+    achievementLabel: unlocked.length ? translate("achievements.unlocked") : "",
+    achievements: unlocked,
     progressBar: xp?.progressBar || null,
     meta: xp?.meta || "",
     levelLine: level?.title || "",
@@ -111,12 +189,15 @@ export function composeMomentSteps(steps, { intensity = "main", firstOfDay = fal
     }];
   }
 
+  const ladder = ladderCopy(doneToday, missionTitle, translate);
   const composed = [{
     type: "nice_work",
     celebrate: true,
     label: translate("ringoRewardSequence.types.mission_complete"),
-    title: translate("ringoRewardSequence.moment.niceWork"),
-    text: missionTitle,
+    title: ladder.title,
+    text: ladder.text,
+    missionLabel: missionTitle,
+    doneToday: Math.max(1, Math.floor(Number(doneToday) || 1)),
     missionKey: mission?.missionKey || "",
     ...xpDetails,
     sprite: "celebration",

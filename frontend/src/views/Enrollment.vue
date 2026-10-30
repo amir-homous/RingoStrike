@@ -85,15 +85,14 @@
                 </div>
               </div>
 
+              <!-- #413: the step is done in the room (one place for missions, Focus and the Ringo
+                   moment); this opens the room on this challenge's corner and today's step. -->
               <BaseButton
                 class="missionCheckin"
                 variant="primary"
-                :loading="checking"
-                :disabled="enrollment.today_checked"
-                @click="checkin"
+                @click="openInRoom"
               >
-                <span v-if="enrollment.today_checked">{{ t("enrollment.doneToday") }}</span>
-                <span v-else>{{ t("enrollment.checkinNow") }}</span>
+                {{ enrollment.today_checked ? t("enrollment.seeInRoom") : t("enrollment.doInRoom") }}
               </BaseButton>
 
               <div class="checkinHint">
@@ -415,12 +414,6 @@
         </section>
       </div>
     </div>
-
-    <RewardMoment
-      :open="!!rewardMoment"
-      :reward="rewardMoment"
-      @close="rewardMoment = null"
-    />
   </AppContainer>
 </template>
 
@@ -428,7 +421,7 @@
 import Leaderboard from "./Leaderboard.vue";
 
 import { onMounted, onUnmounted, ref, computed } from "vue";
-import { useRoute } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 import api from "@/lib/api";
 
@@ -437,14 +430,13 @@ import AppHeader from "@/components/ui/AppHeader.vue";
 import BaseCard from "@/components/ui/BaseCard.vue";
 import BaseButton from "@/components/ui/BaseButton.vue";
 import UiState from "@/components/ui/UiState.vue";
-import RewardMoment from "@/components/feedback/RewardMoment.vue";
-import { getNewlyUnlockedGuidedFeatures } from "@/lib/guidedExperience";
+import { roomLinkPath } from "@/lib/roomLink";
 
 const route = useRoute();
+const router = useRouter();
 const { locale, t } = useI18n();
 
 const loading = ref(true);
-const checking = ref(false);
 const error = ref("");
 
 const enrollment = ref(null);
@@ -457,7 +449,6 @@ const missionSummary = ref({
   today_missions_total: 0,
   future_missions_total: 0,
 });
-const rewardMoment = ref(null);
 
 const checkedDays = ref(0);
 const totalDays = ref(0);
@@ -675,31 +666,6 @@ function missionUnlockLabel(mission) {
   return t("enrollment.unlocksInDays", { count: days });
 }
 
-function buildRewardMomentPayload(rewards, oldStats, newStats) {
-  const xpTotal = Number(rewards?.xp_total);
-  const oldTotal = Number(oldStats?.total_points ?? oldStats?.xp);
-  const xpEarned = Number.isFinite(xpTotal) && Number.isFinite(oldTotal)
-    ? Math.max(0, xpTotal - oldTotal)
-    : 0;
-  const unlocked = Array.isArray(rewards?.achievements) ? rewards.achievements : [];
-
-  if (xpEarned <= 0 && unlocked.length === 0) return null;
-
-  return {
-    xpEarned,
-    xpTotal: Number.isFinite(xpTotal) ? xpTotal : null,
-    achievements: unlocked,
-    unlockedFeatures: getNewlyUnlockedGuidedFeatures({
-      oldStats,
-      newStats,
-    }).map((featureKey) => ({
-      key: featureKey,
-      to: featureKey === "publicProfile" ? "/profile" : "/dashboard",
-    })),
-    streak: enrollment.value?.current_streak ?? null,
-  };
-}
-
 async function load() {
   loading.value = true;
   error.value = "";
@@ -731,27 +697,8 @@ async function load() {
   }
 }
 
-async function checkin() {
-  if (enrollment.value?.today_checked) return;
-
-  try {
-    checking.value = true;
-    error.value = "";
-    const id = route.params.id;
-    const statsResp = await api.get("/me/stats").catch(() => null);
-    const oldStats = statsResp?.data?.stats || null;
-
-    const { data } = await api.post(`/me/challenges/${id}/checkin`);
-    const newStatsResp = await api.get("/me/stats").catch(() => null);
-    const newStats = newStatsResp?.data?.stats || null;
-    await load();
-
-    rewardMoment.value = buildRewardMomentPayload(data?.rewards, oldStats, newStats);
-  } catch (e) {
-    error.value = e?.response?.data?.error || e?.message || String(e);
-  } finally {
-    checking.value = false;
-  }
+function openInRoom() {
+  router.push(roomLinkPath({ challengeId: enrollment.value?.challenge_id }));
 }
 
 onMounted(() => {

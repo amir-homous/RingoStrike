@@ -163,6 +163,7 @@ import { useI18n } from "vue-i18n";
 import BaseCard from "@/components/ui/BaseCard.vue";
 import BaseButton from "@/components/ui/BaseButton.vue";
 import { getChallengePathKey } from "@/lib/guidedExperience";
+import { publicPreviewNames } from "@/lib/memberPreview";
 import { localizeChallenge } from "@/lib/ringoContentLocalization";
 
 const props = defineProps({
@@ -256,11 +257,8 @@ const membersCount = computed(() => {
   return Number(props.challenge.members_count || 0);
 });
 
-const previewNames = computed(() => {
-  return Array.isArray(props.challenge.members_preview)
-    ? props.challenge.members_preview.filter(Boolean).slice(0, 3)
-    : [];
-});
+// Stopgap: names containing "@" are skipped (they still count in "+N more").
+const previewNames = computed(() => publicPreviewNames(props.challenge.members_preview));
 
 const hasPreviewNames = computed(() => previewNames.value.length > 0);
 

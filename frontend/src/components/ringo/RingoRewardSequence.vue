@@ -38,8 +38,15 @@
             <img :src="stepVisualIcon" alt="" />
           </div>
           <h2>{{ stepTitle }}</h2>
+          <!-- The mission's own name, as a label (the ladder line does not repeat it). -->
+          <small v-if="currentStep.missionLabel" class="stepMission">{{ currentStep.missionLabel }}</small>
           <p v-if="stepText">{{ stepText }}</p>
           <strong v-if="stepValue">{{ stepValue }}</strong>
+          <!-- Achievements unlocked by this completion: one calm line (titles as the backend sends them). -->
+          <small v-if="currentStep.achievements?.length" class="stepAchievements">
+            <span class="achievementMark" aria-hidden="true"></span>
+            {{ currentStep.achievementLabel }} · {{ currentStep.achievements.join(", ") }}
+          </small>
           <div v-if="currentStep.progressBar" class="stepProgressBar" aria-hidden="true">
             <span class="progressPrevious" :style="{ width: `${displayedProgressOld}%` }"></span>
             <span class="progressCurrent" :class="{ resetting: progressResetting }"
@@ -613,6 +620,43 @@ function boundedPercent(value) {
 
 .rewardStep.celebrate {
   cursor: pointer;
+}
+
+.stepAchievements {
+  display: inline-flex;
+  align-items: center;
+  justify-self: center;
+  gap: 6px;
+  max-width: 100%;
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(247, 215, 116, 0.24);
+  background: rgba(247, 215, 116, 0.08);
+  color: rgba(253, 230, 138, 0.95);
+  font-size: 0.8rem;
+  font-weight: 750;
+  overflow-wrap: anywhere;
+}
+
+.achievementMark {
+  flex: 0 0 auto;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #f5c84c;
+}
+
+.stepMission {
+  justify-self: center;
+  max-width: 100%;
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.78);
+  font-size: 0.8rem;
+  font-weight: 700;
+  overflow-wrap: anywhere;
 }
 
 .tapHint {
