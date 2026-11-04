@@ -592,13 +592,9 @@ def test_ringo_brain_prioritizes_today_saved_over_reminded_after_main_done(clien
         f"/me/missions/{main_mission['mission_id']}/done",
         headers=headers,
     )
-    remind_res = client.post(
-        f"/me/missions/{tiny_mission['mission_id']}/remind-later",
-        json={"reminder_at": _reminder_at()},
-        headers=headers,
-    )
+    # The API no longer sets a reminder on a closed family member; an older row can still hold it.
+    _set_mission_log_status(user["user_id"], tiny_mission, "remind_later", reminder_at=_reminder_at())
     assert done_res.status_code == 200
-    assert remind_res.status_code == 200
 
     payload, code = get_today_ringo_guidance(user["user_id"])
 
@@ -621,13 +617,9 @@ def test_ringo_brain_agenda_today_saved_keeps_future_reminder_quiet(client):
         f"/me/missions/{main_mission['mission_id']}/done",
         headers=headers,
     )
-    remind_res = client.post(
-        f"/me/missions/{tiny_mission['mission_id']}/remind-later",
-        json={"reminder_at": reminder_at},
-        headers=headers,
-    )
+    # The API no longer sets a reminder on a closed family member; an older row can still hold it.
+    _set_mission_log_status(user["user_id"], tiny_mission, "remind_later", reminder_at=reminder_at)
     assert done_res.status_code == 200
-    assert remind_res.status_code == 200
 
     payload, code = get_today_ringo_guidance(user["user_id"])
 

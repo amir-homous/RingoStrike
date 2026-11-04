@@ -260,3 +260,55 @@ def test_ringo_today_saved_by_a_tiny_still_counts_once(client):
     assert second["reward_sequence"] == []
     assert payload["progress"]["today_saved"] is True
     assert _stats(client, headers)["total_checkins"] == 1
+
+
+def _soon():
+    from datetime import datetime, timedelta, timezone
+    from utils.date_utils import ringo_day_metadata
+
+    next_reset = datetime.fromisoformat(ringo_day_metadata()["next_reset_at"].replace("Z", "+00:00"))
+    return min(datetime.now(timezone.utc) + timedelta(hours=1), next_reset - timedelta(minutes=1)).isoformat()
+
+
+def test_remind_later_is_refused_on_a_closed_member(client):
+    headers, _, _, _, main, tiny, _ = _setup(client, "FamilyRemindClosed")
+    client.post(f"/me/missions/{main['mission_id']}/done", headers=headers)
+
+    res = client.post(
+        f"/me/missions/{tiny['mission_id']}/remind-later",
+        json={"reminder_at": _soon()},
+        headers=headers,
+    )
+    single = client.post(f"/me/missions/{tiny['mission_id']}/plan-reminder", headers=headers)
+
+    assert res.status_code == 409
+    assert res.get_json() == {"ok": False, "error": "already_counted_today"}
+    assert single.status_code == 409
+    assert _log_rows(tiny["mission_id"]) == []
+
+
+def test_remind_later_still_works_on_an_open_family(client):
+    headers, _, _, _, main, tiny, _ = _setup(client, "FamilyRemindOpen")
+
+    res = client.post(
+        f"/me/missions/{tiny['mission_id']}/remind-later",
+        json={"reminder_at": _soon()},
+        headers=headers,
+    )
+
+    assert res.status_code == 200
+    assert _by_id(_today(client, headers), tiny)["status"] == "remind_later"
+
+
+def test_planner_skips_a_closed_family(client):
+    headers, _, _, _, main, tiny, bonus = _setup(client, "FamilyPlanner")
+    client.post(f"/me/missions/{tiny['mission_id']}/skip", headers=headers)
+
+    plan = client.post("/me/missions/plan-reminders", headers=headers).get_json()
+    planned = {item["mission_id"] for item in plan["scheduled"]} | {item["mission_id"] for item in plan["unscheduled"]}
+
+    assert plan["ok"] is True
+    assert main["mission_id"] not in planned
+    assert tiny["mission_id"] not in planned
+    assert _log_rows(main["mission_id"]) == []
+    assert _by_id(_today(client, headers), bonus)["family_closed"] is False

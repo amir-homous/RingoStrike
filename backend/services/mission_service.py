@@ -396,6 +396,10 @@ def _already_counted_payload(mission):
     }
 
 
+# A reminder for a member of a closed family is refused (the family already counted today).
+FAMILY_CLOSED_REMINDER_ERROR = {"ok": False, "error": "already_counted_today"}
+
+
 def _already_checked_checkin(current_stats):
     return {
         "ok": True,
@@ -845,6 +849,9 @@ def remind_mission_later(user_id, mission_id, reminder_at):
     if parsed_reminder_at >= next_reset_at:
         return {"ok": False, "error": "reminder_after_next_reset"}, 400
 
+    if _today_closed_family_member(user_id, mission_id):
+        return FAMILY_CLOSED_REMINDER_ERROR, 409
+
     return _upsert_mission_log(user_id, mission_id, "remind_later", reminder_at=value)
 
 
@@ -938,6 +945,7 @@ def _eligible_planner_missions(missions, *, include_reminded=False):
             mission for mission in missions
             if mission.get("status") in allowed_statuses
             and (include_reminded or not mission.get("reminder_at"))
+            and not mission.get("family_closed")
         ),
         key=_mission_plan_rank,
     )
@@ -1019,6 +1027,9 @@ def plan_single_mission_reminder(user_id, mission_id):
 
     if mission.get("status") not in {"pending", "remind_later"}:
         return {"ok": False, "error": "mission_not_found"}, 404
+
+    if mission.get("family_closed"):
+        return FAMILY_CLOSED_REMINDER_ERROR, 409
 
     ringo_day, now, next_reset_at = _planner_bounds()
     planned_at = _clamped_single_planner_time(
