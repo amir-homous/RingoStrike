@@ -42,14 +42,24 @@ export function missionReminderChip(todayMission, { now = Date.now(), telegram =
   return reminderChip({ dueCount: due, scheduledCount: scheduled, telegram });
 }
 
+// A smaller step's decisions today, as the panel's missionHasUserDecision.
+const TINY_IN_PLAY = new Set(["done", "completed", "remind_later", "skipped"]);
+
 // Which missions get a paw: main and Bonus always, a tiny substitute only once it is in play
-// (the user chose "smaller", or it has a decision today), as in the panel's list.
+// (the user chose "smaller", or it has a decision today), as in the panel's list. A locked or
+// pending tiny gets no paw: the panel cannot focus it (#410 added locked ones for days 2 and 3).
 export function trayMissions(missions = [], { activeTinyIds = [] } = {}) {
-  const active = new Set(activeTinyIds.map(String));
+  const active = new Set(activeTinyIds.filter((id) => id !== null && id !== undefined).map(String));
   return missions.filter((mission) => {
     if (intensity(mission) !== "tiny") return true;
-    return active.has(String(mission?.id)) || status(mission) !== "pending";
+    return active.has(String(mission?.id)) || TINY_IN_PLAY.has(status(mission));
   });
+}
+
+// A paw tap (D51): that mission becomes the Ringo focus, and the post-join card ("You joined",
+// D39) ends, so the card answers for the tapped paw.
+export function trayPawPick(mission) {
+  return { pickedMissionId: mission?.id ?? null, joinedChallengeId: null };
 }
 
 // Paging (D50, reachability): the row has `slots` places, one of them the challenge icon. When the

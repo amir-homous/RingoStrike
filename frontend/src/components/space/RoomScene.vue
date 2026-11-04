@@ -371,6 +371,8 @@ const props = defineProps({
   // B30 S3: a challenge was tapped (its missions show) and the paw tapped.
   challengePicked: { type: Boolean, default: false },
   pickedMissionId: { type: [Number, String, null], default: null },
+  // The smaller step chosen with "Make it smaller" in the panel: its paw shows right away.
+  smallerMissionId: { type: [Number, String, null], default: null },
   suggestedZoneKey: { type: String, default: "" },
   rest: { type: Boolean, default: false },
   // From tablet width the room asks for at least x2; when the x2 room is wider than its column it
@@ -1056,7 +1058,7 @@ const tray = computed(() => {
   let pitch = TRAY_SCREEN.pitch * k;
   let rowCounts;
   if (mode === "missions") {
-    const missions = trayMissions(picked.missions || []);
+    const missions = trayMissions(picked.missions || [], { activeTinyIds: [props.smallerMissionId] });
     const mainDone = todayMainDone(picked.missions || []);
     // Room for icons per row (screen px): the zone's clear run on desktop (plus its second row, if
     // any), the visible frame on phones (the tray is clamped into it, with a row below).

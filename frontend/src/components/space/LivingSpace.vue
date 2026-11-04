@@ -33,6 +33,7 @@
           :selected-challenge-id="selectedPathChallengeId"
           :challenge-picked="challengePicked"
           :picked-mission-id="pickedMissionId"
+          :smaller-mission-id="smallerMissionId"
           :object-highlight="objectHighlight"
           :reminder-counts="{ due: dueReminders.length, later: scheduledReminders.length }"
           :explain-pins="explainerOpen"
@@ -150,6 +151,7 @@
           @checkin="$emit('checkin', $event)"
           @close="closePanel"
           @highlight-object="objectHighlight = $event"
+          @smaller-step="smallerMissionId = $event"
         />
       </div>
     </div>
@@ -181,7 +183,7 @@ import { localizeChallenge, localizePath } from "@/lib/ringoContentLocalization"
 import { createMaterializeQueue, materializeCandidates, materializeTimeline } from "@/lib/roomMaterialize";
 import { PATH_ICON_FALLBACK, pathMarkerState, telegramReady } from "@/lib/pathMarker";
 import { bonusDoneByChallenge, bonusDoneByPath } from "@/lib/bonusStars";
-import { missionReminderChip } from "@/lib/missionTray";
+import { missionReminderChip, trayPawPick } from "@/lib/missionTray";
 import { missionIconUrl, resolvePathIcon } from "@/utils/missionMomentumUtils";
 import { humanizeJoinError, submitJoinFlow } from "@/views/challengeFlow";
 import SpaceZone from "./SpaceZone.vue";
@@ -234,6 +236,8 @@ const challengePicked = ref(false);
 const joinedChallengeId = ref(null);
 // B30 S3: the paw tapped in the mission tray (D51).
 const pickedMissionId = ref(null);
+// The panel's "Make it smaller" step, so the mission tray shows its paw (a tiny has none before).
+const smallerMissionId = ref(null);
 // B19: room info popover in the room corner (the rule text); click/hover/focus opens, Esc closes.
 const roomInfoOpen = ref(false);
 
@@ -748,9 +752,12 @@ function selectPathChallenge(challenge) {
 }
 
 // B30 S3: a paw in the mission tray makes that mission the Ringo focus, ahead of a due reminder
-// (D51). A locked or done paw only gets Ringo's explanation or the done card (D20, D48).
+// (D51). A locked or done paw only gets Ringo's explanation or the done card (D20, D48). It also
+// leaves the "You joined" card (D39).
 function selectTrayMission(mission) {
-  pickedMissionId.value = mission?.id ?? null;
+  const pick = trayPawPick(mission);
+  pickedMissionId.value = pick.pickedMissionId;
+  joinedChallengeId.value = pick.joinedChallengeId;
 }
 
 function isCheckedToday(challenge) {

@@ -88,6 +88,7 @@ import {
   missionReminderChip,
   pagePaws,
   trayMissions,
+  trayPawPick,
   trayRows,
 } from "../src/lib/missionTray.js";
 
@@ -772,6 +773,31 @@ function testMissionTrayState() {
   assert.deepEqual(trayMissions(seed).map((x) => x.id), [1, 2, 3, 5]);
   assert.deepEqual(trayMissions(seed, { activeTinyIds: [4] }).map((x) => x.id), [1, 2, 3, 4, 5]);
   assert.deepEqual(trayMissions([m(1, "main"), m(4, "tiny", "done")]).map((x) => x.id), [1, 4]);
+  // A locked smaller step (days 2 and 3, #410) has no paw: the panel cannot focus it. Locked Mains
+  // keep theirs. Skipped and "remind later" are in play; a step picked with "Make it smaller" too.
+  assert.deepEqual(trayMissions([m(1, "main"), m(2, "main", "locked", false), m(6, "tiny", "locked", false)]).map((x) => x.id), [1, 2]);
+  assert.deepEqual(trayMissions([m(6, "tiny", "skipped"), m(7, "tiny", "remind_later"), m(8, "tiny", "completed")]).map((x) => x.id), [6, 7, 8]);
+  assert.deepEqual(trayMissions([m(1, "main"), m(4, "tiny")], { activeTinyIds: [null] }).map((x) => x.id), [1], "no smaller step picked");
+  assert.deepEqual(trayMissions([m(1, "main"), m(4, "tiny")], { activeTinyIds: ["4"] }).map((x) => x.id), [1, 4], "picked smaller step, id as string");
+
+  // Mobility Reset on day 0, as GET /paths/:id/challenges returns it (bf3e569): 3 Main, 3 Tiny,
+  // 1 Bonus. 4 paws (no "+N"); "Make it smaller" adds today's smaller step as a fifth.
+  const mobility = [
+    m(15, "main"), m(16, "main", "locked", false), m(17, "main", "locked", false),
+    m(18, "tiny"), m(19, "bonus"), m(20, "tiny", "locked", false), m(21, "tiny", "locked", false),
+  ];
+  assert.deepEqual(trayMissions(mobility).map((x) => x.id), [15, 16, 17, 19]);
+  assert.equal(pagePaws(trayMissions(mobility), { slots: 5 }).control, null, "Mobility Reset day 0: no +N chip");
+  assert.deepEqual(trayMissions(mobility, { activeTinyIds: [18] }).map((x) => x.id), [15, 16, 17, 18, 19]);
+
+  // A paw tap leaves the "You joined" card: the card state then answers for the tapped mission.
+  const pick = trayPawPick({ id: 16 });
+  assert.deepEqual(pick, { pickedMissionId: 16, joinedChallengeId: null });
+  assert.deepEqual(trayPawPick(null), { pickedMissionId: null, joinedChallengeId: null });
+  const joinedBefore = ringoCardState({ justJoined: true, focusGated: true, missionPicked: false });
+  const afterTap = ringoCardState({ justJoined: Boolean(pick.joinedChallengeId), focusGated: true, missionPicked: true });
+  assert.equal(joinedBefore, "joined");
+  assert.equal(afterTap, "locked", "a locked paw tapped after joining gets Ringo's explanation");
 
   // Paging (D50): up to 4 paws per page; when they do not all fit, the last slot is a pager:
   // "+N" to the next page, then "back" to the first. Every mission is on exactly one page.
