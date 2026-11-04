@@ -6,7 +6,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { inflateSync } from "node:zlib";
 
-import { MISSION_TRAY_MAX_PAWS, pagePaws, trayRows } from "../src/lib/missionTray.js";
+import { MISSION_TRAY_MAX_PAWS, pagePaws, trayMissions, trayRows } from "../src/lib/missionTray.js";
 import {
   ROOM_BASE_HEIGHT,
   ROOM_BASE_WIDTH,
@@ -238,6 +238,32 @@ function run() {
         if (page.control) assert.equal(pagePaws(missions, { slots: sizing.slots, page: page.control.page }).page, 0, "back goes to the first page");
       }
     }
+  }
+
+  // #410 regression: a seeded Fitness challenge on day 0 (3 Main, 3 Tiny, 1 Bonus, the API's
+  // statuses) gets 4 paws, so the Fitness corner's mission tray has no "+N" chip in any view. The
+  // locked smaller steps of days 2 and 3 used to add 2 paws ("+2").
+  const day0 = [
+    { id: 1, intensity: "main", status: "pending", availableToday: true },
+    { id: 2, intensity: "main", status: "locked", availableToday: false },
+    { id: 3, intensity: "main", status: "locked", availableToday: false },
+    { id: 4, intensity: "tiny", status: "pending", availableToday: true },
+    { id: 5, intensity: "bonus", status: "pending", availableToday: true },
+    { id: 6, intensity: "tiny", status: "locked", availableToday: false },
+    { id: 7, intensity: "tiny", status: "locked", availableToday: false },
+  ];
+  const fitnessZone = layout.zones.fitness_corner;
+  const paws = trayMissions(day0);
+  assert.deepEqual(paws.map((mission) => mission.id), [1, 2, 3, 5]);
+  for (const view of views) {
+    const k = trayScreenFactor(view.scale, view);
+    const pad = TRAY_SCREEN.pad * k;
+    const fixed = (TRAY_SCREEN.flag * k) / 2 + pad * 2;
+    const rows = view.phone
+      ? [view.frame - 8 - fixed, view.frame - 8 - fixed]
+      : [(fitnessZone.tray.run - 7) * view.scale - pad * 2, ...(fitnessZone.tray.wrap ? [(fitnessZone.tray.wrap.run - 7) * view.scale - pad * 2] : [])];
+    const sizing = trayRows({ pawCount: paws.length, rows, pitches: [48 * k, 44 * k] });
+    assert.equal(pagePaws(paws, { slots: sizing.slots }).control, null, `fitness_corner ${view.label}: day 0 has no +N chip`);
   }
 
   // Footprint math: the compact tray at x2 is 176x50 screen px (flag included), 88x25 base px.

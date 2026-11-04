@@ -33,6 +33,7 @@
           :selected-challenge-id="selectedPathChallengeId"
           :challenge-picked="challengePicked"
           :picked-mission-id="pickedMissionId"
+          :smaller-mission-id="smallerMissionId"
           :object-highlight="objectHighlight"
           :reminder-counts="{ due: dueReminders.length, later: scheduledReminders.length }"
           :explain-pins="explainerOpen"
@@ -150,6 +151,7 @@
           @checkin="$emit('checkin', $event)"
           @close="closePanel"
           @highlight-object="objectHighlight = $event"
+          @smaller-step="smallerMissionId = $event"
         />
       </div>
     </div>
@@ -234,6 +236,8 @@ const challengePicked = ref(false);
 const joinedChallengeId = ref(null);
 // B30 S3: the paw tapped in the mission tray (D51).
 const pickedMissionId = ref(null);
+// The panel's "Make it smaller" step, so the mission tray shows its paw (a tiny has none before).
+const smallerMissionId = ref(null);
 // B19: room info popover in the room corner (the rule text); click/hover/focus opens, Esc closes.
 const roomInfoOpen = ref(false);
 

@@ -184,6 +184,7 @@ const emit = defineEmits([
   "close",
   "highlight-object",
   "dismiss-explainer",
+  "smaller-step",
 ]);
 
 const { locale, t: baseT } = useI18n();
@@ -366,6 +367,13 @@ watch(
   () => {
     if (requestedTinyMission.value) selectedMissionId.value = null;
   },
+);
+
+// The room's mission tray shows the chosen smaller step's paw while it is the focus.
+watch(
+  () => requestedTinyMission.value?.id ?? null,
+  (id) => emit("smaller-step", id),
+  { immediate: true },
 );
 
 const challengeMission = computed(() => {
