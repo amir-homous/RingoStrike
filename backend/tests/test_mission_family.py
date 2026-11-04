@@ -125,3 +125,138 @@ def test_family_closed_helper_ignores_other_families_and_bonus():
     assert _family_closed(missions, missions[3]) is True
     assert _family_closed(missions, missions[4]) is True
     assert _family_closed(missions, None) is False
+
+
+def _log_rows(mission_id):
+    import database
+
+    conn = database.get_db_connection()
+    try:
+        return conn.execute(
+            "SELECT status, xp_earned FROM mission_logs WHERE mission_id = ?",
+            (mission_id,),
+        ).fetchall()
+    finally:
+        conn.close()
+
+
+def _stats(client, headers):
+    return client.get("/me/stats", headers=headers).get_json()["stats"]
+
+
+def test_second_member_done_earns_no_xp_and_writes_no_log(client):
+    headers, _, _, _, main, tiny, _ = _setup(client, "FamilySecondDone")
+    client.post(f"/me/missions/{main['mission_id']}/done", headers=headers)
+    before = _stats(client, headers)
+
+    res = client.post(f"/me/missions/{tiny['mission_id']}/done", headers=headers)
+
+    assert res.status_code == 200
+    data = res.get_json()
+    assert data["ok"] is True
+    assert data["mission"]["already_done"] is True
+    assert data["mission"]["family_closed"] is True
+    assert data["mission"]["xp_awarded"] == 0
+    assert data["mission"]["status"] == "pending"
+    assert data["checkin"]["already_checked"] is True
+    assert data["reward_sequence"] == []
+    assert _log_rows(tiny["mission_id"]) == []
+    after = _stats(client, headers)
+    assert after["total_points"] == before["total_points"]
+    assert after["total_checkins"] == before["total_checkins"] == 1
+
+
+def test_main_after_tiny_done_is_already_counted(client):
+    headers, _, _, _, main, tiny, _ = _setup(client, "FamilyMainAfterTiny")
+    client.post(f"/me/missions/{tiny['mission_id']}/done", headers=headers)
+    before = _stats(client, headers)
+
+    data = client.post(f"/me/missions/{main['mission_id']}/done", headers=headers).get_json()
+
+    assert data["mission"]["already_done"] is True
+    assert data["mission"]["xp_awarded"] == 0
+    assert _log_rows(main["mission_id"]) == []
+    assert _stats(client, headers)["total_points"] == before["total_points"]
+
+
+def test_skip_on_a_closed_member_writes_no_log(client):
+    headers, _, _, _, main, tiny, _ = _setup(client, "FamilySkipClosed")
+    client.post(f"/me/missions/{main['mission_id']}/done", headers=headers)
+
+    res = client.post(f"/me/missions/{tiny['mission_id']}/skip", json={"reason": "no_time"}, headers=headers)
+
+    assert res.status_code == 200
+    assert res.get_json()["mission"]["family_closed"] is True
+    assert _log_rows(tiny["mission_id"]) == []
+    assert _by_id(_today(client, headers), main)["status"] == "done"
+
+
+def test_main_skipped_then_tiny_done_is_already_counted(client):
+    headers, _, _, _, main, tiny, _ = _setup(client, "FamilySkipThenTiny")
+    client.post(f"/me/missions/{main['mission_id']}/skip", headers=headers)
+
+    data = client.post(f"/me/missions/{tiny['mission_id']}/done", headers=headers).get_json()
+
+    assert data["mission"]["already_done"] is True
+    assert data["mission"]["xp_awarded"] == 0
+    assert _log_rows(tiny["mission_id"]) == []
+    assert _stats(client, headers)["total_checkins"] == 0
+
+
+def test_the_skipped_member_itself_can_still_be_done(client):
+    headers, _, _, _, main, tiny, _ = _setup(client, "FamilySkipUndo")
+    client.post(f"/me/missions/{main['mission_id']}/skip", headers=headers)
+
+    data = client.post(f"/me/missions/{main['mission_id']}/done", headers=headers).get_json()
+
+    assert data["mission"]["status"] == "done"
+    assert data["mission"]["xp_awarded"] > 0
+    missions = _today(client, headers)
+    assert _by_id(missions, tiny)["family_closed"] is True
+
+
+def test_bonus_is_unchanged_by_the_family_rule(client):
+    headers, _, _, _, main, tiny, bonus = _setup(client, "FamilyBonusAfter")
+    client.post(f"/me/missions/{tiny['mission_id']}/done", headers=headers)
+
+    data = client.post(f"/me/missions/{bonus['mission_id']}/done", headers=headers).get_json()
+
+    assert data["mission"]["status"] == "done"
+    assert data["mission"]["xp_awarded"] > 0
+    assert "family_closed" not in data["mission"]
+    assert [row["status"] for row in _log_rows(bonus["mission_id"])] == ["done"]
+
+
+def test_ringo_does_not_offer_a_closed_member(client):
+    from services.ringo_brain_service import get_today_ringo_guidance
+
+    user = register_user(client, username="FamilyRingoSkip")
+    headers = auth_headers(user["access_token"])
+    _join_first_fitness_challenge(client, headers)
+    main, tiny, _ = _family(_today(client, headers))
+
+    client.post(f"/me/missions/{main['mission_id']}/skip", headers=headers)
+    payload, code = get_today_ringo_guidance(user["user_id"])
+
+    assert code == 200
+    assert payload["agenda"]["next_mission_id"] != tiny["mission_id"]
+    assert (payload.get("mission") or {}).get("mission_id") != tiny["mission_id"]
+    assert payload["progress"]["today_saved"] is False
+
+
+def test_ringo_today_saved_by_a_tiny_still_counts_once(client):
+    from services.ringo_brain_service import get_today_ringo_guidance
+
+    user = register_user(client, username="FamilyRingoTiny")
+    headers = auth_headers(user["access_token"])
+    _join_first_fitness_challenge(client, headers)
+    main, tiny, _ = _family(_today(client, headers))
+
+    first = client.post(f"/me/missions/{tiny['mission_id']}/done", headers=headers).get_json()
+    second = client.post(f"/me/missions/{main['mission_id']}/done", headers=headers).get_json()
+    payload, _ = get_today_ringo_guidance(user["user_id"])
+
+    assert [step["type"] for step in first["reward_sequence"]].count("today_saved") == 1
+    assert second["reward_sequence"] == []
+    assert payload["progress"]["today_saved"] is True
+    assert _stats(client, headers)["total_checkins"] == 1

@@ -236,7 +236,7 @@ def get_today_missions(user_id):
         ringo = decide_ringo_state(
             has_active_path=_active_path_count(conn, user_id) > 0,
             has_active_enrollment=_active_enrollment_count(conn, user_id) > 0,
-            missions=missions,
+            missions=open_family_missions(missions),
             checkins_total=checkins_total,
             current_streak=current_streak,
         )
@@ -318,6 +318,96 @@ def with_family_closed(missions):
     for mission in missions:
         mission["family_closed"] = _family_closed(missions, mission)
     return missions
+
+
+# Ringo's view of today: a member closed by the other member is not offered (no pending step,
+# no leftover reminder). A member that closed the family itself stays (old rows may have both), and
+# so does a Main closed by its done Tiny: Ringo counts that Tiny through its Main.
+def _main_with_done_tiny(missions, mission):
+    return (mission.get("mission_intensity") or "main") == "main" and any(
+        other.get("mission_intensity") == "tiny"
+        and _same_mission_id(other.get("parent_mission_id"), mission.get("mission_id"))
+        and _family_member_status(other) == "done"
+        for other in missions
+    )
+
+
+def open_family_missions(missions):
+    return [
+        mission for mission in missions
+        if not mission.get("family_closed")
+        or _family_member_status(mission) in FAMILY_CLOSING_STATUSES
+        or _main_with_done_tiny(missions, mission)
+    ]
+
+
+def _closed_family_member(missions, mission_id):
+    return next(
+        (
+            mission for mission in missions
+            if _same_mission_id(mission.get("mission_id"), mission_id)
+            and mission.get("family_closed")
+        ),
+        None,
+    )
+
+
+def _today_closed_family_member(user_id, mission_id):
+    conn = get_db_connection()
+    try:
+        rows = _today_mission_rows(conn, user_id, utc_today_iso())
+    finally:
+        conn.close()
+    return _closed_family_member(with_family_closed([_mission_payload(row) for row in rows]), mission_id)
+
+
+def _already_counted_payload(mission):
+    # The other member of this family already counted today: no XP and no mission_logs row.
+    return {
+        "ok": True,
+        "mission": {
+            "mission_id": mission["mission_id"],
+            "title": mission["title"],
+            "description": mission["description"],
+            "status": mission["status"],
+            "date": utc_today_iso(),
+            "secured_at": None,
+            "done_at": mission["done_at"],
+            "skipped_at": mission["skipped_at"],
+            "reminder_set_at": mission["reminder_set_at"],
+            "status_updated_at": mission["status_updated_at"],
+            "xp_earned": 0,
+            "xp_awarded": 0,
+            "already_done": True,
+            "family_closed": True,
+            "mission_intensity": mission["mission_intensity"],
+            "enrollment_id": mission["enrollment_id"],
+            "challenge_id": mission["challenge_id"],
+            "challenge_name": mission["challenge_name"],
+            "path_id": mission["path_id"],
+            "path_title": mission["path_title"],
+            "reminder_at": mission["reminder_at"],
+            "reminder_sent_at": mission["reminder_sent_at"],
+            "skip_reason": mission["skip_reason"],
+            "today_done_before_you": None,
+            "today_done_count": None,
+            "context": None,
+        },
+    }
+
+
+def _already_checked_checkin(current_stats):
+    return {
+        "ok": True,
+        "message": "Mission already completed",
+        "mode": "existing",
+        "already_checked": True,
+        "rewards": {
+            "xp_total": int(current_stats.get("total_points", 0)),
+            "achievements": [],
+            "achievement_xp_reward": 0,
+        },
+    }
 
 
 def _completed_mission_from_today_payload(missions, mission_id):
@@ -663,6 +753,15 @@ def mark_mission_done(user_id, mission_id, context=None):
     )
     was_today_saved = _today_satisfied_by_missions(before_missions or [])
 
+    closed_member = _closed_family_member(before_missions or [], mission_id)
+    if closed_member:
+        payload = _already_counted_payload(closed_member)
+        payload["checkin"] = _already_checked_checkin(sync_user_stats(user_id))
+        payload["checkin_status_code"] = 200
+        payload["living_space_reward"] = None
+        payload["reward_sequence"] = []
+        return payload, 200
+
     backfill_first_path_rewards_from_history(user_id)
     payload, code = _upsert_mission_log(user_id, mission_id, "done", context=context)
 
@@ -674,18 +773,7 @@ def mark_mission_done(user_id, mission_id, context=None):
     already_done = bool(mission.get("already_done"))
 
     if already_done:
-        current_stats = sync_user_stats(user_id)
-        checkin_payload = {
-            "ok": True,
-            "message": "Mission already completed",
-            "mode": "existing",
-            "already_checked": True,
-            "rewards": {
-                "xp_total": int(current_stats.get("total_points", 0)),
-                "achievements": [],
-                "achievement_xp_reward": 0,
-            },
-        }
+        checkin_payload = _already_checked_checkin(sync_user_stats(user_id))
         checkin_code = 200
     elif mission_intensity == "bonus":
         current_stats = sync_user_stats(user_id)
@@ -986,6 +1074,10 @@ def skip_mission(user_id, mission_id, reason=None):
     skip_reason, error = _normalize_skip_reason(reason)
     if error:
         return {"ok": False, "error": error}, 400
+
+    closed_member = _today_closed_family_member(user_id, mission_id)
+    if closed_member:
+        return _already_counted_payload(closed_member), 200
 
     return _upsert_mission_log(
         user_id,
