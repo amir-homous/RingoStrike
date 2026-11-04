@@ -56,6 +56,12 @@ export function trayMissions(missions = [], { activeTinyIds = [] } = {}) {
   });
 }
 
+// A paw tap (D51): that mission becomes the Ringo focus, and the post-join card ("You joined",
+// D39) ends, so the card answers for the tapped paw.
+export function trayPawPick(mission) {
+  return { pickedMissionId: mission?.id ?? null, joinedChallengeId: null };
+}
+
 // Paging (D50, reachability): the row has `slots` places, one of them the challenge icon. When the
 // paws do not all fit (at most MISSION_TRAY_MAX_PAWS per page), the last place becomes a pager
 // control in the same row: "next" ("+N", N = paws after this page) or, on the last page, "back"

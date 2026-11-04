@@ -88,6 +88,7 @@ import {
   missionReminderChip,
   pagePaws,
   trayMissions,
+  trayPawPick,
   trayRows,
 } from "../src/lib/missionTray.js";
 
@@ -788,6 +789,15 @@ function testMissionTrayState() {
   assert.deepEqual(trayMissions(mobility).map((x) => x.id), [15, 16, 17, 19]);
   assert.equal(pagePaws(trayMissions(mobility), { slots: 5 }).control, null, "Mobility Reset day 0: no +N chip");
   assert.deepEqual(trayMissions(mobility, { activeTinyIds: [18] }).map((x) => x.id), [15, 16, 17, 18, 19]);
+
+  // A paw tap leaves the "You joined" card: the card state then answers for the tapped mission.
+  const pick = trayPawPick({ id: 16 });
+  assert.deepEqual(pick, { pickedMissionId: 16, joinedChallengeId: null });
+  assert.deepEqual(trayPawPick(null), { pickedMissionId: null, joinedChallengeId: null });
+  const joinedBefore = ringoCardState({ justJoined: true, focusGated: true, missionPicked: false });
+  const afterTap = ringoCardState({ justJoined: Boolean(pick.joinedChallengeId), focusGated: true, missionPicked: true });
+  assert.equal(joinedBefore, "joined");
+  assert.equal(afterTap, "locked", "a locked paw tapped after joining gets Ringo's explanation");
 
   // Paging (D50): up to 4 paws per page; when they do not all fit, the last slot is a pager:
   // "+N" to the next page, then "back" to the first. Every mission is on exactly one page.
