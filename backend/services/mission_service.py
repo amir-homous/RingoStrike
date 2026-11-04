@@ -8,7 +8,7 @@ from services.living_space_service import (
     backfill_first_path_rewards_from_history,
     unlock_first_path_reward_for_mission,
 )
-from services.ringo_decision_service import decide_ringo_state
+from services.ringo_decision_service import _mission_family_key, decide_ringo_state
 from services.stats_service import resolve_mission_xp, sync_user_stats
 from utils.date_utils import ringo_day_metadata, utc_iso_z, utc_today_iso
 
@@ -228,7 +228,7 @@ def get_today_missions(user_id):
     today = utc_today_iso()
     conn = get_db_connection()
     try:
-        missions = [_mission_payload(row) for row in _today_mission_rows(conn, user_id, today)]
+        missions = with_family_closed([_mission_payload(row) for row in _today_mission_rows(conn, user_id, today)])
         stats = _stats_row(conn, user_id)
         checkins_total = int(stats["total_checkins"] or 0) if stats else 0
         current_streak = int(stats["current_streak"] or 0) if stats else 0
@@ -286,6 +286,38 @@ def _same_mission_id(a, b):
         return False
 
     return str(a) == str(b)
+
+
+# Main/Tiny family: a Main and its Tiny (parent_mission_id, same challenge and day) are one step.
+# Once one member is done or skipped ("Not today") today, the family is closed for the other one.
+# Bonus is outside the family. Read-side only: old rows stay as they are.
+FAMILY_INTENSITIES = {"main", "tiny"}
+FAMILY_CLOSING_STATUSES = {"done", "skipped"}
+
+
+def _family_member_status(mission):
+    # Today payloads carry `status`, challenge payloads `today_status`.
+    return mission.get("today_status") or mission.get("status") or "pending"
+
+
+def _family_closed(missions, mission):
+    if not mission or (mission.get("mission_intensity") or "main") not in FAMILY_INTENSITIES:
+        return False
+
+    family_key = _mission_family_key(mission)
+    return any(
+        not _same_mission_id(other.get("mission_id"), mission.get("mission_id"))
+        and (other.get("mission_intensity") or "main") in FAMILY_INTENSITIES
+        and _mission_family_key(other) == family_key
+        and _family_member_status(other) in FAMILY_CLOSING_STATUSES
+        for other in missions
+    )
+
+
+def with_family_closed(missions):
+    for mission in missions:
+        mission["family_closed"] = _family_closed(missions, mission)
+    return missions
 
 
 def _completed_mission_from_today_payload(missions, mission_id):

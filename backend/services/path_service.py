@@ -1,6 +1,7 @@
 from datetime import datetime
 
 from database import get_db_connection
+from services.mission_service import with_family_closed
 from utils.date_utils import utc_today_iso
 
 
@@ -273,7 +274,7 @@ def get_path_challenges(path_id, user_id=None):
         items = []
 
         for row in rows:
-            missions = missions_by_challenge.get(row["id"], [])
+            missions = with_family_closed(missions_by_challenge.get(row["id"], []))
             progress = progress_by_challenge.get(row["id"], {})
             mission_progress = _semantic_mission_progress(missions)
             today_missions_total = mission_progress["total"]

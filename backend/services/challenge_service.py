@@ -2,6 +2,7 @@ import sqlite3
 from datetime import datetime, timedelta, timezone
 
 from database import get_db_connection
+from services.mission_service import with_family_closed
 from services.stats_service import calculate_current_streak
 from utils.date_utils import utc_today_iso
 from utils.validation_utils import safe_int
@@ -480,6 +481,7 @@ def get_enrollment_detail(user_id: int, enrollment_id: int):
                 "ringo_message": mission["ringo_message"] or "",
             })
 
+        with_family_closed(missions)
         available_missions = [mission for mission in missions if mission["available_today"]]
         mission_summary = {
             "days_elapsed": int(days_elapsed),
