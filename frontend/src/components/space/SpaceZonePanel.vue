@@ -136,7 +136,7 @@ import { customReminderAt, defaultPickerTime } from "@/lib/reminderTime";
 import { TILE_STATE, objectCardCopy, objectTiles, tileTapResult } from "@/lib/objectsGrid";
 import { zoneObjects } from "@/lib/roomScene";
 import roomLayout from "@/assets/room/room_layout.json";
-import { findFirstReward } from "@/lib/livingSpaceState";
+import { findFirstReward, isClosedFamilyMember } from "@/lib/livingSpaceState";
 import { resolvePathIcon } from "@/utils/missionMomentumUtils";
 
 const props = defineProps({
@@ -1283,6 +1283,8 @@ function isActiveTinyMission(mission) {
 }
 
 function shouldShowMissionInLivingSpace(mission) {
+  // #426: a member closed by the other one of its family is not today's step any more.
+  if (isClosedFamilyMember(mission)) return false;
   const intensity = missionIntensity(mission);
   if (intensity === "main") return true;
   if (intensity === "tiny") {

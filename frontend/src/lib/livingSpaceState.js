@@ -28,6 +28,14 @@ export function reminderTimestamp(mission) {
   return Number.isNaN(timestamp) ? Number.POSITIVE_INFINITY : timestamp;
 }
 
+// A Main and its Tiny are one family for the day (#426): once one of them is done or skipped,
+// the API marks the other one family_closed. A closed member that has no decision of its own is
+// out of today's tray, panel and reminders; the member that closed the family keeps its own status.
+export function isClosedFamilyMember(mission) {
+  const closed = Boolean(mission?.familyClosed ?? mission?.family_closed);
+  return closed && !["done", "completed", "skipped"].includes(normalizedMissionStatus(mission));
+}
+
 export function isDueReminderMission(mission, now = Date.now()) {
   return normalizedMissionStatus(mission) === "remind_later"
     && reminderTimestamp(mission) <= now

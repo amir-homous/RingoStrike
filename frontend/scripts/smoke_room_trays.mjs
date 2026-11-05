@@ -255,6 +255,12 @@ function run() {
   const fitnessZone = layout.zones.fitness_corner;
   const paws = trayMissions(day0);
   assert.deepEqual(paws.map((mission) => mission.id), [1, 2, 3, 5]);
+  const withParents = day0.map((mission) => (mission.intensity === "tiny" ? { ...mission, parentMissionId: mission.id - 3 } : mission));
+  assert.deepEqual(trayMissions(withParents, { activeTinyIds: [4] }).map((mission) => mission.id), [4, 2, 3, 5], "the picked Tiny replaces its Main");
+  const mainDoneTinyReminder = withParents.map((mission) => (mission.id === 1 ? { ...mission, status: "done" } : mission.id === 4 ? { ...mission, status: "remind_later", familyClosed: true } : mission));
+  const tinyDoneMainReminder = withParents.map((mission) => (mission.id === 1 ? { ...mission, status: "remind_later", familyClosed: true } : mission.id === 4 ? { ...mission, status: "done" } : mission));
+  assert.deepEqual(trayMissions(mainDoneTinyReminder).map((mission) => mission.id), [1, 2, 3, 5]);
+  assert.deepEqual(trayMissions(tinyDoneMainReminder).map((mission) => mission.id), [4, 2, 3, 5]);
   for (const view of views) {
     const k = trayScreenFactor(view.scale, view);
     const pad = TRAY_SCREEN.pad * k;
@@ -264,6 +270,16 @@ function run() {
       : [(fitnessZone.tray.run - 7) * view.scale - pad * 2, ...(fitnessZone.tray.wrap ? [(fitnessZone.tray.wrap.run - 7) * view.scale - pad * 2] : [])];
     const sizing = trayRows({ pawCount: paws.length, rows, pitches: [48 * k, 44 * k] });
     assert.equal(pagePaws(paws, { slots: sizing.slots }).control, null, `fitness_corner ${view.label}: day 0 has no +N chip`);
+    // #426: "Make it smaller" (Tiny 4 of Main 1) swaps the Main's paw, and a closed family member
+    // has none, so neither adds a "+1" chip in any view.
+    for (const [label, list] of [
+      ["Make it smaller", trayMissions(withParents, { activeTinyIds: [4] })],
+      ["Tiny reminder then Main done", trayMissions(mainDoneTinyReminder)],
+      ["Main reminder then Tiny done", trayMissions(tinyDoneMainReminder)],
+    ]) {
+      const fit = trayRows({ pawCount: list.length, rows, pitches: [48 * k, 44 * k] });
+      assert.equal(pagePaws(list, { slots: fit.slots }).control, null, `fitness_corner ${view.label}: ${label} has no +N chip`);
+    }
   }
 
   // Footprint math: the compact tray at x2 is 176x50 screen px (flag included), 88x25 base px.

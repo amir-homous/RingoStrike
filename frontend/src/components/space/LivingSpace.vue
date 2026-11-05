@@ -1057,6 +1057,7 @@ function buildPreviewMission(mission) {
     intensity: mission?.mission_intensity || "main",
     availableToday: Boolean(mission?.available_today),
     parentMissionId: mission?.parent_mission_id ?? null,
+    familyClosed: Boolean(mission?.family_closed ?? todayRow?.family_closed),
     unlocksInDays: mission?.unlocks_in_days ?? null,
     estimatedMinutes: mission?.estimated_minutes ?? null,
     xpReward: mission?.xp_reward ?? null,
