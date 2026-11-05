@@ -173,7 +173,9 @@ import { localizeSpaceReward, localizeSpaceZone } from "@/lib/livingSpaceCopy";
 import {
   dueReminderFocusForZone,
   findDueReminderZone,
+  isClosedFamilyMember,
   isDueReminderMission,
+  isScheduledReminderMission,
   normalizeId,
   normalizePathKey,
   normalizedMissionStatus,
@@ -1139,10 +1141,7 @@ const dueReminders = computed(() => {
 // Reminders set for later today that are not due yet.
 const scheduledReminders = computed(() => {
   return props.missions
-    .filter((mission) => {
-      return normalizedMissionStatus(mission) === "remind_later"
-        && reminderTimestamp(mission) > now.value;
-    })
+    .filter((mission) => isScheduledReminderMission(mission, now.value))
     .map(toReminderItem)
     .sort((a, b) => a.timestamp - b.timestamp);
 });
@@ -1204,7 +1203,9 @@ const dailyMomentum = computed(() => {
   const missions = props.missions || [];
   // B11: count like the zone's today strip: a tiny substitute counts only once the user used it
   // (a new user saw "0/3" here but "0/2" in the zone).
+  // #426: a closed family member is not one of today's steps.
   const counted = missions.filter((mission) => {
+    if (isClosedFamilyMember(mission)) return false;
     return String(mission?.mission_intensity || mission?.intensity || "main").toLowerCase() !== "tiny"
       || ["done", "completed", "remind_later", "skipped"].includes(normalizedMissionStatus(mission));
   });
@@ -1212,7 +1213,7 @@ const dailyMomentum = computed(() => {
     return ["done", "completed"].includes(normalizedMissionStatus(mission));
   }).length;
   const pendingCount = missions.filter((mission) => normalizedMissionStatus(mission) === "pending").length;
-  const remindedCount = missions.filter((mission) => normalizedMissionStatus(mission) === "remind_later").length;
+  const remindedCount = missions.filter((mission) => normalizedMissionStatus(mission) === "remind_later" && !isClosedFamilyMember(mission)).length;
 
   return {
     todaySafe: props.todaySafe,

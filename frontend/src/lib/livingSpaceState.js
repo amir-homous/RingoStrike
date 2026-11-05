@@ -36,10 +36,19 @@ export function isClosedFamilyMember(mission) {
   return closed && !["done", "completed", "skipped"].includes(normalizedMissionStatus(mission));
 }
 
+// A closed family member's reminder is over (#426): it is neither due nor set.
 export function isDueReminderMission(mission, now = Date.now()) {
   return normalizedMissionStatus(mission) === "remind_later"
     && reminderTimestamp(mission) <= now
-    && !mission?.reminder_sent_at;
+    && !mission?.reminder_sent_at
+    && !isClosedFamilyMember(mission);
+}
+
+// A reminder set for later today that is not due yet.
+export function isScheduledReminderMission(mission, now = Date.now()) {
+  return normalizedMissionStatus(mission) === "remind_later"
+    && reminderTimestamp(mission) > now
+    && !isClosedFamilyMember(mission);
 }
 
 export function findDueReminderZone(reminder, zones = []) {

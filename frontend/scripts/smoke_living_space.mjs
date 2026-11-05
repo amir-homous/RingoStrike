@@ -98,6 +98,7 @@ import {
   findFirstReward,
   isClosedFamilyMember,
   isDueReminderMission,
+  isScheduledReminderMission,
   normalizeId,
   normalizePathKey,
   normalizedMissionStatus,
@@ -136,6 +137,27 @@ function run() {
   assert.equal(isDueReminderMission({ ...due, reminder_sent_at: "2026-10-18T11:01:00Z" }, NOW), false);
   assert.equal(isDueReminderMission({ ...due, status: "pending" }, NOW), false);
   assert.equal(isDueReminderMission({ status: "remind_later" }, NOW), false);
+  // #426: a closed family member's reminder is neither due nor set, so the clock, the reminder
+  // list and the paw chip ignore it.
+  assert.equal(isDueReminderMission({ ...due, family_closed: true }, NOW), false, "closed: not due");
+  assert.equal(isDueReminderMission({ ...due, family_closed: false }, NOW), true);
+  const setLater = { status: "remind_later", reminder_at: "2026-10-18T13:00:00Z" };
+  assert.equal(isScheduledReminderMission(setLater, NOW), true);
+  assert.equal(isScheduledReminderMission({ ...setLater, family_closed: true }, NOW), false, "closed: not set");
+  assert.equal(isScheduledReminderMission(due, NOW), false, "due is not later");
+  // Tiny reminder then Main done; Main reminder then Tiny done: no reminder, no clock.
+  const today = [
+    { mission_id: 1, mission_intensity: "main", status: "done", family_closed: false },
+    { mission_id: 2, mission_intensity: "tiny", status: "remind_later", reminder_at: "2026-10-18T11:00:00Z", family_closed: true },
+    { mission_id: 3, mission_intensity: "main", status: "remind_later", reminder_at: "2026-10-18T13:00:00Z", family_closed: true },
+    { mission_id: 4, mission_intensity: "tiny", status: "done", family_closed: false },
+  ];
+  const clock = {
+    due: today.filter((mission) => isDueReminderMission(mission, NOW)).length,
+    later: today.filter((mission) => isScheduledReminderMission(mission, NOW)).length,
+  };
+  assert.deepEqual(clock, { due: 0, later: 0 });
+  assert.equal(reminderClockState(clock), CLOCK_STATE.NONE, "closed families: no clock");
 
   // Due-reminder focus selection: match the zone by path key (with aliases) or path id.
   const zones = [
@@ -768,6 +790,8 @@ function testMissionTrayState() {
   assert.equal(missionReminderChip({ ...due, reminder_sent_at: "2026-10-21T11:00:05Z" }, { now, telegram: true }), "");
   assert.equal(missionReminderChip({ status: "pending" }, { now }), "");
   assert.equal(missionReminderChip(null, { now }), "");
+  assert.equal(missionReminderChip({ ...due, family_closed: true }, { now, telegram: true }), "", "#426: a closed member has no chip");
+  assert.equal(missionReminderChip({ ...later, family_closed: true }, { now, telegram: false }), "");
 
   // Paws: main and Bonus always, a tiny substitute only once it is in play.
   const seed = [m(1, "main"), m(2, "main", "pending", false), m(3, "main", "pending", false), m(4, "tiny", "pending", true, { parentMissionId: 1 }), m(5, "bonus")];

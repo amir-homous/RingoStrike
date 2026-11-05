@@ -3,7 +3,7 @@
 // mission id with GET /me/today-missions for the reminder fields. No Vue or Vite, so the
 // dependency-free tests import it.
 
-import { isClosedFamilyMember, isDueReminderMission, normalizedMissionStatus, reminderTimestamp } from "./livingSpaceState.js";
+import { isClosedFamilyMember, isDueReminderMission, isScheduledReminderMission } from "./livingSpaceState.js";
 import { reminderChip } from "./pathMarker.js";
 
 // At most this many paws; more become one "+N" chip that Ringo explains (D50).
@@ -38,7 +38,7 @@ export function missionPawState(mission, { mainDone = false } = {}) {
 export function missionReminderChip(todayMission, { now = Date.now(), telegram = null } = {}) {
   if (!todayMission) return "";
   const due = isDueReminderMission(todayMission, now) ? 1 : 0;
-  const scheduled = normalizedMissionStatus(todayMission) === "remind_later" && reminderTimestamp(todayMission) > now ? 1 : 0;
+  const scheduled = isScheduledReminderMission(todayMission, now) ? 1 : 0;
   return reminderChip({ dueCount: due, scheduledCount: scheduled, telegram });
 }
 
