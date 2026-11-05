@@ -32,6 +32,12 @@ export function todayMainDone(missions = []) {
   });
 }
 
+// #426: today's step was done as the smaller step (a Tiny is done, no Main is).
+export function todayDoneAsSmaller(missions = []) {
+  const done = (intensity) => missions.some((mission) => missionIntensity(mission) === intensity && missionDone(mission));
+  return done("tiny") && !done("main");
+}
+
 // Option A: today's missions only. Tiny appears only after the user asked for it,
 // a bonus is dimmed until the main step is done, future missions are a count only.
 export function buildTodayMissionRows(missions = [], options = {}) {

@@ -128,6 +128,7 @@ import {
   smallerStepFor,
   ringoCardState,
   shouldOfferBonus,
+  todayDoneAsSmaller,
   todayMainDone,
 } from "@/lib/livingSpacePanel";
 import { challengeIconCandidates } from "@/lib/challengeIconKeys";
@@ -779,7 +780,9 @@ const baseRingoCard = computed(() => {
       tone: "safe",
       mood: "proud",
       label: t("space.panel.stateSafe"),
-      title: t("space.panel.doneTitle"),
+      title: todayDoneAsSmaller(selectedPathChallenge.value?.missions || [])
+        ? t("space.panel.doneTitleSmaller")
+        : t("space.panel.doneTitle"),
       body: bonusCandidates.value.length
         ? t("space.panel.doneBody")
         : t("space.panel.doneBodyNoBonus"),

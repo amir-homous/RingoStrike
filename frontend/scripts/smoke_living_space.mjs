@@ -79,6 +79,7 @@ import {
   pickFocusMission,
   smallerStepFor,
   reminderTimeLeft,
+  todayDoneAsSmaller,
   ringoCardState,
   shouldOfferBonus,
   todayMainDone,
@@ -874,6 +875,11 @@ function testMissionTrayState() {
   assert.equal(familyDoneMember(panel[0], [m(1, "main", "skipped"), m(4, "tiny", "pending", true, { parentMissionId: 1 })]), null);
   // The picked done member gets the "Already counted today" card, and a closed member offers nothing.
   assert.equal(ringoCardState({ missionPicked: true, focusDone: true, mainDone: true }), "done");
+  // The safe card says "Today's step is done" (not "main step") when the Tiny was the one done.
+  assert.equal(todayDoneAsSmaller(panel), true);
+  assert.equal(todayDoneAsSmaller([m(1, "main", "done"), m(4, "tiny", "pending", true, { familyClosed: true })]), false);
+  assert.equal(todayDoneAsSmaller([m(1, "main", "done"), m(4, "tiny", "done")]), false, "old double rows: main wording");
+  assert.equal(todayDoneAsSmaller([m(1, "main"), m(5, "bonus", "done")]), false);
 
   // Paging (D50): up to 4 paws per page; when they do not all fit, the last slot is a pager:
   // "+N" to the next page, then "back" to the first. Every mission is on exactly one page.
