@@ -173,7 +173,9 @@ import { localizeSpaceReward, localizeSpaceZone } from "@/lib/livingSpaceCopy";
 import {
   dueReminderFocusForZone,
   findDueReminderZone,
+  isClosedFamilyMember,
   isDueReminderMission,
+  isScheduledReminderMission,
   normalizeId,
   normalizePathKey,
   normalizedMissionStatus,
@@ -184,6 +186,7 @@ import { createMaterializeQueue, materializeCandidates, materializeTimeline } fr
 import { PATH_ICON_FALLBACK, pathMarkerState, telegramReady } from "@/lib/pathMarker";
 import { bonusDoneByChallenge, bonusDoneByPath } from "@/lib/bonusStars";
 import { missionReminderChip, trayPawPick } from "@/lib/missionTray";
+import { familyDoneMember, isAlreadyCountedResult } from "@/lib/livingSpacePanel";
 import { missionIconUrl, resolvePathIcon } from "@/utils/missionMomentumUtils";
 import { humanizeJoinError, submitJoinFlow } from "@/views/challengeFlow";
 import SpaceZone from "./SpaceZone.vue";
@@ -1057,6 +1060,7 @@ function buildPreviewMission(mission) {
     intensity: mission?.mission_intensity || "main",
     availableToday: Boolean(mission?.available_today),
     parentMissionId: mission?.parent_mission_id ?? null,
+    familyClosed: Boolean(mission?.family_closed ?? todayRow?.family_closed),
     unlocksInDays: mission?.unlocks_in_days ?? null,
     estimatedMinutes: mission?.estimated_minutes ?? null,
     xpReward: mission?.xp_reward ?? null,
@@ -1138,10 +1142,7 @@ const dueReminders = computed(() => {
 // Reminders set for later today that are not due yet.
 const scheduledReminders = computed(() => {
   return props.missions
-    .filter((mission) => {
-      return normalizedMissionStatus(mission) === "remind_later"
-        && reminderTimestamp(mission) > now.value;
-    })
+    .filter((mission) => isScheduledReminderMission(mission, now.value))
     .map(toReminderItem)
     .sort((a, b) => a.timestamp - b.timestamp);
 });
@@ -1203,7 +1204,9 @@ const dailyMomentum = computed(() => {
   const missions = props.missions || [];
   // B11: count like the zone's today strip: a tiny substitute counts only once the user used it
   // (a new user saw "0/3" here but "0/2" in the zone).
+  // #426: a closed family member is not one of today's steps.
   const counted = missions.filter((mission) => {
+    if (isClosedFamilyMember(mission)) return false;
     return String(mission?.mission_intensity || mission?.intensity || "main").toLowerCase() !== "tiny"
       || ["done", "completed", "remind_later", "skipped"].includes(normalizedMissionStatus(mission));
   });
@@ -1211,7 +1214,7 @@ const dailyMomentum = computed(() => {
     return ["done", "completed"].includes(normalizedMissionStatus(mission));
   }).length;
   const pendingCount = missions.filter((mission) => normalizedMissionStatus(mission) === "pending").length;
-  const remindedCount = missions.filter((mission) => normalizedMissionStatus(mission) === "remind_later").length;
+  const remindedCount = missions.filter((mission) => normalizedMissionStatus(mission) === "remind_later" && !isClosedFamilyMember(mission)).length;
 
   return {
     todaySafe: props.todaySafe,
@@ -1359,6 +1362,7 @@ async function mutateMission(mission, action, request) {
 
   try {
     const { data } = await request(missionId);
+    if (isAlreadyCountedResult({ data })) return await settleAlreadyCounted(mission, pathId);
     if (action !== "done") {
       await loadPathChallenges({ path_id: pathId });
       await loadSpace({ silent: true });
@@ -1374,6 +1378,7 @@ async function mutateMission(mission, action, request) {
     return { ok: true };
   } catch (e) {
     const error = e?.response?.data?.error || e?.message || String(e);
+    if (isAlreadyCountedResult({ error })) return await settleAlreadyCounted(mission, pathId);
     pathErrors.value = {
       ...pathErrors.value,
       [pathId]: error,
@@ -1382,6 +1387,21 @@ async function mutateMission(mission, action, request) {
   } finally {
     completingMissionId.value = null;
   }
+}
+
+// #426: the other member of this mission's family already counted today. No error and no reward
+// moment: reload, then Ringo's card answers for the member that is done ("Already counted today").
+async function settleAlreadyCounted(mission, pathId) {
+  await loadPathChallenges({ path_id: pathId });
+  await loadSpace({ silent: true });
+  const missions = (pathChallenges.value[pathId] || []).flatMap((challenge) => challenge?.missions || []);
+  const done = familyDoneMember(mission, missions);
+  if (done) {
+    pickedMissionId.value = done.mission_id ?? done.id;
+    joinedChallengeId.value = null;
+  }
+  emit("mission-completed", { living_space_action: "already_counted" });
+  return { ok: true, alreadyCounted: true };
 }
 
 function buildRoomFeedback(data, zone) {

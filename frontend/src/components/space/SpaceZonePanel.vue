@@ -128,6 +128,7 @@ import {
   smallerStepFor,
   ringoCardState,
   shouldOfferBonus,
+  todayDoneAsSmaller,
   todayMainDone,
 } from "@/lib/livingSpacePanel";
 import { challengeIconCandidates } from "@/lib/challengeIconKeys";
@@ -136,7 +137,7 @@ import { customReminderAt, defaultPickerTime } from "@/lib/reminderTime";
 import { TILE_STATE, objectCardCopy, objectTiles, tileTapResult } from "@/lib/objectsGrid";
 import { zoneObjects } from "@/lib/roomScene";
 import roomLayout from "@/assets/room/room_layout.json";
-import { findFirstReward } from "@/lib/livingSpaceState";
+import { findFirstReward, isClosedFamilyMember } from "@/lib/livingSpaceState";
 import { resolvePathIcon } from "@/utils/missionMomentumUtils";
 
 const props = defineProps({
@@ -779,7 +780,9 @@ const baseRingoCard = computed(() => {
       tone: "safe",
       mood: "proud",
       label: t("space.panel.stateSafe"),
-      title: t("space.panel.doneTitle"),
+      title: todayDoneAsSmaller(selectedPathChallenge.value?.missions || [])
+        ? t("space.panel.doneTitleSmaller")
+        : t("space.panel.doneTitle"),
       body: bonusCandidates.value.length
         ? t("space.panel.doneBody")
         : t("space.panel.doneBodyNoBonus"),
@@ -1283,6 +1286,8 @@ function isActiveTinyMission(mission) {
 }
 
 function shouldShowMissionInLivingSpace(mission) {
+  // #426: a member closed by the other one of its family is not today's step any more.
+  if (isClosedFamilyMember(mission)) return false;
   const intensity = missionIntensity(mission);
   if (intensity === "main") return true;
   if (intensity === "tiny") {
@@ -1338,6 +1343,7 @@ function missionIntensityLabelFor(mission) {
 
 function missionCanComplete(mission) {
   if (!selectedPathChallenge.value?.isJoined) return false;
+  if (isClosedFamilyMember(mission)) return false;
   if (missionIntensity(mission) === "tiny" && !isActiveTinyMission(mission)) return false;
   if (missionIntensity(mission) === "bonus" && !mainMissionDone.value) return false;
   if (!mission?.availableToday) return false;
@@ -1361,6 +1367,8 @@ function canUseMissionSupportActions(mission) {
   if (!mission?.id) return false;
   if (!selectedPathChallenge.value?.isJoined) return false;
   if (missionDone(mission) || missionSkipped(mission)) return false;
+  // #426: no "Do it now", "Remind me later" or "Not today" for a member closed by its family.
+  if (isClosedFamilyMember(mission)) return false;
   if (missionGateText(mission)) return false;
   return Boolean(mission.availableToday);
 }

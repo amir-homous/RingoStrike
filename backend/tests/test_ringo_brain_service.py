@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta, timezone
 
 from helpers import auth_headers, register_user
+from services.mission_service import open_family_missions
 from services.ringo_brain_service import get_today_ringo_guidance
 from utils.date_utils import ringo_day_metadata, utc_today_iso
 
@@ -567,13 +568,9 @@ def test_ringo_brain_prioritizes_today_saved_over_skipped_after_main_done(client
         f"/me/missions/{main_mission['mission_id']}/done",
         headers=headers,
     )
-    skip_res = client.post(
-        f"/me/missions/{tiny_mission['mission_id']}/skip",
-        json={"reason": "too_tired"},
-        headers=headers,
-    )
+    # The API no longer skips a closed family member; an older row can still hold this state.
+    _set_mission_log_status(user["user_id"], tiny_mission, "skipped")
     assert done_res.status_code == 200
-    assert skip_res.status_code == 200
 
     payload, code = get_today_ringo_guidance(user["user_id"])
 
@@ -595,13 +592,9 @@ def test_ringo_brain_prioritizes_today_saved_over_reminded_after_main_done(clien
         f"/me/missions/{main_mission['mission_id']}/done",
         headers=headers,
     )
-    remind_res = client.post(
-        f"/me/missions/{tiny_mission['mission_id']}/remind-later",
-        json={"reminder_at": _reminder_at()},
-        headers=headers,
-    )
+    # The API no longer sets a reminder on a closed family member; an older row can still hold it.
+    _set_mission_log_status(user["user_id"], tiny_mission, "remind_later", reminder_at=_reminder_at())
     assert done_res.status_code == 200
-    assert remind_res.status_code == 200
 
     payload, code = get_today_ringo_guidance(user["user_id"])
 
@@ -624,13 +617,9 @@ def test_ringo_brain_agenda_today_saved_keeps_future_reminder_quiet(client):
         f"/me/missions/{main_mission['mission_id']}/done",
         headers=headers,
     )
-    remind_res = client.post(
-        f"/me/missions/{tiny_mission['mission_id']}/remind-later",
-        json={"reminder_at": reminder_at},
-        headers=headers,
-    )
+    # The API no longer sets a reminder on a closed family member; an older row can still hold it.
+    _set_mission_log_status(user["user_id"], tiny_mission, "remind_later", reminder_at=reminder_at)
     assert done_res.status_code == 200
-    assert remind_res.status_code == 200
 
     payload, code = get_today_ringo_guidance(user["user_id"])
 
@@ -655,13 +644,9 @@ def test_ringo_brain_agenda_today_saved_with_skipped_mission(client):
         f"/me/missions/{main_mission['mission_id']}/done",
         headers=headers,
     )
-    skip_res = client.post(
-        f"/me/missions/{tiny_mission['mission_id']}/skip",
-        json={"reason": "too_tired"},
-        headers=headers,
-    )
+    # The API no longer skips a closed family member; an older row can still hold this state.
+    _set_mission_log_status(user["user_id"], tiny_mission, "skipped")
     assert done_res.status_code == 200
-    assert skip_res.status_code == 200
 
     payload, code = get_today_ringo_guidance(user["user_id"])
 
@@ -988,18 +973,16 @@ def test_ringo_brain_agenda_counts_match_mission_statuses(client):
         f"/me/missions/{main_mission['mission_id']}/done",
         headers=headers,
     ).status_code == 200
-    assert client.post(
-        f"/me/missions/{tiny_mission['mission_id']}/remind-later",
-        json={"reminder_at": _due_reminder_at()},
-        headers=headers,
-    ).status_code == 200
+    # The API no longer sets a reminder on a closed family member; an older row can still hold it.
+    _set_mission_log_status(user["user_id"], tiny_mission, "remind_later", reminder_at=_due_reminder_at())
     assert client.post(
         f"/me/missions/{other_mission['mission_id']}/skip",
         json={"reason": "other"},
         headers=headers,
     ).status_code == 200
 
-    updated_missions = _today_missions(client, headers)
+    # Ringo counts what it offers: the Tiny's leftover reminder is closed by the done Main.
+    updated_missions = open_family_missions(_today_missions(client, headers))
     counts = _status_counts(updated_missions)
     payload, code = get_today_ringo_guidance(user["user_id"])
     agenda = payload["agenda"]
@@ -1107,18 +1090,14 @@ def test_ringo_brain_prioritizes_linked_tiny_done_over_skipped_and_reminded(clie
         f"/me/missions/{tiny_mission['mission_id']}/done",
         headers=headers,
     )
-    skip_res = client.post(
-        f"/me/missions/{main_mission['mission_id']}/skip",
-        json={"reason": "no_time"},
-        headers=headers,
-    )
+    # The API no longer skips a closed family member; an older row can still hold this state.
+    _set_mission_log_status(user["user_id"], main_mission, "skipped")
     remind_res = client.post(
         f"/me/missions/{other_mission['mission_id']}/remind-later",
         json={"reminder_at": _reminder_at()},
         headers=headers,
     )
     assert done_res.status_code == 200
-    assert skip_res.status_code == 200
     assert remind_res.status_code == 200
 
     payload, code = get_today_ringo_guidance(user["user_id"])

@@ -3,7 +3,7 @@
 // mission id with GET /me/today-missions for the reminder fields. No Vue or Vite, so the
 // dependency-free tests import it.
 
-import { isDueReminderMission, normalizedMissionStatus, reminderTimestamp } from "./livingSpaceState.js";
+import { isClosedFamilyMember, isDueReminderMission, isScheduledReminderMission } from "./livingSpaceState.js";
 import { reminderChip } from "./pathMarker.js";
 
 // At most this many paws; more become one "+N" chip that Ringo explains (D50).
@@ -38,21 +38,43 @@ export function missionPawState(mission, { mainDone = false } = {}) {
 export function missionReminderChip(todayMission, { now = Date.now(), telegram = null } = {}) {
   if (!todayMission) return "";
   const due = isDueReminderMission(todayMission, now) ? 1 : 0;
-  const scheduled = normalizedMissionStatus(todayMission) === "remind_later" && reminderTimestamp(todayMission) > now ? 1 : 0;
+  const scheduled = isScheduledReminderMission(todayMission, now) ? 1 : 0;
   return reminderChip({ dueCount: due, scheduledCount: scheduled, telegram });
 }
 
 // A smaller step's decisions today, as the panel's missionHasUserDecision.
 const TINY_IN_PLAY = new Set(["done", "completed", "remind_later", "skipped"]);
 
+function parentId(mission) {
+  return String(mission?.parentMissionId ?? mission?.parent_mission_id ?? "");
+}
+
 // Which missions get a paw: main and Bonus always, a tiny substitute only once it is in play
 // (the user chose "smaller", or it has a decision today), as in the panel's list. A locked or
 // pending tiny gets no paw: the panel cannot focus it (#410 added locked ones for days 2 and 3).
+// One paw per family (#426): a member closed by the other one has no paw, and the Tiny stands in
+// its Main's place when it was picked with "Make it smaller" (no extra paw) or closed its Main.
 export function trayMissions(missions = [], { activeTinyIds = [] } = {}) {
   const active = new Set(activeTinyIds.filter((id) => id !== null && id !== undefined).map(String));
-  return missions.filter((mission) => {
+  const shown = missions.filter((mission) => {
+    if (isClosedFamilyMember(mission)) return false;
     if (intensity(mission) !== "tiny") return true;
     return active.has(String(mission?.id)) || TINY_IN_PLAY.has(status(mission));
+  });
+  const shownIds = new Set(shown.map((mission) => String(mission?.id)));
+  const mainIds = new Set(missions.filter((mission) => intensity(mission) === "main").map((mission) => String(mission?.id)));
+  const standIns = new Map();
+  for (const mission of shown) {
+    const parent = parentId(mission);
+    if (intensity(mission) !== "tiny" || !mainIds.has(parent)) continue;
+    if (active.has(String(mission?.id)) || !shownIds.has(parent)) standIns.set(parent, mission);
+  }
+  return missions.flatMap((mission) => {
+    const id = String(mission?.id);
+    if (intensity(mission) === "main" && standIns.has(id)) return [standIns.get(id)];
+    if (!shownIds.has(id)) return [];
+    if (intensity(mission) === "tiny" && standIns.get(parentId(mission)) === mission) return [];
+    return [mission];
   });
 }
 

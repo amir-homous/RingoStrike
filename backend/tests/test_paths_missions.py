@@ -1614,9 +1614,10 @@ def test_completion_after_today_saved_gets_bonus_reward_copy(client):
         mission for mission in missions
         if mission["mission_intensity"] == "main"
     )
-    tiny_mission = next(
+    # Main/Tiny family: the Tiny of a done Main is already counted, so the extra step is the Bonus.
+    bonus_mission = next(
         mission for mission in missions
-        if mission["mission_intensity"] == "tiny"
+        if mission["mission_intensity"] == "bonus"
         and mission["parent_mission_id"] == main_mission["mission_id"]
     )
 
@@ -1632,7 +1633,7 @@ def test_completion_after_today_saved_gets_bonus_reward_copy(client):
     )
 
     extra_done_res = client.post(
-        f"/me/missions/{tiny_mission['mission_id']}/done",
+        f"/me/missions/{bonus_mission['mission_id']}/done",
         headers=headers,
     )
 

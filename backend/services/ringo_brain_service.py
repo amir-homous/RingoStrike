@@ -2,7 +2,7 @@ from datetime import datetime, time, timedelta, timezone
 from sqlite3 import DatabaseError
 
 from database import get_db_connection
-from services.mission_service import get_today_missions
+from services.mission_service import get_today_missions, open_family_missions
 from services.stats_service import build_user_stats_payload
 from utils.date_utils import ringo_day_metadata, utc_today_iso
 
@@ -709,7 +709,7 @@ def get_today_ringo_guidance(user_id):
             return missions_payload, missions_code
         return _fallback_payload(missions_payload.get("error") or "missions_unavailable", stats), 200
 
-    missions = missions_payload.get("missions") or []
+    missions = open_family_missions(missions_payload.get("missions") or [])
     legacy_state = (missions_payload.get("ringo") or {}).get("state")
     user_state = _map_legacy_state(legacy_state, stats, context, missions)
     progress = _progress(stats)

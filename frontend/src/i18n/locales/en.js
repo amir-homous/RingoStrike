@@ -158,6 +158,8 @@ export default {
       firstStepBodyNoTime: "Tap Do it now and I'll stay with you.",
       missionBody: "{minutes} minute is enough. This one step keeps today safe and moves your room forward. | {minutes} minutes is enough. This one step keeps today safe and moves your room forward.",
       doneTitle: "Today's main step is done.",
+      // #426: the smaller step counted for today, so the card does not call it the main step.
+      doneTitleSmaller: "Today's step is done.",
       doneBody: "That's enough for today. If you still have energy, there's a small extra step too, completely optional.",
       reminderTitle: "It's time: {mission}.",
       reminderBody: "You asked me to remind you now. If now still isn't the time, that's okay.",

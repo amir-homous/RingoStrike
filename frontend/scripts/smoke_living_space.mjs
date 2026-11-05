@@ -73,10 +73,13 @@ import {
 import {
   bonusOfferCandidates,
   buildTodayMissionRows,
+  familyDoneMember,
   focusMission,
+  isAlreadyCountedResult,
   pickFocusMission,
   smallerStepFor,
   reminderTimeLeft,
+  todayDoneAsSmaller,
   ringoCardState,
   shouldOfferBonus,
   todayMainDone,
@@ -96,7 +99,9 @@ import {
   dueReminderFocusForZone,
   findDueReminderZone,
   findFirstReward,
+  isClosedFamilyMember,
   isDueReminderMission,
+  isScheduledReminderMission,
   normalizeId,
   normalizePathKey,
   normalizedMissionStatus,
@@ -135,6 +140,27 @@ function run() {
   assert.equal(isDueReminderMission({ ...due, reminder_sent_at: "2026-10-18T11:01:00Z" }, NOW), false);
   assert.equal(isDueReminderMission({ ...due, status: "pending" }, NOW), false);
   assert.equal(isDueReminderMission({ status: "remind_later" }, NOW), false);
+  // #426: a closed family member's reminder is neither due nor set, so the clock, the reminder
+  // list and the paw chip ignore it.
+  assert.equal(isDueReminderMission({ ...due, family_closed: true }, NOW), false, "closed: not due");
+  assert.equal(isDueReminderMission({ ...due, family_closed: false }, NOW), true);
+  const setLater = { status: "remind_later", reminder_at: "2026-10-18T13:00:00Z" };
+  assert.equal(isScheduledReminderMission(setLater, NOW), true);
+  assert.equal(isScheduledReminderMission({ ...setLater, family_closed: true }, NOW), false, "closed: not set");
+  assert.equal(isScheduledReminderMission(due, NOW), false, "due is not later");
+  // Tiny reminder then Main done; Main reminder then Tiny done: no reminder, no clock.
+  const today = [
+    { mission_id: 1, mission_intensity: "main", status: "done", family_closed: false },
+    { mission_id: 2, mission_intensity: "tiny", status: "remind_later", reminder_at: "2026-10-18T11:00:00Z", family_closed: true },
+    { mission_id: 3, mission_intensity: "main", status: "remind_later", reminder_at: "2026-10-18T13:00:00Z", family_closed: true },
+    { mission_id: 4, mission_intensity: "tiny", status: "done", family_closed: false },
+  ];
+  const clock = {
+    due: today.filter((mission) => isDueReminderMission(mission, NOW)).length,
+    later: today.filter((mission) => isScheduledReminderMission(mission, NOW)).length,
+  };
+  assert.deepEqual(clock, { due: 0, later: 0 });
+  assert.equal(reminderClockState(clock), CLOCK_STATE.NONE, "closed families: no clock");
 
   // Due-reminder focus selection: match the zone by path key (with aliases) or path id.
   const zones = [
@@ -767,28 +793,57 @@ function testMissionTrayState() {
   assert.equal(missionReminderChip({ ...due, reminder_sent_at: "2026-10-21T11:00:05Z" }, { now, telegram: true }), "");
   assert.equal(missionReminderChip({ status: "pending" }, { now }), "");
   assert.equal(missionReminderChip(null, { now }), "");
+  assert.equal(missionReminderChip({ ...due, family_closed: true }, { now, telegram: true }), "", "#426: a closed member has no chip");
+  assert.equal(missionReminderChip({ ...later, family_closed: true }, { now, telegram: false }), "");
 
   // Paws: main and Bonus always, a tiny substitute only once it is in play.
-  const seed = [m(1, "main"), m(2, "main", "pending", false), m(3, "main", "pending", false), m(4, "tiny"), m(5, "bonus")];
+  const seed = [m(1, "main"), m(2, "main", "pending", false), m(3, "main", "pending", false), m(4, "tiny", "pending", true, { parentMissionId: 1 }), m(5, "bonus")];
   assert.deepEqual(trayMissions(seed).map((x) => x.id), [1, 2, 3, 5]);
-  assert.deepEqual(trayMissions(seed, { activeTinyIds: [4] }).map((x) => x.id), [1, 2, 3, 4, 5]);
+  // #426: the picked smaller step takes its Main's place (no extra paw, no "+1").
+  assert.deepEqual(trayMissions(seed, { activeTinyIds: [4] }).map((x) => x.id), [4, 2, 3, 5]);
   assert.deepEqual(trayMissions([m(1, "main"), m(4, "tiny", "done")]).map((x) => x.id), [1, 4]);
   // A locked smaller step (days 2 and 3, #410) has no paw: the panel cannot focus it. Locked Mains
   // keep theirs. Skipped and "remind later" are in play; a step picked with "Make it smaller" too.
   assert.deepEqual(trayMissions([m(1, "main"), m(2, "main", "locked", false), m(6, "tiny", "locked", false)]).map((x) => x.id), [1, 2]);
   assert.deepEqual(trayMissions([m(6, "tiny", "skipped"), m(7, "tiny", "remind_later"), m(8, "tiny", "completed")]).map((x) => x.id), [6, 7, 8]);
   assert.deepEqual(trayMissions([m(1, "main"), m(4, "tiny")], { activeTinyIds: [null] }).map((x) => x.id), [1], "no smaller step picked");
-  assert.deepEqual(trayMissions([m(1, "main"), m(4, "tiny")], { activeTinyIds: ["4"] }).map((x) => x.id), [1, 4], "picked smaller step, id as string");
+  assert.deepEqual(trayMissions([m(1, "main"), m(4, "tiny")], { activeTinyIds: ["4"] }).map((x) => x.id), [1, 4], "picked smaller step without a parent: added");
+  assert.deepEqual(trayMissions([m(1, "main"), m(4, "tiny", "pending", true, { parentMissionId: "1" })], { activeTinyIds: ["4"] }).map((x) => x.id), [4], "picked smaller step, ids as strings: replaces");
+  assert.deepEqual(trayMissions([m(1, "main"), m(4, "tiny", "pending", true, { parent_mission_id: 1 })], { activeTinyIds: [4] }).map((x) => x.id), [4], "raw parent_mission_id");
+
+  // #426: one family per day. A member closed by the other one has no paw; the member that closed
+  // the family keeps its own; the Bonus is not in the family.
+  const fam = (mainStatus, tinyStatus, { mainClosed = false, tinyClosed = false } = {}) => [
+    m(1, "main", mainStatus, true, { familyClosed: mainClosed }),
+    m(4, "tiny", tinyStatus, true, { parentMissionId: 1, familyClosed: tinyClosed }),
+    m(5, "bonus"),
+  ];
+  assert.deepEqual(trayMissions(fam("done", "pending", { tinyClosed: true })).map((x) => x.id), [1, 5], "Main done: the Tiny has no paw");
+  assert.deepEqual(trayMissions(fam("done", "remind_later", { tinyClosed: true })).map((x) => x.id), [1, 5], "Tiny reminder then Main done: the Tiny paw goes");
+  assert.deepEqual(trayMissions(fam("remind_later", "done", { mainClosed: true })).map((x) => x.id), [4, 5], "Main reminder then Tiny done: the Tiny stands in the Main place");
+  assert.deepEqual(trayMissions(fam("pending", "done", { mainClosed: true })).map((x) => x.id), [4, 5], "Tiny done: one paw, the Tiny");
+  assert.deepEqual(trayMissions(fam("skipped", "pending", { tinyClosed: true })).map((x) => x.id), [1, 5], "Main Not today: the Main keeps its paw");
+  assert.deepEqual(trayMissions(fam("skipped", "pending", { tinyClosed: true }), { activeTinyIds: [4] }).map((x) => x.id), [1, 5], "a closed Tiny stays out even when picked");
+  assert.deepEqual(trayMissions(fam("done", "done", { mainClosed: true, tinyClosed: true })).map((x) => x.id), [1, 4, 5], "old double rows: both keep their own done paw");
+  assert.deepEqual(trayMissions([{ id: 4, mission_intensity: "tiny", today_status: "remind_later", family_closed: true }]).map((x) => x.id), [], "raw API shape");
+  assert.equal(isClosedFamilyMember({ status: "pending", familyClosed: true }), true);
+  assert.equal(isClosedFamilyMember({ status: "remind_later", family_closed: true }), true);
+  assert.equal(isClosedFamilyMember({ status: "done", familyClosed: true }), false, "its own decision stays");
+  assert.equal(isClosedFamilyMember({ status: "skipped", familyClosed: true }), false);
+  assert.equal(isClosedFamilyMember({ status: "pending" }), false);
 
   // Mobility Reset on day 0, as GET /paths/:id/challenges returns it (bf3e569): 3 Main, 3 Tiny,
   // 1 Bonus. 4 paws (no "+N"); "Make it smaller" adds today's smaller step as a fifth.
   const mobility = [
     m(15, "main"), m(16, "main", "locked", false), m(17, "main", "locked", false),
-    m(18, "tiny"), m(19, "bonus"), m(20, "tiny", "locked", false), m(21, "tiny", "locked", false),
+    m(18, "tiny", "pending", true, { parentMissionId: 15 }), m(19, "bonus"),
+    m(20, "tiny", "locked", false, { parentMissionId: 16 }), m(21, "tiny", "locked", false, { parentMissionId: 17 }),
   ];
   assert.deepEqual(trayMissions(mobility).map((x) => x.id), [15, 16, 17, 19]);
   assert.equal(pagePaws(trayMissions(mobility), { slots: 5 }).control, null, "Mobility Reset day 0: no +N chip");
-  assert.deepEqual(trayMissions(mobility, { activeTinyIds: [18] }).map((x) => x.id), [15, 16, 17, 18, 19]);
+  // #426: "Make it smaller" swaps today's Main paw for its smaller step: still 4 paws, no "+1".
+  assert.deepEqual(trayMissions(mobility, { activeTinyIds: [18] }).map((x) => x.id), [18, 16, 17, 19]);
+  assert.equal(pagePaws(trayMissions(mobility, { activeTinyIds: [18] }), { slots: 5 }).control, null, "Make it smaller: no +1 chip");
 
   // A paw tap leaves the "You joined" card: the card state then answers for the tapped mission.
   const pick = trayPawPick({ id: 16 });
@@ -798,6 +853,33 @@ function testMissionTrayState() {
   const afterTap = ringoCardState({ justJoined: Boolean(pick.joinedChallengeId), focusGated: true, missionPicked: true });
   assert.equal(joinedBefore, "joined");
   assert.equal(afterTap, "locked", "a locked paw tapped after joining gets Ringo's explanation");
+
+  // #426: "already counted today" is not an error. The 409 of remind-later and plan-reminder, and a
+  // 200 done or skip whose mission is already_done and family_closed; a plain repeat done is not.
+  assert.equal(isAlreadyCountedResult({ error: "already_counted_today" }), true);
+  assert.equal(isAlreadyCountedResult({ data: { ok: true, mission: { already_done: true, family_closed: true, xp_awarded: 0 } } }), true);
+  assert.equal(isAlreadyCountedResult({ data: { ok: true, mission: { already_done: true } } }), false, "a repeat done keeps its old path");
+  assert.equal(isAlreadyCountedResult({ error: "mission_unavailable" }), false);
+  assert.equal(isAlreadyCountedResult(), false);
+  // Ringo's card then answers for the family member that is done: the Main or the Tiny, raw or
+  // panel shape. A Bonus is not in the family; a family closed by a skip has no done member.
+  const raw = [
+    { mission_id: 1, mission_intensity: "main", today_status: "done" },
+    { mission_id: 4, mission_intensity: "tiny", parent_mission_id: 1, today_status: "remind_later", family_closed: true },
+    { mission_id: 5, mission_intensity: "bonus", today_status: "done" },
+  ];
+  assert.equal(familyDoneMember({ id: 4, intensity: "tiny", parentMissionId: 1 }, raw)?.mission_id, 1, "Main done closes the Tiny");
+  const panel = [m(1, "main", "pending", true, { familyClosed: true }), m(4, "tiny", "done", true, { parentMissionId: 1 }), m(5, "bonus")];
+  assert.equal(familyDoneMember(panel[0], panel)?.id, 4, "Tiny done closes the Main");
+  assert.equal(familyDoneMember(panel[2], panel), null, "the Bonus is outside the family");
+  assert.equal(familyDoneMember(panel[0], [m(1, "main", "skipped"), m(4, "tiny", "pending", true, { parentMissionId: 1 })]), null);
+  // The picked done member gets the "Already counted today" card, and a closed member offers nothing.
+  assert.equal(ringoCardState({ missionPicked: true, focusDone: true, mainDone: true }), "done");
+  // The safe card says "Today's step is done" (not "main step") when the Tiny was the one done.
+  assert.equal(todayDoneAsSmaller(panel), true);
+  assert.equal(todayDoneAsSmaller([m(1, "main", "done"), m(4, "tiny", "pending", true, { familyClosed: true })]), false);
+  assert.equal(todayDoneAsSmaller([m(1, "main", "done"), m(4, "tiny", "done")]), false, "old double rows: main wording");
+  assert.equal(todayDoneAsSmaller([m(1, "main"), m(5, "bonus", "done")]), false);
 
   // Paging (D50): up to 4 paws per page; when they do not all fit, the last slot is a pager:
   // "+N" to the next page, then "back" to the first. Every mission is on exactly one page.
