@@ -235,6 +235,20 @@ def test_ringo_brain_treats_linked_tiny_completion_as_today_saved(client):
     missions = _today_missions(client, headers)
     main_mission = _main_mission(missions)
     tiny_mission = _linked_tiny_mission(missions, main_mission)
+    # A done Tiny now opens its Bonus (see the Bonus test below); without one, today is done.
+    bonus_mission = _linked_bonus_mission(missions, main_mission)
+
+    import database
+
+    conn = database.get_db_connection()
+    try:
+        conn.execute(
+            "UPDATE missions SET status = 'Archived' WHERE id = ?",
+            (bonus_mission["mission_id"],),
+        )
+        conn.commit()
+    finally:
+        conn.close()
 
     done_res = client.post(
         f"/me/missions/{tiny_mission['mission_id']}/done",
@@ -253,8 +267,9 @@ def test_ringo_brain_treats_linked_tiny_completion_as_today_saved(client):
     assert payload["agenda"]["next_action_type"] == "done_for_today"
 
 
-def test_ringo_brain_tiny_completion_does_not_auto_suggest_bonus(client):
-    user = register_user(client, username="BrainTinyDoneNoBonus")
+# A done Tiny counts its family like a done Main (one family, #426), so Ringo offers the Bonus.
+def test_ringo_brain_tiny_completion_can_suggest_bonus(client):
+    user = register_user(client, username="BrainTinyDoneBonus")
     headers = auth_headers(user["access_token"])
     _start_path_and_join_first_challenge(client, headers)
     missions = _today_missions(client, headers)
@@ -272,11 +287,13 @@ def test_ringo_brain_tiny_completion_does_not_auto_suggest_bonus(client):
 
     assert code == 200
     assert payload["progress"]["today_saved"] is True
-    assert payload["ringo"]["user_state"] == "today_completed"
-    assert payload["agenda"]["next_action_type"] == "done_for_today"
-    assert payload["agenda"]["next_mission_id"] is None
-    assert payload["mission"]["mission_id"] == tiny_mission["mission_id"]
-    assert payload["mission"]["mission_id"] != bonus_mission["mission_id"]
+    assert payload["agenda"]["next_action_type"] == "optional_mission"
+    assert payload["agenda"]["next_mission_id"] == bonus_mission["mission_id"]
+    assert payload["mission"]["mission_id"] == bonus_mission["mission_id"]
+    assert "Today is safe" in payload["ringo"]["message"]
+    assert "optional step" in payload["ringo"]["message"]
+    assert payload["actions"][0]["type"] == "dismiss"
+    assert payload["actions"][1]["mission_id"] == bonus_mission["mission_id"]
 
 
 def test_ringo_brain_main_completion_can_suggest_bonus(client):
@@ -399,6 +416,19 @@ def test_ringo_brain_tiny_completion_can_softly_suggest_unrelated_pending_only(c
         mission for mission in missions
         if mission["challenge_id"] == second_challenge["challenge_id"]
     ])
+    # As in the Main version: without the first family's Bonus, the unrelated step is offered.
+
+    import database
+
+    conn = database.get_db_connection()
+    try:
+        conn.execute(
+            "UPDATE missions SET status = 'Archived' WHERE id = ?",
+            (first_bonus["mission_id"],),
+        )
+        conn.commit()
+    finally:
+        conn.close()
 
     assert client.post(
         f"/me/missions/{first_tiny['mission_id']}/done",
@@ -414,7 +444,6 @@ def test_ringo_brain_tiny_completion_can_softly_suggest_unrelated_pending_only(c
     assert payload["agenda"]["next_mission_id"] == second_main["mission_id"]
     assert payload["mission"]["mission_id"] == second_main["mission_id"]
     assert payload["agenda"]["next_mission_id"] != first_main["mission_id"]
-    assert payload["agenda"]["next_mission_id"] != first_bonus["mission_id"]
     assert "optional step" in payload["ringo"]["message"]
 
 

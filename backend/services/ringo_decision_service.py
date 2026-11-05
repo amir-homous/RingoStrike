@@ -178,12 +178,13 @@ def _family_done_keys(missions):
     }
 
 
+# A done Main or a done Tiny counts its family (keyed by the Main) for the Bonus suggestion.
 def _main_done_family_keys(missions):
     return {
         _mission_family_key(mission)
         for mission in missions
         if mission.get("status") == "done"
-        and _mission_intensity_value(mission) == "main"
+        and _mission_intensity_value(mission) in {"main", "tiny"}
     }
 
 
