@@ -73,7 +73,9 @@ import {
 import {
   bonusOfferCandidates,
   buildTodayMissionRows,
+  familyDoneMember,
   focusMission,
+  isAlreadyCountedResult,
   pickFocusMission,
   smallerStepFor,
   reminderTimeLeft,
@@ -850,6 +852,28 @@ function testMissionTrayState() {
   const afterTap = ringoCardState({ justJoined: Boolean(pick.joinedChallengeId), focusGated: true, missionPicked: true });
   assert.equal(joinedBefore, "joined");
   assert.equal(afterTap, "locked", "a locked paw tapped after joining gets Ringo's explanation");
+
+  // #426: "already counted today" is not an error. The 409 of remind-later and plan-reminder, and a
+  // 200 done or skip whose mission is already_done and family_closed; a plain repeat done is not.
+  assert.equal(isAlreadyCountedResult({ error: "already_counted_today" }), true);
+  assert.equal(isAlreadyCountedResult({ data: { ok: true, mission: { already_done: true, family_closed: true, xp_awarded: 0 } } }), true);
+  assert.equal(isAlreadyCountedResult({ data: { ok: true, mission: { already_done: true } } }), false, "a repeat done keeps its old path");
+  assert.equal(isAlreadyCountedResult({ error: "mission_unavailable" }), false);
+  assert.equal(isAlreadyCountedResult(), false);
+  // Ringo's card then answers for the family member that is done: the Main or the Tiny, raw or
+  // panel shape. A Bonus is not in the family; a family closed by a skip has no done member.
+  const raw = [
+    { mission_id: 1, mission_intensity: "main", today_status: "done" },
+    { mission_id: 4, mission_intensity: "tiny", parent_mission_id: 1, today_status: "remind_later", family_closed: true },
+    { mission_id: 5, mission_intensity: "bonus", today_status: "done" },
+  ];
+  assert.equal(familyDoneMember({ id: 4, intensity: "tiny", parentMissionId: 1 }, raw)?.mission_id, 1, "Main done closes the Tiny");
+  const panel = [m(1, "main", "pending", true, { familyClosed: true }), m(4, "tiny", "done", true, { parentMissionId: 1 }), m(5, "bonus")];
+  assert.equal(familyDoneMember(panel[0], panel)?.id, 4, "Tiny done closes the Main");
+  assert.equal(familyDoneMember(panel[2], panel), null, "the Bonus is outside the family");
+  assert.equal(familyDoneMember(panel[0], [m(1, "main", "skipped"), m(4, "tiny", "pending", true, { parentMissionId: 1 })]), null);
+  // The picked done member gets the "Already counted today" card, and a closed member offers nothing.
+  assert.equal(ringoCardState({ missionPicked: true, focusDone: true, mainDone: true }), "done");
 
   // Paging (D50): up to 4 paws per page; when they do not all fit, the last slot is a pager:
   // "+N" to the next page, then "back" to the first. Every mission is on exactly one page.

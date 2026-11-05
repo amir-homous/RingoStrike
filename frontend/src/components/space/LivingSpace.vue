@@ -186,6 +186,7 @@ import { createMaterializeQueue, materializeCandidates, materializeTimeline } fr
 import { PATH_ICON_FALLBACK, pathMarkerState, telegramReady } from "@/lib/pathMarker";
 import { bonusDoneByChallenge, bonusDoneByPath } from "@/lib/bonusStars";
 import { missionReminderChip, trayPawPick } from "@/lib/missionTray";
+import { familyDoneMember, isAlreadyCountedResult } from "@/lib/livingSpacePanel";
 import { missionIconUrl, resolvePathIcon } from "@/utils/missionMomentumUtils";
 import { humanizeJoinError, submitJoinFlow } from "@/views/challengeFlow";
 import SpaceZone from "./SpaceZone.vue";
@@ -1361,6 +1362,7 @@ async function mutateMission(mission, action, request) {
 
   try {
     const { data } = await request(missionId);
+    if (isAlreadyCountedResult({ data })) return await settleAlreadyCounted(mission, pathId);
     if (action !== "done") {
       await loadPathChallenges({ path_id: pathId });
       await loadSpace({ silent: true });
@@ -1376,6 +1378,7 @@ async function mutateMission(mission, action, request) {
     return { ok: true };
   } catch (e) {
     const error = e?.response?.data?.error || e?.message || String(e);
+    if (isAlreadyCountedResult({ error })) return await settleAlreadyCounted(mission, pathId);
     pathErrors.value = {
       ...pathErrors.value,
       [pathId]: error,
@@ -1384,6 +1387,21 @@ async function mutateMission(mission, action, request) {
   } finally {
     completingMissionId.value = null;
   }
+}
+
+// #426: the other member of this mission's family already counted today. No error and no reward
+// moment: reload, then Ringo's card answers for the member that is done ("Already counted today").
+async function settleAlreadyCounted(mission, pathId) {
+  await loadPathChallenges({ path_id: pathId });
+  await loadSpace({ silent: true });
+  const missions = (pathChallenges.value[pathId] || []).flatMap((challenge) => challenge?.missions || []);
+  const done = familyDoneMember(mission, missions);
+  if (done) {
+    pickedMissionId.value = done.mission_id ?? done.id;
+    joinedChallengeId.value = null;
+  }
+  emit("mission-completed", { living_space_action: "already_counted" });
+  return { ok: true, alreadyCounted: true };
 }
 
 function buildRoomFeedback(data, zone) {

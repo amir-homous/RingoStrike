@@ -1340,6 +1340,7 @@ function missionIntensityLabelFor(mission) {
 
 function missionCanComplete(mission) {
   if (!selectedPathChallenge.value?.isJoined) return false;
+  if (isClosedFamilyMember(mission)) return false;
   if (missionIntensity(mission) === "tiny" && !isActiveTinyMission(mission)) return false;
   if (missionIntensity(mission) === "bonus" && !mainMissionDone.value) return false;
   if (!mission?.availableToday) return false;
@@ -1363,6 +1364,8 @@ function canUseMissionSupportActions(mission) {
   if (!mission?.id) return false;
   if (!selectedPathChallenge.value?.isJoined) return false;
   if (missionDone(mission) || missionSkipped(mission)) return false;
+  // #426: no "Do it now", "Remind me later" or "Not today" for a member closed by its family.
+  if (isClosedFamilyMember(mission)) return false;
   if (missionGateText(mission)) return false;
   return Boolean(mission.availableToday);
 }

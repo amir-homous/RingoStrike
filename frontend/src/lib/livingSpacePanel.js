@@ -78,6 +78,27 @@ export function buildTodayMissionRows(missions = [], options = {}) {
   return { rows, futureCount, mainDone };
 }
 
+// #426: the API's "already counted today" for the second member of a Main/Tiny family: a 200 done
+// or skip whose mission is already_done and family_closed, or a 409 already_counted_today.
+export function isAlreadyCountedResult({ data = null, error = "" } = {}) {
+  if (error === "already_counted_today") return true;
+  return Boolean(data?.mission?.already_done && data?.mission?.family_closed);
+}
+
+// The member of this mission's family (a Main and its Tiny) that is done today, or null. Takes the
+// panel's missions or the raw API ones.
+export function familyDoneMember(mission, missions = []) {
+  const intensityOf = (item) => String(item?.intensity || item?.mission_intensity || "main").toLowerCase();
+  const idOf = (item) => item?.id ?? item?.mission_id;
+  const familyOf = (item) => String((intensityOf(item) === "tiny" ? item?.parentMissionId ?? item?.parent_mission_id : idOf(item)) ?? "");
+  const family = familyOf(mission);
+  if (!family || !["main", "tiny"].includes(intensityOf(mission))) return null;
+  return missions.find((item) => {
+    const status = String(item?.status || item?.today_status || "pending").toLowerCase();
+    return ["main", "tiny"].includes(intensityOf(item)) && familyOf(item) === family && DONE_STATUSES.includes(status);
+  }) || null;
+}
+
 // Which Ringo card state to show. Inputs are plain booleans so the panel keeps its own predicates.
 // explicitPick (B30 S2, D14/D41): the user tapped a challenge, so the card answers for it and a
 // due reminder no longer takes the card (it stays as one line). justJoined (D39): the challenge
