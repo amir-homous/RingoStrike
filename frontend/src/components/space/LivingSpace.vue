@@ -121,7 +121,6 @@
           :explainer="explainerOpen"
           @dismiss-explainer="dismissExplainer"
           :zone="workSurfaceZone"
-          :checking-id="checkingId"
           :path-loading="activePathLoading"
           :path-error="activePathError"
           :selected-challenge-id="selectedPathChallengeId"
@@ -148,7 +147,6 @@
           @remind-mission="remindMission"
           @skip-mission="skipMission"
           @focus-reminder="focusReminder"
-          @checkin="$emit('checkin', $event)"
           @close="closePanel"
           @highlight-object="objectHighlight = $event"
           @smaller-step="smallerMissionId = $event"
@@ -205,7 +203,6 @@ const props = defineProps({
   todaySafe: { type: Boolean, default: false },
   focusReason: { type: String, default: "" },
   reminderCount: { type: Number, default: 0 },
-  checkingId: { type: [Number, String, null], default: null },
   roomFeedbackEvent: { type: Object, default: null },
   // B21: true while the Ringo Moment or the reward card is open (newly unlocked objects stay ghosts).
   holdRewards: { type: Boolean, default: false },
@@ -215,7 +212,7 @@ const props = defineProps({
   telegramSettings: { type: Object, default: null },
 });
 
-const emit = defineEmits(["checkin", "challenge-started", "mission-completed"]);
+const emit = defineEmits(["challenge-started", "mission-completed"]);
 
 const { locale, t: baseT, te } = useI18n();
 // B10: numbers in copy use the locale's digits; a numeric count picks the plural form.

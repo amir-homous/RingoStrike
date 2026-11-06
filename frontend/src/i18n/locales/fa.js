@@ -1605,49 +1605,6 @@ export default {
     explore: "دیدن مسیرهای قابل شروع",
     viewCurrent: "دیدن مسیر فعلی",
   },
-  rewardMoment: {
-    eyebrow: "پاداش ثبت شد",
-    title: "امروز ثبت شد",
-    xpEarned: "XP گرفته شده",
-    xpValue: "+{count} XP",
-    totalXp: "کل XP",
-    streak: "شتاب",
-    streakValue: "زنجیره {count} روزه",
-    achievements: "دستاوردهای آزاد شده",
-    bonusXp: "+{count} XP پاداش",
-    continue: "ادامه",
-    mission: {
-      label: "مأموریت ثبت‌شده",
-      securedAt: "زمان ثبت",
-      challenge: "چالش",
-      firstToday: "تو اولین نفری هستی که امروز این مأموریت را ثبت کرده.",
-      othersBefore: "امروز {count} نفر قبل از تو این مأموریت را ثبت کردند. تا این لحظه مجموعاً {total} نفر ثبتش کرده‌اند.",
-    },
-    lines: [
-      "یک قدم کوچک، یک ریتم واقعی.",
-      "امروزت رو امن کردی.",
-      "یک قدم نزدیک‌تر به هویتت.",
-      "ثباتت داره دیده می‌شه.",
-    ],
-    unlocks: {
-      intro: "تازه در دسترس",
-      activity: {
-        title: "بخش جدید باز شد: خط زمانی فعالیت",
-        description: "ثبت‌های اخیر و رویدادهای شتابت حالا به اندازه کافی معنا دارند که یک مسیر قابل دیدن بسازند.",
-        cta: "دیدن فعالیت‌ها",
-      },
-      achievements: {
-        title: "بخش جدید باز شد: دستاوردها",
-        description: "نقطه‌عطف‌ها حالا می‌توانند پیشرفت واقعی را نشان بدهند، نه فقط نشان‌های خالی.",
-        cta: "دیدن دستاوردها",
-      },
-      publicProfile: {
-        title: "بخش جدید باز شد: پروفایل عمومی",
-        description: "سیگنال پیشرفتت آماده است تا به یک هویت قابل اشتراک تبدیل شود.",
-        cta: "بررسی پروفایل",
-      },
-    },
-  },
   ringoRewardSequence: {
     backend: {
       niceWorkTitle: "دمت گرم.",
@@ -1777,24 +1734,6 @@ export default {
     inactive: "این چالش الان فعال نیست.",
     inviteNotConfigured: "این چالش هنوز برای دعوت باز نشده.",
     notFound: "این چالش پیدا نشد.",
-  },
-  joinSuccess: {
-    eyebrow: "مسیر شروع شد",
-    title: "مسیرت شروع شد",
-    body: "تو به {challengeName} پیوستی. امروز فقط یک مأموریت ساده داری: انجامش بده و ثبتش کن.",
-    existingBody: "تو از قبل در این مسیر هستی. از مأموریت امروز ادامه بده.",
-    pathLabel: "این مسیر درباره چیه",
-    nextLabel: "قدم بعدی",
-    nextMission: "امروز فقط یک مأموریت کوچک را کامل کن",
-    nextDescription: "داشبورد اولین اقدام را ساده نگه می‌دارد: مأموریت را انجام بده، ثبتش کن و پاداشت را بگیر.",
-    primary: {
-      onboarding: "رفتن به مأموریت امروز",
-      challenges: "رفتن به مأموریت امروز",
-    },
-    secondary: {
-      onboarding: "دیدن جزئیات مسیر",
-      challenges: "دیدن جزئیات مسیر",
-    },
   },
   onboarding: {
   loadingTitle: "در حال آماده‌کردن قدم اول...",
@@ -1940,22 +1879,6 @@ export default {
     },
   },
 },
-  guidedFeatures: {
-    unlockAfter: "بعد از {count} ثبت روزانه باز می‌شود",
-    nextTitle: "{feature} در حال آماده شدن است",
-    labels: {
-      activity: "فعالیت‌ها",
-      achievements: "دستاوردها",
-      leaderboard: "جدول رتبه‌بندی",
-      publicProfile: "پروفایل عمومی",
-    },
-    leaderboard: {
-      kicker: "شتاب اجتماعی",
-      title: "جدول رتبه‌بندی حالا معنا دارد.",
-      text: "حالا به اندازه کافی پیشرفت داری تا رتبه‌بندی نشانه استمرار باشد، نه شلوغی.",
-      cta: "دیدن جدول رتبه‌بندی",
-    },
-  },
   auth: {
     login: "ورود",
     register: "ثبت نام",
@@ -2209,7 +2132,6 @@ export default {
     steps: {
       path: "مسیر شروع شد",
       today: "مأموریت امروز",
-      reward: "پاداش",
     },
     started: "شروع {date}",
     reset: "بازنشانی: {timezone}",

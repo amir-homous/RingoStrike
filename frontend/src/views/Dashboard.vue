@@ -45,15 +45,6 @@
             </button>
           </BaseCard> -->
 
-          <div v-if="showLegacyDashboardSurfaces && showMissionFocusMode && stats" class="missionFocusProgress">
-            <CompactProgressStrip :stats="stats" :today-safe="missionFocusState.todaySafe"
-              :reminder-count="missionFocusState.reminderCount" />
-
-            <!-- <BaseButton variant="secondary" @click="showDashboardFromFocus">
-              {{ t("dashboard.showDashboard") }}
-            </BaseButton> -->
-          </div>
-
           <MissionCenter :key="missionCenterKey" class="missionCenterDataProvider" aria-hidden="true"
             :stats="stats" :first-run-focus="showFirstRunFocus"
             :focus-mode-active="showMissionFocusMode" @checked-in="handleMissionCheckin"
@@ -69,166 +60,19 @@
             :today-safe="livingSpaceTodaySafe"
             :focus-reason="livingSpaceFocusReason"
             :reminder-count="livingSpaceReminderCount"
-            :checking-id="checkingId"
             :room-feedback-event="livingSpaceRoomFeedbackEvent"
             :hold-rewards="livingSpaceHoldRewards"
             :materialize-event="livingSpaceMaterializeEvent"
             :telegram-settings="missionCenterStatus.telegram"
-            @checkin="checkin"
             @challenge-started="handleLivingSpaceChallengeStarted"
             @mission-completed="handleLivingSpaceMissionCompleted"
           />
 
-          <!-- Legacy Today Mission is now a fallback when Mission Center has no actionable mission. -->
-          <div v-if="showLegacyDashboardSurfaces && showFullDashboard && showLegacyTodayMission" id="today-mission"
-            class="scrollAnchor dashboardRevealItem">
-            <TodayMission :challenges="challenges" :stats="stats" :loading="checkingId === missionEnrollmentId"
-              @checkin="checkin" />
-          </div>
-
-          <PostCheckinNextAction v-if="showLegacyDashboardSurfaces && showFullDashboard && showPostCheckinAction" class="dashboardRevealItem"
-            :enrollment-id="missionEnrollmentId" :all-done="allActiveMissionsDone" />
-
-          <!-- 2. First progress layer: appears after the user has meaningful progress -->
-          <HeroProgressCard v-if="showLegacyDashboardSurfaces && showFullDashboard && stats && guidedState.hasProgress" class="dashboardRevealItem"
-            :user-name="user?.name" :stats="stats" :animate-pulse="xpPulse" />
-
-          <!-- 3. Progress details: XP, stats, next goal, recent progress -->
-          <div v-if="showLegacyDashboardSurfaces && showFullDashboard && stats && guidedState.hasProgress" class="progressGrid dashboardRevealItem">
-            <StatsGrid :stats="stats" />
-
-            <div class="sideCol">
-              <NextGoalCard :stats="stats" />
-              <RecentProgressFeed :stats="stats" />
-            </div>
-          </div>
-
-          <!-- 4. Active paths: secondary daily management surface -->
-          <BaseCard v-if="showLegacyDashboardSurfaces && showFullDashboard && challenges.length" class="challengePanel dashboardRevealItem">
-            <div class="panelHead">
-              <div>
-                <p class="sectionKicker">{{ t("dashboard.activePaths") }}</p>
-                <h2 class="panelTitle">{{ t("dashboard.todaysChallenges") }}</h2>
-                <p class="panelText">
-                  {{ t("dashboard.panelText") }}
-                </p>
-              </div>
-
-              <div class="panelActions">
-                <div v-if="challenges.length" class="miniSummary">
-                  <span>{{ completedTodayCount }}/{{ challenges.length }}</span>
-                  <small>{{ t("dashboard.secured") }}</small>
-                </div>
-
-                <RouterLink class="ghostLink" to="/challenges">
-                  {{ t("dashboard.addPath") }}
-                </RouterLink>
-              </div>
-            </div>
-
-            <div class="list">
-              <ChallengeCard v-for="c in visibleChallenges" :key="c.enrollment_id" :challenge="c"
-                :loading="checkingId === c.enrollment_id" compact @checkin="checkin" />
-
-              <button v-if="hasHiddenChallenges" type="button" class="showMoreButton"
-                @click="showAllChallenges = !showAllChallenges">
-                <span>
-                  {{ showAllChallenges ? t("common.showFewer") : t("common.showMore", {
-                    count: orderedChallenges.length -
-                      challengeLimit
-                  }) }}
-                </span>
-                <span aria-hidden="true">{{ showAllChallenges ? "↑" : "↓" }}</span>
-              </button>
-            </div>
-          </BaseCard>
-
-          <!-- 5. Next unlock hint: helps the user understand what comes next -->
-          <BaseCard v-if="showLegacyDashboardSurfaces && showFullDashboard && guidedState.hasProgress && nextLockedFeature"
-            class="guidedLockCard dashboardRevealItem">
-            <span class="lockDot" aria-hidden="true"></span>
-
-            <div>
-              <strong>{{ t("guidedFeatures.nextTitle", { feature: lockedFeatureLabel }) }}</strong>
-              <p>{{ t("guidedFeatures.unlockAfter", { count: nextLockedFeature.threshold }) }}</p>
-            </div>
-          </BaseCard>
-
-          <!-- 6. Activity: unlocked after early progress -->
-          <div v-if="showLegacyDashboardSurfaces && showFullDashboard && guidedState.features.activity.unlocked" id="activity-feed"
-            class="scrollAnchor dashboardRevealItem">
-            <ActivityTimeline :events="activityEvents" :loading="loading" />
-          </div>
-
-          <!-- 7. Achievements: after activity has enough meaning -->
-          <AchievementPreview v-if="showLegacyDashboardSurfaces && showFullDashboard && guidedState.features.achievements.unlocked"
-            class="dashboardRevealItem" :achievements="achievements" />
-
-          <!-- 8. Leaderboard: lower priority because it is enrollment-scoped for now -->
-          <BaseCard v-if="showLegacyDashboardSurfaces && showFullDashboard && showLeaderboardPreview" id="leaderboard"
-            class="guidedFeatureCard dashboardRevealItem">
-            <div>
-              <p class="sectionKicker">{{ t("guidedFeatures.leaderboard.kicker") }}</p>
-              <h2 class="panelTitle">{{ t("guidedFeatures.leaderboard.title") }}</h2>
-              <p class="panelText">
-                {{ t("guidedFeatures.leaderboard.text") }}
-              </p>
-            </div>
-
-            <RouterLink class="ghostLink" :to="leaderboardTarget">
-              {{ t("guidedFeatures.leaderboard.cta") }}
-            </RouterLink>
-          </BaseCard>
-
-          <!-- 9. Support / account context: useful, but not the main daily action -->
-          <section v-if="showLegacyDashboardSurfaces && showFullDashboard" class="dashboardHead supportHead dashboardRevealItem">
-            <div class="headCopy">
-              <div class="eyebrow">
-                <span class="pulseDot"></span>
-                <span>{{ t("dashboard.eyebrow") }}</span>
-              </div>
-
-              <h1 class="pageTitle">
-                {{ user ? t("dashboard.welcomeName", { name: firstName }) : t("dashboard.welcome") }}
-              </h1>
-
-              <p class="pageSubtitle">
-                {{ t("dashboard.subtitle") }}
-              </p>
-
-              <div class="headMeta">
-                <span v-if="date" class="metaPill">
-                  {{ date }}
-                </span>
-
-                <span v-if="stats" class="metaPill">
-                  {{ t("common.level", { level: stats.level || 1 }) }}
-                </span>
-
-                <span v-if="stats" class="metaPill">
-                  {{ t("common.xp", { count: stats.total_points || 0 }) }}
-                </span>
-              </div>
-            </div>
-
-            <div class="headActions">
-              <RouterLink class="primaryLink" to="/challenges">
-                <span>{{ t("dashboard.browse") }}</span>
-                <span aria-hidden="true">→</span>
-              </RouterLink>
-
-              <BaseButton variant="secondary" :loading="loggingOut" @click="doLogout">
-                {{ t("dashboard.logout") }}
-              </BaseButton>
-            </div>
-          </section>
         </template>
       </template>
     </div>
 
     <RewardFeedback :items="rewardToasts" />
-
-    <RewardMoment :open="!!rewardMoment" :reward="rewardMoment" @close="rewardMoment = null" />
 
     <RewardUnlockMoment
       :open="!!spaceRewardMoment"
@@ -253,43 +97,22 @@ import api from "@/lib/api";
 import AppContainer from "@/components/ui/AppContainer.vue";
 import AppHeader from "@/components/ui/AppHeader.vue";
 import BaseCard from "@/components/ui/BaseCard.vue";
-import BaseButton from "@/components/ui/BaseButton.vue";
 import UiState from "@/components/ui/UiState.vue";
 import MissionCenter from "@/components/missions/MissionCenter.vue";
 import LivingSpace from "@/components/space/LivingSpace.vue";
-import TodayMission from "@/components/dashboard/TodayMission.vue";
-import PostCheckinNextAction from "@/components/guided/PostCheckinNextAction.vue";
-import CompactProgressStrip from "@/components/progress/CompactProgressStrip.vue";
-import HeroProgressCard from "@/components/progress/HeroProgressCard.vue";
-import StatsGrid from "@/components/progress/StatsGrid.vue";
-import NextGoalCard from "@/components/progress/NextGoalCard.vue";
-import RecentProgressFeed from "@/components/progress/RecentProgressFeed.vue";
-import ChallengeCard from "@/components/challenges/ChallengeCard.vue";
 import RewardFeedback from "@/components/feedback/RewardFeedback.vue";
-import RewardMoment from "@/components/feedback/RewardMoment.vue";
 import RewardUnlockMoment from "@/components/space/RewardUnlockMoment.vue";
 import RingoRewardSequence from "@/components/ringo/RingoRewardSequence.vue";
-import ActivityTimeline from "@/components/activity/ActivityTimeline.vue";
-import AchievementPreview from "@/components/achievements/AchievementPreview.vue";
 import {
   buildMissionCompletionRewardSteps,
   buildRewardDelta,
   buildRewardSnapshot,
 } from "@/utils/rewardSequenceBuilder";
+import { loadDashboardData } from "./dashboardFlow";
 import { composeMomentSteps, lastSevenDays, missionsDoneToday, momentRewards, utcTodayIso } from "@/lib/dayMoment";
 import { numberAwareT } from "@/lib/i18nNumbers";
+
 import {
-  DASHBOARD_CHALLENGE_LIMIT,
-  getVisibleDashboardChallenges,
-  loadDashboardData,
-  orderDashboardChallenges,
-} from "./dashboardFlow";
-import {
-  submitCheckinFlow,
-} from "./challengeFlow";
-import {
-  getGuidedFeatureState,
-  getNewlyUnlockedGuidedFeatures,
   getOnboardingUserKey,
   hasOnboardingDecision,
 } from "@/lib/guidedExperience";
@@ -303,8 +126,6 @@ const router = useRouter();
 const { locale, t } = useI18n();
 
 const loading = ref(true);
-const loggingOut = ref(false);
-const checkingId = ref(null);
 const showFirstRunFocus = ref(route.query.firstRun === "1");
 const error = ref("");
 const user = ref(null);
@@ -312,12 +133,9 @@ const date = ref("");
 const challenges = ref([]);
 const stats = ref(null);
 const rewardToasts = ref([]);
-const rewardMoment = ref(null);
 const spaceRewardMoment = ref(null);
-const xpPulse = ref(false);
 const activityEvents = ref([]);
 const achievements = ref([]);
-const showAllChallenges = ref(false);
 const missionFocusDismissed = ref(false);
 const dashboardRevealActive = ref(false);
 const missionFocusState = ref({
@@ -360,8 +178,6 @@ const showOnboardingFallback = computed(() => {
   return !hasOnboardingDecision(userKey);
 });
 
-const challengeLimit = DASHBOARD_CHALLENGE_LIMIT;
-
 const livingSpaceChallenges = computed(() => {
   return livingSpaceFrozenState.value?.challenges || challenges.value;
 });
@@ -386,40 +202,6 @@ const livingSpaceReminderCount = computed(() => {
     : Number(missionFocusState.value.reminderCount || 0);
 });
 
-const firstName = computed(() => {
-  return String(user.value?.name || "there").trim().split(" ")[0];
-});
-
-const completedTodayCount = computed(() => {
-  return challenges.value.filter((challenge) => Boolean(challenge.today_checked)).length;
-});
-
-const activeChallenges = computed(() => {
-  return challenges.value.filter((challenge) => {
-    const status = String(challenge?.status || "active").toLowerCase();
-    return status === "active" && challenge?.enrollment_id;
-  });
-});
-
-const activeCompletedTodayCount = computed(() => {
-  return activeChallenges.value.filter((challenge) => Boolean(challenge.today_checked)).length;
-});
-
-const allActiveMissionsDone = computed(() => {
-  return activeChallenges.value.length > 0 &&
-    activeCompletedTodayCount.value === activeChallenges.value.length;
-});
-
-const showPostCheckinAction = computed(() => {
-  return allActiveMissionsDone.value && showLegacyTodayMission.value;
-});
-
-const showLegacyTodayMission = computed(() => {
-  if (!missionCenterStatus.value.loaded) return false;
-
-  return ["error", "no_mission_today"].includes(missionCenterStatus.value.state);
-});
-
 const showMissionFocusMode = computed(() => {
   return Boolean(
     !missionFocusDismissed.value &&
@@ -427,61 +209,7 @@ const showMissionFocusMode = computed(() => {
   );
 });
 
-const showFullDashboard = computed(() => !showMissionFocusMode.value);
 const showLivingSpaceHome = computed(() => !showOnboardingFallback.value);
-const showLegacyDashboardSurfaces = computed(() => false);
-
-const orderedChallenges = computed(() => {
-  return orderDashboardChallenges(challenges.value);
-});
-
-const visibleChallenges = computed(() => {
-  return getVisibleDashboardChallenges(
-    challenges.value,
-    showAllChallenges.value,
-    challengeLimit,
-  );
-});
-
-const hasHiddenChallenges = computed(() => {
-  return orderedChallenges.value.length > challengeLimit;
-});
-
-const missionEnrollmentId = computed(() => {
-  const ready = activeChallenges.value.find((challenge) => !challenge.today_checked);
-
-  return (ready || activeChallenges.value[0])?.enrollment_id || null;
-});
-
-const guidedState = computed(() => {
-  return getGuidedFeatureState({
-    stats: stats.value,
-    dashboardData: { challenges: challenges.value },
-  });
-});
-
-const leaderboardTarget = computed(() => {
-  const enrollmentId = missionEnrollmentId.value;
-  return enrollmentId ? `/enrollment/${enrollmentId}/leaderboard` : "";
-});
-
-const showLeaderboardPreview = computed(() => {
-  return Boolean(
-    leaderboardTarget.value &&
-    guidedState.value.features.leaderboard.unlocked,
-  );
-});
-
-const nextLockedFeature = computed(() => {
-  return guidedState.value.nextLocked;
-});
-
-const lockedFeatureLabel = computed(() => {
-  const key = nextLockedFeature.value?.key;
-  return key ? t(`guidedFeatures.labels.${key}`) : "";
-});
-
-
 function pushToast(text, type = "success") {
   const id = `${Date.now()}-${Math.random()}`;
   rewardToasts.value.push({ id, text, type });
@@ -489,55 +217,6 @@ function pushToast(text, type = "success") {
   setTimeout(() => {
     rewardToasts.value = rewardToasts.value.filter((t) => t.id !== id);
   }, 1800);
-}
-
-function buildRewardMomentPayload(rewards, oldStats, challenge, context = {}) {
-  const xpTotal = Number(rewards?.xp_total ?? stats.value?.total_points);
-  const oldTotal = Number(oldStats?.total_points ?? oldStats?.xp);
-  const xpEarned = Number.isFinite(xpTotal) && Number.isFinite(oldTotal)
-    ? Math.max(0, xpTotal - oldTotal)
-    : 0;
-  const unlocked = Array.isArray(rewards?.achievements) ? rewards.achievements : [];
-  const mission = context?.mission || null;
-  const securedAt = mission?.secured_at || context?.securedAt || new Date().toISOString();
-  const missionTitle = mission?.title || challenge?.mission_title || challenge?.name || "";
-  const challengeName = mission?.challenge_name || challenge?.name || "";
-  const missionSummary = mission?.description || challenge?.description || "";
-
-  if (xpEarned <= 0 && unlocked.length === 0) return null;
-
-  return {
-    xpEarned,
-    xpTotal: Number.isFinite(xpTotal) ? xpTotal : null,
-    achievements: unlocked,
-    unlockedFeatures: getNewlyUnlockedGuidedFeatures({
-      oldStats,
-      newStats: stats.value,
-    }).map((featureKey) => ({
-      key: featureKey,
-      to: featureKey === "publicProfile" && user.value?.username
-        ? `/u/${user.value.username}`
-        : featureKey === "publicProfile"
-          ? "/profile"
-          : "/dashboard",
-    })),
-    streak: challenge?.current_streak ?? stats.value?.current_streak ?? null,
-    mission: missionTitle
-      ? {
-        title: missionTitle,
-        challengeName,
-        summary: missionSummary,
-        securedAt,
-        securedDate: mission?.date || date.value || "",
-        todayDoneBeforeYou: Number.isFinite(Number(mission?.today_done_before_you))
-          ? Number(mission.today_done_before_you)
-          : null,
-        todayDoneCount: Number.isFinite(Number(mission?.today_done_count))
-          ? Number(mission.today_done_count)
-          : null,
-      }
-      : null,
-  };
 }
 
 function dismissFirstRunFocus() {
@@ -591,115 +270,12 @@ async function loadDashboard(options = {}) {
 }
 
 
-async function checkin(enrollmentId) {
-  checkingId.value = enrollmentId;
-
-  try {
-    const state = {
-      challenges: challenges.value,
-      stats: stats.value,
-      activityEvents: activityEvents.value,
-      achievements: achievements.value,
-      error: error.value,
-    };
-
-    const syncState = (nextState) => {
-      challenges.value = nextState.challenges;
-      stats.value = nextState.stats;
-      activityEvents.value = nextState.activityEvents;
-      achievements.value = nextState.achievements;
-      error.value = nextState.error || "";
-    };
-
-    const result = await submitCheckinFlow({
-      apiClient: api,
-      state,
-      enrollmentId,
-      onStateChange: syncState,
-      setPulse: (value) => {
-        xpPulse.value = value;
-      },
-    });
-
-    if (result.skipped || result.error) return;
-    missionCenterKey.value += 1;
-    spaceRefreshKey.value += 1;
-
-    if (result.livingSpaceReward) {
-      spaceRewardMoment.value = result.livingSpaceReward;
-    }
-
-    const checkedChallenge = challenges.value.find(
-      (challenge) => challenge.enrollment_id === enrollmentId,
-    );
-    rewardMoment.value = buildRewardMomentPayload(
-      result.rewards,
-      result.oldStats,
-      checkedChallenge,
-      { securedAt: new Date().toISOString() },
-    );
-
-    for (const a of result.unlocked) {
-      pushToast(`🏆 ${a.title}`, "achievement");
-    }
-
-    const oldPoints = Number(result.oldStats?.total_points ?? result.oldStats?.xp);
-    const newPoints = Number(stats.value?.total_points ?? stats.value?.xp);
-    const xpEarned = Number.isFinite(oldPoints) && Number.isFinite(newPoints)
-      ? Math.max(0, newPoints - oldPoints)
-      : 0;
-
-    if (xpEarned > 0) {
-      pushToast(`+${xpEarned} XP`, "success");
-      pushToast(`🔥 ${t("dashboard.streakMaintained")}`, "success");
-    }
-
-    if (result.oldStats && stats.value.level > result.oldStats.level) {
-      pushToast(`Level Up → Level ${stats.value.level}`, "level");
-    }
-  } catch (e) {
-    error.value = e?.response?.data?.error || e?.message || String(e);
-  } finally {
-    checkingId.value = null;
-  }
-}
-
-// async function handleMissionCheckin() {
-//   const oldStats = stats.value ? { ...stats.value } : null;
-
-//   await loadDashboard({ silent: true });
-
-//   const oldPoints = Number(oldStats?.total_points ?? oldStats?.xp);
-//   const newPoints = Number(stats.value?.total_points ?? stats.value?.xp);
-//   const xpEarned = Number.isFinite(oldPoints) && Number.isFinite(newPoints)
-//     ? Math.max(0, newPoints - oldPoints)
-//     : 0;
-
-//   if (xpEarned > 0) {
-//     pushToast(`+${xpEarned} XP`, "success");
-//     pushToast(`🔥 ${t("dashboard.streakMaintained")}`, "success");
-//   }
-// }
-
 async function handleMissionCheckin(payload = {}) {
-  const oldStats = stats.value ? { ...stats.value } : null;
-
   await loadDashboard({ silent: true });
 
   if (payload?.living_space_reward) {
     spaceRewardMoment.value = payload.living_space_reward;
     spaceRefreshKey.value += 1;
-  }
-
-  if (payload?.source === "mission_completion") return;
-  if (!oldStats || !stats.value) return;
-
-  if (stats.value.level > oldStats.level) {
-    rewardMoment.value = {
-      type: "level",
-      title: t("dashboard.rewards.levelTitle"),
-      text: t("dashboard.rewards.levelText", { level: stats.value.level }),
-    };
   }
 }
 
@@ -905,16 +481,6 @@ function handleMissionFocusState(payload) {
 
   if (missionFocusState.value.active && !missionFocusDismissed.value) {
     dashboardRevealActive.value = false;
-  }
-}
-
-async function doLogout() {
-  try {
-    loggingOut.value = true;
-    await api.post("/auth/logout");
-    router.push("/login");
-  } finally {
-    loggingOut.value = false;
   }
 }
 
