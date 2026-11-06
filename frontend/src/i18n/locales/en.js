@@ -1606,49 +1606,6 @@ export default {
     explore: "Explore available paths",
     viewCurrent: "View current path",
   },
-  rewardMoment: {
-    eyebrow: "Reward secured",
-    title: "Today Secured",
-    xpEarned: "XP earned",
-    xpValue: "+{count} XP",
-    totalXp: "Total XP",
-    streak: "Momentum",
-    streakValue: "{count} day streak",
-    achievements: "Unlocked achievements",
-    bonusXp: "+{count} bonus XP",
-    continue: "Continue",
-    mission: {
-      label: "Mission secured",
-      securedAt: "Secured at",
-      challenge: "Challenge",
-      firstToday: "You are the first person to secure this mission today.",
-      othersBefore: "{count} person secured this mission before you today. {total} total secured it so far. | {count} people secured this mission before you today. {total} total secured it so far.",
-    },
-    lines: [
-      "Small progress. Real momentum.",
-      "You protected today’s rhythm.",
-      "One Strike closer to your identity.",
-      "Consistency is becoming visible.",
-    ],
-    unlocks: {
-      intro: "Newly available",
-      activity: {
-        title: "New Section Unlocked: Activity Timeline",
-        description: "Your recent check-ins and momentum events now have enough history to tell a useful story.",
-        cta: "View activity",
-      },
-      achievements: {
-        title: "New Section Unlocked: Achievements",
-        description: "Milestones can now reflect real progress instead of empty badges.",
-        cta: "View achievements",
-      },
-      publicProfile: {
-        title: "New Section Unlocked: Public Profile",
-        description: "Your progress signal is ready to shape into a shareable identity.",
-        cta: "Review profile",
-      },
-    },
-  },
   ringoRewardSequence: {
     backend: {
       niceWorkTitle: "Nice work.",
@@ -1778,24 +1735,6 @@ export default {
     inactive: "This challenge is not active right now.",
     inviteNotConfigured: "This challenge isn't open for invites yet.",
     notFound: "This challenge could not be found.",
-  },
-  joinSuccess: {
-    eyebrow: "Path started",
-    title: "Your path has started",
-    body: "You joined {challengeName}. Today, your only mission is to complete one small action and mark it done.",
-    existingBody: "You are already on this path. Continue from today’s mission.",
-    pathLabel: "What this path is about",
-    nextLabel: "Next step",
-    nextMission: "Complete one small mission today",
-    nextDescription: "The dashboard will keep the first action simple: do the mission, mark it done, and receive your reward.",
-    primary: {
-      onboarding: "Go to Today’s Mission",
-      challenges: "Go to Today’s Mission",
-    },
-    secondary: {
-      onboarding: "View path details",
-      challenges: "View path details",
-    },
   },
   onboarding: {
   loadingTitle: "Loading your first step...",
@@ -1941,22 +1880,6 @@ export default {
     },
   },
 },
-  guidedFeatures: {
-    unlockAfter: "Unlocks after {count} check-in | Unlocks after {count} check-ins",
-    nextTitle: "{feature} is warming up",
-    labels: {
-      activity: "Activity",
-      achievements: "Achievements",
-      leaderboard: "Leaderboard",
-      publicProfile: "Public profile",
-    },
-    leaderboard: {
-      kicker: "Social momentum",
-      title: "Leaderboard is now meaningful.",
-      text: "You have enough progress for rankings to reflect consistency instead of noise.",
-      cta: "View leaderboard",
-    },
-  },
   auth: {
     login: "Login",
     register: "Register",
