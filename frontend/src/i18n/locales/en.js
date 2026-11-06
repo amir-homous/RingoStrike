@@ -1936,7 +1936,6 @@ export default {
       loop: "Today's Mission -> Check-in -> Reward -> Next Step",
       readyTitle: "Secure {challenge} today.",
       readyText: "Today, this path only asks for one small completed action.",
-      readyInstruction: "Do the action for this path today. When you’re done, press the button below to record it.",
       secureToday: "I did today’s mission",
       completeTitle: "Today is secured.",
       completeText: "Your mission is complete. The path stays visible so tomorrow's action feels easy.",
