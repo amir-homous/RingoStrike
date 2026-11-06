@@ -60,12 +60,10 @@
             :today-safe="livingSpaceTodaySafe"
             :focus-reason="livingSpaceFocusReason"
             :reminder-count="livingSpaceReminderCount"
-            :checking-id="checkingId"
             :room-feedback-event="livingSpaceRoomFeedbackEvent"
             :hold-rewards="livingSpaceHoldRewards"
             :materialize-event="livingSpaceMaterializeEvent"
             :telegram-settings="missionCenterStatus.telegram"
-            @checkin="checkin"
             @challenge-started="handleLivingSpaceChallengeStarted"
             @mission-completed="handleLivingSpaceMissionCompleted"
           />
@@ -115,9 +113,6 @@ import { composeMomentSteps, lastSevenDays, missionsDoneToday, momentRewards, ut
 import { numberAwareT } from "@/lib/i18nNumbers";
 
 import {
-  submitCheckinFlow,
-} from "./challengeFlow";
-import {
   getOnboardingUserKey,
   hasOnboardingDecision,
 } from "@/lib/guidedExperience";
@@ -131,7 +126,6 @@ const router = useRouter();
 const { locale, t } = useI18n();
 
 const loading = ref(true);
-const checkingId = ref(null);
 const showFirstRunFocus = ref(route.query.firstRun === "1");
 const error = ref("");
 const user = ref(null);
@@ -140,7 +134,6 @@ const challenges = ref([]);
 const stats = ref(null);
 const rewardToasts = ref([]);
 const spaceRewardMoment = ref(null);
-const xpPulse = ref(false);
 const activityEvents = ref([]);
 const achievements = ref([]);
 const missionFocusDismissed = ref(false);
@@ -276,69 +269,6 @@ async function loadDashboard(options = {}) {
   }
 }
 
-
-async function checkin(enrollmentId) {
-  checkingId.value = enrollmentId;
-
-  try {
-    const state = {
-      challenges: challenges.value,
-      stats: stats.value,
-      activityEvents: activityEvents.value,
-      achievements: achievements.value,
-      error: error.value,
-    };
-
-    const syncState = (nextState) => {
-      challenges.value = nextState.challenges;
-      stats.value = nextState.stats;
-      activityEvents.value = nextState.activityEvents;
-      achievements.value = nextState.achievements;
-      error.value = nextState.error || "";
-    };
-
-    const result = await submitCheckinFlow({
-      apiClient: api,
-      state,
-      enrollmentId,
-      onStateChange: syncState,
-      setPulse: (value) => {
-        xpPulse.value = value;
-      },
-    });
-
-    if (result.skipped || result.error) return;
-    missionCenterKey.value += 1;
-    spaceRefreshKey.value += 1;
-
-    if (result.livingSpaceReward) {
-      spaceRewardMoment.value = result.livingSpaceReward;
-    }
-
-    for (const a of result.unlocked) {
-      pushToast(`🏆 ${a.title}`, "achievement");
-    }
-
-    const oldPoints = Number(result.oldStats?.total_points ?? result.oldStats?.xp);
-    const newPoints = Number(stats.value?.total_points ?? stats.value?.xp);
-    const xpEarned = Number.isFinite(oldPoints) && Number.isFinite(newPoints)
-      ? Math.max(0, newPoints - oldPoints)
-      : 0;
-
-    if (xpEarned > 0) {
-      pushToast(`+${xpEarned} XP`, "success");
-      pushToast(`🔥 ${t("dashboard.streakMaintained")}`, "success");
-    }
-
-    if (result.oldStats && stats.value.level > result.oldStats.level) {
-      pushToast(`Level Up → Level ${stats.value.level}`, "level");
-    }
-  } catch (e) {
-    error.value = e?.response?.data?.error || e?.message || String(e);
-  } finally {
-    checkingId.value = null;
-  }
-}
 
 async function handleMissionCheckin(payload = {}) {
   await loadDashboard({ silent: true });
