@@ -347,7 +347,8 @@ def test_future_main_reminder_covers_linked_tiny_for_next_action():
     assert state["primary_action"]["mission_id"] == 12
 
 
-def test_tiny_completion_does_not_suggest_bonus_next():
+# A done Tiny counts its family like a done Main (one family, #426), so the Bonus is offered.
+def test_tiny_completion_can_suggest_bonus_next():
     state = decide_ringo_state(
         has_active_path=True,
         has_active_enrollment=True,
@@ -381,7 +382,11 @@ def test_tiny_completion_does_not_suggest_bonus_next():
     )
 
     assert state["state"] == "today_completed"
+    assert "Today is secured" in state["message"]
+    assert "optional" in state["secondary_action"]["label"].lower()
+    assert "Add one extra movement minute" in state["message"]
     assert state["primary_action"]["type"] == "dismiss"
+    assert state["secondary_action"]["mission_id"] == 12
 
 
 def test_main_completion_can_suggest_bonus_next():

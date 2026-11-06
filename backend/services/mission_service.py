@@ -352,17 +352,27 @@ def _closed_family_member(missions, mission_id):
     )
 
 
-def _today_closed_family_member(user_id, mission_id):
+# A done mission is final for its day, and a member closed by the other member already counted:
+# skip, remind later and the planners must not rewrite either one.
+def _today_counted_member(user_id, mission_id):
     conn = get_db_connection()
     try:
         rows = _today_mission_rows(conn, user_id, utc_today_iso())
     finally:
         conn.close()
-    return _closed_family_member(with_family_closed([_mission_payload(row) for row in rows]), mission_id)
+    missions = with_family_closed([_mission_payload(row) for row in rows])
+    return next(
+        (
+            mission for mission in missions
+            if _same_mission_id(mission.get("mission_id"), mission_id)
+            and (mission.get("family_closed") or mission.get("status") == "done")
+        ),
+        None,
+    )
 
 
 def _already_counted_payload(mission):
-    # The other member of this family already counted today: no XP and no mission_logs row.
+    # This mission or the other member of its family already counted today: no XP and no write.
     return {
         "ok": True,
         "mission": {
@@ -396,7 +406,7 @@ def _already_counted_payload(mission):
     }
 
 
-# A reminder for a member of a closed family is refused (the family already counted today).
+# A reminder for a done mission or a member of a closed family is refused (already counted today).
 FAMILY_CLOSED_REMINDER_ERROR = {"ok": False, "error": "already_counted_today"}
 
 
@@ -600,6 +610,10 @@ def _upsert_mission_log(
         ).fetchone()
 
         was_done = bool(previous_log and previous_log["status"] == "done")
+        if was_done and status != "done":
+            # A done mission is final for the day (the entry points answer first; this guards races).
+            return FAMILY_CLOSED_REMINDER_ERROR, 409
+
         xp_earned = (
             resolve_mission_xp(mission["xp_reward"], mission["mission_intensity"])
             if status == "done"
@@ -849,7 +863,7 @@ def remind_mission_later(user_id, mission_id, reminder_at):
     if parsed_reminder_at >= next_reset_at:
         return {"ok": False, "error": "reminder_after_next_reset"}, 400
 
-    if _today_closed_family_member(user_id, mission_id):
+    if _today_counted_member(user_id, mission_id):
         return FAMILY_CLOSED_REMINDER_ERROR, 409
 
     return _upsert_mission_log(user_id, mission_id, "remind_later", reminder_at=value)
@@ -1025,11 +1039,11 @@ def plan_single_mission_reminder(user_id, mission_id):
     if not mission:
         return {"ok": False, "error": "mission_not_found"}, 404
 
+    if mission.get("status") == "done" or mission.get("family_closed"):
+        return FAMILY_CLOSED_REMINDER_ERROR, 409
+
     if mission.get("status") not in {"pending", "remind_later"}:
         return {"ok": False, "error": "mission_not_found"}, 404
-
-    if mission.get("family_closed"):
-        return FAMILY_CLOSED_REMINDER_ERROR, 409
 
     ringo_day, now, next_reset_at = _planner_bounds()
     planned_at = _clamped_single_planner_time(
@@ -1086,9 +1100,9 @@ def skip_mission(user_id, mission_id, reason=None):
     if error:
         return {"ok": False, "error": error}, 400
 
-    closed_member = _today_closed_family_member(user_id, mission_id)
-    if closed_member:
-        return _already_counted_payload(closed_member), 200
+    counted_member = _today_counted_member(user_id, mission_id)
+    if counted_member:
+        return _already_counted_payload(counted_member), 200
 
     return _upsert_mission_log(
         user_id,
