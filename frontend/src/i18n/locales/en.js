@@ -2132,7 +2132,6 @@ export default {
     steps: {
       path: "Path started",
       today: "Today’s mission",
-      reward: "Reward",
     },
     started: "Started {date}",
     reset: "Reset: {timezone}",

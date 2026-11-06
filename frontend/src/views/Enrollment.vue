@@ -491,7 +491,6 @@ const currentStreak = computed(() => {
 
 const missionSteps = computed(() => {
   const todayState = enrollment.value?.today_checked ? "complete" : "active";
-  const rewardState = enrollment.value?.today_checked ? "complete" : "upcoming";
 
   return [
     {
@@ -503,11 +502,6 @@ const missionSteps = computed(() => {
       key: "today",
       label: t("enrollment.steps.today"),
       state: todayState,
-    },
-    {
-      key: "reward",
-      label: t("enrollment.steps.reward"),
-      state: rewardState,
     },
   ];
 });

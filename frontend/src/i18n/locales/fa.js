@@ -2132,7 +2132,6 @@ export default {
     steps: {
       path: "مسیر شروع شد",
       today: "مأموریت امروز",
-      reward: "پاداش",
     },
     started: "شروع {date}",
     reset: "بازنشانی: {timezone}",
