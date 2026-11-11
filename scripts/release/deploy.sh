@@ -4,7 +4,8 @@
 # Usage: bash deploy.sh [--dry-run] [--musics <ringostrike-<sha>-musics.tar.gz>] <ringostrike-<sha>.tar.gz>
 #
 # Needs next to each archive its .sha256 file (from build_bundle.sh).
-# sudo is used only for: systemctl restart ringostrike-backend
+# sudo is used only for: systemctl restart ringostrike-backend. Preflight (also in --dry-run) checks that
+# sudo allows exactly that command, asking for the password once if needed, before anything changes.
 # It NEVER writes or edits backend/.env or the DB file, and never runs git.
 #
 # Steps: preflight -> verify checksums -> online backup of the DB (sqlite backup API) + integrity_check
@@ -133,7 +134,20 @@ free_mb="$(df -Pm "$APP_DIR" | awk 'NR==2 {print $4}')"
 need_mb=$(( $(du -sm "$DB_FILE" | cut -f1) * 2 + $(du -sm "$BUNDLE" | cut -f1) * 4 + MIN_FREE_MB ))
 [ "$free_mb" -ge "$need_mb" ] || die "not enough free disk: ${free_mb} MB free, need ${need_mb} MB"
 say "free disk: ${free_mb} MB (need ${need_mb} MB)"
-sudo -n true 2>/dev/null && say "sudo: available without a password" || say "sudo: will ask for a password at restart"
+
+# sudo must be able to run exactly "systemctl restart $SERVICE_NAME", checked now, before anything is created,
+# moved or modified. "sudo -n -l <cmd>" exits 0 only if that command is allowed without a password prompt
+# (a NOPASSWD rule, or credentials cached by "sudo -v" just before).
+sudo_can_restart() { sudo -n -l systemctl restart "$SERVICE_NAME" >/dev/null 2>&1; }
+command -v sudo >/dev/null 2>&1 || die "sudo not found; it is needed for: systemctl restart $SERVICE_NAME"
+if sudo_can_restart; then
+  say "sudo: 'systemctl restart $SERVICE_NAME' allowed without a password"
+else
+  say "sudo: needs your password once for 'systemctl restart $SERVICE_NAME' (asking now, before any change)"
+  sudo -v || die "sudo failed (wrong password, or user ringo may not use sudo). Nothing was changed."
+  sudo_can_restart || die "sudo works, but user ringo may not run 'systemctl restart $SERVICE_NAME' (check: sudo -l). Nothing was changed."
+  say "sudo: ok, 'systemctl restart $SERVICE_NAME' allowed"
+fi
 
 # Extract to a staging folder on the same filesystem (so moves are instant) and verify every file.
 STAGE_PARENT="$(mktemp -d "$APP_DIR/../.ringo-release-stage.XXXXXX")"
@@ -221,6 +235,11 @@ sha256sum "$BK/db/$(basename "$DB_FILE")" >"$BK/db/$(basename "$DB_FILE").sha256
 } >"$BK/DEPLOY_INFO"
 cp "$NEW/scripts/release/rollback.sh" "$BK/rollback.sh"
 [ -f "$APP_DIR/RELEASE_VERSION" ] && cp -p "$APP_DIR/RELEASE_VERSION" "$BK/code/RELEASE_VERSION"
+
+# Re-check sudo right before moving code (the cached password may have expired during a slow backup).
+if ! sudo_can_restart; then
+  sudo -v && sudo_can_restart || die "sudo for 'systemctl restart $SERVICE_NAME' no longer works; code was NOT changed (DB backup is in $BK)"
+fi
 
 # Requirements before touching code: if pip fails here, nothing has changed yet.
 if [ -n "$MISSING" ]; then
