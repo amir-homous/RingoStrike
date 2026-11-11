@@ -147,7 +147,6 @@ const props = defineProps({
   // B37 (D83): show "What am I looking at?" under the card.
   explainer: { type: Boolean, default: false },
   mode: { type: String, default: "zone" },
-  checkingId: { type: [Number, String, null], default: null },
   pathLoading: { type: Boolean, default: false },
   pathError: { type: String, default: "" },
   selectedChallengeId: { type: [Number, String, null], default: null },
@@ -181,7 +180,6 @@ const emit = defineEmits([
   "remind-mission",
   "skip-mission",
   "focus-reminder",
-  "checkin",
   "close",
   "highlight-object",
   "dismiss-explainer",
@@ -418,13 +416,6 @@ const activeMissionIsDueReminder = computed(() => {
 const challengeDone = computed(() => {
   return Boolean(activeShellChallenge.value?.todayChecked)
     || activeShellChallenge.value?.status === "done_today";
-});
-
-const challengeLoading = computed(() => {
-  const enrollmentId = activeShellChallenge.value?.enrollmentId;
-  if (!enrollmentId || props.checkingId == null) return false;
-
-  return String(props.checkingId) === String(enrollmentId);
 });
 
 const selectedMissionLoading = computed(() => {
@@ -1354,7 +1345,7 @@ function missionCanCompleteInShell(mission) {
   if (selectedPathChallenge.value) return missionCanComplete(mission);
   if (!mission?.id) return false;
   if (missionIntensity(mission) === "tiny" && !isActiveTinyMission(mission)) return false;
-  if (challengeDone.value || challengeLoading.value) return false;
+  if (challengeDone.value) return false;
 
   return !["done", "completed", "locked", "skipped"].includes(missionStatus(mission));
 }
