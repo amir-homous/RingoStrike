@@ -228,18 +228,23 @@ ROLLBACK_CMD="bash $BK/rollback.sh $BK"
 
 # ---------------------------------------------------------------- restart + checks
 step "Restart $SERVICE_NAME"
+OLD_PID="$(systemctl show -p MainPID --value "$SERVICE_NAME" 2>/dev/null || echo 0)"
 sudo systemctl restart "$SERVICE_NAME" || { say "restart failed. Roll back with:"; say "  $ROLLBACK_CMD"; exit 1; }
 PORT="$(env_value PORT || true)"; PORT="${PORT:-5005}"
+# /health must come from a NEW process: an old process still holding the port would also answer ok.
 ok=0
 for _ in $(seq 1 "$HEALTH_TIMEOUT"); do
-  if curl -fsS --max-time 2 "http://127.0.0.1:$PORT/health" 2>/dev/null | grep -Eq '"ok"[[:space:]]*:[[:space:]]*true'; then ok=1; break; fi
+  NEW_PID="$(systemctl show -p MainPID --value "$SERVICE_NAME" 2>/dev/null || echo 0)"
+  if [ "${NEW_PID:-0}" != 0 ] && [ "$NEW_PID" != "$OLD_PID" ] && systemctl is-active --quiet "$SERVICE_NAME" \
+     && curl -fsS --max-time 2 "http://127.0.0.1:$PORT/health" 2>/dev/null | grep -Eq '"ok"[[:space:]]*:[[:space:]]*true'; then ok=1; break; fi
   sleep 1
 done
 if [ "$ok" != 1 ]; then
-  say "backend /health did not answer ok within ${HEALTH_TIMEOUT}s. Check: sudo journalctl -u $SERVICE_NAME -n 100"
+  say "no healthy NEW backend process within ${HEALTH_TIMEOUT}s (MainPID before: $OLD_PID, now: ${NEW_PID:-?})."
+  say "Check: sudo journalctl -u $SERVICE_NAME -n 100   (\"Address already in use\" = an old process still holds the port)"
   say "Roll back with:"; say "  $ROLLBACK_CMD"; exit 1
 fi
-say "backend /health ok"
+say "backend /health ok (new MainPID $NEW_PID)"
 
 step "Smoke test (PUBLIC_BASE_URL=$PUBLIC_BASE_URL)"
 smoke=0

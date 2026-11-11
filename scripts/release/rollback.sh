@@ -116,15 +116,18 @@ PY
 fi
 
 step "Restart $SERVICE_NAME"
+OLD_PID="$(systemctl show -p MainPID --value "$SERVICE_NAME" 2>/dev/null || echo 0)"
 sudo systemctl restart "$SERVICE_NAME"
 PORT="$(awk -F= '/^[[:space:]]*PORT[[:space:]]*=/ {v=$2; gsub(/[[:space:]"\047]/, "", v); print v; exit}' "$BACKEND/.env" 2>/dev/null || true)"
 PORT="${PORT:-5005}"
 for _ in $(seq 1 60); do
-  if curl -fsS --max-time 2 "http://127.0.0.1:$PORT/health" 2>/dev/null | grep -Eq '"ok"[[:space:]]*:[[:space:]]*true'; then
+  NEW_PID="$(systemctl show -p MainPID --value "$SERVICE_NAME" 2>/dev/null || echo 0)"
+  if [ "${NEW_PID:-0}" != 0 ] && [ "$NEW_PID" != "$OLD_PID" ] \
+     && curl -fsS --max-time 2 "http://127.0.0.1:$PORT/health" 2>/dev/null | grep -Eq '"ok"[[:space:]]*:[[:space:]]*true'; then
     say "backend /health ok"
     say "rolled back to: $(info previous_release)"
     exit 0
   fi
   sleep 1
 done
-die "backend /health did not answer ok within 60s; check: sudo journalctl -u $SERVICE_NAME -n 100"
+die "no healthy NEW backend process within 60s (an old one may still hold the port); check: sudo journalctl -u $SERVICE_NAME -n 100"
