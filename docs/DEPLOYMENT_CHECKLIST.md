@@ -93,6 +93,9 @@ What it does:
 - Preflight: user is `ringo`, `backend/venv` and `backend/.env` exist, checksums match (archive and every file), free
   disk, and the DB path resolves the way the app resolves it. That is `DB_PATH` from `.env`, relative to the unit's
   `WorkingDirectory`, else `backend/users.db`.
+- Preflight also checks that sudo allows exactly `systemctl restart ringostrike-backend`. If a password is needed, it
+  asks once, before anything is created, moved or modified; if sudo fails, it stops and nothing has changed. The check
+  runs again right before the code is moved.
 - Online DB backup with the sqlite backup API plus `integrity_check`, into
   `/home/ringo/RingoDeployBackups/<time>-<sha>/` (mode 700). It stops if the backup fails.
 - Moves the old backend code, `frontend/dist` and the release scripts into that folder. `.env`, `.env.*`, the venv,
@@ -149,8 +152,10 @@ Change these by hand. The scripts never touch `.env`.
 
 - SSL/TLS mode **Full (strict)**: Cloudflare -> nginx over HTTPS with a valid origin certificate (a Cloudflare Origin CA
   certificate on nginx is fine). Do not use Flexible: the origin would be plain HTTP.
-- After the deploy, check that `https://ringostrike.ir/api-proxy/health` returns `{"ok": true}`. The smoke test also
-  calls the public URL, so a Cloudflare challenge page there shows up as a smoke failure.
+- After the deploy, check that `https://ringostrike.ir/api-proxy/health` returns `{"ok": true}` in a browser. The smoke
+  test decides on the origin (the backend on 127.0.0.1:5005, and nginx through
+  `curl --resolve ringostrike.ir:443:127.0.0.1 -k`). The check through Cloudflare is only a warning, so a challenge
+  page there cannot fail a healthy deploy (`PUBLIC_STRICT=1` makes it critical).
 
 ### Reminders in production
 
@@ -414,7 +419,10 @@ Override the public base URL when testing another host:
 PUBLIC_BASE_URL=http://example.com bash scripts/vps_smoke_test.sh
 ```
 
-The script is read-only. It checks `systemd`, direct backend health, local/public `/api-proxy` health, backend bind address, `REMINDER_ADMIN_TOKEN` presence, reminder dry-run, and reminder diagnostics. The backend binding check is a warning if it cannot confirm `127.0.0.1:5005`; critical health/token/reminder failures exit non-zero.
+The script is read-only. It defaults to `PUBLIC_BASE_URL=https://ringostrike.ir`.
+
+- **Critical** (exit non-zero): the systemd unit is active; the backend `/health` on `127.0.0.1:5005`; the origin `/api-proxy/health` through nginx, as `https://ringostrike.ir` resolved to 127.0.0.1 (`--resolve ... -k`), else `http://127.0.0.1/api-proxy`; `REMINDER_ADMIN_TOKEN` is present; the reminder dry-run and the reminder diagnostics, both called **on the backend directly**, so the token never leaves the server.
+- **Warning only:** `/api-proxy/health` through Cloudflare (`PUBLIC_STRICT=1` makes it critical); the backend bound to `127.0.0.1:5005`.
 
 Check these routes manually:
 
