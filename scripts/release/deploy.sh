@@ -66,6 +66,33 @@ env_value() {
     }' "$BACKEND/.env"
 }
 
+# A healthy NEW backend: MainPID changed, the unit is active, /health is ok, the process listening on the
+# port IS that MainPID (when ss can tell), and all of this still holds STABLE_SECONDS later.
+# (A new process that cannot bind dies after a second or two; an old one holding the port would answer /health.)
+STABLE_SECONDS="${STABLE_SECONDS:-5}"
+listener_pid() { ss -ltnpH "sport = :$1" 2>/dev/null | grep -o 'pid=[0-9]*' | head -1 | cut -d= -f2; }
+healthy_new() {  # $1 old pid, $2 port; sets NEW_PID
+  NEW_PID="$(systemctl show -p MainPID --value "$SERVICE_NAME" 2>/dev/null || echo 0)"
+  [ "${NEW_PID:-0}" != 0 ] && [ "$NEW_PID" != "$1" ] || return 1
+  systemctl is-active --quiet "$SERVICE_NAME" || return 1
+  curl -fsS --max-time 2 "http://127.0.0.1:$2/health" 2>/dev/null | grep -Eq '"ok"[[:space:]]*:[[:space:]]*true' || return 1
+  local lp; lp="$(listener_pid "$2")"
+  [ -z "$lp" ] || [ "$lp" = "$NEW_PID" ] || { LISTENER_MISMATCH="$lp"; return 1; }
+}
+wait_healthy_new() {  # $1 old pid, $2 port, $3 timeout (seconds)
+  local first="" stable=0
+  for _ in $(seq 1 "$3"); do
+    if healthy_new "$1" "$2"; then
+      if [ "$NEW_PID" = "$first" ]; then stable=$((stable + 1)); else first="$NEW_PID"; stable=0; fi
+      [ "$stable" -ge "$STABLE_SECONDS" ] && return 0
+    else
+      first=""; stable=0
+    fi
+    sleep 1
+  done
+  return 1
+}
+
 # ---------------------------------------------------------------- preflight
 step "Preflight$([ $DRY_RUN = 1 ] && echo ' (dry run: nothing will be changed)')"
 [ "$(id -un)" = "ringo" ] || die "run as user ringo (now: $(id -un))"
@@ -231,16 +258,10 @@ step "Restart $SERVICE_NAME"
 OLD_PID="$(systemctl show -p MainPID --value "$SERVICE_NAME" 2>/dev/null || echo 0)"
 sudo systemctl restart "$SERVICE_NAME" || { say "restart failed. Roll back with:"; say "  $ROLLBACK_CMD"; exit 1; }
 PORT="$(env_value PORT || true)"; PORT="${PORT:-5005}"
-# /health must come from a NEW process: an old process still holding the port would also answer ok.
-ok=0
-for _ in $(seq 1 "$HEALTH_TIMEOUT"); do
-  NEW_PID="$(systemctl show -p MainPID --value "$SERVICE_NAME" 2>/dev/null || echo 0)"
-  if [ "${NEW_PID:-0}" != 0 ] && [ "$NEW_PID" != "$OLD_PID" ] && systemctl is-active --quiet "$SERVICE_NAME" \
-     && curl -fsS --max-time 2 "http://127.0.0.1:$PORT/health" 2>/dev/null | grep -Eq '"ok"[[:space:]]*:[[:space:]]*true'; then ok=1; break; fi
-  sleep 1
-done
+LISTENER_MISMATCH=""
+if wait_healthy_new "$OLD_PID" "$PORT" "$HEALTH_TIMEOUT"; then ok=1; else ok=0; fi
 if [ "$ok" != 1 ]; then
-  say "no healthy NEW backend process within ${HEALTH_TIMEOUT}s (MainPID before: $OLD_PID, now: ${NEW_PID:-?})."
+  say "no stable healthy NEW backend process within ${HEALTH_TIMEOUT}s (MainPID before: $OLD_PID, now: ${NEW_PID:-?}${LISTENER_MISMATCH:+, port held by pid $LISTENER_MISMATCH})."
   say "Check: sudo journalctl -u $SERVICE_NAME -n 100   (\"Address already in use\" = an old process still holds the port)"
   say "Roll back with:"; say "  $ROLLBACK_CMD"; exit 1
 fi

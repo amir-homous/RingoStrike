@@ -40,6 +40,33 @@ BACKEND="$APP_DIR/backend"; DIST="$APP_DIR/frontend/dist"; VENV_PY="$BACKEND/ven
 [ "$(id -un)" = "ringo" ] || die "run as user ringo (now: $(id -un))"
 [ -x "$VENV_PY" ] || die "venv python not found: $VENV_PY"
 
+# A healthy NEW backend: MainPID changed, the unit is active, /health is ok, the process listening on the
+# port IS that MainPID (when ss can tell), and all of this still holds STABLE_SECONDS later.
+# (A new process that cannot bind dies after a second or two; an old one holding the port would answer /health.)
+STABLE_SECONDS="${STABLE_SECONDS:-5}"
+listener_pid() { ss -ltnpH "sport = :$1" 2>/dev/null | grep -o 'pid=[0-9]*' | head -1 | cut -d= -f2; }
+healthy_new() {  # $1 old pid, $2 port; sets NEW_PID
+  NEW_PID="$(systemctl show -p MainPID --value "$SERVICE_NAME" 2>/dev/null || echo 0)"
+  [ "${NEW_PID:-0}" != 0 ] && [ "$NEW_PID" != "$1" ] || return 1
+  systemctl is-active --quiet "$SERVICE_NAME" || return 1
+  curl -fsS --max-time 2 "http://127.0.0.1:$2/health" 2>/dev/null | grep -Eq '"ok"[[:space:]]*:[[:space:]]*true' || return 1
+  local lp; lp="$(listener_pid "$2")"
+  [ -z "$lp" ] || [ "$lp" = "$NEW_PID" ] || { LISTENER_MISMATCH="$lp"; return 1; }
+}
+wait_healthy_new() {  # $1 old pid, $2 port, $3 timeout (seconds)
+  local first="" stable=0
+  for _ in $(seq 1 "$3"); do
+    if healthy_new "$1" "$2"; then
+      if [ "$NEW_PID" = "$first" ]; then stable=$((stable + 1)); else first="$NEW_PID"; stable=0; fi
+      [ "$stable" -ge "$STABLE_SECONDS" ] && return 0
+    else
+      first=""; stable=0
+    fi
+    sleep 1
+  done
+  return 1
+}
+
 DB_BK="$BK/db/$(basename "$DB_FILE")"
 step "Rollback plan$([ $DRY_RUN = 1 ] && echo ' (dry run: nothing will be changed)')"
 say "app:      $APP_DIR"
@@ -120,14 +147,10 @@ OLD_PID="$(systemctl show -p MainPID --value "$SERVICE_NAME" 2>/dev/null || echo
 sudo systemctl restart "$SERVICE_NAME"
 PORT="$(awk -F= '/^[[:space:]]*PORT[[:space:]]*=/ {v=$2; gsub(/[[:space:]"\047]/, "", v); print v; exit}' "$BACKEND/.env" 2>/dev/null || true)"
 PORT="${PORT:-5005}"
-for _ in $(seq 1 60); do
-  NEW_PID="$(systemctl show -p MainPID --value "$SERVICE_NAME" 2>/dev/null || echo 0)"
-  if [ "${NEW_PID:-0}" != 0 ] && [ "$NEW_PID" != "$OLD_PID" ] \
-     && curl -fsS --max-time 2 "http://127.0.0.1:$PORT/health" 2>/dev/null | grep -Eq '"ok"[[:space:]]*:[[:space:]]*true'; then
-    say "backend /health ok"
-    say "rolled back to: $(info previous_release)"
-    exit 0
-  fi
-  sleep 1
-done
-die "no healthy NEW backend process within 60s (an old one may still hold the port); check: sudo journalctl -u $SERVICE_NAME -n 100"
+LISTENER_MISMATCH=""
+if wait_healthy_new "$OLD_PID" "$PORT" 60; then
+  say "backend /health ok (new MainPID $NEW_PID)"
+  say "rolled back to: $(info previous_release)"
+  exit 0
+fi
+die "no stable healthy NEW backend process within 60s${LISTENER_MISMATCH:+ (port held by pid $LISTENER_MISMATCH)}; check: sudo journalctl -u $SERVICE_NAME -n 100"
