@@ -25,6 +25,7 @@ LOCAL_PROXY_URL="${LOCAL_PROXY_URL%/}"
 PUBLIC_BASE_URL="${PUBLIC_BASE_URL%/}"
 PUBLIC_PROXY_URL="$PUBLIC_BASE_URL/api-proxy"
 PUBLIC_HOST="$(printf '%s' "$PUBLIC_BASE_URL" | sed -E 's#^[a-zA-Z]+://([^/:]+).*#\1#')"
+ORIGIN_HOST="${ORIGIN_HOST:-$PUBLIC_HOST}"   # host name nginx serves; only for the 127.0.0.1 origin check
 ENV_FILE="$BACKEND_DIR/.env"
 
 failures=0
@@ -85,8 +86,8 @@ check_json_ok_url() {
 # (-k: the origin may use a Cloudflare Origin CA certificate, which curl does not trust), else plain HTTP.
 check_origin() {
   local response
-  local hp="$PUBLIC_HOST"; [ "$ORIGIN_HTTPS_PORT" = 443 ] || hp="$PUBLIC_HOST:$ORIGIN_HTTPS_PORT"
-  if response="$(curl -fsS --max-time 12 -k --resolve "$PUBLIC_HOST:$ORIGIN_HTTPS_PORT:127.0.0.1" \
+  local hp="$ORIGIN_HOST"; [ "$ORIGIN_HTTPS_PORT" = 443 ] || hp="$ORIGIN_HOST:$ORIGIN_HTTPS_PORT"
+  if response="$(curl -fsS --max-time 12 -k --resolve "$ORIGIN_HOST:$ORIGIN_HTTPS_PORT:127.0.0.1" \
        "https://$hp/api-proxy/health" 2>/dev/null)" && has_ok_true "$response"; then
     print_ok "origin https://$hp/api-proxy/health via 127.0.0.1 ok"
     return 0
@@ -228,7 +229,7 @@ main() {
   printf 'RingoStrike VPS smoke test\n'
   printf 'Service: %s\n' "$SERVICE_NAME"
   printf 'Backend: %s\n' "$BACKEND_URL"
-  printf 'Origin: https://%s/api-proxy via 127.0.0.1, else %s\n' "$PUBLIC_HOST" "$LOCAL_PROXY_URL"
+  printf 'Origin: https://%s/api-proxy via 127.0.0.1:%s, else %s\n' "$ORIGIN_HOST" "$ORIGIN_HTTPS_PORT" "$LOCAL_PROXY_URL"
   printf 'Public (Cloudflare, %s): %s\n\n' "$([ "$PUBLIC_STRICT" = 1 ] && echo critical || echo warning only)" "$PUBLIC_PROXY_URL"
 
   require_command curl curl || true
