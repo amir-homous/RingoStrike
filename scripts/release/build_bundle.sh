@@ -71,11 +71,15 @@ DIST="$SRC/frontend/dist"
 # Anything else fails: localhost, 127.0.0.1, :5005, an IP inside a URL, or the old server IP.
 ALLOW_AXIOS='"http://localhost"'
 ALLOW_GUARD='(localhost|127\.0\.0\.1)(:\d+)?$/i'
-dist_bad="$(find "$DIST" -type f \( -name '*.js' -o -name '*.css' -o -name '*.html' -o -name '*.json' -o -name '*.svg' -o -name '*.map' \) -print0 \
+# grep exit codes: 0 = hits, 1 = none, 2+ = error; an error fails the build (never read as "clean").
+find "$DIST" -type f \( -name '*.js' -o -name '*.css' -o -name '*.html' -o -name '*.json' -o -name '*.svg' -o -name '*.map' \) -print0 \
   | xargs -0 cat | ALLOW_AXIOS="$ALLOW_AXIOS" ALLOW_GUARD="$ALLOW_GUARD" perl -pe 's/\Q$ENV{ALLOW_AXIOS}\E//g; s/\Q$ENV{ALLOW_GUARD}\E//g' \
-  | grep -oE '.{0,40}(localhost|127\.0\.0\.1|:5005|https?://([0-9]{1,3}\.){3}[0-9]{1,3}|82\.115\.24\.10).{0,40}' | head -5 || true)"
-if [ -n "$dist_bad" ]; then
-  echo "$dist_bad" >&2
+  >"$WORK/dist-text.txt" || fail "could not read dist text"
+rc=0
+grep -oE '.{0,40}(localhost|127\.0\.0\.1|:5005|https?://([0-9]{1,3}\.){3}[0-9]{1,3}|82\.115\.24\.10).{0,40}' "$WORK/dist-text.txt" >"$WORK/dist-hits.txt" || rc=$?
+[ "$rc" -le 1 ] || fail "dist check: grep error ($rc)"
+if [ -s "$WORK/dist-hits.txt" ]; then
+  head -5 "$WORK/dist-hits.txt" >&2
   fail "dist contains localhost, 127.0.0.1, :5005 or a hard-coded IP"
 fi
 echo "dist check: no dev API host, :5005 or hard-coded IP (2 known harmless localhost strings allowed)"
@@ -117,8 +121,12 @@ bad_names="$(cd "$STAGE" && find . \( -name '.env' -o -name '.env.*' -o -name '*
   -o -name '*.sqlite*' -o -iname '*backup*' -o -name 'cookies.txt' -o -name '__pycache__' -o -name '.git' \
   -o -path './backend/backups*' -o -name '*.mp3' -o -name '*.ogg' -o -name '*.m4a' -o -name '*.wav' -o -name 'venv' \) -print)"
 [ -z "$bad_names" ] || { echo "$bad_names" >&2; fail "bundle contains forbidden files"; }
-secret_hits="$(grep -rIlE '(TELEGRAM_BOT_TOKEN|JWT_SECRET)[[:space:]]*=[[:space:]]*["'"'"']?[A-Za-z0-9:_-]{8,}' "$STAGE" || true)"
-[ -z "$secret_hits" ] || { echo "$secret_hits" >&2; fail "bundle contains a TELEGRAM_BOT_TOKEN= or JWT_SECRET= value"; }
+# A value for TELEGRAM_BOT_TOKEN= / JWT_SECRET=: an env-style line (KEY=value), a quoted literal
+# (KEY = "value"), or anything shaped like a Telegram bot token. Code such as KEY = os.getenv(...) is fine.
+rc=0
+grep -rIlE "^[[:space:]]*(export[[:space:]]+)?(TELEGRAM_BOT_TOKEN|JWT_SECRET)=[^[:space:]]|(TELEGRAM_BOT_TOKEN|JWT_SECRET)[\"']?[[:space:]]*[:=][[:space:]]*[\"'][^\"']{6,}[\"']|[0-9]{8,10}:[A-Za-z0-9_-]{35}" "$STAGE" >"$WORK/secret-hits.txt" || rc=$?
+[ "$rc" -le 1 ] || fail "secret check: grep error ($rc)"
+[ ! -s "$WORK/secret-hits.txt" ] || { cat "$WORK/secret-hits.txt" >&2; fail "bundle contains a TELEGRAM_BOT_TOKEN= or JWT_SECRET= value"; }
 
 # ---- write archives ----
 tar -C "$WORK/stage" -czf "$OUT_DIR/$NAME.tar.gz" "$NAME"
